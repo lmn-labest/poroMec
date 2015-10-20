@@ -1,0 +1,20 @@
+c*****************************Svn***************************************      
+c*$Date: 2011-12-05 10:34:52 -0200 (Mon, 05 Dec 2011) $                 
+c*$Rev: 960 $                                                           
+c*$Author: henrique $                                                   
+c***********************************************************************      
+      real*8  omp_dot
+      integer*8 i_threads_y
+      logical openmp,num_threads_forced
+      integer max_num_threads,num_threads,
+     .        thread_id,thread_begin,thread_end,thread_height,
+     .        max_num_threads_available
+      parameter (max_num_threads = 16)
+      common /omp_shared_buffer/ i_threads_y, 
+     .             thread_begin(max_num_threads),
+     .             thread_end(max_num_threads),
+     .             thread_height(max_num_threads)
+      common /omp_control/ num_threads,openmp
+      common /omp_dot    / omp_dot
+      common /omp_private/ thread_id
+c$omp threadprivate(/omp_private/)

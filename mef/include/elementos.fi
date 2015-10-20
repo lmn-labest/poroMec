@@ -1,0 +1,13 @@
+c*****************************Svn***************************************      
+c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $                 
+c*$Rev: 967 $                                                           
+c*$Author: ana $                                                   
+c***********************************************************************
+      integer maxface,maxnoface
+      parameter (maxface   = 6)
+      parameter (maxnoface = 4)          
+      integer nbar2(4),ntria3(4),nquad4(4),ntetra4(4),nhexa8(4)
+     .       ,nprism6(4),nhexa20(4)
+      common /elementos/ nbar2  ,ntria3 ,nquad4,ntetra4,nhexa8
+     .                  ,nprism6,nhexa20
+
