@@ -3,6 +3,7 @@ c*$Date: 2011-12-02 14:45:55 -0200 (Fri, 02 Dec 2011) $
 c*$Rev: 958 $                                                           
 c*$Author: henrique $                                                   
 c***********************************************************************      
+c
 c **********************************************************************
 c *                                                                    *
 c *   SOLV.F                                             31/08/2005    *
@@ -15,9 +16,9 @@ c *   prediag                                                          *
 c *   pbcgstab                                                         *
 c *                                                                    *
 c **********************************************************************
-      subroutine solv(neq,ip,ja,ad,au,al,m,b,x,tol,maxit,ngram,unsym,
-     .                solver,neqf1i,neqf2i,neq3i,neq4i,neq_doti,i_fmapi,
-     .                i_xfi,i_rcvsi,i_dspli)
+      subroutine solv(neq,nequ,nad,ip,ja,ad,au,al,m,b,x,tol,maxit,ngram,
+     .               unsym,solver,neqf1i,neqf2i,neq3i,neq4i,neq_doti,
+     .               i_fmapi,i_xfi,i_rcvsi,i_dspli)
       use Malloc
       implicit none
       include 'mpif.h'
@@ -30,7 +31,8 @@ c ... ponteiros
       integer*8 i_z,i_r,i_g,i_h,i_y,i_c,i_s
 c ......................................................................
       integer neq3i,neq4i,neq_doti
-      integer ip(*),ja(*),neq,maxit,ngram,solver,nnzr
+      integer ip(*),ja(*),neq,nequ,nad
+      integer maxit,ngram,solver
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*),tol,energy
       logical unsym
       integer neqovlp
@@ -39,6 +41,7 @@ c ......................................................................
       external matvec_csrc,matvec_csrcr,matvec_csrcsym,matvec_csrcrsym
       external matvec_csrc1,matvec_csrcr1
       external matvec_csrcsym1,matvec_csrcrsym1
+      external matvec_csrcb                       
 c     OpenMP'ed subroutines
       external dot_par_omp,dot_par_omp_loopwise
       external matvec_csrc_omp,matvec_csrcsym_omp,
@@ -54,6 +57,7 @@ c    (neqovlp = neq, no sequencial e no non-overlapping)
          pmatrixtime = Mpi_Wtime() - pmatrixtime
       endif
 c ......................................................................
+c
 c ... Gradientes conjugados com precondicionador diagonal:
       if (solver .eq. 1) then
          if (unsym) then
@@ -221,6 +225,7 @@ c ......................................................................
          i_h = dealloc('h       ')
          i_g = dealloc('g       ')
 c ......................................................................
+c
 c ... Gauss:
       elseif(solver .eq. 3) then
          time0 = MPI_Wtime()
@@ -240,12 +245,12 @@ c ...    Comunicacao da diagonal para o caso non-overlapping:
      .                               i_rcvsi,i_dspli)
 c .....................................................................
 c
-c ...   
-         i_c = alloc_8('t       ',1,neq)
-         i_h = alloc_8('h       ',1,neq)
-         i_r = alloc_8('r       ',1,neq)
-         i_s = alloc_8('p       ',1,neq)
-         i_z = alloc_8('z       ',1,neq)
+c ...     
+         i_c = alloc_8('tsolver ',1,neq)
+         i_h = alloc_8('hsolver ',1,neq)
+         i_r = alloc_8('rsolver ',1,neq)
+         i_s = alloc_8('psolver ',1,neq)
+         i_z = alloc_8('zsolver ',1,neq)
 c .....................................................................
 c
 c ............ Matriz nao-simetrica 
@@ -301,12 +306,12 @@ c .....................................................................
 c     
 c ... sem openmp     
              else
-               call pbicgstab(neq,ip,ja,ad,au,al,m,b,x,
+               call pbicgstab(neq,nequ,nad,ip,ja,ad,au,al,m,b,x,
 c              call bicgstab(neq,ip,ja,ad,au,al,m,b,x,
      .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
      .                      tol,maxit,
 c ... matvec comum:
-c    .                      matvec_csrc,dot_par,
+c     .                      matvec_csrc,dot_par,
 c ... matvec desenrolado:
      .                      matvec_csrc1,dot_par,
      .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
@@ -375,15 +380,17 @@ c .....................................................................
 c     
 c ... sem openmp     
              else
-               call pbicgstab(neq,ip,ja,ad,au,al,m,b,x,
-     .                     ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                     tol,maxit,
+               call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
+     .                       ad     ,au     ,al     ,m      ,b      ,x, 
+     .                       ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+     .                       tol    ,maxit,
 c ... matvec comum:
-c    .                     matvec_csrcsym,dot_par,
+c    .                       matvec_csrcb  ,dot_par,
+     .                     matvec_csrcsym,dot_par,
 c ... matvec desenrolado:
-     .                     matvec_csrcsym1,dot_par,
-     .                     my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                     i_xfi,i_rcvsi,i_dspli)
+c    .                     matvec_csrcsym1,dot_par,
+     .                       my_id   ,neqf1i  ,neqf2i,
+     .                       neq_doti,i_fmapi,i_xfi  ,i_rcvsi,i_dspli)
              endif
 c .....................................................................
            endif  
@@ -392,11 +399,11 @@ c .....................................................................
 c .....................................................................
 c
 c ...             
-         i_z = dealloc('z       ')     
-         i_s = dealloc('p       ')
-         i_r = dealloc('r       ')
-         i_h = dealloc('h       ')
-         i_c = dealloc('t       ')
+         i_z = dealloc('zsolver ')     
+         i_s = dealloc('psolver ')
+         i_r = dealloc('rsolver ')
+         i_h = dealloc('hsolver ')
+         i_c = dealloc('tsolver ')
 c ......................................................................         
       endif
 c ......................................................................
@@ -407,3 +414,127 @@ c ......................................................................
       endif
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c *   SOLV_PM.F                                            31/08/2005  *
+c *                                                                    *
+c *   Metodos iterativos de solucao:                                   *
+c *                                                                    *
+c *   pbcgstab                                                         *
+c *                                                                    *
+c **********************************************************************
+      subroutine solv_pm(neq   ,nequ     ,nad    ,
+     .                  ip     ,ja       ,ad     ,al     ,
+     .                  m      ,b        ,x      ,tol    ,maxit,
+     .                  ngram  ,block_pu ,solver ,
+     .                  neqf1i ,neqf2i   ,neq3i  ,neq4i  ,neq_doti,
+     .                  i_fmapi,i_xfi    ,i_rcvsi,i_dspli)
+      use Malloc
+      implicit none
+      include 'mpif.h'
+      include 'parallel.fi'
+      include 'openmp.fi'
+      include 'time.fi'
+      integer neqf1i,neqf2i
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      integer*8 i_z,i_r,i_g,i_h,i_y,i_c,i_s
+c ......................................................................
+      integer neq3i,neq4i,neq_doti
+      integer ip(*),ja(*),neq,nequ,nad
+      integer maxit,ngram,solver
+      real*8  ad(*),al(*),m(*),x(*),b(*),tol,energy
+      logical block_pu
+      integer neqovlp
+      external dot,dot_par
+      external matvec_csrc_pm,matvec_csrcsym_pm        
+c     OpenMP'ed subroutines
+      external dot_par_omp,dot_par_omp_loopwise
+      external matvec_csrc_omp,matvec_csrcsym_omp,
+     .         matvec_csrcr_omp,matvec_csrcrsym_omp
+c ......................................................................
+c ... numero total de equacoes na particao overlapping:
+c    (neqovlp = neq, no sequencial e no non-overlapping)
+      neqovlp = neq+neq3i+neq4i
+      if (openmp) then
+         pmatrixtime = Mpi_Wtime() - pmatrixtime 
+         i_threads_y = alloc_8('buffer_y',num_threads,neq)
+         call partition_matrix(ip,ja,neq,ovlp)
+         pmatrixtime = Mpi_Wtime() - pmatrixtime
+      endif
+c ......................................................................
+c
+c ...
+      if (solver .eq. 1) then
+        print*,'Solver PCG nao disponivel para o poromecanico !!'
+      elseif(solver .eq. 2) then
+        print*,'Solver GMRES nao disponivel para o poromecanico !!'
+      elseif(solver .eq. 3) then
+        print*,'Solver GUASS nao disponivel para o poromecanico !!'
+c ......................................................................
+c
+c ... BICGSTAB com precondicionador diagonal:
+      else if (solver .eq. 4) then
+c ...    precondicionador diagonal:
+         call aequalb(m,ad,neq)      
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+     .                               i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ... alocacao dos arronjos auxiliares (5neq)    
+         i_c = alloc_8('tsolver ',1,neq)
+         i_h = alloc_8('hsolver ',1,neq)
+         i_r = alloc_8('rsolver ',1,neq)
+         i_s = alloc_8('psolver ',1,neq)
+         i_z = alloc_8('zsolver ',1,neq)
+c .....................................................................
+c
+c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
+         if(block_pu) then
+           call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
+     .                   ad     ,al     ,al     ,m      ,b      ,x, 
+     .                   ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+     .                   tol    ,maxit,
+c ... matvec comum:
+     .                   matvec_csrc_pm ,dot_par,
+c ... matvec desenrolado:
+c    .                   matvec_csrcsym1,dot_par,
+     .                   my_id        ,neqf1i  ,neqf2i,
+     .                   neq_doti     ,i_fmapi ,i_xfi ,i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
+         else
+           call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
+     .                   ad     ,al     ,al     ,m      ,b      ,x, 
+     .                   ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+     .                   tol    ,maxit,
+c ... matvec comum:
+     .                   matvec_csrcsym_pm,dot_par,
+c ... matvec desenrolado:
+c    .                     matvec_csrcsym1,dot_par,
+     .                   my_id        ,neqf1i  ,neqf2i ,
+     .                   neq_doti     ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli)
+         endif
+c .....................................................................
+c
+c ... 
+         i_z = dealloc('zsolver ')     
+         i_s = dealloc('psolver ')
+         i_r = dealloc('rsolver ')
+         i_h = dealloc('hsolver ')
+         i_c = dealloc('tsolver ')
+c ......................................................................         
+      endif
+c ......................................................................
+      if (openmp) then
+         pmatrixtime = Mpi_Wtime() - pmatrixtime 
+         i_threads_y = dealloc('buffer_y')
+         pmatrixtime = Mpi_Wtime() - pmatrixtime
+      endif
+      return
+      end
+

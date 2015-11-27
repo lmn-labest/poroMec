@@ -2,7 +2,7 @@ c*****************************Svn***************************************
 c*$Date: 2015-06-09 16:23:50 -0300 (Tue, 09 Jun 2015) $                 
 c*$Rev: 971 $                                                           
 c*$Author: henrique $                                                   
-c***********************************************************************  
+c***********************************************************************
       program Mef
 c **********************************************************************
 c *                                                                    *
@@ -16,6 +16,7 @@ c **********************************************************************
       include 'string.fi'
       include 'transiente.fi'
       include 'parallel.fi'
+      include 'poro_mec_prop.fi'
       include 'elementos.fi'
       include 'time.fi'
       include 'openmp.fi'
@@ -56,7 +57,7 @@ c ... Variaveis descritivas do problema:
 c
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndm,nst
       integer neq,nequ,neqp,nad,nadpu
-      logical dualCsr
+      logical block_pu
 c ----------------------------------------------------------------------
 c
 c ... Variaveis da interface de linha de comando
@@ -87,11 +88,12 @@ c
 c ... malha
       integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_e,i_x,i_xq,i_inum
 c ... arranjos locais ao elemento
-      integer*8 i_xl,i_ul,i_vl,i_zl,i_wl,i_pl,i_sl,i_ld
-      integer*8 i_f,i_f0
-      integer*8 i_u,i_u0
+      integer*8 i_xl,i_ul,i_vl,i_zl,i_wl,i_pl,i_sl,i_ld,i_dpl
+c ... forcas e graus de liberdade 
+      integer*8 i_f
+      integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
 c ... sistema de equacoes
-      integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0
+      integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0,i_x0
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2
 c ----------------------------------------------------------------------
@@ -105,11 +107,11 @@ c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','        ','mesh    ','solv    ','dt      ',
-     .'pgeo    ','pgeoquad','        ','        ','        ','        ',
-     .'        ','        ','        ','        ','pdisp   ','pstress ',
+     .'pgeo    ','pgeoquad','block_pu','gravity ','        ','        ',
+     .'        ','        ','        ','        ','pup     ','pstress ',
      .'        ','        ','        ','        ','        ','        ',
-     .'        ','        ','maxnlit ','tmaxnlit','nltol   ','        ',
-     .'        ','        ','setpnode','        ','        ','pndisp  ',
+     .'        ','        ','maxnlit ','        ','nltol   ','        ',
+     .'        ','        ','setpnode','        ','        ','pnup    ',
      .'pnstress','        ','maxit   ','solvtol ','stop    '/
 c ----------------------------------------------------------------------
 c
@@ -151,24 +153,28 @@ c ... solvtol =  tolerancia para o solver iterativo
 c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
-      maxit   =  50000
-      solvtol =  1.d-10
-      maxnlit =  20
-      tmaxnlit=  20
+      maxit   =  8000
+      solvtol =  1.d-14
+      maxnlit =  2 
       tol     =  1.d-04
       ngram   =  15
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
 c ... solver  =  1 (pcg), 2 (gmres), 3 (gauss / LDU), 4 (bicgstab)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline)
       unsym   = .false.
-      solver  =  1
+      solver  =  4
       stge    =  1
-      dualCsr = .true.
+c     block_pu= .true.
+      block_pu= .false.
       resid0  =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = termico )
       ilib    =  1
-c     OpenMP 
+c ... OpenMP 
       openmp  = .false.
+c ... campo gravitacional (Padrao)
+      gravity(1) =  0.0d0
+      gravity(2) =  0.0d0
+      gravity(3) = -9.81d0
 c .....................................................................
 c
 c ... Inicializacao da estrutura de dados de gerenciamento de memoria:
@@ -313,15 +319,21 @@ c      call rdat(nnode,numel,numat,nen,ndf,ndm,nst,i_ix,i_id,i_ie,
 c     .          i_nload,i_eload,i_inum,i_e,i_x,i_f,i_u,i_v,i_a,nin)
 c
       call rdat(nnode ,nnodev ,numel  ,numat  
-     .         ,nen   ,nenv ,ndf    ,ndm    ,nst
-     .         ,i_ix  ,i_ie   ,i_inum ,i_e    ,i_x
-     .         ,i_id  ,i_nload,i_eload,i_f    ,i_f0
-     .         ,i_u   ,i_u0   ,nin ) 
+     .         ,nen   ,nenv   
+     .         ,ndf   ,ndm    ,nst    ,i_ix  
+     .         ,i_ie  ,i_inum ,i_e    ,i_x
+     .         ,i_id  ,i_nload,i_eload,i_f  
+     .         ,i_u   ,i_u0   ,i_tx0  ,i_pres0
+     .         ,i_dp 
+     .         ,nin ) 
 c
-c     -----------------------------------------------------------------
-c     | ix | id | ie | nload | eload | inum | e | x | f | f0 | u | u0 |
-c     -----------------------------------------------------------------
+c    -----------------------------------------------------------------
+c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
+c    -----------------------------------------------------------------
 c
+c    -----------------------------------------------------------------
+c    | dp |                                                            
+c    -----------------------------------------------------------------
 c ......................................................................      
 c
 c.... Controle de tempos:
@@ -358,7 +370,7 @@ c
       timei = MPI_Wtime()
       if(ndf .gt. 0) then
 c ... primero numera os deslocamento e depois as pressoes
-        if(dualCsr) then
+        if(block_pu) then
           call numeqpmec1(ia(i_id),ia(i_inum),ia(i_id),
      .                    nnode,nnodev,ndf,neq,nequ,neqp)
         else
@@ -399,14 +411,15 @@ c ......................................................................
 c
 c.... Arranjos locais de elemento:
 c
-      i_xl = alloc_8('xl      ',ndm,nenv)
-      i_ul = alloc_8('ul      ',1  ,nst)
-      i_pl = alloc_8('pl      ',1  ,nst)
-      i_sl = alloc_8('sl      ',nst,nst)
-      i_ld = alloc_4('ld      ',  1,nst)
+      i_xl  = alloc_8('xl      ',ndm,nenv)
+      i_ul  = alloc_8('ul      ',1  ,nst)
+      i_dpl = alloc_8('dpl     ',1  ,nenv)
+      i_pl  = alloc_8('pl      ',1  ,nst)
+      i_sl  = alloc_8('sl      ',nst,nst)
+      i_ld  = alloc_4('ld      ',  1,nst)
 c
 c     -----------------------------------------
-c     | xl | ul | pl | sl | ld |
+c     | xl | ul | dpl | pl | sl | ld |
 c     -----------------------------------------
 c
 c ......................................................................
@@ -419,7 +432,7 @@ c
      .   numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym,nad,nadpu,
      .   i_ia,i_ja,i_au,i_al,i_ad,
      .   'ia      ','ja      ','au      ','al      ','ad      ',
-     .   ovlp,dualCsr)
+     .   ovlp,block_pu)
       endif
       dstime = MPI_Wtime()-timei
 c
@@ -437,12 +450,15 @@ c ... Memoria para o vetor de forcas e solucao:
 c
 c ......................................................................
       if (ndf .gt. 0) then
+         i_x0  = alloc_8('x0      ',    1,neq+neq3+neq4)
          i_b0  = alloc_8('b0      ',    1,neq+neq3+neq4)
          i_b   = alloc_8('b       ',    1,neq+neq3+neq4)
+         call azero(ia(i_x0),neq+neq3+neq4)      
          call azero(ia(i_b0),neq+neq3+neq4)      
          call azero(ia(i_b ),neq+neq3+neq4)
 c ...    Memoria para o precondicionador diagonal:
-         i_m   = alloc_8('m       ',    1,neq+1)
+         i_m   = alloc_8('m       ',    1,neq)
+         call azero(ia(i_m),neq)      
       endif
 c ......................................................................
       goto 50
@@ -453,30 +469,115 @@ c
 c ......................................................................
   400 continue
       if(my_id.eq.0)print*, 'Macro SOLV '
-         ilib = 1
-         i    = 0
-c ... forcas de volume(f)                         
-         call pformpmec(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e),
-     .               ia(i_x),ia(i_id),ia(i_ia),ia(i_ja),
-     .               ia(i_au),ia(i_al),ia(i_ad),ia(i_b0),ia(i_u),
-     .               ia(i_xl),ia(i_ul),ia(i_pl),ia(i_sl),ia(i_ld),
-     .               numel,nen,nenv,ndf,
-     .               ndm,nst,neq,nequ,nad,nadpu,.false.,.true.,unsym,
-     .               stge,3,ilib,i,dualCsr)
+c ...
+      ilib   = 1
+      i      = 1
+      istep  = istep + 1
+      resid0 = 0.d0
+      t      = t + dt
 c .....................................................................
 c
-c ... calculo da matriz de coeficientes ( Ku = f )
-        call pformpmec(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e),
+c ...
+      if(my_id.eq.0)write(*,'(a,i8,a,f15.5,a,f15.5,a,f15.5)')
+     .                                  ,' STEP '      ,istep
+     .                                  ,' Time(s)'    ,t
+     .                                  ,' Time(horas)',t/3600.d0
+     .                                  ,' Time(dias)' ,t/86400.d0
+c .....................................................................
+c
+c ... Cargas nodais e valores prescritos no tempo t+dt:
+      timei = MPI_Wtime()
+      call pload_pm(ia(i_id),ia(i_f),ia(i_u),ia(i_b0),ia(i_nload)
+     .            ,nnode,nnodev,ndf)
+      vectime = vectime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
+c     do passo t:  
+      timei = MPI_Wtime()
+      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e),
+     .              ia(i_x),ia(i_id),ia(i_ia),ia(i_ja),
+     .              ia(i_au),ia(i_al),ia(i_ad),ia(i_b0),
+     .              ia(i_u0),ia(i_dp),
+     .              ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl),
+     .              ia(i_ld),
+     .              numel,nen,nenv,ndf,
+     .              ndm,nst,neq,nequ,nad,nadpu,.false.,.true.,unsym,
+     .              stge,4,ilib,i,block_pu)
+      elmtime = elmtime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ... Preditor: du(n+1,0) = u(n+1) - u(n)  
+      timei = MPI_Wtime()
+      call predict_pm(nnode,nnodev,ndf,ia(i_u),ia(i_u0))
+      vectime = vectime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ---------------------------------------------------------------------
+c loop nao linear:
+c ---------------------------------------------------------------------
+  410 continue
+c ... Loop multi-corretor:      
+      if(my_id.eq.0) print*,'nonlinear iteration ',i
+c ...
+      timei = MPI_Wtime()
+      call aequalb(ia(i_b),ia(i_b0),neq)
+      vectime = vectime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ... Residuo: b = F - K.du(n+1,i)
+      timei = MPI_Wtime()
+      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e),
      .               ia(i_x),ia(i_id),ia(i_ia),ia(i_ja),
-     .               ia(i_au),ia(i_al),ia(i_ad),ia(i_b0),ia(i_u),
-     .               ia(i_xl),ia(i_ul),ia(i_pl),ia(i_sl),ia(i_ld),
+     .               ia(i_au),ia(i_al),ia(i_ad),ia(i_b),
+     .               ia(i_u) ,ia(i_dp),
+     .               ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl),
+     .               ia(i_ld),
      .               numel,nen,nenv,ndf,
      .               ndm,nst,neq,nequ,nad,nadpu,.true.,.true.,unsym,
-     .               stge,2,ilib,i,dualCsr)
+     .               stge,2,ilib,i,block_pu)
+      elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
-        call testeMatvec(ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al)
-     .                  ,ia(i_m) ,ia(i_b0)
-     .                  ,neq,nequ,nad,nadpu)
+c
+c ......................................................................
+      resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
+      if(i .eq. 1) resid0 = max(resid0,resid)
+      print*,resid/resid0,resid,tol
+      if ((resid/resid0) .lt. tol) goto 420     
+c ......................................................................            
+c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
+      call solv_pm(neq ,nequ    ,nad     ,
+     .         ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al),
+     .         ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit,ngram,block_pu,
+     .         solver,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap,
+     .         i_xf,i_rcvs,i_dspl)
+c .....................................................................
+c
+c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
+      call update_pm(nnode,nnodev,ndf,ia(i_id),ia(i_u),ia(i_x0))
+c     call update2(nnode,ndf,ia(i_id),ia(i_u),ia(i_u),ia(i_u)
+c    .            ,ia(i_x0)  ,0.d0,0.0d0,0.d0)
+c .....................................................................
+c
+c ...
+      if (i .ge. maxnlit) goto 420
+      i = i + 1
+      goto 410 
+c .....................................................................
+c
+c ---------------------------------------------------------------------
+c fim do loop nao linear:
+c ---------------------------------------------------------------------
+c
+c ...
+  420 continue 
+c ... calculo da solucao no tempo t + dt e atualizacao dos valores do 
+c     passo de tempo anterior: 
+c     u(n+1) = u(n) + du(n+1) 
+c     u(n)   = u(n+1)                       
+      call update_res(nnode  ,nnodev  ,ndf
+     .               ,ia(i_u),ia(i_u0),ia(i_dp),ia(i_pres0))
+c .....................................................................
       goto 50 
 c ----------------------------------------------------------------------
 c
@@ -504,9 +605,9 @@ c ......................................................................
          print*, 'Macro PGEO'
 c ...    Geometria: 
          writetime = writetime + MPI_Wtime()-timei
-         call writeMeshGeo(ia(i_g)   ,ia(i_g2),nnodev ,numel
-     .                       ,nenv ,ndm     ,prename,.false.
-     .                       ,.true. ,nplot)
+         call writeMeshGeo(ia(i_g),ia(i_g2),nnodev ,numel
+     .                    ,nen    ,ndm    ,prename,.false.
+     .                    ,.true. ,nplot)
          writetime = writetime + MPI_Wtime()-timei
 c ......................................................................         
       endif
@@ -534,18 +635,19 @@ c ......................................................................
         call writeMeshGeo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
      .                   ,nen    ,ndm     ,prename,.false.
      .                   ,.true. ,nplot)
-        nhexa8(1:4) = nhexa20(1:4)   
+        nhexa8(1:4)  = nhexa20(1:4)
+        nhexa20(1:4) = 0
         i_xq = dealloc('xq      ')      
       endif
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PFLUX
+c ... Macro-comando: BLOCK_PU
 c
 c ......................................................................
   800 continue
-c      soma = 0.d0  
-      if(my_id.eq.0)print*, 'Macro '
+      if(my_id.eq.0)print*, 'Macro Block_pu'
+      block_pu = .true.
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -553,8 +655,32 @@ c ... Macro-comando:
 c
 c ......................................................................
   900 continue
-      if (my_id .eq. 0)   print*, 'Macro '
+      if (my_id .eq. 0)   print*, 'Macro Gravity'
+c ... gx
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =910,end =910) gravity(1)    
+c ... gy
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =920,end =920) gravity(2)    
+c ... gz
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =930,end =930) gravity(3)    
+      gravity_mod = dsqrt(gravity(1)*gravity(1)
+     .                   +gravity(2)*gravity(2)
+     .                   +gravity(3)*gravity(3))
       goto 50
+  910 continue
+      print*,'Erro na leitura da macro (GRAVITY) gx !'
+      goto 5000
+  920 continue
+      print*,'Erro na leitura da macro (GRAVITY) gy !'
+      goto 5000
+  930 continue
+      print*,'Erro na leitura da macro (GRAVITY) gz !'
+      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:
@@ -603,11 +729,20 @@ c ......................................................................
       goto 50 
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PDISP
+c ... Macro-comando: PDISPPRES
 c
 c ......................................................................
  1600 continue
-      if(my_id.eq.0)print*,'Macro '
+      if(my_id.eq.0)print*,'Macro PUP'
+        fname = name(prename,istep,2)
+        open(nplot,file=fname)
+c       call pdata(ia(i_ix),ia(i_x),ia(i_u),nnodev,numel
+c    .           ,ndm,nenv,ndf,istep,nplot,9)
+        call write_mesh_res_pm(ia(i_ix),ia(i_x),ia(i_u) ,ia(i_dp) 
+     .                        ,nnodev  ,numel
+     .                        ,nen     ,ndm    ,ndf 
+     .                        ,fname   ,.false.,.true.  ,nplot)
+        close(nplot)  
       goto 50     
 c ----------------------------------------------------------------------
 c
@@ -702,16 +837,7 @@ c ... Macro-comando:
 c
 c ......................................................................
  2700 continue
-      if(my_id.eq.0)print*, 'Macro TMAXNLIT    '
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2710,end =2710) tmaxnlit
-      write(*,'(a,i10)')' Set max Thermical-Chemical nonlinear it for '
-     .                  ,tmaxnlit
       goto 50
- 2710 continue
-      print*,'Erro na leitura da macro (TMAXNLIT) !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:
@@ -799,20 +925,23 @@ c ... Macro-comando: PNDISP impressao do deslocamento por no no tempo
 c     (SETPNODE)                                                   
 c ......................................................................
  3500 continue
-      if(my_id.eq.0) print*, 'Macro PNDISP    '
+      if(my_id.eq.0) print*, 'Macro PNUP'      
       if(flag_pnd.eqv..false.) then
-        if(my_id.eq.0)print*,'Nemhum no de impressao para PNDISP!'
+        if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
         call stop_mef()
       endif
 c ... codigo para o arquivo _disp.txt      
       code = 29
 c .....................................................................
       call global_v(ndf,nno_pload,i_u,i_g1,'dispG   ')
-      string = 'Deselocamentos'
+c     call global_v(  1,nno_pload,i_dp,i_g1,'dispG   ')
+      string = 'DeslocAndPress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           call printnode(ia(i_g1),ia(i_no+j-1),ndf,istep,dt
      .                 ,string,prename,ia(i_nfile+j-1),code,new_file(3))
+c         call printnode(ia(i_g1),ia(i_no+j-1),1  ,istep,dt
+c    .                 ,string,prename,ia(i_nfile+j-1),code,new_file(3))
         enddo
         new_file(3) = .false.
       endif
@@ -910,9 +1039,9 @@ c **********************************************************************
       real*8 ad(*),al(*),x(*),b(*)
       integer neq,nequ,nad,nadpu,i
       integer*8 idum
-      call matvec_csrcb(neq,nequ,ia,ja,ia(neq+2),ja(nad+1)
-     .                 ,ad ,al  ,al(nad+1),b,x 
-     .                 ,dum,dum,idum,idum,idum,idum)
+c     call matvec_csrcb(neq,nequ,ia,ja,ia(neq+2),ja(nad+1)
+c    .                 ,ad ,al  ,al(nad+1),b,x 
+c    .                 ,dum,dum,idum,idum,idum,idum)
 c ...
       do i = 1, neq
         print*,i,x(i),b(i)

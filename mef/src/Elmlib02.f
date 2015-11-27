@@ -2532,14 +2532,22 @@ c ..............................................................
          j3 = j2 + 1
          s(i1,j1) = s(i1,j1) + (  hx(i)*hx(j) + c*hy(i)*hy(j) +
      .                                          c*hz(i)*hz(j))*wt
+c
          s(i1,j2) = s(i1,j2) + (b*hx(i)*hy(j) + c*hy(i)*hx(j))*wt
+c
          s(i1,j3) = s(i1,j3) + (b*hx(i)*hz(j) + c*hz(i)*hx(j))*wt
+c
          s(i2,j1) = s(i2,j1) + (b*hy(i)*hx(j) + c*hx(i)*hy(j))*wt
+c
          s(i2,j2) = s(i2,j2) + (  hy(i)*hy(j) + c*hx(i)*hx(j) +
      .                                          c*hz(i)*hz(j))*wt
+c
          s(i2,j3) = s(i2,j3) + (b*hy(i)*hz(j) + c*hz(i)*hy(j))*wt
+c
          s(i3,j1) = s(i3,j1) + (b*hz(i)*hx(j) + c*hx(i)*hz(j))*wt
+c
          s(i3,j2) = s(i3,j2) + (b*hz(i)*hy(j) + c*hy(i)*hz(j))*wt
+c
          s(i3,j3) = s(i3,j3) + (  hz(i)*hz(j) + c*hy(i)*hy(j) +
      .                                          c*hx(i)*hx(j))*wt
 c ................................................................
@@ -5277,165 +5285,3 @@ c      print*, '*** Subrotina ELMT08: determinante nulo ou negativo do el
 c     .emento ',nel
 c      stop
 c      end
-      subroutine deform2d(hx,hy,u,eps,nen)
-c **********************************************************************
-c *                                                                    *
-c *                                                    25/03/03        *
-c *   DEFORM2D: calcula deformacoes 2D                                 *
-c *   --------                                                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     hx(nen)   - derivadas de h em relacao a x                      *
-c *     hy(nen)   - derivadas de h em relacao a y                      *
-c *     u(nst)    - deslocamentos                                      *
-c *     nen       - numero de nos do elemento                          *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     eps(3) - deformacoes                                           *
-c *                                                                    *
-c *                                                                    *
-c **********************************************************************
-      implicit none
-      integer nen,i,j1,j2
-      real*8  hx(*),hy(*),u(*),eps(*)
-      real*8  ux,uy,vx,vy
-c ......................................................................
-      ux = 0.d0
-      uy = 0.d0
-      vx = 0.d0
-      vy = 0.d0
-      do 100 i = 1, nen
-         j1 = (i-1)*2+1
-      j2 = j1 + 1
-      ux = ux + hx(i)*u(j1)
-      uy = uy + hy(i)*u(j1)
-      vx = vx + hx(i)*u(j2)
-      vy = vy + hy(i)*u(j2)
-  100 continue
-      eps(1) = ux
-      eps(2) = vy
-      eps(3) = uy + vx
-      return
-      end
-      subroutine deform3d(hx,hy,hz,u,eps,nen)
-c **********************************************************************
-c *                                                                    *
-c *                                                    25/03/03        *
-c *   DEFORM3D: calcula deformacoes 3D                                 *
-c *   --------                                                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     hx(nen)   - derivadas de h em relacao a x                      *
-c *     hy(nen)   - derivadas de h em relacao a y                      *
-c *     hz(nen)   - derivadas de h em relacao a z                      *
-c *     u(nst)    - deslocamentos                                      *
-c *     nen       - numero de nos do elemento                          *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     eps(6) - deformacoes                                           *
-c *                                                                    *
-c *                                                                    *
-c **********************************************************************
-      implicit none
-      integer nen,i,j1,j2,j3
-      real*8  hx(*),hy(*),hz(*),u(*),eps(*)
-      real*8  ux,uy,uz,vx,vy,vz,wx,wy,wz
-c ......................................................................
-      ux = 0.d0
-      uy = 0.d0
-      uz = 0.d0
-      vx = 0.d0
-      vy = 0.d0
-      vz = 0.d0
-      wx = 0.d0
-      wy = 0.d0
-      wz = 0.d0
-      do 100 i = 1, nen
-         j1 = (i-1)*3+1
-         j2 = j1 + 1
-         j3 = j2 + 1
-         ux = ux + hx(i)*u(j1)
-         uy = uy + hy(i)*u(j1)
-         uz = uz + hz(i)*u(j1)
-         vx = vx + hx(i)*u(j2)
-         vy = vy + hy(i)*u(j2)
-         vz = vz + hz(i)*u(j2)
-         wx = wx + hx(i)*u(j3)
-         wy = wy + hy(i)*u(j3)
-         wz = wz + hz(i)*u(j3)
-  100 continue
-      eps(1) = ux
-      eps(2) = vy
-      eps(3) = wz
-      eps(4) = uy + vx
-      eps(5) = vz + wy
-      eps(6) = uz + wx
-      return
-      end
-      subroutine stress2d(d11,d12,d22,d33,eps,t)
-c **********************************************************************
-c *                                                                    *
-c *                                                    25/03/03        *
-c *   STRESS2D: calcula tensoes 2D                                     *
-c *   --------                                                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     d11,d12,d22,d33 - coeficientes da matriz constitutiva          *
-c *     eps(3) - deformacoes                                           *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     t(3) - tensoes                                                 *
-c *                                                                    *
-c *                                                                    *
-c **********************************************************************
-      implicit none
-      real*8 d11,d12,d22,d33,eps(*),t(*)
-c ......................................................................
-      t(1) = d11*eps(1) + d12*eps(2)
-      t(2) = d12*eps(1) + d22*eps(2)
-      t(3) = d33*eps(3)
-      return
-      end
-      subroutine stress3d(a,b,c,eps,t)
-c **********************************************************************
-c *                                                                    *
-c *                                                    25/03/03        *
-c *   STRESS3D: calcula tensoes 3D                                     *
-c *   --------                                                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     a,b,c  - coeficientes da matriz constitutiva                   *
-c *     eps(6) - deformacoes                                           *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     t(6) - tensoes                                                 *
-c *                                                                    *
-c *                                                                    *
-c **********************************************************************
-      implicit none
-      real*8  a,b,c,eps(*),t(*)
-c ......................................................................
-      t(1) = (  eps(1) + b*eps(2) + b*eps(3))*a
-      t(2) = (b*eps(1) +   eps(2) + b*eps(3))*a
-      t(3) = (b*eps(1) + b*eps(2) +   eps(3))*a
-      t(4) = eps(4)*c*a
-      t(5) = eps(5)*c*a
-      t(6) = eps(6)*c*a
-      return
-      end

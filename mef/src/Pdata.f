@@ -346,13 +346,23 @@ c ======================================================================
 c ... Deslocamentos para o ParaView:
 c ======================================================================
       elseif (code .eq. 9) then
-            write(nplot,'(a,i8)') 'POINT_DATA', nnode
+         write(nplot,'(a,i8)') 'POINT_DATA', nnode
+c         write(nplot,'(a,a,a)') 'VECTORS ', ' Deslocamentos ', ' double'
+         write(nplot,'(a,a,a)') 'SCALARS ',' up            ',' double 4'
+         write(nplot,'(a)') 'LOOKUP_TABLE default'
+         do i = 1, nnode
+            if (ndm .eq. 2)   then
+               write(nplot,'(7e15.5e3)') (u(j,i),j=1,ndf), 0.0e+00
+            elseif (ndm .eq. 3)   then
+               write(nplot,'(7e15.5e3)') (u(j,i),j=1,ndf)
+            endif
+         enddo
          write(nplot,'(a,a,a)') 'VECTORS ', ' Deslocamentos ', ' double'
          do i = 1, nnode
             if (ndm .eq. 2)   then
-               write(nplot,'(7e15.5e3)') (u(j,i),j=1,ndm), 0.0e+00
+               write(nplot,'(7e15.5e3)') (u(j,i),j=1,ndf), 0.0e+00
             elseif (ndm .eq. 3)   then
-               write(nplot,'(7e15.5e3)') (u(j,i),j=1,ndm)
+               write(nplot,'(7e15.5e3)') (u(j,i),j=1,ndf-1)
             endif
          enddo
          return
@@ -764,6 +774,7 @@ c .....................................................................
       flag = .false.
       end
 c *********************************************************************
+c
 c *********************************************************************
 c *  PRINTNODE: imprime uma grandeza do no pelo tempo                 *
 c *  ---------------------------------------------------------------- *
@@ -808,7 +819,7 @@ c ... reabre o arquivo e add uma nova linha
 c =====================================================================        
 c
 c === 
-      write(nout,'(i9,f15.6,9f20.10)')istep,istep*dt,(u(i,no), i=1, ndf)
+      write(nout,'(i9,f15.6,9f30.10)')istep,istep*dt,(u(i,no), i=1, ndf)
 c      write(nout,*)istep,',',istep*dt,',',u(no)
       close(nout)
       return

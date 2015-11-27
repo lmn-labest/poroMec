@@ -7,6 +7,7 @@
 PATH_MOD="src/"
 PATH_INCLUDE="include/"    
 PRENAME=poroMec
+DEBUG=yes
 FC=gfortran
 OPENMP=yes
 OT=O2
@@ -22,22 +23,16 @@ endif
 NAME+=$(PRENAME)_$(COMPILER_NAME)
 #-------------------Fontes---------------------------------
 src_mef = src/Assbly.f \
-src/Adiabat.f\
 src/Adjacency.f\
 src/Colormsh.f\
 src/Csr.f\
-src/Calc_hidr.f\
 src/Datastruct.f\
-src/Delete_interface.f\
 src/Edges.f\
 src/Elmlib.f\
-src/Elmlib01.f\
-src/Elmlib02.f\
 src/Elmlib03.f\
 src/Filenames.f\
 src/Gauss.f\
 src/Graph.f\
-src/Interface.f\
 src/Interpolation.f\
 src/Iters_omp.f\
 src/Iters.f\
@@ -56,7 +51,6 @@ src/Pload.f\
 src/Predict.f\
 src/Reord.f\
 src/Solv.f\
-src/Termprop.f\
 src/Write_log.f\
 src/Write_vtk.f\
 src/Vtk.f\
@@ -88,7 +82,7 @@ endif
 #--------------------------------------------------------------------
 #---------------------------Debug------------------------------------
 ifeq ($(DEBUG),yes)
-  OFLAGS += -g  	
+  OFLAGS += -g -fbacktrace  	
 else
   OFLAGS += -${OT} 
 endif

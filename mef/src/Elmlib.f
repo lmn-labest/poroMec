@@ -3,8 +3,8 @@ c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $
 c*$Rev: 967 $                                                           
 c*$Author: ana $                                                   
 c***********************************************************************
-      subroutine elmlibpmec(e,iq,x,u,p,s,dt,ndm,nst,nel,iel,isw,ma,nlit
-     .                     ,ilib)
+      subroutine elmlibpmec(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,iel,isw,ma,
+     .                      nlit,ilib,block_pu)
 c **********************************************************************
 c *                                                                    *
 c *   ELMLIB: biblioteca de elementos.                                 *
@@ -17,6 +17,7 @@ c *     e(10) - constantes fisicas                                     *
 c *     iq(7) - cargas nos elementos                                   *
 c *     x(ndm,nen)- coordenadas nodais locais                          *
 c *     u(nst)     - solucao anterior                                  *
+c *     dp(*)      - delta p ( p(n  ,0  ) - p(0) )                     *
 c *     p(nst)     - nao definido                                      *
 c *     s(nst,nst) - nao definido                                      *
 c *     ndm - dimensao                                                 *
@@ -27,6 +28,8 @@ c *     isw - codigo de instrucao                                      *
 c *     ma   -  numero de material do elemento                         *
 c *     nlit -  numero da iteracao nao linear                          *
 c *     ilib -  codigo da biblioteca                                   *
+c *     block_pu   - true - armazenamento em blocos Kuu,Kpp e kpu      *
+c *                  false- aramzenamento em unico bloco               *      
 c *                                                                    *
 c *   Parametros de saida:                                             *
 c *   -------------------                                              *
@@ -38,8 +41,9 @@ c *                                                                    *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
-      real*8 e(*),x(*),u(*),p(*),s(nst,*)
+      real*8 e(*),x(*),u(*),dp(*),p(*),s(nst,*)
       real*8 dt
+      logical block_pu
 c ......................................................................
       goto (100,200,300,400,500,600,700,800,900,1000,1100,1200) iel
    10 write(*,2000) iel,nel
@@ -78,7 +82,7 @@ c ......................................................................
   700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec)
-        call elmt10(e,x,u,p,s,dt,ndm,nst,nel,isw)
+        call elmt7_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,isw,block_pu)
       endif
       return
 c ......................................................................
@@ -110,200 +114,6 @@ c ......................................................................
  2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
      .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i6,' !')
        end
-c **********************************************************************
-c
-c **********************************************************************       
-      subroutine elmlib(e,iq,x,u,v,a,w,p,s,tl,ut,hi,u0,tx,txp,eps,ndm,
-     .                nst,nel,iel,isw,ma,nlit,ilib,flaghidr,plastic)
-c **********************************************************************
-c *                                                                    *
-c *   ELMLIB: biblioteca de elementos.                                 *
-c *   ------                                                           *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     e(10) - constantes fisicas                                     *
-c *     iq(7) - cargas nos elementos                                   *
-c *     x(ndm,nem)- coordenadas nodais locais                          *
-c *     u(nst)     - solucao anterior                                  *
-c *     p(nst)     - nao definido                                      *
-c *     s(nst,nst) - nao definido                                      *
-c *     ndm - dimensao                                                 *
-c *     nst - numero de graus de liberdade por elemento                *
-c *     nel - numero do elemento                                       *
-c *     iel - tipo   do elemento                                       *
-c *     isw - codigo de instrucao                                      *
-c *     ilib -  codigo da biblioteca                                   *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     e - constantes fisicas                                         *
-c *     s - matriz de elemento                                         *
-c *     p - residuo                                                    *
-c *                                                                    *
-c **********************************************************************
-      implicit none
-      integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
-      real*8 plastic(*)
-      real*8 e(*),x(*),u(*),v(*),a(*),w(*),p(*),s(nst,*),tl(*),ut(*)
-      real*8 hi(*), tx(*),eps(*),u0(*),txp(*)
-      logical flaghidr
-c ......................................................................
-      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200) iel
-   10 write(*,2000) iel,nel
-      stop
-c ......................................................................
-  100 continue
-      if (ilib .eq. 1) then
-c     Elemento unidimensional (difusao):
-      call elmt01_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)     
-c     Elemento unidimensional (conveccao-difusao, SUPG):  
-c     call elmt01c_t(e(6),iq,x,u,v,p,s,w,ndm,nst,nel,isw)
-      elseif (ilib .eq. 2) then
-      goto 10
-      endif
-      return
-c ......................................................................            
-  200 continue
-      if (ilib .eq. 1) then
-c     Elemento triangular linear (difusao):
-      call elmt03_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-c     Elemento triangular linear (conveccao-difusao,SUPG):
-c     call elmt03c_t(e(6),iq,x,u,v,p,s,w,ndm,nst,nel,isw)
-c     Elemento triangular linear (conveccao-difusao,CG):
-c     call elmt03b_t(e(6),iq,x,u,v,p,s,w,ndm,nst,nel,isw)        
-      elseif (ilib .eq. 2) then
-c ... Estado plano de deformacao - triangulo linear:
-      call elmt02_m(e,x,u,v,a,p,s,hi,tx,txp,eps,tl,ut,ndm,nst,nel,ma,
-     .nlit,isw,flaghidr)
-      endif
-      return
-c ......................................................................
-  300 continue
-      if (ilib .eq. 1) then
-c     Elemento triangular linear (difusao):
-      call elmt03_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-      elseif (ilib .eq. 2) then
-c ... Estado plano de tensao - triangulo linear:
-      call elmt03_m(e,x,u,v,p,s,hi,tx,txp,eps,tl,ut,ndm,nst,nel,ma,nlit,
-     . isw,flaghidr)
-      endif
-      return
-c ......................................................................
-  400 continue
-      if (ilib .eq. 1) then  
-c     Elemento quadrilatero bilinear (difusao)
-      call elmt04_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-c     Elemento quadrialtero linear (conveccao-difusao,SUPG)
-c     call elmt04c_t(e(6),iq,x,u,v,p,s,w,ndm,nst,nel,isw)
-c     Elemento quadrialtero linear (conveccao-difusao,CG)          
-c     call elmt04b_t(e(6),iq,x,u,v,p,s,w,ndm,nst,nel,isw)  
-      elseif (ilib .eq. 2) then
-c ... Estado plano de deformaçao - quadrilatero linear:
-      call elmt04_m(e,x,u,v,p,s,hi,tx,txp,eps,tl,ut,ndm,nst,nel,ma,nlit,
-     .                                                 isw,flaghidr)
-      endif
-      return
-c ......................................................................
-  500 continue
-      if (ilib .eq. 1) then  
-c     Elemento quadrilatero bilinear (difusao)
-      call elmt04_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-      elseif (ilib .eq. 2) then
-c ... Estado plano de tensao - quadrilatero linear:
-      call elmt05_m(e,x,u,v,p,s,hi,tx,txp,eps,tl,ut,ndm,nst,nel,ma,nlit,
-     .                                                isw,flaghidr)
-      endif
-      return
-c ......................................................................
-  600 continue
-      if (ilib .eq. 1) then  
-c     Elemento tetraedrico (difusao)
-      call elmt06_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 3D - tetraedro de 4 nos:
-      call elmt06_m(e,x,u,v,p,s,hi,tx,txp,eps,tl,ut,ndm,nst,nel,ma,nlit,
-     .      isw,flaghidr,plastic)
-      endif      
-      return
-c ......................................................................
-  700 continue
-      if (ilib .eq. 1) then  
-c     Elemento hexaedrico de 8 nos (difusao)
-      call elmt07_t(e(6),iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-c     Elemento hexaedrico de 8 nos (conveccao-difusao, SUPG)
-c     call elmt07c_t(e(6),iq,x,u,v,p,s,w,ndm,nst,nel,isw)
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 3D - hexaedro de 8 nos:
-      call elmt07_m(e,x,u,v,p,s,hi,tx,txp,eps,tl,ut,ndm,nst,nel,ma,nlit,
-     . isw,flaghidr,plastic)
-c      call elmt07quad_m(e,x,u,v,p,s,tl,ut,ndm,nst,nel,ma,isw)
-      endif      
-      return
-c ......................................................................
-  800 continue
-      if (ilib .eq. 1) then  
-c ... nao implementado:  
-c ... Elasticidade 3D - elemento cunha:
-c      call elmt08_m(e,x,u,v,p,s,ndm,nst,nel,isw)
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 3D - elemento interface:
-      call elmt08_m(e,x,u,v,p,s,tx,u0,tl,ndm,nst,nel,ma,nlit,isw)
-      endif        
-      return
-c ......................................................................            
-  900 continue
-      if (ilib .eq. 1) then  
-c ... nao implementado:  
-      write (*,*) 'elemento nao implementado'
-      stop
-c ... Elasticidade 3D - elemento cunha:
-c      call elmt08_m(e,x,u,v,p,s,ndm,nst,nel,isw)
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 2D - elemento interface - grampo:
-      call elmt08_grampo(e,x,u,v,p,s,tx,u0,tl,ndm,nst,nel,ma,nlit,isw)
-      endif 
-      return 
-c ......................................................................
- 1000 continue
-       if (ilib .eq. 1) then  
-c ... Termico 3D - elemento interface Prisma:
-      call elmt08_t3d(e,iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-c      stop
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 3D - elemento interface:
-      call elmt08_3d(e,x,u,v,p,s,tx,u0,tl,ndm,nst,nel,ma,nlit,isw)
-c      call elmt09_mItetra(e,x,u,v,p,s,tl,ndm,nst,nel,isw)
-      endif 
-      return 
-c ......................................................................
- 1100 continue
-       if (ilib .eq. 1) then  
-c ... Termico 3D - elemento interface Hexa:
-      call elmt08_t3dhexa(e,iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 3D - elemento interface Hexa:
-      call elmt08_3dhexa(e,x,u,v,p,s,tx,u0,tl,ndm,nst,nel,ma,nlit,isw,
-     .   plastic)
-      endif 
-      return       
-c ......................................................................
- 1200 continue
-       if (ilib .eq. 1) then  
-c ... Termico 3D - elemento interface Hexa:
-      call elmt08_t3dhexa(e,iq,x,u,v,p,s,hi,ndm,nst,nel,ma,nlit,isw)
-      elseif (ilib .eq. 2) then
-c ... Elasticidade 3D - elemento interface Hexa - grampo:
-      call elmt08_3dhexa_grampo(e,x,u,v,p,s,tx,u0,tl,ndm,nst,nel,ma,
-     .     nlit,isw,plastic)
-      endif 
-      return       
-c ......................................................................        
- 2000 format(1x,'SUBROUTINE ELMLIB:',/,5x,'tipo de elemento ',i2,' nao e
-     .xistente, elemento ',i6,' !')
-      end
 c **********************************************************************
 c
 c **********************************************************************
@@ -466,8 +276,39 @@ c **********************************************************************
       real*8  s(nst,*),u(*),p(*)
 c ......................................................................
       do 200 i = 1, nst
-         p(i) = 0.d0
          do 100 j = 1, nst
+            p(i) = p(i) + s(i,j)*u(j)
+  100    continue
+  200 continue
+c ......................................................................  
+      return
+      end
+      subroutine lkum(s,u,p,nst)
+c **********************************************************************
+c *                                                                    *
+c *   LKU: forcas internas K.U                                         *
+c *   ---                                                              *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     s    - matriz de elemento                                      *
+c *     u    - deslocamentos                                           *
+c *     nst  - numero de graus de liberdade por elemento               *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     p = s.u - forcas internas                                      *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nst,i,j
+      real*8  s(nst,*),u(*),p(*)
+c ......................................................................
+      p(1:nst) = 0.d0
+      do 200 j = 1, nst
+         do 100 i = 1, nst
             p(i) = p(i) + s(i,j)*u(j)
   100    continue
   200 continue
@@ -496,6 +337,34 @@ c **********************************************************************
 c ......................................................................
       do 200 i = 1, nst
          do 100 j = 1, nst
+            p(i) = p(i) + s(i,j)*u(j)
+  100    continue
+  200 continue
+c ......................................................................  
+      return
+      end      
+      subroutine addlkum(s,u,p,nst)
+c **********************************************************************
+c *                                                                    *
+c *   ADDLKU: forcas internas K.U                                      *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *     s    - matriz de elemento                                      *
+c *     u    - deslocamentos                                           *
+c *     nst  - numero de graus de liberdade por elemento               *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *     p = s.u - forcas internas                                      *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nst,i,j
+      real*8  s(nst,*),u(*),p(*)
+c ......................................................................
+      do 200 j = 1, nst
+         do 100 i = 1, nst
             p(i) = p(i) + s(i,j)*u(j)
   100    continue
   200 continue
@@ -731,7 +600,11 @@ c *                                                                    *
 c *   h(4)    - funcoes de interolocao no ponto (r,s)                  *
 c *   hx(4)   - derivadas de h em relacao a r                          *
 c *   hy(4)   - derivadas de h em relacao a s                          *
-c *                                                                    *
+c * no  ( r, s)                                                        *
+c * no1 ( 1, 1)                                                        * 
+c * no2 (-1, 1)                                                        * 
+c * no3 (-1,-1)                                                        * 
+c * no4 ( 1,-1)                                                        * 
 c **********************************************************************
       implicit none
       logical afl,bfl
@@ -767,6 +640,77 @@ c
 c ......................................................................      
       return
       end
+      subroutine sfquad4_m(h,hx,hy,r,s,afl,bfl)
+c **********************************************************************
+c *                                                                    *
+c *                                                    05/11/15        *
+c *   SFQUAD4:                                                         *
+c *                                                                    *
+c *   Calcula as funcoes de interpolacao e suas derivadas              *
+c *   no ponto (r,s) do quadrilatero de 4 nos.                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   r,s - coordenadas naturais                                       *
+c *   afl = true ( calcula funcoes )                                   *
+c *   bfl = true ( calcula as derivadas )                              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *   h(4)    - funcoes de interolocao no ponto (r,s)                  *
+c *   hx(4)   - derivadas de h em relacao a r                          *
+c *   hy(4)   - derivadas de h em relacao a s                          *
+c * OBS:                                                               *
+c * no  ( r, s)                                                        *
+c * no1 ( 1, 1)                                                        * 
+c * no2 (-1, 1)                                                        * 
+c * no3 (-1,-1)                                                        * 
+c * no4 ( 1,-1)                                                        * 
+c **********************************************************************
+      implicit none
+      logical afl,bfl
+      real*8 one_plus_r,one_plus_s,one_minus_r,one_minus_s
+      real*8  h(*),hx(*),hy(*),r,s
+c ......................................................................
+c
+c ...
+      one_plus_r  = 1.d0 + r
+      one_plus_s  = 1.d0 + s
+      one_minus_r = 1.d0 - r
+      one_minus_s = 1.d0 - s
+c ......................................................................
+c
+c ...   
+      if ( afl ) then
+c
+c     funcoes de interpolacao
+c
+        h(1)  = one_plus_r *one_plus_s *0.25d0
+        h(2)  = one_minus_r*one_plus_s *0.25d0
+        h(3)  = one_minus_r*one_minus_s*0.25d0
+        h(4)  = one_plus_r *one_minus_s*0.25d0
+c
+      endif
+      if ( bfl ) then
+c
+c     derivadas em relacao a r :
+c
+        hx(1)  =   one_plus_s *0.25d0
+        hx(2)  = - one_plus_s *0.25d0
+        hx(3)  = - one_minus_s*0.25d0
+        hx(4)  =   one_minus_s*0.25d0
+c
+c     derivadas em relacao a s :
+c
+        hy(1)  =  one_plus_r *0.25d0
+        hy(2)  =  one_minus_r*0.25d0
+        hy(3)  = -one_minus_r*0.25d0
+        hy(4)  = -one_plus_r *0.25d0
+c
+      endif
+c ......................................................................      
+      return
+      end
       subroutine sfquad8(h,hx,hy,r,s,afl,bfl)
 c **********************************************************************
 c *                                                                    *
@@ -790,49 +734,173 @@ c *                                                                    *
 c *     h(8)    - funcoes de interolocao no ponto (r,s)                *
 c *     hx(8)   - derivadas de h em relacao a r                        *
 c *     hy(8)   - derivadas de h em relacao a s                        *
-c *                                                                    *
+c * OBS:                                                               *
+c * no  ( r, s)                                                        *
+c * no1 ( 1, 1)                                                        * 
+c * no2 (-1, 1)                                                        * 
+c * no3 (-1,-1)                                                        * 
+c * no4 ( 1,-1)                                                        * 
+c * no5 ( 0, 1)                                                        * 
+c * no6 (-1, 0)                                                        * 
+c * no7 ( 0,-1)                                                        * 
+c * no8 ( 1, 0)                                                        * 
 c **********************************************************************
       implicit none
       logical afl,bfl
+      real*8 one_plus_r,one_plus_s,one_minus_r,one_minus_s
+      real*8 one_minus_rr,one_minus_ss
       real*8  h(*),hx(*),hy(*),r,s
+c ...
+      one_plus_r  = 1.d0 + r
+      one_plus_s  = 1.d0 + s
+      one_minus_r = 1.d0 - r
+      one_minus_s = 1.d0 - s
+      one_minus_rr= 1.d0 - r*r 
+      one_minus_ss= 1.d0 - s*s
+c ......................................................................
+c
 c ......................................................................
       if ( afl ) then
 c
 c     funcoes de interpolacao
 c
-      h(5)  = ( 1.d0-r*r ) * ( 1.d0+s ) / 2.
-      h(6)  = ( 1.d0-s*s ) * ( 1.d0-r ) / 2.
-      h(7)  = ( 1.d0-r*r ) * ( 1.d0-s ) / 2.
-      h(8)  = ( 1.d0-s*s ) * ( 1.d0+r ) / 2.
-      h(1)  = ( 1.d0+r ) * ( 1.d0+s ) / 4.d0 - h(5) / 2.d0 - h(8) / 2.d0
-      h(2)  = ( 1.d0-r ) * ( 1.d0+s ) / 4.d0 - h(5) / 2.d0 - h(6) / 2.d0
-      h(3)  = ( 1.d0-r ) * ( 1.d0-s ) / 4.d0 - h(6) / 2.d0 - h(7) / 2.d0
-      h(4)  = ( 1.d0+r ) * ( 1.d0-s ) / 4.d0 - h(7) / 2.d0 - h(8) / 2.d0
+      h(5)  = one_minus_rr * one_plus_s  *0.5d0
+      h(6)  = ( 1.d0-s*s ) * one_minus_r *0.5d0
+      h(7)  = one_minus_rr * one_minus_s *0.5d0
+      h(8)  = ( 1.d0-s*s ) * one_plus_r  *0.5d0
+c
+      h(1)  = one_plus_r *one_plus_s *0.25d0 - h(5)*0.5d0 - h(8)*0.5d0
+      h(2)  = one_minus_r*one_plus_s *0.25d0 - h(5)*0.5d0 - h(6)*0.5d0
+      h(3)  = one_minus_r*one_minus_s*0.25d0 - h(6)*0.5d0 - h(7)*0.5d0
+      h(4)  = one_plus_r *one_minus_s*0.25d0 - h(7)*0.5d0 - h(8)*0.5d0
 c
       endif
       if ( bfl ) then
 c
 c     derivadas em relacao a r :
 c
-      hx(5)  = - r * (1.d0+s)
-      hx(6)  = -.5d0 * (1.d0-s*s)
-      hx(7)  = - r * (1.d0-s)
-      hx(8)  =  .5d0 * (1.d0-s*s)
-      hx(1)  =   (1.d0+s) / 4.d0 - hx(5) / 2.d0 - hx(8) / 2.d0
-      hx(2)  = - (1.d0+s) / 4.d0 - hx(5) / 2.d0 - hx(6) / 2.d0
-      hx(3)  = - (1.d0-s) / 4.d0 - hx(6) / 2.d0 - hx(7) / 2.d0
-      hx(4)  =   (1.d0-s) / 4.d0 - hx(7) / 2.d0 - hx(8) / 2.d0
+      hx(5)  = - r*one_plus_s
+      hx(6)  = - one_minus_ss*0.5d0
+
+      hx(7)  = - r*one_minus_s
+      hx(8)  =   one_minus_ss*0.5d0
+
+c
+      hx(1)  =  one_plus_s *0.25d0 - hx(5)*0.5d0 - hx(8)*0.5d0
+      hx(2)  = -one_plus_s *0.25d0 - hx(5)*0.5d0 - hx(6)*0.5d0
+      hx(3)  = -one_minus_s*0.25d0 - hx(6)*0.5d0 - hx(7)*0.5d0
+      hx(4)  =  one_minus_s*0.25d0 - hx(7)*0.5d0 - hx(8)*0.5d0
 c
 c     derivadas em relacao a s :
 c
-      hy(5)  =  (1.d0-r*r) / 2.d0
-      hy(6)  = - s * (1.d0-r)
-      hy(7)  = -(1.d0-r*r) / 2.d0
-      hy(8)  = - s * (1.+r)
-      hy(1)  =  (1.d0+r) / 4.d0 - hy(5) / 2.d0 - hy(8) / 2.d0
-      hy(2)  =  (1.d0-r) / 4.d0 - hy(5) / 2.d0 - hy(6) / 2.d0
-      hy(3)  = -(1.d0-r) / 4.d0 - hy(6) / 2.d0 - hy(7) / 2.d0
-      hy(4)  = -(1.d0+r) / 4.d0 - hy(7) / 2.d0 - hy(8) / 2.d0
+      hy(5)  =  one_minus_rr*0.5d0
+      hy(6)  = - s*one_minus_r
+      hy(7)  = -one_minus_rr*0.5d0
+      hy(8)  = - s*one_plus_r
+c
+      hy(1)  = one_plus_r   *0.25d0 - hy(5)*0.5d0 - hy(8)*0.5d0
+      hy(2)  = one_minus_r  *0.25d0 - hy(5)*0.5d0 - hy(6)*0.5d0
+      hy(3)  = - one_minus_r*0.25d0 - hy(6)*0.5d0 - hy(7)*0.5d0
+      hy(4)  = -one_plus_r  *0.25d0 - hy(7)*0.5d0 - hy(8)*0.5d0
+c
+      endif
+c ......................................................................      
+      return
+      end
+      subroutine sfquad8_m(h,hx,hy,r,s,afl,bfl)
+c **********************************************************************
+c *                                                                    *
+c *                                                    30/11/15        *
+c *   SFQUAD8:                                                         *
+c *   -------                                                          *
+c *                                                                    *
+c *   Calcula as funcoes de interpolacao e suas derivadas              *
+c *   no ponto (r,s) do quadrilatero quadratico de 8 nos.              *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     r,s - coordenadas naturais                                     *
+c *     afl = true ( calcula funcoes )                                 *
+c *     bfl = true ( calcula as derivadas )                            *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     h(8)    - funcoes de interolocao no ponto (r,s)                *
+c *     hx(8)   - derivadas de h em relacao a r                        *
+c *     hy(8)   - derivadas de h em relacao a s                        *
+c * OBS:                                                               *
+c * no  ( r, s)                                                        *
+c * no1 ( 1, 1)                                                        * 
+c * no2 (-1, 1)                                                        * 
+c * no3 (-1,-1)                                                        * 
+c * no4 ( 1,-1)                                                        * 
+c * no5 ( 0, 1)                                                        * 
+c * no6 (-1, 0)                                                        * 
+c * no7 ( 0,-1)                                                        * 
+c * no8 ( 1, 0)                                                        * 
+c **********************************************************************
+      implicit none
+      logical afl,bfl
+      real*8  h(*),hx(*),hy(*),r,s
+      real*8 ha5,ha6,ha7,ha8
+c ......................................................................
+      if ( afl ) then
+c
+c     funcoes de interpolacao
+c
+        h(5)  = ( 1.d0-r*r ) * ( 1.d0+s ) * 0.5d0
+        h(6)  = ( 1.d0-s*s ) * ( 1.d0-r ) * 0.5d0
+        h(7)  = ( 1.d0-r*r ) * ( 1.d0-s ) * 0.5d0
+        h(8)  = ( 1.d0-s*s ) * ( 1.d0+r ) * 0.5d0
+c
+        ha5   =  h(5) * 0.5d0
+        ha6   =  h(6) * 0.5d0
+        ha7   =  h(7) * 0.5d0
+        ha8   =  h(8) * 0.5d0
+c       
+        h(1)  = ( 1.d0+r ) * ( 1.d0+s ) * 0.25d0 - ha5 - ha8
+        h(2)  = ( 1.d0-r ) * ( 1.d0+s ) * 0.25d0 - ha5 - ha6
+        h(3)  = ( 1.d0-r ) * ( 1.d0-s ) * 0.25d0 - ha6 - ha7
+        h(4)  = ( 1.d0+r ) * ( 1.d0-s ) * 0.25d0 - ha7 - ha8
+c
+      endif
+      if ( bfl ) then
+c
+c     derivadas em relacao a r :
+c
+        hx(5)  = - r * (1.d0+s)
+        hx(6)  = -0.5d0 * (1.d0-s*s)
+        hx(7)  = - r * (1.d0-s)
+        hx(8)  =  0.5d0 * (1.d0-s*s)
+c
+        ha5   =  hx(5)*0.5d0
+        ha6   =  hx(6)*0.5d0
+        ha7   =  hx(7)*0.5d0
+        ha8   =  hx(8)*0.5d0
+c      
+        hx(1)  =   (1.d0+s) * 0.25d0 - ha5 - ha8
+        hx(2)  = - (1.d0+s) * 0.25d0 - ha5 - ha6
+        hx(3)  = - (1.d0-s) * 0.25d0 - ha6 - ha7
+        hx(4)  =   (1.d0-s) * 0.25d0 - ha7 - ha8
+c
+c     derivadas em relacao a s :
+c
+        hy(5)  =  (1.d0-r*r) * 0.5d0
+        hy(6)  = - s * (1.d0-r)
+        hy(7)  = -(1.d0-r*r) * 0.5d0
+        hy(8)  = - s * (1.d0+r)
+c
+        ha5   =  hy(5) * 0.5d0
+        ha6   =  hy(6) * 0.5d0
+        ha7   =  hy(7) * 0.5d0
+        ha8   =  hy(8) * 0.5d0
+c      
+        hy(1)  =  (1.d0+r) * 0.25d0 - ha5 - ha8
+        hy(2)  =  (1.d0-r) * 0.25d0 - ha5 - ha6 
+        hy(3)  = -(1.d0-r) * 0.25d0 - ha6 - ha7
+        hy(4)  = -(1.d0+r) * 0.25d0 - ha7 - ha8 
 c
       endif
 c ......................................................................      
@@ -920,10 +988,119 @@ c
 c ......................................................................      
       return
       end
-      subroutine sfhexa20(h,hx,hy,hz,r,s,t,afl,bfl)
+      subroutine sfhexa8_m(h,hx,hy,hz,r,s,t,afl,bfl)
 c **********************************************************************
 c *                                                                    *
-c *                                                    30/09/05        *
+c *                                                    06/11/15        *
+c *   SFHEXA8:                                                         *
+c *   -------                                                          *
+c *                                                                    *
+c *   Calcula as funcoes de interpolacao e suas derivadas              *
+c *   no ponto (r,s,t), do hexaedro linear de 8 nos.                   *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     r,s,t - coordenadas naturais                                   *
+c *     afl = true ( calcula funcoes )                                 *
+c *     bfl = true ( calcula as derivadas )                            *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     h(8)    - funcoes de interolocao no ponto (r,s,t)              *
+c *     hx(8)   - derivadas de h em relacao a r                        *
+c *     hy(8)   - derivadas de h em relacao a s                        *
+c *     hz(8)   - derivadas de h em relacao a t                        *
+c * OBS:                                                               *
+c * no  ( r, s, t)                                                     *
+c * no1 ( 1, 1, 1)                                                     * 
+c * no2 (-1, 1, 1)                                                     * 
+c * no3 (-1,-1, 1)                                                     * 
+c * no4 ( 1,-1, 1)                                                     * 
+c * no5 ( 1, 1,-1)                                                     * 
+c * no6 (-1, 1,-1)                                                     * 
+c * no7 (-1,-1,-1)                                                     * 
+c * no8 ( 1,-1,-1)                                                     * 
+c **********************************************************************
+      implicit none
+      logical afl,bfl
+      real*8 onePlusR,onePlusS,onePlusT
+      real*8 oneMinusR,oneMinusS,oneMinusT
+      real*8  h(*),hx(*),hy(*),hz(*),r,s,t
+c ......................................................................
+c
+c ...
+      onePlusR  = 1.d0 + r
+      onePlusS  = 1.d0 + s
+      onePlusT  = 1.d0 + t
+      oneMinusR = 1.d0 - r
+      oneMinusS = 1.d0 - s
+      oneMinusT = 1.d0 - t
+c ......................................................................
+c
+c ... funcoes de interpolacao
+c
+      if ( afl ) then
+        h(1)  = onePlusR *onePlusS *onePlusT*0.125d0
+        h(2)  = oneMinusR*onePlusS *onePlusT*0.125d0
+        h(3)  = oneMinusR*oneMinusS*onePlusT*0.125d0
+        h(4)  = onePlusR *oneMinusS*onePlusT*0.125d0
+c
+        h(5)  = onePlusR *onePlusS *oneMinusT*0.125d0
+        h(6)  = oneMinusR*onePlusS *oneMinusT*0.125d0
+        h(7)  = oneMinusR*oneMinusS*oneMinusT*0.125d0
+        h(8)  = onePlusR *oneMinusS*oneMinusT*0.125d0
+      endif
+c .....................................................................
+c
+c ... derivadas
+      if ( bfl ) then
+c
+c     derivadas em relacao a r :
+c
+        hx(1)  =  onePlusS *onePlusT*0.125d0
+        hx(2)  = -onePlusS *onePlusT*0.125d0
+        hx(3)  = -oneMinusS*onePlusT*0.125d0
+        hx(4)  =  oneMinusS*onePlusT*0.125d0
+c
+        hx(5)  =  onePlusS *oneMinusT*0.125d0
+        hx(6)  = -onePlusS *oneMinusT*0.125d0
+        hx(7)  = -oneMinusS*oneMinusT*0.125d0
+        hx(8)  =  oneMinusS*oneMinusT*0.125d0
+
+c
+c     derivadas em relacao a s :
+c
+        hy(1)  =  onePlusR *onePlusT*0.125d0
+        hy(2)  =  oneMinusR*onePlusT*0.125d0
+        hy(3)  = -oneMinusR*onePlusT*0.125d0
+        hy(4)  = -onePlusR *onePlusT*0.125d0
+c
+        hy(5)  =  onePlusR *oneMinusT*0.125d0
+        hy(6)  =  oneMinusR*oneMinusT*0.125d0
+        hy(7)  = -oneMinusR*oneMinusT*0.125d0
+        hy(8)  = -onePlusR *oneMinusT*0.125d0
+c
+c     derivadas em relacao a t :
+c
+        hz(1)  =  onePlusR *onePlusS *0.125d0
+        hz(2)  =  oneMinusR*onePlusS *0.125d0
+        hz(3)  =  oneMinusR*oneMinusS*0.125d0
+        hz(4)  =  onePlusR *oneMinusS*0.125d0
+c
+        hz(5)  = -onePlusR *onePlusS *0.125d0
+        hz(6)  = -oneMinusR*onePlusS *0.125d0
+        hz(7)  = -oneMinusR*oneMinusS*0.125d0
+        hz(8)  = -onePlusR *oneMinusS*0.125d0
+      endif
+c ......................................................................      
+      return
+      end
+      subroutine sfhexa20_m(h,hx,hy,hz,r,s,t,afl,bfl)
+c **********************************************************************
+c *                                                                    *
+c *                                                    22/09/15        *
 c *   SFHEXA20:                                                        *
 c *   -------                                                          *
 c *                                                                    *
@@ -996,6 +1173,7 @@ c     Nos dos Vertices
         h(2)  = oneMinusR*onePlusS *onePlusT *(-r+s+t-2.d0)*0.125d0
         h(3)  = oneMinusR*oneMinusS*onePlusT *(-r-s+t-2.d0)*0.125d0
         h(4)  = onePlusR *oneMinusS*onePlusT *( r-s+t-2.d0)*0.125d0
+c
         h(5)  = onePlusR *onePlusS *oneMinusT*( r+s-t-2.d0)*0.125d0
         h(6)  = oneMinusR*onePlusS *oneMinusT*(-r+s-t-2.d0)*0.125d0
         h(7)  = oneMinusR*oneMinusS*oneMinusT*(-r-s-t-2.d0)*0.125d0
@@ -1005,10 +1183,12 @@ c     Nos pontos médios das arestas
         h(10) = oneMinusR *oneMinusSs*onePlusT  *0.25d0
         h(11) = oneMinusRr*oneMinusS *onePlusT  *0.25d0
         h(12) =  onePlusR *oneMinusSs*onePlusT  *0.25d0
+c
         h(13) = oneMinusRr*onePlusS  *oneMinusT *0.25d0
         h(14) = oneMinusR *oneMinusSs*oneMinusT *0.25d0
         h(15) = oneMinusRr*oneMinusS *oneMinusT *0.25d0
-        h(16) =  onePlusR *oneMinusSs*oneMinusT *0.25d0    
+        h(16) =  onePlusR *oneMinusSs*oneMinusT *0.25d0   
+c 
         h(17) =  onePlusR *onePlusS  *oneMinusTt*0.25d0
         h(18) = oneMinusR *onePlusS  *oneMinusTt*0.25d0
         h(19) = oneMinusR *oneMinusS *oneMinusTt*0.25d0
@@ -1027,6 +1207,7 @@ c     Nos dos Vertices
         hx(2)  = onePlusS *onePlusT *(2.d0*r-s-t+1.0d0)*0.125d0
         hx(3)  = oneMinusS*onePlusT *(2.d0*r+s-t+1.0d0)*0.125d0
         hx(4)  = oneMinusS*onePlusT *(2.d0*r-s+t-1.0d0)*0.125d0
+c
         hx(5)  = onePlusS *oneMinusT*(2.d0*r+s-t-1.0d0)*0.125d0
         hx(6)  = onePlusS *oneMinusT*(2.d0*r-s+t+1.0d0)*0.125d0
         hx(7)  = oneMinusS*oneMinusT*(2.d0*r+s+t+1.0d0)*0.125d0
@@ -1036,10 +1217,12 @@ c     Nos pontos médios das arestas
         hx(10) =   -oneMinusSs*onePlusT  *0.25d0
         hx(11) = -r*oneMinusS *onePlusT  *0.50d0
         hx(12) =    oneMinusSs*onePlusT  *0.25d0
+c
         hx(13) = -r*onePlusS  *oneMinusT *0.50d0
         hx(14) =   -oneMinusSs*oneMinusT *0.25d0
         hx(15) = -r*oneMinusS *oneMinusT *0.50d0
-        hx(16) =    oneMinusSs*oneMinusT *0.25d0                     
+        hx(16) =    oneMinusSs*oneMinusT *0.25d0   
+c                  
         hx(17) =    onePlusS  *oneMinusTt*0.25d0                     
         hx(18) =   -onePlusS  *oneMinusTt*0.25d0                     
         hx(19) =   -oneMinusS *oneMinusTt*0.25d0                     
@@ -1050,7 +1233,8 @@ c     derivadas em relacao a s :
         hy(1)  = onePlusR  *onePlusT *( r+2.d0*s+t-1.0d0)*0.125d0     
         hy(2)  = oneMinusR *onePlusT *(-r+2.d0*s+t-1.0d0)*0.125d0     
         hy(3)  = oneMinusR *onePlusT *( r+2.d0*s-t+1.0d0)*0.125d0     
-        hy(4)  = oneMinusR *onePlusT *(-r+2.d0*s-t+1.0d0)*0.125d0     
+        hy(4)  = onePlusR  *onePlusT *(-r+2.d0*s-t+1.0d0)*0.125d0    
+c 
         hy(5)  = onePlusR  *oneMinusT*( r+2.d0*s-t-1.0d0)*0.125d0     
         hy(6)  = oneMinusR *oneMinusT*(-r+2.d0*s-t-1.0d0)*0.125d0     
         hy(7)  = oneMinusR *oneMinusT*( r+2.d0*s+t+1.0d0)*0.125d0     
@@ -1060,10 +1244,12 @@ c     Nos pontos médios das arestas
         hy(10) =-s*oneMinusR *onePlusT  *0.50d0
         hy(11) =  -oneMinusRr*onePlusT  *0.25d0
         hy(12) =-s*onePlusR  *onePlusT  *0.50d0
+c
         hy(13) =   oneMinusRr*oneMinusT *0.25d0
         hy(14) =-s*oneMinusR *oneMinusT *0.50d0
         hy(15) =  -oneMinusRr*oneMinusT *0.25d0
         hy(16) =-s*onePlusR  *oneMinusT *0.50d0
+c
         hy(17) =   onePlusR  *oneMinusTt*0.25d0
         hy(18) =   oneMinusR *oneMinusTt*0.25d0
         hy(19) =  -oneMinusR *oneMinusTt*0.25d0
@@ -1074,21 +1260,24 @@ c     derivadas em relacao a t :
 c
         hz(1)  = onePlusR *onePlusS  *( r+s+2.d0*t-1.0d0)*0.125d0     
         hz(2)  = oneMinusR*onePlusS  *(-r+s+2.d0*t-1.0d0)*0.125d0     
-        hz(3)  = oneMinusR*oneMinusS *(-r+s+2.d0*t-1.0d0)*0.125d0     
-        hz(4)  = onePlusR *oneMinusS *(-r-s+2.d0*t-1.0d0)*0.125d0     
+        hz(3)  = oneMinusR*oneMinusS *(-r-s+2.d0*t-1.0d0)*0.125d0     
+        hz(4)  = onePlusR *oneMinusS *( r-s+2.d0*t-1.0d0)*0.125d0     
+c
         hz(5)  = onePlusR *onePlusS  *(-r-s+2.d0*t+1.0d0)*0.125d0     
         hz(6)  = oneMinusR*onePlusS  *( r-s+2.d0*t+1.0d0)*0.125d0     
         hz(7)  = oneMinusR*oneMinusS *( r+s+2.d0*t+1.0d0)*0.125d0     
-        hz(8)  = oneMinusR*oneMinusS *(-r+s+2.d0*t+1.0d0)*0.125d0     
+        hz(8)  = onePlusR *oneMinusS *(-r+s+2.d0*t+1.0d0)*0.125d0     
 c     Nos pontos médios das arestas      
         hz(9)  = oneMinusRr *onePlusS  *0.25d0
         hz(10) = oneMinusR  *oneMinusSs*0.25d0
         hz(11) = oneMinusRr *oneMinusS *0.25d0
         hz(12) =  onePlusR  *oneMinusSs*0.25d0
+c
         hz(13) = -oneMinusRr*onePlusS  *0.25d0
         hz(14) = -oneMinusR *oneMinusSs*0.25d0
         hz(15) = -oneMinusRr*oneMinusS *0.25d0
-        hz(16) =  -onePlusR *oneMinusSs*0.25d0    
+        hz(16) =  -onePlusR *oneMinusSs*0.25d0 
+c   
         hz(17) =-t*onePlusR *onePlusS  *0.50d0
         hz(18) =-t*oneMinusR*onePlusS  *0.50d0
         hz(19) =-t*oneMinusR*oneMinusS *0.50d0
@@ -1098,8 +1287,7 @@ c ......................................................................
       return
       end
 c **********************************************************************
-c
-c     subroutine sfhexa20(h,hx,hy,hz,r,s,t,afl,bfl)
+      subroutine sfhexa20(h,hx,hy,hz,r,s,t,afl,bfl)
 c **********************************************************************
 c *                                                                    *
 c *                                                    27/01/11        *
@@ -1125,136 +1313,151 @@ c *     hy(8)   - derivadas de h em relacao a s                        *
 c *     hz(8)   - derivadas de h em relacao a t                        *
 c *                                                                    *
 c **********************************************************************
-c     implicit none
-c     logical afl,bfl
-c     real*8  h(*),hx(*),hy(*),hz(*),r,s,t
+      implicit none
+      logical afl,bfl
+      real*8  h(*),hx(*),hy(*),hz(*),r,s,t
 c ......................................................................
-c     if ( afl ) then
+      if ( afl ) then
 c
 c     funcoes de interpolacao
 c
 c     Nos dos Vertices
-c     h(1)  = ( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) *(r+s+t-2)/ 8.d0
-c     h(2)  = ( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t) *(-r+s+t-2)/ 8.d0
-c     h(3)  = ( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) *(-r-s+t-2)/ 8.d0
-c     h(4)  = ( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t) *(r-s+t-2)/ 8.d0
-c     h(5)  = ( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t) *(r+s-t-2)/ 8.d0
-c     h(6)  = ( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t) *(-r+s-t-2)/ 8.d0
-c     h(7)  = ( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) *(-r-s-t-2)/ 8.d0
-c     h(8)  = ( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t) *(r-s-t-2)/ 8.d0
-c     Nos pontos médios das arestas      
-c     h(9)  =  ( 1.d0-r**2 ) * ( 1.d0+s ) * (1.d0+t) / 4.d0
-c     h(10)  = ( 1.d0-r ) * ( 1.d0-s**2 ) * (1.d0+t) / 4.d0
-c     h(11)  = ( 1.d0-r**2 ) * ( 1.d0-s ) * (1.d0+t) / 4.d0
-c     h(12)  = ( 1.d0+r ) * ( 1.d0-s**2 ) * (1.d0+t) / 4.d0
-c     h(13)  = ( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t**2) / 4.d0
-c     h(14)  = ( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t**2) / 4.d0
-c     h(15)  = ( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t**2) / 4.d0
-c     h(16)  = ( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t**2) / 4.d0
-c     h(17)  =  ( 1.d0-r**2 ) * ( 1.d0+s ) * (1.d0-t) / 4.d0
-c     h(18)  =  ( 1.d0-r ) * ( 1.d0-s**2 ) * (1.d0-t) / 4.d0
-c     h(19)  =  ( 1.d0-r**2 ) * ( 1.d0-s ) * (1.d0-t) / 4.d0
-c     h(20)  =  ( 1.d0+r ) * ( 1.d0-s**2 ) * (1.d0-t) / 4.d0    
+      h(1)  = ( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) *(r+s+t-2)/ 8.d0
+      h(2)  = ( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t) *(-r+s+t-2)/ 8.d0
+      h(3)  = ( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) *(-r-s+t-2)/ 8.d0
+      h(4)  = ( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t) *(r-s+t-2)/ 8.d0
 c
-c     endif
-c     if ( bfl ) then
+      h(5)  = ( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t) *(r+s-t-2)/ 8.d0
+      h(6)  = ( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t) *(-r+s-t-2)/ 8.d0
+      h(7)  = ( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) *(-r-s-t-2)/ 8.d0
+      h(8)  = ( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t) *(r-s-t-2)/ 8.d0
+c     Nos pontos médios das arestas      
+      h(9)  =  ( 1.d0-r**2 ) * ( 1.d0+s ) * (1.d0+t) / 4.d0
+      h(10)  = ( 1.d0-r ) * ( 1.d0-s**2 ) * (1.d0+t) / 4.d0
+      h(11)  = ( 1.d0-r**2 ) * ( 1.d0-s ) * (1.d0+t) / 4.d0
+      h(12)  = ( 1.d0+r ) * ( 1.d0-s**2 ) * (1.d0+t) / 4.d0
+c
+      h(13)  =  ( 1.d0-r**2 ) * ( 1.d0+s ) * (1.d0-t) / 4.d0
+      h(14)  =  ( 1.d0-r ) * ( 1.d0-s**2 ) * (1.d0-t) / 4.d0
+      h(15)  =  ( 1.d0-r**2 ) * ( 1.d0-s ) * (1.d0-t) / 4.d0
+      h(16)  =  ( 1.d0+r ) * ( 1.d0-s**2 ) * (1.d0-t) / 4.d0    
+c
+      h(17)  = ( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t**2) / 4.d0
+      h(18)  = ( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t**2) / 4.d0
+      h(19)  = ( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t**2) / 4.d0
+      h(20)  = ( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t**2) / 4.d0
+c
+      endif
+      if ( bfl ) then
 c
 c     derivadas em relacao a r :
 c
-c     hx(1) = ( 1.d0+s ) * (1.d0+t) *(r+s+t-2)/ 8.d0+
-c    . ( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0     
-c     hx(2) = -( 1.d0+s ) * (1.d0+t) *(-r+s+t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
-c     hx(3) = - ( 1.d0-s ) * (1.d0+t) *(-r-s+t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
-c     hx(4) =  ( 1.d0-s ) * (1.d0+t) *(r-s+t-2)/ 8.d0+
-c    .( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
-c     hx(5) = ( 1.d0+s ) * (1.d0-t) *(r+s-t-2)/ 8.d0+
-c    . ( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t) / 8.d0
-c     hx(6) = -( 1.d0+s ) * (1.d0-t) *(-r+s-t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t)/ 8.d0
-c     hx(7) = -( 1.d0-s ) * (1.d0-t) *(-r-s-t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
-c     hx(8) =  ( 1.d0-s ) * (1.d0-t) *(r-s-t-2)/ 8.d0+
-c    .( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t)/ 8.d0
-c     hx(9)  =  -2*r * ( 1.d0+s ) * (1.d0+t) / 4.d0
-c     hx(10)  = -( 1.d0-s**2 ) * (1.d0+t) / 4.d0
-c     hx(11)  = -2*r * ( 1.d0-s ) * (1.d0+t) / 4.d0
-c     hx(12)  =  ( 1.d0-s**2 ) * (1.d0+t) / 4.d0
-c     hx(13)  =  ( 1.d0+s ) * (1.d0-t**2) / 4.d0
-c     hx(14)  = -( 1.d0+s ) * (1.d0-t**2) / 4.d0
-c     hx(15)  = -( 1.d0-s ) * (1.d0-t**2) / 4.d0
-c     hx(16)  =  ( 1.d0-s ) * (1.d0-t**2) / 4.d0
-c     hx(17)  = -2*r * ( 1.d0+s ) * (1.d0-t) / 4.d0
-c     hx(18)  = -( 1.d0-s**2 ) * (1.d0-t) / 4.d0
-c     hx(19)  = -2*r * ( 1.d0-s ) * (1.d0-t) / 4.d0
-c     hx(20)  =  ( 1.d0-s**2 ) * (1.d0-t) / 4.d0  
+      hx(1) = ( 1.d0+s ) * (1.d0+t) *(r+s+t-2)/ 8.d0+
+     . ( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0     
+      hx(2) = -( 1.d0+s ) * (1.d0+t) *(-r+s+t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
+      hx(3) = - ( 1.d0-s ) * (1.d0+t) *(-r-s+t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
+      hx(4) =  ( 1.d0-s ) * (1.d0+t) *(r-s+t-2)/ 8.d0+
+     .( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
+c
+      hx(5) = ( 1.d0+s ) * (1.d0-t) *(r+s-t-2)/ 8.d0+
+     . ( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t) / 8.d0
+      hx(6) = -( 1.d0+s ) * (1.d0-t) *(-r+s-t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t)/ 8.d0
+      hx(7) = -( 1.d0-s ) * (1.d0-t) *(-r-s-t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
+      hx(8) =  ( 1.d0-s ) * (1.d0-t) *(r-s-t-2)/ 8.d0+
+     .( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t)/ 8.d0
+c
+      hx(9)  =  -2*r * ( 1.d0+s ) * (1.d0+t) / 4.d0
+      hx(10)  = -( 1.d0-s**2 ) * (1.d0+t) / 4.d0
+      hx(11)  = -2*r * ( 1.d0-s ) * (1.d0+t) / 4.d0
+      hx(12)  =  ( 1.d0-s**2 ) * (1.d0+t) / 4.d0
+c
+      hx(13)  = -2*r * ( 1.d0+s ) * (1.d0-t) / 4.d0
+      hx(14)  = -( 1.d0-s**2 ) * (1.d0-t) / 4.d0
+      hx(15)  = -2*r * ( 1.d0-s ) * (1.d0-t) / 4.d0
+      hx(16)  =  ( 1.d0-s**2 ) * (1.d0-t) / 4.d0  
+c
+      hx(17)  =  ( 1.d0+s ) * (1.d0-t**2) / 4.d0
+      hx(18)  = -( 1.d0+s ) * (1.d0-t**2) / 4.d0
+      hx(19)  = -( 1.d0-s ) * (1.d0-t**2) / 4.d0
+      hx(20)  =  ( 1.d0-s ) * (1.d0-t**2) / 4.d0
 c
 c     derivadas em relacao a s :
 c
-c     hy(1)  = ( 1.d0+r ) *  (1.d0+t) *(r+s+t-2)/ 8.d0+
-c    . ( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
-c     hy(2)  = ( 1.d0-r ) * (1.d0+t) *(-r+s+t-2)/ 8.d0+
-c    .( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
-c     hy(3)  = -( 1.d0-r ) *  (1.d0+t) *(-r-s+t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
-c     hy(4)  = -( 1.d0+r ) *  (1.d0+t) *(r-s+t-2)/ 8.d0-
-c    .( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t)/ 8.d0
-c     hy(5)  = ( 1.d0+r ) * (1.d0-t) *(r+s-t-2)/ 8.d0+
-c    .( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t) / 8.d0
-c     hy(6)  = ( 1.d0-r ) * (1.d0-t) *(-r+s-t-2)/ 8.d0+
-c    .( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t) / 8.d0
-c     hy(7)  = -( 1.d0-r ) * (1.d0-t) *(-r-s-t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
-c     hy(8)  = -( 1.d0+r ) *  (1.d0-t) *(r-s-t-2)/ 8.d0-
-c    .( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
-c     hy(9)  =  ( 1.d0-r**2 ) * (1.d0+t) / 4.d0
-c     hy(10)  = ( 1.d0-r ) * ( -2*s ) * (1.d0+t) / 4.d0
-c     hy(11)  = -( 1.d0-r**2 )  * (1.d0+t) / 4.d0
-c     hy(12)  = ( 1.d0+r ) * (-2*s ) * (1.d0+t) / 4.d0
-c     hy(13)  = ( 1.d0+r )  * (1.d0-t**2) / 4.d0
-c     hy(14)  = ( 1.d0-r )  * (1.d0-t**2) / 4.d0
-c     hy(15)  = -( 1.d0-r )  * (1.d0-t**2) / 4.d0
-c     hy(16)  = -( 1.d0+r )  * (1.d0-t**2) / 4.d0
-c     hy(17)  =  ( 1.d0-r**2 ) * (1.d0-t) / 4.d0
-c     hy(18)  =  ( 1.d0-r ) * ( -2*s ) * (1.d0-t) / 4.d0
-c     hy(19)  = -( 1.d0-r**2 )  * (1.d0-t) / 4.d0
-c     hy(20)  =  ( 1.d0+r ) * ( -2*s ) * (1.d0-t) / 4.d0  
+      hy(1)  = ( 1.d0+r ) *  (1.d0+t) *(r+s+t-2)/ 8.d0+
+     . ( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
+      hy(2)  = ( 1.d0-r ) * (1.d0+t) *(-r+s+t-2)/ 8.d0+
+     .( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
+      hy(3)  = -( 1.d0-r ) *  (1.d0+t) *(-r-s+t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
+      hy(4)  = -( 1.d0+r ) *  (1.d0+t) *(r-s+t-2)/ 8.d0-
+     .( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t)/ 8.d0
+c
+      hy(5)  = ( 1.d0+r ) * (1.d0-t) *(r+s-t-2)/ 8.d0+
+     .( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t) / 8.d0
+      hy(6)  = ( 1.d0-r ) * (1.d0-t) *(-r+s-t-2)/ 8.d0+
+     .( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t) / 8.d0
+      hy(7)  = -( 1.d0-r ) * (1.d0-t) *(-r-s-t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
+      hy(8)  = -( 1.d0+r ) *  (1.d0-t) *(r-s-t-2)/ 8.d0-
+     .( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
+c
+      hy(9)  =  ( 1.d0-r**2 ) * (1.d0+t) / 4.d0
+      hy(10)  = ( 1.d0-r ) * ( -2*s ) * (1.d0+t) / 4.d0
+      hy(11)  = -( 1.d0-r**2 )  * (1.d0+t) / 4.d0
+      hy(12)  = ( 1.d0+r ) * (-2*s ) * (1.d0+t) / 4.d0
+c
+      hy(17)  = ( 1.d0+r )  * (1.d0-t**2) / 4.d0
+      hy(18)  = ( 1.d0-r )  * (1.d0-t**2) / 4.d0
+      hy(19)  = -( 1.d0-r )  * (1.d0-t**2) / 4.d0
+      hy(20)  = -( 1.d0+r )  * (1.d0-t**2) / 4.d0
+c
+      hy(13)  =  ( 1.d0-r**2 ) * (1.d0-t) / 4.d0
+      hy(14)  =  ( 1.d0-r ) * ( -2*s ) * (1.d0-t) / 4.d0
+      hy(15)  = -( 1.d0-r**2 )  * (1.d0-t) / 4.d0
+      hy(16)  =  ( 1.d0+r ) * ( -2*s ) * (1.d0-t) / 4.d0  
 c
 c     derivadas em relacao a t :
 c
-c     hz(1)  = ( 1.d0+r ) * ( 1.d0+s ) * (r+s+t-2)/ 8.d0+
-c    .( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
-c     hz(2)  = ( 1.d0-r ) * ( 1.d0+s ) *(-r+s+t-2)/ 8.d0+
-c    .( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t)/ 8.d0
-c     hz(3)  = ( 1.d0-r ) * ( 1.d0-s ) *(-r-s+t-2)/ 8.d0+
-c    . ( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
-c     hz(4)  = ( 1.d0+r ) * ( 1.d0-s ) * (r-s+t-2)/ 8.d0+
-c    .( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
-c     hz(5)  = -( 1.d0+r ) * ( 1.d0+s ) * (r+s-t-2)/ 8.d0-
-c    .( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t)/ 8.d0
-c     hz(6)  = -( 1.d0-r ) * ( 1.d0+s ) * (-r+s-t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t)/ 8.d0
-c     hz(7)  = -( 1.d0-r ) * ( 1.d0-s ) * (-r-s-t-2)/ 8.d0-
-c    .( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
-c     hz(8)  = -( 1.d0+r ) * ( 1.d0-s )  *(r-s-t-2)/ 8.d0-
-c    .( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
-c     hz(9)  =  ( 1.d0-r**2 ) * ( 1.d0+s )  / 4.d0
-c     hz(10)  = ( 1.d0-r ) * ( 1.d0-s**2 )  / 4.d0
-c     hz(11)  = ( 1.d0-r**2 ) * ( 1.d0-s )  / 4.d0
-c     hz(12)  = ( 1.d0+r ) * ( 1.d0-s**2 )  / 4.d0
-c     hz(13)  = ( 1.d0+r ) * ( 1.d0+s ) * (-2*t) / 4.d0
-c     hz(14)  = ( 1.d0-r ) * ( 1.d0+s ) * (-2*t) / 4.d0
-c     hz(15)  = ( 1.d0-r ) * ( 1.d0-s ) * (-2*t) / 4.d0
-c     hz(16)  = ( 1.d0+r ) * ( 1.d0-s ) * (-2*t) / 4.d0
-c     hz(17)  =  -( 1.d0-r**2 ) * ( 1.d0+s )  / 4.d0
-c     hz(18)  =  -( 1.d0-r ) * ( 1.d0-s**2 )  / 4.d0
-c     hz(19)  =  -( 1.d0-r**2 ) * ( 1.d0-s )  / 4.d0
-c     hz(20)  =  -( 1.d0+r ) * ( 1.d0-s**2 )  / 4.d0 
-c     endif
+      hz(1)  = ( 1.d0+r ) * ( 1.d0+s ) * (r+s+t-2)/ 8.d0+
+     .( 1.d0+r ) * ( 1.d0+s ) * (1.d0+t) / 8.d0
+      hz(2)  = ( 1.d0-r ) * ( 1.d0+s ) *(-r+s+t-2)/ 8.d0+
+     .( 1.d0-r ) * ( 1.d0+s ) * (1.d0+t)/ 8.d0
+      hz(3)  = ( 1.d0-r ) * ( 1.d0-s ) *(-r-s+t-2)/ 8.d0+
+     . ( 1.d0-r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
+      hz(4)  = ( 1.d0+r ) * ( 1.d0-s ) * (r-s+t-2)/ 8.d0+
+     .( 1.d0+r ) * ( 1.d0-s ) * (1.d0+t) / 8.d0
+c
+      hz(5)  = -( 1.d0+r ) * ( 1.d0+s ) * (r+s-t-2)/ 8.d0-
+     .( 1.d0+r ) * ( 1.d0+s ) * (1.d0-t)/ 8.d0
+      hz(6)  = -( 1.d0-r ) * ( 1.d0+s ) * (-r+s-t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0+s ) * (1.d0-t)/ 8.d0
+      hz(7)  = -( 1.d0-r ) * ( 1.d0-s ) * (-r-s-t-2)/ 8.d0-
+     .( 1.d0-r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
+      hz(8)  = -( 1.d0+r ) * ( 1.d0-s )  *(r-s-t-2)/ 8.d0-
+     .( 1.d0+r ) * ( 1.d0-s ) * (1.d0-t) / 8.d0
+c
+      hz(9)  =  ( 1.d0-r**2 ) * ( 1.d0+s )  / 4.d0
+      hz(10)  = ( 1.d0-r ) * ( 1.d0-s**2 )  / 4.d0
+      hz(11)  = ( 1.d0-r**2 ) * ( 1.d0-s )  / 4.d0
+      hz(12)  = ( 1.d0+r ) * ( 1.d0-s**2 )  / 4.d0
+c
+      hz(13)  =  -( 1.d0-r**2 ) * ( 1.d0+s )  / 4.d0
+      hz(14)  =  -( 1.d0-r ) * ( 1.d0-s**2 )  / 4.d0
+      hz(15)  =  -( 1.d0-r**2 ) * ( 1.d0-s )  / 4.d0
+      hz(16)  =  -( 1.d0+r ) * ( 1.d0-s**2 )  / 4.d0 
+c
+      hz(17)  = ( 1.d0+r ) * ( 1.d0+s ) * (-2*t) / 4.d0
+      hz(18)  = ( 1.d0-r ) * ( 1.d0+s ) * (-2*t) / 4.d0
+      hz(19)  = ( 1.d0-r ) * ( 1.d0-s ) * (-2*t) / 4.d0
+      hz(20)  = ( 1.d0+r ) * ( 1.d0-s ) * (-2*t) / 4.d0
+      endif
 c ......................................................................      
-c     return
-c     end
+      return
+      end
 c **********************************************************************
       subroutine sfwedge(h,hx,hy,hz,r,s,t,afl,bfl)
 c **********************************************************************
@@ -1403,6 +1606,89 @@ c
 c ......................................................................                
       return
       end
+      subroutine jacob2d_m(hx,hy,xj,xji,x,det,nen,ndm,nel,afl)
+c **********************************************************************
+c *                                                                    *
+c *                                                    20/11/15        *
+c *                                                                    *
+c *   JACOB2D: determinante do Jacobiano no ponto (r,s)                *
+c *   -------                                                          *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     hx(nen)   - derivadas de h em relacao a r                      *
+c *     hy(nen)   - derivadas de h em relacao a s                      *
+c *     x(ndm,nen)- coordenadas nodais do elemento                     *
+c *     nen       - numero de nos do elemento                          *
+c *     nel       - numero do elemento                                 *
+c *     afl       - true - calcula a inversa da matriz Jacobiana       *
+c *                 false- calcula somente as derivadas das funcoes de *
+c *                 interpolacao                                       *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     hx(nen)  - derivadas de h em relacao a x                       *
+c *     hy(nen)  - derivadas de h em relacao a y                       *
+c *     xj(2,2)  - matriz jacobiana no ponto (r,s,t)                   *
+c *     xji(2,2) - inversa de xj                                       *
+c *     det      - determinante da matriz jacobiana no ponto (r,s)     *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nen,ndm,nel,j,k
+      real*8  ZERO
+      real*8  hx(*),hy(*),xj(2,*),xji(2,*),x(ndm,*)
+      real*8  det,hxk,hyk
+      logical afl
+      parameter (ZERO = 1.d-14)
+c ......................................................................
+c
+c ...
+      if (afl) then 
+c ... Matriz Jacobiana:
+c
+        do 200 j = 1 , 2
+          xj(1,j) = 0.d0
+          xj(2,j) = 0.d0
+          do 100 k = 1 , nen
+            xj(1,j) = xj(1,j) + hx(k) * x(j,k)
+            xj(2,j) = xj(2,j) + hy(k) * x(j,k)
+  100     continue
+  200   continue
+c
+c ... Determinante da matriz Jacobiana:  
+c
+c ......................................................................              
+        det = xj(1,1)*xj(2,2)-xj(2,1)*xj(1,2)
+        if (det .le. ZERO) then        
+          print*,'*** Subrotina ELMT: determinante <= 0 ',nel
+          stop
+        endif
+c ......................................................................                    
+c
+c ... Inversa da matriz Jacobiana:  
+c
+        xji(1,1) =  xj(2,2) / det
+        xji(1,2) = -xj(1,2) / det
+        xji(2,1) = -xj(2,1) / det
+        xji(2,2) =  xj(1,1) / det
+      endif
+c ......................................................................                    
+c
+c ... Derivadas das funcoes de interpolacao:
+c
+      do 300 k = 1, nen
+         hxk = hx(k)
+         hyk = hy(k)
+         hx(k) = xji(1,1)*hxk + xji(1,2)*hyk
+         hy(k) = xji(2,1)*hxk + xji(2,2)*hyk
+  300 continue
+c ......................................................................                
+      return
+      end
       subroutine jacob3d(hx,hy,hz,xj,xji,x,det,nen,nel,afl)
 c **********************************************************************
 c *                                                                    *
@@ -1444,14 +1730,14 @@ c **********************************************************************
       parameter (ZERO = 1.d-14)
 c ......................................................................
 c
-c
+c ...
       if (afl) then 
 c ... Matria Jacobiana:
 c
         do 200 j = 1 , 3
-          xj(1,j) = 0.
-          xj(2,j) = 0.
-          xj(3,j) = 0.
+          xj(1,j) = 0.d0
+          xj(2,j) = 0.d0
+          xj(3,j) = 0.d0
           do 100 k = 1 , nen
             xj(1,j) = xj(1,j) + hx(k) * x(j,k)
             xj(2,j) = xj(2,j) + hy(k) * x(j,k)
@@ -1511,21 +1797,28 @@ c **********************************************************************
       real*8  x(3,*),r(3,3)
       real*8 v1x,v1y,v1z,v2x,v2y,v2z,v3x,v3y,v3z,v1,v2,v3
 c ......................................................................
+c
+c ... v1 (x2-x1)     
       v1x = x(1,2)-x(1,1)
       v1y = x(2,2)-x(2,1)
       v1z = x(3,2)-x(3,1)
+c ... v2 (x3-x1)
       v2x = x(1,3)-x(1,1)
       v2y = x(2,3)-x(2,1)
       v2z = x(3,3)-x(3,1)
+c ... v3 = v1 x v2
       v3x = v1y*v2z - v1z*v2y
       v3y = v1z*v2x - v1x*v2z
       v3z = v1x*v2y - v1y*v2x
+c ... v2 = v1 x v3
       v2x = v1z*v3y - v1y*v3z
       v2y = v1x*v3z - v1z*v3x
       v2z = v1y*v3x - v1x*v3y
+c ... norm
       v1 = dsqrt(v1x*v1x+v1y*v1y+v1z*v1z)
       v2 = dsqrt(v2x*v2x+v2y*v2y+v2z*v2z)
       v3 = dsqrt(v3x*v3x+v3y*v3y+v3z*v3z)
+c ...
       r(1,1) = v1x/v1
       r(1,2) = v1y/v1
       r(1,3) = v1z/v1
@@ -1542,30 +1835,36 @@ c ......................................................................
 c **********************************************************************
 c *                                                                    *
 c *                                                    26/03/03        *
-c *   ROTACAO:                                                         *
-c *   -------                                                          *
+c *   MATRIZ DE ROTACAO: 3D                                            *
+c *   ------------------                                               *
 c *                                                                    *
 c **********************************************************************
       implicit none
       real*8  x1(3),x2(3),x3(3),r(3,3)
       real*8 v1x,v1y,v1z,v2x,v2y,v2z,v3x,v3y,v3z,v1,v2,v3
 c ......................................................................
-      
+c
+c ... v1 (x2-x1)     
       v1x = x2(1)-x1(1)
       v1y = x2(2)-x1(2)
       v1z = x2(3)-x1(3)
-      v2x =x3(1)-x1(1)
+c ... v2 (x3-x1)
+      v2x = x3(1)-x1(1)
       v2y = x3(2)-x1(2)
       v2z = x3(3)-x1(3)
+c ... v3 = v1 x v2
       v3x = v1y*v2z - v1z*v2y
       v3y = v1z*v2x - v1x*v2z
       v3z = v1x*v2y - v1y*v2x
+c ... v2 = v1 x v3
       v2x = v1z*v3y - v1y*v3z
       v2y = v1x*v3z - v1z*v3x
       v2z = v1y*v3x - v1x*v3y
+c ... norm
       v1 = dsqrt(v1x*v1x+v1y*v1y+v1z*v1z)
       v2 = dsqrt(v2x*v2x+v2y*v2y+v2z*v2z)
       v3 = dsqrt(v3x*v3x+v3y*v3y+v3z*v3z)
+c ...
       r(1,1) = v1x/v1
       r(1,2) = v1y/v1
       r(1,3) = v1z/v1
@@ -1811,6 +2110,171 @@ c ......................................................................
       end
 c **********************************************************************
 c
+c **********************************************************************
+      subroutine deform2d(hx,hy,u,eps,nen)
+c **********************************************************************
+c *                                                                    *
+c *                                                    25/03/03        *
+c *   DEFORM2D: calcula deformacoes 2D                                 *
+c *   --------                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     hx(nen)   - derivadas de h em relacao a x                      *
+c *     hy(nen)   - derivadas de h em relacao a y                      *
+c *     u(nst)    - deslocamentos                                      *
+c *     nen       - numero de nos do elemento                          *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     eps(3) - deformacoes                                           *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nen,i,j1,j2
+      real*8  hx(*),hy(*),u(*),eps(*)
+      real*8  ux,uy,vx,vy
+c ......................................................................
+      ux = 0.d0
+      uy = 0.d0
+      vx = 0.d0
+      vy = 0.d0
+      do 100 i = 1, nen
+         j1 = (i-1)*2+1
+      j2 = j1 + 1
+      ux = ux + hx(i)*u(j1)
+      uy = uy + hy(i)*u(j1)
+      vx = vx + hx(i)*u(j2)
+      vy = vy + hy(i)*u(j2)
+  100 continue
+      eps(1) = ux
+      eps(2) = vy
+      eps(3) = uy + vx
+      return
+      end
+      subroutine deform3d(hx,hy,hz,u,eps,nen)
+c **********************************************************************
+c *                                                                    *
+c *                                                    25/03/03        *
+c *   DEFORM3D: calcula deformacoes 3D                                 *
+c *   --------                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     hx(nen)   - derivadas de h em relacao a x                      *
+c *     hy(nen)   - derivadas de h em relacao a y                      *
+c *     hz(nen)   - derivadas de h em relacao a z                      *
+c *     u(nst)    - deslocamentos                                      *
+c *     nen       - numero de nos do elemento                          *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     eps(6) - deformacoes                                           *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nen,i,j1,j2,j3
+      real*8  hx(*),hy(*),hz(*),u(*),eps(*)
+      real*8  ux,uy,uz,vx,vy,vz,wx,wy,wz
+c ......................................................................
+      ux = 0.d0
+      uy = 0.d0
+      uz = 0.d0
+      vx = 0.d0
+      vy = 0.d0
+      vz = 0.d0
+      wx = 0.d0
+      wy = 0.d0
+      wz = 0.d0
+      do 100 i = 1, nen
+c        j1 = (i-1)*3+1
+         j1 = 3*i-2
+         j2 = j1 + 1
+         j3 = j2 + 1
+         ux = ux + hx(i)*u(j1)
+         uy = uy + hy(i)*u(j1)
+         uz = uz + hz(i)*u(j1)
+         vx = vx + hx(i)*u(j2)
+         vy = vy + hy(i)*u(j2)
+         vz = vz + hz(i)*u(j2)
+         wx = wx + hx(i)*u(j3)
+         wy = wy + hy(i)*u(j3)
+         wz = wz + hz(i)*u(j3)
+  100 continue
+      eps(1) = ux
+      eps(2) = vy
+      eps(3) = wz
+      eps(4) = uy + vx
+      eps(5) = vz + wy
+      eps(6) = uz + wx
+      return
+      end
+      subroutine stress2d(d11,d12,d22,d33,eps,t)
+c **********************************************************************
+c *                                                                    *
+c *                                                    25/03/03        *
+c *   STRESS2D: calcula tensoes 2D                                     *
+c *   --------                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     d11,d12,d22,d33 - coeficientes da matriz constitutiva          *
+c *     eps(3) - deformacoes                                           *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     t(3) - tensoes                                                 *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      real*8 d11,d12,d22,d33,eps(*),t(*)
+c ......................................................................
+      t(1) = d11*eps(1) + d12*eps(2)
+      t(2) = d12*eps(1) + d22*eps(2)
+      t(3) = d33*eps(3)
+      return
+      end
+      subroutine stress3d(a,b,c,eps,t)
+c **********************************************************************
+c *                                                                    *
+c *                                                    25/03/03        *
+c *   STRESS3D: calcula tensoes 3D                                     *
+c *   --------                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     a,b,c  - coeficientes da matriz constitutiva                   *
+c *     eps(6) - deformacoes                                           *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     t(6) - tensoes                                                 *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      real*8  a,b,c,eps(*),t(*)
+c ......................................................................
+      t(1) = (  eps(1) + b*eps(2) + b*eps(3))*a
+      t(2) = (b*eps(1) +   eps(2) + b*eps(3))*a
+      t(3) = (b*eps(1) + b*eps(2) +   eps(3))*a
+      t(4) = eps(4)*c*a
+      t(5) = eps(5)*c*a
+      t(6) = eps(6)*c*a
+      return
+      end
+
 c **********************************************************************
       block data
 c **********************************************************************

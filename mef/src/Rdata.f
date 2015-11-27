@@ -3,12 +3,14 @@ c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $
 c*$Rev: 967 $                                                           
 c*$Author: ana $                                                   
 c***********************************************************************    
-      subroutine rdat(nnode ,nnodev,numel   ,numat   
+      subroutine rdat(nnode ,nnodev ,numel  ,numat   
      .               ,nen   ,nenGeo
-     .               ,ndf   ,ndm   ,nst     ,i_ix 
+     .               ,ndf   ,ndm    ,nst    ,i_ix 
      .               ,i_ie  ,i_inum ,i_e    ,i_x 
-     .               ,i_id  ,i_nload,i_eload,i_f0
-     .               ,i_f   ,i_u   ,i_u0    ,nin     )
+     .               ,i_id  ,i_nload,i_eload,i_f
+     .               ,i_u   ,i_u0   ,i_tx0  ,i_pres0
+     .               ,i_dp
+     .               ,nin     )
 c **********************************************************************
 c *                                                                    *
 c *   RDAT: leitura de dados.                                          *
@@ -29,17 +31,19 @@ c *    ndf   - numero max. de graus de liberdade por no                *
 c *    ndm   - dimensao (1, 2 ou 3)                                    *
 c *    nst   - numero de graus de liberdade por elemento               *
 c *    i_ix    - ponteiro para conetividades                           *
-c *    i_id    - ponteiro para restricoes nodais (mecanico)            *
+c *    i_id    - ponteiro para restricoes nodais (poro_mecanico)       *
 c *    i_ie    - ponteiro para materiais                               *
-c *    i_nload - ponteiro para o arranjo nload (mecanico)              *
-c *    i_eload - ponteiro para o arranjo eload (mecanico)              *
+c *    i_nload - ponteiro para o arranjo nload (poro_mecanico)         *
+c *    i_eload - ponteiro para o arranjo eload (poro_mecanico)         *
 c *    i_inum  - ponteiro para o arranjo inum                          *
 c *    i_e     - ponteiro para o arranjo e                             *
 c *    i_x     - ponteiro para o arranjo x                             *
-c *    i_f     - ponteiro para o arranjo f (mecanico)                  *
-c *    i_u     - ponteiro para o arranjo u (mecanico)                  *
-c *    i_v     - ponteiro para o arranjo v (mecanico)                  *
-c *    i_a     - ponteiro para o arranjo a (mecanico)                  *
+c *    i_f     - ponteiro para o arranjo f (poro_mecanico)             *
+c *    i_u     - ponteiro para o arranjo u (poro_mecanico)             *
+c *    i_u0    - ponteiro para o arranjo u0(poro_mecanico)             *
+c *    i_tx0   - ponteiro para o arranjo tx(poro_mecanico)             *
+c *    i_pres0 - ponteiro para o arranjo pres(poro_mecanico)           *
+c *    i_dp      ponteiro para o arranjo deltaP(poro_mecanico)         *
 c *                                                                    *
 c *                                                                    *
 c *   Observacoes:                                                     *
@@ -50,6 +54,10 @@ c *    ie    - tipo de elemento                                        *
 c *    e     - constantes fisicas                                      *
 c *    x     - coordenadas nodais                                      *
 c *    f     - forcas e prescricoes nodais                             *
+c *    u0    - condicoes de contorno e inicial                         *
+c *    tx0   - tensoes inicias                                         *
+c *    pres0 - pressoes iniciais                                       *
+c *    dp    - delta P ( apenas alocado)                               *
 c *    nload(i,j) - numero identificador da carga na direcao i do no j *
 c *    load(1,n)  - tipo da carga n                                    *
 c *    load(2,n)  - numero de termos da carga n                        *
@@ -67,7 +75,8 @@ c ......................................................................
 c ......................................................................      
       integer nnodev,nnode,numel,numat,nen,nenGeo,ndf,ndft,ndm,nst
 c ... ponteiros      
-      integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum,i_u,i_u0,i_f0
+      integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
+      integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
       integer*8 i_ix,i_id,i_ie
       integer*8 i_nelcon,i_nodcon
 c ......................................................................      
@@ -84,33 +93,40 @@ c ......................................................................
      .           'quad4          ','tetra4         ','hexa8          ',
      .           'hexa20         ','               ','               ',
      .           'coordinates    ','constrainpmec  ','               ',
-     .           'nodalforces    ','nodalsources   ','nodalloads     ',
+     .           'nodalforces    ','elmtloads      ','nodalloads     ',
      .           '               ','               ','               ',
-     .           'loads          ','               ','prism6         ',
-     .           'initialdisp    ','               ','               ',
+     .           'loads          ','               ','               ',
+     .           'initialdisp    ','initialpres    ','               ',
      .           'parallel       ','insert         ','return         ',
      .           '               ','               ','end            '/
       data nmc /30/      
 c ......................................................................
 c
 c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
-c
+      print*,'load parameters ...'
       call parameters(nnodev,numel,numat,nen,ndf,ndm,nin)
+      print*,'load.'
       nnode  = nnodev
 c ......................................................................      
 c     Alocacao de arranjos na memoria:
 c     ---------------------------------------------------------------
-c     | ix | id | ie | nload | eload | inum | e | x | f | u | v | a |
+c     | ix | ie | eload | 
 c     ---------------------------------------------------------------
 c
       i_ix    = alloc_4('ix      ',nen+1,numel)
       i_ie    = alloc_4('ie      ',    1,numat)
       i_e     = alloc_8('e       ', prop,numat)
       i_x     = alloc_8('x       ',  ndm,nnodev)
+      i_pres0 = alloc_8('pres0   ',    1,nnodev)
+      i_dp    = alloc_8('dpres   ',    1,nnodev)
+      i_eload = alloc_4('eload   ',    7,numel)
       call mzero(ia(i_ix),numel*(nen+1))
       call mzero(ia(i_ie),numat) 
       call azero(ia(i_e),numat*10)
       call azero(ia(i_x),nnodev*ndm)
+      call azero(ia(i_pres0),nnodev)
+      call azero(ia(i_dp)   ,nnodev)
+      call mzero(ia(i_eload),numel*7) 
 c ......................................................................
       totnel  = 0            
       nmacros = 0
@@ -130,9 +146,16 @@ c
       nmacros = nmacros + 1
       write(macros(nmacros),'(15a)') rc
 c ......................................................................      
-      go to (400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,
-     .      1100,1150,1200,1250,1300,1350,1400,1450,1500,1550,1600,1650,
-     .      1700,1900,1900,2000) j
+      go to (400, 450, 500,    ! materials ,bar2         ,tria3
+     .       550, 600, 650,    !quad4      ,tetra4       ,hexa8
+     .       700, 750, 800,    !hexa20     ,             ,
+     .       850, 900, 950,    !coordinates,constrainpmec,
+     .      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
+     .      1150,1200,1250,    !           ,             ,
+     .      1300,1350,1400,    !loads      ,             ,
+     .      1450,1500,1550,    !initialdisp,intialpres   ,
+     .      1600,1650,1700,    !parallel   ,insert       ,return
+     .      1900,1900,2000) j  !           ,             ,end
 c ......................................................................
 c
 c ... Propriedades dos materiais:
@@ -185,6 +208,7 @@ c
 c ... Conetividades hexa8:          
 c
   650 continue
+      print*,'load hexa8 ...'
       fReadEl   = .true.
       nhexa8(1) = 0
       nenGeo    = 8
@@ -204,7 +228,7 @@ c ... obetem os vizinhos por face
 c .....................................................................
 c
 c ... gera a conectividade dos elementos quadraticos
-        call mkElConnQuad(ia(i_ix),ia(i_nelcon)
+        call mk_elConn_quad(ia(i_ix),ia(i_nelcon)
      .                   ,numel   
      .                   ,nnode   ,nnodev
      .                   ,nen     ,nenGeo  
@@ -217,26 +241,29 @@ c ...
 c .....................................................................
 c
 c ...                                                                   
+c     Alocacao de arranjos na memoria:
+c     ---------------------------------------------------------------
+c     | id  nload | inum | e | x | f | u | u0 | tx0 |
+c     ---------------------------------------------------------------
         if (ndf .gt. 0) then
           i_inum  = alloc_4('inum    ',    1,nnode)  
           i_id    = alloc_4('id      ',  ndf,nnode)
           i_nload = alloc_4('nload   ',  ndf,nnode)
-          i_eload = alloc_4('eload   ',    7,numel)
           i_f     = alloc_8('f       ',  ndf,nnode)
-          i_f0    = alloc_8('f0      ',  ndf,nnode)
           i_u     = alloc_8('u       ',  ndf,nnode)
           i_u0    = alloc_8('u0      ',  ndf,nnode)
+          i_tx0   = alloc_8('tx0     ',  ndf,nnode)
           call mzero(ia(i_inum) ,nnode)  
           call mzero(ia(i_id)   ,nnode*ndf)
           call mzero(ia(i_nload),nnode*ndf)
-          call mzero(ia(i_eload),numel*7) 
           call azero(ia(i_f)    ,nnode*ndf)
-          call azero(ia(i_f0)   ,nnode*ndf)
           call azero(ia(i_u)    ,nnode*ndf)
           call azero(ia(i_u0)   ,nnode*ndf)
+          call azero(ia(i_tx0)  ,nnode*6  )
         endif
 c .....................................................................
       endif
+      print*,'load.'
       go to 100
 c ......................................................................      
 c
@@ -265,28 +292,31 @@ c
 c ... Coordenadas:
 c
   850 continue
+      print*,'load coordinates ...'
       call coord(ia(i_x),nnodev,ndm,nin)
+      print*,'load.'
       go to 100
 c ......................................................................      
 c
 c ... constrainpmec - restricoes nodais (deslocamentos + pressao)
 c
   900 continue
-      print*,'constrainpmec'
+      print*,'load constrainpmec ...'
       if(fReadEl) then
         call bound(ia(i_id),nnodev,ndf,nin,1)
 c ...
         if(elQuad) then
-          call mkBoundQuad(ia(i_id),ia(i_ix),numel,ndf,nen)
+          call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf,nen)
         endif
 c ......................................................................
       else
         print*,'MACRO: constrain !! elementos nao lidos'
       endif
+      print*,'load.'
       go to 100
 c ......................................................................      
 c
-c ...                                                     
+c ...                                                                                     
 c
   950 continue
       go to 100      
@@ -296,22 +326,30 @@ c ... nodalforces - forcas nodais:
 c
  1000 continue
       if(fReadEl) then
-        print*,'nodalforces'
+        print*,'load nodalforces ...'
         call forces(ia(i_f),nnodev,ndf,nin)
 c ...
         if(elQuad) then
-          call mkForcesQuad(ia(i_f),ia(i_ix),numel,ndf,nen)
+          call mk_forces_quad(ia(i_id),ia(i_f),ia(i_ix),numel,ndf,nen)
         endif
 c ......................................................................
       else
         print*,'MACRO: nodalforces !! elementos nao lidos'
       endif
+      print*,'load.'
       go to 100
 c ......................................................................      
 c
-c ...                                       
+c ... elmtloads - cargas nos elementos                                                    
 c
  1050 continue
+      print*,'load elmtloads ...'
+      if(fReadEl) then
+        call bound(ia(i_eload),numel,7,nin,3) 
+      else
+        print*,'MACRO: elmtloads !! elementos nao lidos'
+      endif
+      print*,'load.'
       go to 100
 c ......................................................................      
 c
@@ -332,18 +370,13 @@ c
       goto 100
 c ......................................................................
 c
-c ... elmtloads - cargas nos elementos:                                         
+c ...                                                                           
 c      
  1200 continue
-      if(fReadEl) then
-        call bound(ia(i_eload),numel,7,nin,3) 
-      else
-        print*,'MACRO: elmtloads !! elementos nao lidos'
-      endif
       go to 100
 c ......................................................................
 c
-c ...                                                                                         
+c ...                                                                                      
 c      
  1250 continue
       go to 100
@@ -352,7 +385,9 @@ c
 c ... Definicao das cargas variaveis no tempo:
 c
  1300 continue
+      print*,'load loads ...'
       call rload(nin)
+      print*,'load.'
       goto 100
 c ......................................................................
 c
@@ -362,13 +397,9 @@ c
       goto 100
 c ......................................................................
 c
-c ... Tipo de Elemento : Prisma PRISM6
+c ...                                     
 c
  1400 continue
-      nprism6(1) = 0
-      call elconn(ia(i_ix),nen+1,6,nprism6(1),numel,nin)
-      nprism6(2) = totnel+1
-      totnel    = totnel + nprism6(1)
       goto 100
 c ......................................................................      
 c
@@ -376,16 +407,26 @@ c ... initialdisp - deslocamentos iniciais:
 c
  1450 continue
       if(fReadEl) then
-        call forces(ia(i_u),nnode,ndf,nin)  
+        call init_poro_mec(ia(i_u0),nnodev,ndf,1,ndf-1,nin)  
+        if(elQuad) then
+          call mk_forces_quad(ia(i_u0),ia(i_ix),numel,ndf,nen)
+        endif
       else
         print*,'MACRO: initialdisp !! elementos nao lidos'
       endif
       go to 100
 c ......................................................................      
 c
-c ...                                        
+c ... intialpres                             
 c
  1500 continue
+      print*,'load intialpres ...'
+      if(fReadEl) then
+        call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)  
+      else
+        print*,'MACRO: initialpres !! elementos nao lidos'
+      endif
+      print*,'load.'
       go to 100                                                       
 c ......................................................................
 c
@@ -441,9 +482,11 @@ c
          write(macros(nmacros),'(15a)') 'end'
       endif
 c
-c ... Inicializa as condicoes de contorno no vetor ü:
+c ... Inicializa as condicoes de contorno no vetor u:
 c
-      if(ndf .gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u))
+      if(ndf .gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
+      call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
+      call get_pres(ia(i_u),ia(i_pres0),nnodev,ndf)
       return
 c ......................................................................      
       end
@@ -610,6 +653,37 @@ c ......................................................................
       print*,'*** Erro na leitura das forcas nodais !'
       stop             
       end
+      subroutine init_poro_mec(f,nnode,ndf,n1,n2,nin)
+c **********************************************************************
+c *                                                                    *
+c *   Valores iniciais para o problema poro mecanico                   *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'string.fi'      
+      integer n1,n2,nnode,ndf,nin,i,j,k
+      real*8 f(ndf,*)
+      character*30 string            
+c ......................................................................
+      call readmacro(nin,.true.)
+      write(string,'(12a)') (word(i),i=1,12)
+      do 100 while(string .ne. 'end')
+         read(string,*,err = 200,end = 200) k
+         if(k .lt. 1 .or. k .gt. nnode) goto 200      
+         do 10 j = n1, n2
+            call readmacro(nin,.false.)
+            write(string,'(30a)') (word(i),i=1,30)
+            read(string,*,err = 200,end = 200) f(j,k)
+   10    continue
+         call readmacro(nin,.true.)
+         write(string,'(12a)') (word(i),i=1,12)
+  100 continue
+      return
+c ......................................................................      
+  200 continue
+      print*,'*** Erro na leitura das forcas nodais !'
+      stop             
+      end
       subroutine bound(id,nnode,ndf,nin,code)
 c **********************************************************************
 c *                                                                    *
@@ -723,13 +797,18 @@ c ...    numero da carga:
 c ...    tipo da carga:
          read(string,*,err = 200,end = 200) load(1,i)
          load(2,i) = 1
+c .....................................................................
+c   
+c ...   
          if     (load(1,i) .eq. 1) then
 c ...       valor da carga:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
             read(string,*,err = 200,end = 200) fload(1,1,i)
-         elseif (load(1,i) .eq. 2) then
+c .....................................................................
+c      
 c ...       u(t) = a.t + b 
+         elseif (load(1,i) .eq. 2) then
 c ...       valor de b:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -738,8 +817,10 @@ c ...       valor de a:
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
             read(string,*,err = 200,end = 200) fload(2,1,i)
-         elseif (load(1,i) .eq. 3) then
+c .....................................................................
+c      
 c ...       -kdu/dx = -H.(u-uext) 
+         elseif (load(1,i) .eq. 3) then
 c ...       valor de uext:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -748,6 +829,8 @@ c ...       valor de H:
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
             read(string,*,err = 200,end = 200) fload(2,1,i)
+c .....................................................................
+c      
          elseif (load(1,i) .eq. 6) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
@@ -764,8 +847,10 @@ c ...       numero de parcelas:
                write(string,'(30a)') (word(j),j=1,30)
                read(string,*,err = 200,end = 200) fload(3,k,i)
             enddo            
-         elseif (load(1,i) .eq. 7) then
+c .....................................................................
+c      
 c ...       kdu/dx = emiss * const(Stef-Boltz) *(u4-uext4)+H(uext-u)
+         elseif (load(1,i) .eq. 7) then
 c ...       Emissividade:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -792,6 +877,9 @@ c ...       valor de uext:
                write(string,'(30a)') (word(j),j=1,30)
                read(string,*,err = 200,end = 200) fload(k,3,i)
             enddo   
+c .....................................................................
+c   
+c ...   
          elseif (load(1,i) .eq. 8) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
@@ -804,6 +892,19 @@ c ...       numero de parcelas:
                call readmacro(nin,.false.)
                write(string,'(30a)') (word(j),j=1,30)
                read(string,*,err = 200,end = 200) fload(k,2,i)
+            enddo     
+c .....................................................................
+c      
+c ... forca distribuida constante no contorno
+         elseif (load(1,i) .eq. 40) then
+c ...       numero de parcelas:            
+            call readmacro(nin,.false.)
+            write(string,'(30a)') (word(j),j=1,30)
+            read(string,*,err = 200,end = 200) load(2,i)
+            do k = 1, load(2,i)
+               call readmacro(nin,.false.)
+               write(string,'(30a)') (word(j),j=1,30)
+               read(string,*,err = 200,end = 200) fload(k,1,i)
             enddo           
          endif
          call readmacro(nin,.true.)
@@ -1047,6 +1148,7 @@ c ......................................................................
 c ......................................................................      
       end 
 c ======================================================================      
+c
 c ======================================================================
 c
 c     Leitura da estrutura de dados do paralelo
@@ -1311,7 +1413,7 @@ c *   -------------------                                              *
 c *   id(ndf,*)  - restricoes atualizadas                              *
 c *                                                                    *
 c **********************************************************************
-      subroutine mkBoundQuad(id,el,numel,ndf,nen)
+      subroutine mk_bound_quad(id,el,numel,ndf,nen)
       implicit none
       integer maxEdge
       parameter (maxEdge = 12) 
@@ -1361,6 +1463,7 @@ c *                                                                    *
 c *   Parâmetros de entrada:                                           *
 c *   ----------------------                                           *
 c *                                                                    *
+c *   id(ndf,*)  - restricoes atualizadas                              *
 c *   f (ndf,*)  - valor das cargas nos vertices                       *
 c *   numel      - numero de elementos                                 *
 c *   ndf        - grau de liberdade                                   *
@@ -1371,7 +1474,7 @@ c *   -------------------                                              *
 c *   id(ndf,*)  - restricoes atualizadas                              *
 c *                                                                    *
 c **********************************************************************
-      subroutine mkForcesQuad(f,el,numel,ndf,nen)
+      subroutine mk_forces_quad(id,f,el,numel,ndf,nen)
       implicit none
       integer maxEdge
       parameter (maxEdge = 12) 
@@ -1379,6 +1482,7 @@ c ...
       integer i,j,k
       integer el(nen+1,*)
       integer iEdge(3,maxEdge)
+      integer id(ndf,*)
       integer numel,ndf,nedge,no1,no2,no3,nen
       real*8  f(ndf,*)
 c ...
@@ -1396,7 +1500,9 @@ c ... no vertices
 c ... no central
           no3     = el(iEdge(3,j),i)
           do k = 1, ndf-1
-            f(k,no3) = 0.5d0*(f(k,no1) +  f(k,no2)); 
+            if( id(k,no1) .eq. 1 .and. id(k,no2) .eq. 1) then
+              f(k,no3) = 0.5d0*(f(k,no1) +  f(k,no2))
+            endif 
           enddo
         enddo
       enddo
@@ -1410,3 +1516,32 @@ c .....................................................................
       return
       end
 c *********************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c *   GET_PRES : obtem as presoes                                      *
+c *                                                                    *
+c *   Parâmetros de entrada:                                           *
+c *   ----------------------                                           *
+c *                                                                    *
+c *   u (ndf,*)  - deslocamento e pressoes                             *
+c *   pres(*)    - indefinido                                          *
+c *   nnodev     - nos de vertices                                     *
+c *   ndf        - grau de liberdade                                   *
+c *                                                                    *
+c *   Parâmetros de saida:                                             *
+c *   -------------------                                              *
+c *   pres(*)    - pressoes                                            *
+c *                                                                    *
+c **********************************************************************
+      subroutine get_pres(u,pres,nnodev,ndf)
+      implicit none
+      integer ndf,i,nnodev
+      real*8 u(ndf,*),pres(*)
+c ...
+      do i = 1, nnodev
+        pres(i) = u(ndf,i)
+      enddo
+c .....................................................................  
+      return
+      end

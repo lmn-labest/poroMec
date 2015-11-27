@@ -60,7 +60,7 @@ c =====================================================================
 c
 c === cabecalho
       if(legacy) then
-        write(aux,'(30a)')"Malha part metis" 
+        write(aux,'(30a)')"Malha poro mec" 
         call head_vtk(aux,bvtk,nout) 
       else  
         call head_vtu(nnode,numel,bvtk,nout) 
@@ -167,8 +167,215 @@ c =====================================================================
 c =====================================================================
 c *********************************************************************
 c 
-
-
+c *********************************************************************      
+       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp       
+     .                             ,nnode  ,numel
+     .                             ,nen    ,ndm   ,ndf   
+     .                             ,fileout,bvtk  ,legacy,nout)
+c ===
+      use Malloc 
+      implicit none
+c ... variaveis da malha      
+      integer nnode,numel,nen,ndm,ndf
+      integer el(nen+1,numel)
+      real*8  x(ndm,*),u(ndf,*),dp(*)
+      integer nel,nno
+c ... locais     
+      integer*8 i_p,i_uv
+      data i_p/1/,i_uv/1/
+      character*15 aux1
+      character*30 aux
+c ... variaveis dums
+      real*8 ddum
+      real*4 fdum
+      integer idum 
+c ... arquivo      
+      integer nout
+      character*80 fileout,name,filein
+      logical bvtk,legacy
+      integer cod,cod2,gdl
+c =====================================================================
+c
+c ===
+      if(bvtk)then
+        open(unit=nout,file=fileout,access='stream'
+     .      ,form='unformatted',convert='big_endian')
+      else
+        open(unit=nout,file=fileout)
+      endif  
+c     print*,fileout,nout
+c =====================================================================
+c
+c === cabecalho
+      if(legacy) then
+        write(aux,'(30a)')'Malha poro mec' 
+        call head_vtk(aux,bvtk,nout) 
+      else  
+        call head_vtu(nnode,numel,bvtk,nout) 
+      endif  
+c =====================================================================
+c
+c === Coordenadas
+      if(legacy) then
+        call coor_vtk(x,nnode,ndm,bvtk,nout)
+      else  
+        call coor_vtu(x,nnode,ndm,bvtk,nout)
+      endif
+c =====================================================================
+c
+c === Elementos
+      if(legacy) then
+        call elm_vtk(el,numel,nen,bvtk,nout)
+      else  
+        call elm_vtu(el,numel,nen,bvtk,nout)
+      endif  
+c =====================================================================
+c
+c === cell 
+      if(legacy) then
+        call cell_data_vtk(numel,bvtk,nout)
+      else  
+        call cell_data_vtu(bvtk,nout)
+      endif  
+c ... materiais      
+      i_p = alloc_4('p       ', 1,numel)
+      do nel = 1, numel
+        ia(i_p+nel-1) = el(nen+1,nel)
+      enddo
+      write(aux1,'(15a)')'mat' 
+c ... cod = 1 variaveis interias
+      cod = 1
+      gdl = 1
+      if(legacy) then
+        call cell_prop_vtk(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif 
+      i_p = dealloc('p       ')
+c .....................................................................
+c
+c ... elIdG
+      i_p = alloc_4('p       ', 1,numel)
+      do nel = 1, numel
+        ia(i_p+nel-1) = nel
+      enddo
+      write(aux1,'(15a)')'elIdG' 
+c ... cod = 1 variaveis interias
+      cod = 1
+      gdl = 1
+      if(legacy) then
+        call cell_prop_vtk(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif 
+      i_p = dealloc('p       ')
+c .....................................................................
+c =====================================================================
+c
+c === nos  
+c ...       
+      if(legacy) then
+        call point_data_vtk(nnode,bvtk,nout)
+      else  
+        call point_data_vtu(bvtk,nout)
+      endif  
+      i_p = alloc_4('p       ', 1,nnode)
+      do nno = 1, nnode
+        ia(i_p+nno-1) = nno    
+      enddo
+      write(aux1,'(15a)')'noIdG'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 1 int(4bytes) 
+      gdl =  1
+      cod =  1
+      cod2 = 1
+      if(legacy) then
+        call pont_prop_vtk(ia(i_p),fdum,ddum,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2   ,bvtk,nout)
+      else
+        call pont_prop_vtu(ia(i_p),fdum,ddum,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2   ,bvtk,nout)
+      endif
+      i_p = dealloc('p       ')
+c .....................................................................
+c
+c ...
+      i_p  = alloc_8('p       ',1     ,nnode)
+      i_uv = alloc_8('uv      ',ndf-1 ,nnode)
+      call split_u_p(ia(i_p),ia(i_uv),u,nnode,ndf)
+c ... desloc     
+      write(aux1,'(15a)')'desloc'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 1 int(4bytes) 
+      gdl =  ndf - 1
+      cod =  2
+      cod2 = 3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ... pressao    
+      write(aux1,'(15a)')'pressao'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 1 int(4bytes) 
+      gdl =  1              
+      cod =  1
+      cod2 = 3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c      
+c ... delta pressao    
+      write(aux1,'(15a)')'deltaPressao'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 1 int(4bytes) 
+      gdl =  1              
+      cod =  1
+      cod2 = 3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c ...
+      i_uv= dealloc('uv      ')
+      i_p = dealloc('p       ')
+c .....................................................................
+c      
+c ...      
+      if(legacy .eqv. .false.) then
+        call point_data_finalize_vtu(bvtk,nout)
+        call finalize_vtu(bvtk,nout)
+      endif
+c .....................................................................
+c =====================================================================
+      close(nout)
+      return
+      end
+c =====================================================================
+c *********************************************************************
+c      
 c *********************************************************************
 c * WRITEMESH: escreve a malha particionada no formato do vtk         *
 c * ----------------------------------------------------------------- *
@@ -333,7 +540,7 @@ c =====================================================================
 c *********************************************************************
 c 
 c *********************************************************************
-c * MAKE_FACE: gera a conectividades dasfaces                         *
+c * MAKE_FACE: gera a conectividades das faces                        *
 c * ----------------------------------------------------------------- *
 c * Parametros de entrada :                                           *
 c * ----------------------------------------------------------------- *
@@ -414,3 +621,47 @@ c .....................................................................
       return
       end
 c *********************************************************************
+c
+c *********************************************************************
+c * SPLIT_U_P : pega a solução apenas nos vertices em divide em dois  *
+c *  vetores                                                          *
+c * ----------------------------------------------------------------- *
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * p      - indefinido                                               *
+c * uv     - indefinido                                               *
+c * u      - campo de pressao e deslocamente(u(4,i)=p;u(1:3)=desloc)  *
+c * nnodev - numero de nos de vertices                                *
+c * ndf    - numero de gaus de liberade                               *
+c * ----------------------------------------------------------------- *
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * p(nnodev) - pressao                                               *
+c * uv(nnodev)- deslocamento nos vertices                             *
+c *********************************************************************
+      subroutine split_u_p(p,uv,u,nnodev,ndf)
+      implicit none
+      integer nnodev,i,j,ndf
+      real*8 uv(ndf-1,*),u(ndf,*),p(*)
+c ...      
+      do i = 1, nnodev
+        do j = 1, ndf  
+        enddo
+      enddo
+      do i = 1, nnodev
+        do j = 1, ndf - 1  
+          uv(j,i) = u(j,i)  
+        enddo
+      enddo
+c ..................................................................... 
+c
+c ...      
+      do i = 1, nnodev
+        p(i) = u(ndf,i)   
+      enddo
+c ..................................................................... 
+c
+c ...
+      return
+      end
+c *********************************************************************      

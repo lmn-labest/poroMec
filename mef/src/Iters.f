@@ -3,7 +3,7 @@ c*$Date: 2011-12-02 14:45:55 -0200 (Fri, 02 Dec 2011) $
 c*$Rev: 958 $                                                           
 c*$Author: henrique $                                                   
 c***********************************************************************      
-      subroutine pcg(neq,ia,ja,ad,au,al,m,b,x,z,r,tol,maxit,
+      subroutine pcg(neq,nequ,nad,ia,ja,ad,au,al,m,b,x,z,r,tol,maxit,
      .               matvec,dot,my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
      .               i_xfi,i_rcvsi,i_dspli)
 c **********************************************************************
@@ -47,7 +47,7 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,maxit,i,j,nad
+      integer neq,nequ,maxit,i,j,nad
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),r(*),z(*),b(*)
       real*8  dot,ddot,tol,conv,energy,d,alpha,beta
@@ -67,7 +67,8 @@ c
          x(i) = 0.d0
    10 continue
 c ----------------------------------------------------------------------
-      call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),x,z,
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1), 
+     .            x,z,
      .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
       do 100 i = 1, neq
          r(i) = b(i) - z(i)
@@ -78,7 +79,7 @@ c ----------------------------------------------------------------------
       conv = tol*dsqrt(dabs(d))
 c ----------------------------------------------------------------------
       do 230 j = 1, maxit
-         call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
      .               b,z,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
      .               dum1)
          alpha = d / dot(b,z,neq_doti)
@@ -101,8 +102,9 @@ c ----------------------------------------------------------------------
 c
 c ... Energy norm:
 c
-      call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),x,z,
-     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .           x,z,
+     .           neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
       energy = dot(x(1),z(1),neq_doti)
 c ......................................................................
       time = MPI_Wtime()
@@ -489,9 +491,13 @@ c ======================================================================
      .        ' iterations !',/)
       end
 c **********************************************************************
-      subroutine pbicgstab(neq,ia,ja,ad,au,al,m,b,x,t,v,r,p,z,tol,
-     .                      maxit,matvec,dot,my_id,neqf1i,neqf2i,
-     .                      neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli)
+      subroutine pbicgstab(neq     ,nequ  ,nad,ia ,ja,
+     .                     ad      ,au    ,al ,m  ,b ,  x,  
+     .                     t       ,v     ,r  ,p ,  z,
+     .                     tol     ,maxit ,
+     .                     matvec  ,dot   ,
+     .                     my_id   ,neqf1i,neqf2i,
+     .                     neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli)
 c **********************************************************************
 c *                                                                    *
 c *   Subroutine PBICGSTAB                                             *
@@ -512,9 +518,9 @@ c *   m(*)   - precondicionador diagonal                               *
 c *   b(neq) - vetor de forcas                                         *
 c *   x(neq) - chute inicial                                           *
 c *   t(neq) - arranjo local de trabalho                               *
-c *   v(neq) - arranjo local de trabalho
+c *   v(neq) - arranjo local de trabalho                               *
 c *   r(neq) - arranjo local de trabalho                               *
-c *   p(neq) - arranjo local de trabalho
+c *   p(neq) - arranjo local de trabalho                               *
 c *   z(neq) - arranjo local de trabalho                               *
 c *   tol    - tolerancia de convergencia                              *
 c *   maxit  - numero maximo de iteracoes                              *
@@ -536,41 +542,42 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
-      integer neq,maxit,nad,i,j,k
+      integer neq,nequ,nad
+      integer maxit,i,j,k
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),r(*),p(*),b(*),t(*),v(*),z(*)
-      real*8  dot,ddot,tol,conv,energy,d,alpha,beta,rr0,w
+      real*8  dot,tol,conv,energy,d,alpha,beta,rr0,w,vi
       real*8  time0,time
       real*8  dum1 
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
 c ......................................................................
-      nad = ia(neq+1)-1
-      if(my_id.eq.0) print *, 'nad :',nad
+c     if(my_id.eq.0) print *, 'nad :',nad
 c ......................................................................
 c
 c ... Chute inicial:
-c
+c 
       do 10 i = 1, neq
          x(i) = 0.d0
    10 continue
 c ----------------------------------------------------------------------
-      call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),x,z,
-     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)   
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .            x,z,
+     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
       do 100 i = 1, neq
          r(i) = b(i) - z(i)
          p(i) = r(i)
          b(i) = p(i)
          z(i) = p(i)/m(i) 
   100 continue
-      d    = dot(r(1),z(1),neq_doti)
+      d    = dot(r,z,neq_doti)
       conv = tol*dsqrt(dabs(d))
 c ----------------------------------------------------------------------
       do 230 j = 1, maxit
-         call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
-     .               z,v,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .               dum1)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .               z,v,
+     .               neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
          rr0 = dot(b,r,neq_doti)
          alpha = rr0/dot(v,r,neq_doti)
          do 210 i = 1, neq
@@ -578,9 +585,9 @@ c ----------------------------------------------------------------------
             b(i) = b(i) - alpha * v(i)
             z(i) = b(i) / m(i)
   210    continue
-         call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
-     .               z,t, neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .               dum1)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .               z,t,
+     .               neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
          w = dot(t,b,neq_doti) / dot(t,t,neq_doti)
          do 220 i = 1, neq
             x(i) = x(i) + w*z(i)
@@ -601,14 +608,15 @@ c ----------------------------------------------------------------------
 c
 c ... Energy norm:
 c
-      call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),x,z,
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .            x,z,
      .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
-      energy   = dot(x(1),z(1),neq_doti)
+      energy   = dot(x,z,neq_doti)
 c ......................................................................
       time = MPI_Wtime()
       time = time-time0
 c ----------------------------------------------------------------------
-      if(my_id.eq.0)write(*,1100)tol,neq,j,energy,time
+      if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
 c ......................................................................
 c     Controle de flops
       if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10)')
@@ -622,6 +630,7 @@ c ======================================================================
  1100 format(' (PBICGSTAB) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
      . 5x,'Energy norm          = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)

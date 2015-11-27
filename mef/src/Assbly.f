@@ -55,7 +55,7 @@ c **********************************************************************
       integer ld(*),ia(*),ja(*),nst,neq,nequ,nad,stge
       logical lhs,rhs,unsym,dualCsr
 c ......................................................................      
-      if     (stge .eq. 1) then
+      if (stge .eq. 1) then
          if(dualCsr) then 
            call csr2(s ,p,ld,ia,ia(neq+2),ja,ja(nad+1),
      .              al,al(nad+1),ad,b,nst,neq,nequ,
@@ -131,7 +131,7 @@ c ......................................................................
       do 200 i = 1, nst
          k = ld(i)
          if (k .le. 0 .or. k .gt. neq) goto 200
-         if(rhs) b(k) = b(k) - p(i)
+         if(rhs) b(k) = b(k) - p(i) 
 c ......................................................................
          if(lhs) then
             ad(k) = ad(k) + s(i,i)         
@@ -246,7 +246,7 @@ c ... bloco Kpu
                   else if(l .le. nequ )  then
                      ki = k - nequ     
                      do 150 kk = iapu(ki), iapu(ki+1)-1
-                        if (l .eq. ja(kk)) then
+                        if (l .eq. japu(kk)) then
                           apul(kk) = apul(kk) + s(i,j)
                         endif
   150                continue

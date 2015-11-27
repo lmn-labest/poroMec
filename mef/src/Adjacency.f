@@ -573,9 +573,9 @@ c ----------------------------------------------------------------------
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine mkElConnQuad(ix    ,nelcon ,numel
-     .                       ,nnode ,nnodev ,nen
-     .                       ,nenv,nMaxViz)
+      subroutine mk_elconn_quad(ix    ,nelcon ,numel
+     .                         ,nnode ,nnodev ,nen
+     .                         ,nenv,nMaxViz)
 c **********************************************************************
 c *                                                                    *
 c *   MKELCONQUAD - gera a connectividade dos elementos quadraticos    *

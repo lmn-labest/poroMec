@@ -20,8 +20,8 @@ c *
 c *    code:                                                           *
 c *    0 -> geometria vtk                                              *
 c *    1 -> geometrica vtu                                             *
-c *    2 ->                                                            *
-c *    3 ->                                                            *
+c *    2 -> resultado vtk                                              *
+c *    3 -> resultado vtu                                              *
 c *    4 ->                                                            *
 c *    5 ->                                                            *
 c *    6 ->                                                            *
@@ -46,6 +46,16 @@ c ... geom .vtk
 c ... geom .vtu
       else if    (code .eq. 1) then
         StrExtensao='_geo.vtu'
+c ... res .vtk
+      else if    (code .eq. 2) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)  
+        StrExtensao='_istep_'//trim(StrExtensao)//'.vtk'
+c ... res .vtu
+      else if    (code .eq. 3) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)  
+        StrExtensao='_istep_'//trim(StrExtensao)//'.vtu'
 c ... log de tempos
       elseif(code .eq. 14) then
         write(StrExtensao,'( I6 )') NumArq
@@ -56,6 +66,11 @@ c ... log solver
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_log_'//trim(StrExtensao)//'.txt'
+c ... node file 
+      elseif(code .eq. 29) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_node_'//trim(StrExtensao)//'.txt'
       endif
 c ......................................................................      
       TamanhoNome = INDEX( NomeArqDados, ' '  )

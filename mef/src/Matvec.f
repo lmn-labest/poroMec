@@ -23,6 +23,10 @@ c *   matvec_csrcr                                                     *
 c *   matvec_csrcr1                                                    *
 c *   matvec_csrcrsym                                                  *
 c *   matvec_csrcrsym1                                                 *
+c * --------------------------Poromecanico --------------------------- *
+c *   matvec_csrcpm                                                    *
+c *   matvec_csrcsympm                                                 *
+c * ------------------------------------------------------------------ *
 c *   saxpb                                                            *
 c *   dot                                                              *
 c *   dot_par                                                          *
@@ -1193,12 +1197,15 @@ c
 c ......................................................................
       return
       end
-      subroutine matvec_csrcb(neq,nequ,ia,ja,iapu,japu,ad,al,apul,x,y,
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine matvec_csrc_pm(neq,nequ,ia,ja,iapu,japu,ad,al,apul,x,y,
      .                        neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
      .                        i_dspli)
 c **********************************************************************
 c *                                                                    *
-c *   MATVEC_CSRCB: produto matriz-vetor y = Ax  (A Kuu, Kpp e Kpu )   *
+c *   MATVEC_CSRC_PM:produto matriz-vetor y = Ax  (A Kuu, Kpp e Kpu )  *
 c *                   coef. de A no formato CSRC.                      *
 c *       | Kuu  -Kpu |                                                *
 c *   A = |           |                                                *
@@ -1275,13 +1282,14 @@ c
 c .....................................................................
 c
 c ... loop nas linha Kpu
-      neqp = neqp - nequ
+      neqp = neq - nequ
       do 120 i = 1, neqp
         ii = nequ+i
         xi = x(ii)
         do 130 k = iapu(i), iapu(i+1)-1
-          jak   = ja(k)
-          s     = al(k)
+          jak   = japu(k)
+          s     = apul(k)
+          
 c ... Kpu
           y(ii)  =  y(ii)  + s*x(jak)
 c ... Kup
@@ -1298,6 +1306,96 @@ c ... Comunicacao do vetor y no sistema non-overlapping:
 c
 c     if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
 c    .                            i_dspli)
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine matvec_csrcsym_pm(neq ,dum0,ia  ,ja,dum1,dum2,
+     .                            ad  ,al  ,dum3,
+     .                            x   ,y   ,
+     .                            neqf1i   ,neqf2i,
+     .                            i_fmapi  ,i_xfi ,i_rcvsi,
+     .                            i_dspli  ,dum4)
+c **********************************************************************
+c *                                                                    *
+c *   MATVEC_CSRCSYM_PM: produto matriz-vetor y = Ax  (A simetrica),   *
+c *                   coef. de A no formato CSRC.                      *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   neq   - numero de equacoes                                       *
+c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
+c *                     coeficiente nao-nulo da linha   i              *
+c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
+c *               a posicao k no vetor au                              *
+c *   ad(neq)- diagonal da matriz A                                    *
+c *   al(nad)- parte triangular inferior de A, no formato CSR, ou      *
+c *            parte triangular superior de A, no formato CSC          *
+c *   au(*)  - nao utilizado                                           *
+c *   x(neq) - vetor a ser multiplicado                                *
+c *   y(neq) - nao definido                                            *
+c *   neqf1i - numero de equacoes no buffer de recebimento (MPI)       *
+c *   neqf2i - numero de equacoes no buffer de envio (MPI)             *
+c *   i_fmapi- ponteiro para o mapa de comunicacao  (MPI)              *
+c *   i_xfi  - ponteiro para o buffer de valores    (MPI)              *
+c *   i_rcvsi- ponteiro extrutura da comunicacao    (MPI)              *
+c *   i_dspli- ponteiro extrutura da comunicacao    (MPI)              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'parallel.fi'
+      include 'time.fi'
+      integer neq,ia(*),ja(*),dum0,dum1,dum2,dum3,i,k,jak
+      real*8  ad(*),al(*),x(*),y(*),s,t,xi
+      real*8 dum4
+      integer neqf1i,neqf2i
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+c ......................................................................
+      time0 = MPI_Wtime()
+c
+c ... Loop nas linhas:
+c
+      do 110 i = 1, neq
+c
+c ...    Produto da diagonal de A por x:
+c
+         xi = x(i)
+         t  = ad(i)*xi
+c
+c ...    Loop nos coeficientes nao nulos da linha i:
+c
+         do 100 k = ia(i), ia(i+1)-1
+            jak = ja(k)
+            s   = al(k)
+c
+c ...       Produto da linha i pelo vetor x (parte triangular inferior):
+c
+            t   = t + s*x(jak)
+c
+c ...       Produto dos coef. da parte triangular superior por x(i):
+c
+            y(jak) = y(jak) + s*xi
+  100    continue
+c
+c ...    Armazena o resultado em y(i):
+c
+         y(i) = t
+  110 continue
+      matvectime = matvectime + MPI_Wtime() - time0
+c ......................................................................
+c
+c ... Comunicacao do vetor y no sistema non-overlapping:
+c
+      if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
+     .                            i_dspli)
 c ......................................................................
       return
       end
