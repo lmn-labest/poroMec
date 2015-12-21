@@ -819,7 +819,7 @@ c ... reabre o arquivo e add uma nova linha
 c =====================================================================        
 c
 c === 
-      write(nout,'(i9,f15.6,9f30.10)')istep,istep*dt,(u(i,no), i=1, ndf)
+      write(nout,'(i9,f30.6,9f30.10)')istep,istep*dt,(u(i,no), i=1, ndf)
 c      write(nout,*)istep,',',istep*dt,',',u(no)
       close(nout)
       return

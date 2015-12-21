@@ -7,7 +7,7 @@
 PATH_MOD="src/"
 PATH_INCLUDE="include/"    
 PRENAME=poroMec
-DEBUG=yes
+DEBUG=no
 FC=gfortran
 OPENMP=yes
 OT=O2
@@ -26,6 +26,7 @@ src_mef = src/Assbly.f \
 src/Adjacency.f\
 src/Colormsh.f\
 src/Csr.f\
+src/Csr_to_coo.f\
 src/Datastruct.f\
 src/Edges.f\
 src/Elmlib.f\

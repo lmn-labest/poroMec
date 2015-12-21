@@ -50,13 +50,13 @@ c .....................................................................
 c
 c ... openmp in compile time and run time
       if((my_id.eq.0).and.openmp)then
-        print*,"**************    POROMEC      ***********************"
+        print*,"**************    PORO_MEC     ***********************"
         print*,"**************     OPENMP      ***********************"
         print*,'Max available threads:',num_threads
         print*,"******************************************************"
 c ...  openmp disable in complile time     
       elseif(my_id.eq.0)then
-        print*,"**************    POROMEC      ***********************"
+        print*,"**************    PORO_MEC     ***********************"
         print*,"**************     OPENMP      ***********************"
         print*,"Openmp disable in compile time.                      "
         print*,"******************************************************"

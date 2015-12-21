@@ -3,10 +3,11 @@ c*$Date: 2011-03-16 15:32:53 -0300 (Wed, 16 Mar 2011) $
 c*$Rev: 914 $                                                           
 c*$Author: henrique $                                                   
 c***********************************************************************
-      subroutine datastruct(ix,id,num,nnode,nnodev,numel,nen,ndf,nst,
-     .               neq,nequ,neqp,stge,
-     .               unsym,nad,nadup,i_ia,i_ja,i_au,i_al,i_ad,ija,ja,au,
-     .               al,ad,ovlp,dualCsr)
+      subroutine datastruct(ix,id,num,nnode,nnodev,numel,nen,ndf,nst
+     .               ,neq,nequ,neqp,stge
+     .               ,unsym,nad,naduu,nadpp,nadpu
+     .               ,i_ia,i_ja,i_au,i_al,i_ad,ija,ja,au
+     .               ,al,ad,ovlp,dualCsr)
 c **********************************************************************
 c *                                                                    *
 c *   DATASTRUCT: monta a estrutura de dados para a matriz de          *
@@ -47,7 +48,10 @@ c *    i_al  - ponteiro para o arranjo al(nad)                         *
 c *    i_ad  - ponteiro para a diagonal                                *
 c * dualCsr = true                                                     *
 c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
-c *    nadup - numero de coeficientes nao nulos do bloco up            *
+c *    naduu - numero de coeficientes nao nulos do bloco uu            *
+c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
+c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
+c *    nadpu - numero de coeficientes nao nulos do bloco pu            *
 c * dualCsr = false                                                    *
 c *    nad   - numero de coeficientes nao nulos                        *
 c *                                                                    *
@@ -59,7 +63,7 @@ c **********************************************************************
       implicit none
       integer ix(nen+1,*),id(ndf,*),num(*),nnode,nnodev
       integer numel,nen,ndf,nst,neq
-      integer stge,nad,nadup,nequ,neqp
+      integer stge,nad,naduu,nadpp,nadpu,nequ,neqp
 c ... ponteiros      
       integer*8 i_ia,i_ja,i_au,i_al,i_ad
       integer*8 i_bd,i_lde
@@ -76,7 +80,9 @@ c ......................................................................
       i_bd    = 1
       i_lde   = 1
       nad     = 0
-      nadup   = 1
+      naduu   = 0
+      naduu   = 0
+      nadpu   = 0
       nedge   = 0
       nste    = 0
       bdfl    = .false.
@@ -92,18 +98,15 @@ c ...    estrutura de dados do csr:
 c
          call csrstruct(id,ix,num,nnode,nnodev,
      .                  numel,nen,ndf,neq,nequ,neqp,
-     .                  i_ia,i_ja,nad,nadup,
-c     .                 nad1, lower ,  diag , upper,right)
+     .                  i_ia,i_ja,nad,naduu,nadpp,nadpu,
 c ... matvec novo:
      .                 .true.,.false.,.false.,ovlp,ija,ja,dualCsr)
-c ... matvec antigo:
-c     .                  nad1,.false.,.false.,.true.,.false.)
 c     
 c ...    matriz de coeficientes:
 c
-         i_al = alloc_8(al,1,nad+nadup)
+         i_al = alloc_8(al,1,nad+nadpu)
          i_au = i_al
-         if(unsym) i_au = alloc_8(au,1,nad+nadup) 
+         if(unsym) i_au = alloc_8(au,1,nad+nadpu) 
          i_ad = alloc_8(ad,1,neq)         
 c ......................................................................
       elseif(stge .eq. 2) then

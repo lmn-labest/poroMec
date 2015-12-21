@@ -167,21 +167,23 @@ c =====================================================================
 c =====================================================================
 c *********************************************************************
 c 
-c *********************************************************************      
-       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp       
-     .                             ,nnode  ,numel
-     .                             ,nen    ,ndm   ,ndf   
+c *********************************************************************    
+       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp   
+     .                             ,tx     ,txb   ,txe   ,flux    
+     .                             ,nnode  ,numel  
+     .                             ,nen    ,ndm   ,ndf   ,ntn  
      .                             ,fileout,bvtk  ,legacy,nout)
 c ===
       use Malloc 
       implicit none
 c ... variaveis da malha      
-      integer nnode,numel,nen,ndm,ndf
+      integer nnode,numel,nen,ndm,ndf,ntn,ntn1
       integer el(nen+1,numel)
       real*8  x(ndm,*),u(ndf,*),dp(*)
+      real*8 tx(ntn,*),txb(ntn,*),txe(ntn,*),flux(ndm,*)
       integer nel,nno
 c ... locais     
-      integer*8 i_p,i_uv
+      integer*8 i_p,i_uv,i_tensor
       data i_p/1/,i_uv/1/
       character*15 aux1
       character*30 aux
@@ -312,7 +314,7 @@ c ... desloc
       write(aux1,'(15a)')'desloc'
 c ... gdb graus de liberdade
 c     cod  1 escalar
-c     cod2 1 int(4bytes) 
+c     cod2 3 real(8bytes) 
       gdl =  ndf - 1
       cod =  2
       cod2 = 3
@@ -329,7 +331,7 @@ c ... pressao
       write(aux1,'(15a)')'pressao'
 c ... gdb graus de liberdade
 c     cod  1 escalar
-c     cod2 1 int(4bytes) 
+c     cod2 3 real(8bytes) 
       gdl =  1              
       cod =  1
       cod2 = 3
@@ -346,7 +348,7 @@ c ... delta pressao
       write(aux1,'(15a)')'deltaPressao'
 c ... gdb graus de liberdade
 c     cod  1 escalar
-c     cod2 1 int(4bytes) 
+c     cod2 3 real(8bytes) 
       gdl =  1              
       cod =  1
       cod2 = 3
@@ -358,11 +360,116 @@ c     cod2 1 int(4bytes)
      .                    ,cod2,bvtk,nout)
       endif
 c .....................................................................
+c
 c ...
       i_uv= dealloc('uv      ')
       i_p = dealloc('p       ')
 c .....................................................................
-c      
+c
+c ... delta pressao    
+      write(aux1,'(15a)')'flux'           
+c ... gdb graus de liberdade
+c     cod  2 vetor      
+c     cod2 3 real(8bytes) 
+      gdl =  ndm            
+      cod =  2
+      cod2 = 3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c    
+c ... gerando o tensor completo 
+      if( ntn .eq. 6 ) then
+        i_tensor = alloc_8('tensor  ',9 ,nnode)
+        ntn1     = 9
+        call make_full_tensor(tx,ia(i_tensor),nnode,6, ntn1 )
+      endif
+c .....................................................................
+c    
+c ...
+      write(aux1,'(15a)')'stress'           
+c ... gdb graus de liberdade
+c     cod  3 vetor      
+c     cod2 3 real(8bytes) 
+      gdl  =  ntn1            
+      cod  =  3
+      cod2 =  3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                    ,cod ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ...
+      i_tensor = dealloc('tensor  ')
+c .....................................................................
+c
+c ... gerando o tensor completo 
+      if( ntn .eq. 6 ) then
+        i_tensor = alloc_8('tensor  ',9 ,nnode)
+        ntn1     = 9
+        call make_full_tensor(txe,ia(i_tensor),nnode,6, ntn1 )
+      endif
+c .....................................................................
+c
+c ...
+      write(aux1,'(15a)')'stressE'           
+c ... gdb graus de liberdade
+c     cod  3 vetor      
+c     cod2 3 real(8bytes) 
+      gdl  =  ntn1            
+      cod  =  3
+      cod2 =  3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                    ,cod ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ...
+      i_tensor = dealloc('tensor  ')
+c .....................................................................
+c
+c ... gerando o tensor completo 
+      if( ntn .eq. 6 ) then
+        i_tensor = alloc_8('tensor  ',9 ,nnode)
+        ntn1     = 9
+        call make_full_tensor(txb,ia(i_tensor),nnode,6, ntn1 )
+      endif
+c .....................................................................
+c
+c ...
+      write(aux1,'(15a)')'stressB'           
+c ... gdb graus de liberdade
+c     cod  3 vetor      
+c     cod2 3 real(8bytes) 
+      gdl  =  ntn1            
+      cod  =  3
+      cod2 =  3
+      if(legacy) then
+        call pont_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                    ,cod ,cod2,bvtk,nout)
+      else
+        call pont_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ...
+      i_tensor = dealloc('tensor  ')
+c .....................................................................
+c    
 c ...      
       if(legacy .eqv. .false.) then
         call point_data_finalize_vtu(bvtk,nout)
@@ -660,6 +767,60 @@ c ...
         p(i) = u(ndf,i)   
       enddo
 c ..................................................................... 
+c
+c ...
+      return
+      end
+c *********************************************************************      
+c       
+c *********************************************************************
+c * make_full_tensor : transforma um tensor simetrico em um tensor    *
+c * geral                                                             *
+c * ----------------------------------------------------------------- *
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * tx     - tensor simetrico                                         *
+c * tensor - indefinido                                               *
+c * nnode  - numero de nos de vertices                                *
+c * ntn    - numero total de termnos do tensor simetrico              *
+c * n      - numero total de termnos do tensor geral                  *
+c * ----------------------------------------------------------------- *
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * tensor - tensor geral                                             *
+c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
+c * tx    (Sxx,Syy,Szz, Sxy, Syz, Sxz)                                *
+c * tensor(Sxx,Sxy,Sxz, Syx, Syy, Syz, Szx, Syz, Szz)                 *
+c *********************************************************************      
+      subroutine make_full_tensor(tx,tensor,nnode,ntn,n)
+      implicit none
+      real*8 tx(ntn,*),tensor(n,*)
+      integer nnode,ntn,n,i
+c ...
+      if(ntn .eq. 6) then
+        do i = 1, nnode
+c ... sgima xx
+          tensor(1,i) = tx(1,i)
+c ... sgima xy
+          tensor(2,i) = tx(4,i)
+c ... sgima xz
+          tensor(3,i) = tx(6,i)
+c ... sgima yx
+          tensor(4,i) = tx(4,i)
+c ... sgima yy
+          tensor(5,i) = tx(2,i)
+c ... sgima yz
+          tensor(6,i) = tx(5,i)
+c ... sgima zx
+          tensor(7,i) = tx(6,i)
+c ... sgima zy
+          tensor(8,i) = tx(5,i)
+c ... sgima zz
+          tensor(9,i) = tx(3,i)
+        enddo
+      endif
+c .....................................................................
 c
 c ...
       return

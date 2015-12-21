@@ -33,6 +33,11 @@ c *   12 ->                                                            *
 c *   13 ->                                                            *
 c *   14 -> arquivo de tempos                                          *
 c *   15 -> arquivo do log do solver                                   *
+c *   30 -> arquivos de resultados por nos                             *
+c *   31 -> arquivos de tensoes total por nos                          *
+c *   32 -> arquivos de tensoes efetivas de terzaghi por nos           *
+c *   33 -> arquivos de tensoes efetivas de biot por nos               *
+c *   34 -> arquivos de fluxo de darcy por nos                         *
 c **********************************************************************
       implicit none      
       include 'parallel.fi'
@@ -40,6 +45,7 @@ c **********************************************************************
       character*30 StrExtensao
       integer      iPonto,TamanhoNome,NumArq,code
 c ......................................................................
+c
 c ... geom .vtk
       if    (code .eq. 0) then
         StrExtensao='_geo.vtk'
@@ -66,11 +72,46 @@ c ... log solver
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_log_'//trim(StrExtensao)//'.txt'
-c ... node file 
-      elseif(code .eq. 29) then
+c ... pu node file 
+      elseif(code .eq. 30) then
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
-        StrExtensao='_node_'//trim(StrExtensao)//'.txt'
+        StrExtensao='_up_node_'//trim(StrExtensao)//'.txt'
+c ... stress node file 
+      elseif(code .eq. 31) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_stress_node_'//trim(StrExtensao)//'.txt'
+c ... terzaghi stress node file 
+      elseif(code .eq. 32) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_stressE_node_'//trim(StrExtensao)//'.txt'
+c ... biot stress node file 
+      elseif(code .eq. 33) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_stressB_node_'//trim(StrExtensao)//'.txt'
+c ... flux node file 
+      elseif(code .eq. 34) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_flux_node_'//trim(StrExtensao)//'.txt'
+c ... mtx 
+      elseif(code .eq. 50) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_'//trim(StrExtensao)
+c ... kuu mtx 
+      elseif(code .eq. 51) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_kuu_'//trim(StrExtensao)
+c ... kpp mtx 
+      elseif(code .eq. 52) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_kpp_'//trim(StrExtensao)
       endif
 c ......................................................................      
       TamanhoNome = INDEX( NomeArqDados, ' '  )

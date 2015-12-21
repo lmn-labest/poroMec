@@ -3,8 +3,8 @@ c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $
 c*$Rev: 967 $                                                           
 c*$Author: ana $                                                   
 c***********************************************************************
-      subroutine elmlibpmec(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,iel,isw,ma,
-     .                      nlit,ilib,block_pu)
+      subroutine elmlib_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,iel,isw,ma,
+     .                    nlit,ilib,block_pu)
 c **********************************************************************
 c *                                                                    *
 c *   ELMLIB: biblioteca de elementos.                                 *
@@ -36,8 +36,10 @@ c *   -------------------                                              *
 c *                                                                    *
 c *     e - constantes fisicas                                         *
 c *     s - matriz de elemento                                         *
-c *     p - residuo                                                    *
-c *                                                                    *
+c *     p - isw = 2  residuo                                           *
+c *         isw = 3  tensao e fluxo                                    *
+c *         isw = 4  cargas de superfice, volume e integras do passo   *
+c *         de tempo anterior                                          *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
@@ -711,6 +713,7 @@ c
 c ......................................................................      
       return
       end
+c **********************************************************************
       subroutine sfquad8(h,hx,hy,r,s,afl,bfl)
 c **********************************************************************
 c *                                                                    *
@@ -734,79 +737,55 @@ c *                                                                    *
 c *     h(8)    - funcoes de interolocao no ponto (r,s)                *
 c *     hx(8)   - derivadas de h em relacao a r                        *
 c *     hy(8)   - derivadas de h em relacao a s                        *
-c * OBS:                                                               *
-c * no  ( r, s)                                                        *
-c * no1 ( 1, 1)                                                        * 
-c * no2 (-1, 1)                                                        * 
-c * no3 (-1,-1)                                                        * 
-c * no4 ( 1,-1)                                                        * 
-c * no5 ( 0, 1)                                                        * 
-c * no6 (-1, 0)                                                        * 
-c * no7 ( 0,-1)                                                        * 
-c * no8 ( 1, 0)                                                        * 
+c *                                                                    *
 c **********************************************************************
       implicit none
       logical afl,bfl
-      real*8 one_plus_r,one_plus_s,one_minus_r,one_minus_s
-      real*8 one_minus_rr,one_minus_ss
       real*8  h(*),hx(*),hy(*),r,s
-c ...
-      one_plus_r  = 1.d0 + r
-      one_plus_s  = 1.d0 + s
-      one_minus_r = 1.d0 - r
-      one_minus_s = 1.d0 - s
-      one_minus_rr= 1.d0 - r*r 
-      one_minus_ss= 1.d0 - s*s
-c ......................................................................
-c
 c ......................................................................
       if ( afl ) then
 c
 c     funcoes de interpolacao
 c
-      h(5)  = one_minus_rr * one_plus_s  *0.5d0
-      h(6)  = ( 1.d0-s*s ) * one_minus_r *0.5d0
-      h(7)  = one_minus_rr * one_minus_s *0.5d0
-      h(8)  = ( 1.d0-s*s ) * one_plus_r  *0.5d0
-c
-      h(1)  = one_plus_r *one_plus_s *0.25d0 - h(5)*0.5d0 - h(8)*0.5d0
-      h(2)  = one_minus_r*one_plus_s *0.25d0 - h(5)*0.5d0 - h(6)*0.5d0
-      h(3)  = one_minus_r*one_minus_s*0.25d0 - h(6)*0.5d0 - h(7)*0.5d0
-      h(4)  = one_plus_r *one_minus_s*0.25d0 - h(7)*0.5d0 - h(8)*0.5d0
+      h(5)  = ( 1.d0-r*r ) * ( 1.d0+s ) / 2.
+      h(6)  = ( 1.d0-s*s ) * ( 1.d0-r ) / 2.
+      h(7)  = ( 1.d0-r*r ) * ( 1.d0-s ) / 2.
+      h(8)  = ( 1.d0-s*s ) * ( 1.d0+r ) / 2.
+      h(1)  = ( 1.d0+r ) * ( 1.d0+s ) / 4.d0 - h(5) / 2.d0 - h(8) / 2.d0
+      h(2)  = ( 1.d0-r ) * ( 1.d0+s ) / 4.d0 - h(5) / 2.d0 - h(6) / 2.d0
+      h(3)  = ( 1.d0-r ) * ( 1.d0-s ) / 4.d0 - h(6) / 2.d0 - h(7) / 2.d0
+      h(4)  = ( 1.d0+r ) * ( 1.d0-s ) / 4.d0 - h(7) / 2.d0 - h(8) / 2.d0
 c
       endif
       if ( bfl ) then
 c
 c     derivadas em relacao a r :
 c
-      hx(5)  = - r*one_plus_s
-      hx(6)  = - one_minus_ss*0.5d0
-
-      hx(7)  = - r*one_minus_s
-      hx(8)  =   one_minus_ss*0.5d0
-
-c
-      hx(1)  =  one_plus_s *0.25d0 - hx(5)*0.5d0 - hx(8)*0.5d0
-      hx(2)  = -one_plus_s *0.25d0 - hx(5)*0.5d0 - hx(6)*0.5d0
-      hx(3)  = -one_minus_s*0.25d0 - hx(6)*0.5d0 - hx(7)*0.5d0
-      hx(4)  =  one_minus_s*0.25d0 - hx(7)*0.5d0 - hx(8)*0.5d0
+      hx(5)  = - r * (1.d0+s)
+      hx(6)  = -.5d0 * (1.d0-s*s)
+      hx(7)  = - r * (1.d0-s)
+      hx(8)  =  .5d0 * (1.d0-s*s)
+      hx(1)  =   (1.d0+s) / 4.d0 - hx(5) / 2.d0 - hx(8) / 2.d0
+      hx(2)  = - (1.d0+s) / 4.d0 - hx(5) / 2.d0 - hx(6) / 2.d0
+      hx(3)  = - (1.d0-s) / 4.d0 - hx(6) / 2.d0 - hx(7) / 2.d0
+      hx(4)  =   (1.d0-s) / 4.d0 - hx(7) / 2.d0 - hx(8) / 2.d0
 c
 c     derivadas em relacao a s :
 c
-      hy(5)  =  one_minus_rr*0.5d0
-      hy(6)  = - s*one_minus_r
-      hy(7)  = -one_minus_rr*0.5d0
-      hy(8)  = - s*one_plus_r
-c
-      hy(1)  = one_plus_r   *0.25d0 - hy(5)*0.5d0 - hy(8)*0.5d0
-      hy(2)  = one_minus_r  *0.25d0 - hy(5)*0.5d0 - hy(6)*0.5d0
-      hy(3)  = - one_minus_r*0.25d0 - hy(6)*0.5d0 - hy(7)*0.5d0
-      hy(4)  = -one_plus_r  *0.25d0 - hy(7)*0.5d0 - hy(8)*0.5d0
+      hy(5)  =  (1.d0-r*r) / 2.d0
+      hy(6)  = - s * (1.d0-r)
+      hy(7)  = -(1.d0-r*r) / 2.d0
+      hy(8)  = - s * (1.+r)
+      hy(1)  =  (1.d0+r) / 4.d0 - hy(5) / 2.d0 - hy(8) / 2.d0
+      hy(2)  =  (1.d0-r) / 4.d0 - hy(5) / 2.d0 - hy(6) / 2.d0
+      hy(3)  = -(1.d0-r) / 4.d0 - hy(6) / 2.d0 - hy(7) / 2.d0
+      hy(4)  = -(1.d0+r) / 4.d0 - hy(7) / 2.d0 - hy(8) / 2.d0
 c
       endif
 c ......................................................................      
       return
       end
+c **********************************************************************
       subroutine sfquad8_m(h,hx,hy,r,s,afl,bfl)
 c **********************************************************************
 c *                                                                    *
@@ -843,64 +822,75 @@ c * no8 ( 1, 0)                                                        *
 c **********************************************************************
       implicit none
       logical afl,bfl
+      real*8 one_plus_r,one_plus_s,one_minus_r,one_minus_s
+      real*8 one_minus_rr,one_minus_ss
       real*8  h(*),hx(*),hy(*),r,s
       real*8 ha5,ha6,ha7,ha8
+c ...
+      one_plus_r  = 1.d0 + r
+      one_plus_s  = 1.d0 + s
+      one_minus_r = 1.d0 - r
+      one_minus_s = 1.d0 - s
+      one_minus_rr= 1.d0 - r*r 
+      one_minus_ss= 1.d0 - s*s
 c ......................................................................
+c
+c ...                                                                   
       if ( afl ) then
 c
 c     funcoes de interpolacao
 c
-        h(5)  = ( 1.d0-r*r ) * ( 1.d0+s ) * 0.5d0
-        h(6)  = ( 1.d0-s*s ) * ( 1.d0-r ) * 0.5d0
-        h(7)  = ( 1.d0-r*r ) * ( 1.d0-s ) * 0.5d0
-        h(8)  = ( 1.d0-s*s ) * ( 1.d0+r ) * 0.5d0
+        h(5)  = one_minus_rr * one_plus_s * 0.5d0
+        h(6)  = one_minus_ss * one_minus_r* 0.5d0
+        h(7)  = one_minus_rr * one_minus_s* 0.5d0
+        h(8)  = one_minus_ss * one_plus_r * 0.5d0
 c
         ha5   =  h(5) * 0.5d0
         ha6   =  h(6) * 0.5d0
         ha7   =  h(7) * 0.5d0
         ha8   =  h(8) * 0.5d0
 c       
-        h(1)  = ( 1.d0+r ) * ( 1.d0+s ) * 0.25d0 - ha5 - ha8
-        h(2)  = ( 1.d0-r ) * ( 1.d0+s ) * 0.25d0 - ha5 - ha6
-        h(3)  = ( 1.d0-r ) * ( 1.d0-s ) * 0.25d0 - ha6 - ha7
-        h(4)  = ( 1.d0+r ) * ( 1.d0-s ) * 0.25d0 - ha7 - ha8
+        h(1)  = one_plus_r *one_plus_s * 0.25d0 - ha5 - ha8
+        h(2)  = one_minus_r*one_plus_s * 0.25d0 - ha5 - ha6
+        h(3)  = one_minus_r*one_minus_s* 0.25d0 - ha6 - ha7
+        h(4)  = one_plus_r *one_minus_s* 0.25d0 - ha7 - ha8
 c
       endif
       if ( bfl ) then
 c
 c     derivadas em relacao a r :
 c
-        hx(5)  = - r * (1.d0+s)
-        hx(6)  = -0.5d0 * (1.d0-s*s)
-        hx(7)  = - r * (1.d0-s)
-        hx(8)  =  0.5d0 * (1.d0-s*s)
+        hx(5)  = - r * one_plus_s
+        hx(6)  = -0.5d0 *  one_minus_ss
+        hx(7)  = - r * one_minus_s
+        hx(8)  =  0.5d0 *  one_minus_ss
 c
         ha5   =  hx(5)*0.5d0
         ha6   =  hx(6)*0.5d0
         ha7   =  hx(7)*0.5d0
         ha8   =  hx(8)*0.5d0
 c      
-        hx(1)  =   (1.d0+s) * 0.25d0 - ha5 - ha8
-        hx(2)  = - (1.d0+s) * 0.25d0 - ha5 - ha6
-        hx(3)  = - (1.d0-s) * 0.25d0 - ha6 - ha7
-        hx(4)  =   (1.d0-s) * 0.25d0 - ha7 - ha8
+        hx(1)  =   one_plus_s *0.25d0 - ha5 - ha8
+        hx(2)  = - one_plus_s *0.25d0 - ha5 - ha6
+        hx(3)  = - one_minus_s*0.25d0 - ha6 - ha7
+        hx(4)  =   one_minus_s*0.25d0 - ha7 - ha8
 c
 c     derivadas em relacao a s :
 c
-        hy(5)  =  (1.d0-r*r) * 0.5d0
-        hy(6)  = - s * (1.d0-r)
-        hy(7)  = -(1.d0-r*r) * 0.5d0
-        hy(8)  = - s * (1.d0+r)
+        hy(5)  =  one_minus_rr * 0.5d0
+        hy(6)  = - s * one_minus_r
+        hy(7)  = -one_minus_rr * 0.5d0
+        hy(8)  = - s * one_plus_r
 c
         ha5   =  hy(5) * 0.5d0
         ha6   =  hy(6) * 0.5d0
         ha7   =  hy(7) * 0.5d0
         ha8   =  hy(8) * 0.5d0
 c      
-        hy(1)  =  (1.d0+r) * 0.25d0 - ha5 - ha8
-        hy(2)  =  (1.d0-r) * 0.25d0 - ha5 - ha6 
-        hy(3)  = -(1.d0-r) * 0.25d0 - ha6 - ha7
-        hy(4)  = -(1.d0+r) * 0.25d0 - ha7 - ha8 
+        hy(1)  =  one_plus_r * 0.25d0 - ha5 - ha8
+        hy(2)  =  one_minus_r* 0.25d0 - ha5 - ha6 
+        hy(3)  = -one_minus_r* 0.25d0 - ha6 - ha7
+        hy(4)  = -one_plus_r * 0.25d0 - ha7 - ha8 
 c
       endif
 c ......................................................................      
@@ -1689,10 +1679,100 @@ c
 c ......................................................................                
       return
       end
-      subroutine jacob3d(hx,hy,hz,xj,xji,x,det,nen,nel,afl)
+c **********************************************************************
+      subroutine jacob3d(hx,hy,hz,xj,xji,x,det,nen,nel)
 c **********************************************************************
 c *                                                                    *
 c *                                                    10/10/01        *
+c *                                                                    *
+c *   JACOB3D: determinante do Jacobiano no ponto (r,s,t)              *
+c *   -------                                                          *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     hx(nen)   - derivadas de h em relacao a r                      *
+c *     hy(nen)   - derivadas de h em relacao a s                      *
+c *     hz(nen)   - derivadas de h em relacao a s                      *
+c *     x(ndm,nen)- coordenadas nodais do elemento                     *
+c *     nen       - numero de nos do elemento                          *
+c *     nel       - numero do elemento                                 *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     hx(nen)  - derivadas de h em relacao a x                       *
+c *     hy(nen)  - derivadas de h em relacao a y                       *
+c *     hz(nen)  - derivadas de h em relacao a z                       *
+c *     xj(3,3)  - matriz jacobiana no ponto (r,s,t)                   *
+c *     xji(3,3) - inversa de xj                                       *
+c *     det      - determinante da matriz jacobiana no ponto (r,s,t)   *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nen,nel,j,k
+      real*8  hx(*),hy(*),hz(*),xj(3,*),xji(3,*),x(3,*)
+      real*8  det,hxk,hyk,hzk
+      real*8  ZERO
+      parameter (ZERO = 1.d-14)
+c ......................................................................
+c
+c ... Matria Jacobiana:
+c
+      do 200 j = 1 , 3
+         xj(1,j) = 0.
+         xj(2,j) = 0.
+         xj(3,j) = 0.
+         do 100 k = 1 , nen
+            xj(1,j) = xj(1,j) + hx(k) * x(j,k)
+            xj(2,j) = xj(2,j) + hy(k) * x(j,k)
+            xj(3,j) = xj(3,j) + hz(k) * x(j,k)
+  100    continue
+  200 continue
+c
+c ... Determinante da matriz Jacobiana:  
+c
+      det = xj(1,1)*xj(2,2)*xj(3,3) + xj(1,2)*xj(2,3)*xj(3,1) + xj(1,3)*
+     .      xj(2,1)*xj(3,2) - xj(3,1)*xj(2,2)*xj(1,3) - xj(2,1)*xj(1,2)*
+     .      xj(3,3) - xj(1,1)*xj(3,2)*xj(2,3)
+c ......................................................................                   
+      if (det .le. ZERO) then
+         print*,'*** Subrotina ELMT__: determinante <= 0 ',nel
+         stop
+      endif
+c ......................................................................                    
+c
+c ... Inversa da matriz Jacobiana:  
+c
+      xji(1,1) =  ( xj(2,2) * xj(3,3) - xj(2,3) * xj(3,2) ) / det
+      xji(2,1) = -( xj(2,1) * xj(3,3) - xj(2,3) * xj(3,1) ) / det
+      xji(3,1) =  ( xj(2,1) * xj(3,2) - xj(2,2) * xj(3,1) ) / det
+      xji(1,2) = -( xj(1,2) * xj(3,3) - xj(1,3) * xj(3,2) ) / det
+      xji(2,2) =  ( xj(1,1) * xj(3,3) - xj(1,3) * xj(3,1) ) / det
+      xji(3,2) = -( xj(1,1) * xj(3,2) - xj(1,2) * xj(3,1) ) / det
+      xji(1,3) =  ( xj(1,2) * xj(2,3) - xj(1,3) * xj(2,2) ) / det
+      xji(2,3) = -( xj(1,1) * xj(2,3) - xj(1,3) * xj(2,1) ) / det
+      xji(3,3) =  ( xj(1,1) * xj(2,2) - xj(1,2) * xj(2,1) ) / det
+c
+c ... Derivadas das funcoes de interpolacao:
+c
+      do 300 k = 1, nen
+         hxk = hx(k)
+         hyk = hy(k)
+         hzk = hz(k)
+         hx(k) = xji(1,1)*hxk + xji(1,2)*hyk + xji(1,3)*hzk
+         hy(k) = xji(2,1)*hxk + xji(2,2)*hyk + xji(2,3)*hzk
+         hz(k) = xji(3,1)*hxk + xji(3,2)*hyk + xji(3,3)*hzk
+  300 continue
+c ......................................................................              
+      return
+      end
+c **********************************************************************
+      subroutine jacob3d_m(hx,hy,hz,xj,xji,x,det,nen,nel,afl)
+c **********************************************************************
+c *                                                                    *
+c *                                                    10/10/15        *
 c *                                                                    *
 c *   JACOB3D: determinante do Jacobiano no ponto (r,s,t)              *
 c *   -------                                                          *
@@ -1818,6 +1898,10 @@ c ... norm
       v1 = dsqrt(v1x*v1x+v1y*v1y+v1z*v1z)
       v2 = dsqrt(v2x*v2x+v2y*v2y+v2z*v2z)
       v3 = dsqrt(v3x*v3x+v3y*v3y+v3z*v3z)
+c ...
+c     print*,v1x/v1,v1y/v1,v1z/v1
+c     print*,v2x/v2,v2y/v2,v2z/v2
+c     print*,v3x/v3,v3y/v3,v3z/v3
 c ...
       r(1,1) = v1x/v1
       r(1,2) = v1y/v1
@@ -2274,7 +2358,103 @@ c ......................................................................
       t(6) = eps(6)*c*a
       return
       end
-
+c **********************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c *                                                    02/12/15        *
+c *   DARCY_FLUX_3D : fluxo de darcy e 3D                              *
+c *   -------------                                                    *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     perm   - coeficiente de permebilidade ( perm/peso especifico)  *
+c *     gl     - aceleracao da gravidade                               *
+c *     fluid_d- massa especifica do fluido                            *
+c *     hx     - derivada das funcoes de interpolacao                  *
+c *     hy     - derivada das funcoes de interpolacao                  *
+c *     hz     - derivada das funcoes de interpolacao                  *
+c *     u      - pressao nodal                                         *
+c *     nen    - numero de pontos por elemento                         *
+c *     p      - nao definido                                          *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     p(3) - fluxo de darcy( k( grad(P) + ro_fluid*g)                *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      subroutine darcy_flux(perm,gl,fluid_d,hx,hy,hz,u,nen,p) 
+      implicit none 
+      real*8 perm,fluid_d,gl(3)
+      real*8 hx(*),hy(*),hz(*),p(3),u(*) 
+      integer i,nen
+c ... ro_fluid*g 
+      p(1) = fluid_d*gl(1)
+      p(2) = fluid_d*gl(2)
+      p(3) = fluid_d*gl(3)
+c ......................................................................
+c
+c ... ro_fluid*g -grad(P)
+      do i = 1, nen
+        p(1) = p(1) - hx(i)*u(i)
+        p(2) = p(2) - hy(i)*u(i)
+        p(3) = p(3) - hz(i)*u(i)
+      enddo
+c .......................................................................
+c
+c ... 
+      p(1) = perm*p(1)
+      p(2) = perm*p(2)
+      p(3) = perm*p(3)
+c .......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c *                                                    10/12/15        *
+c *   HEXA_VOL : calcula o o volume do hexaedro                        *
+c *   --------                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     x      - coordendas dos vertices do hexaedro                   *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *    retorna o volume do hexaedro                                    *
+c *                                                                    *
+c * OBS: vol = v1 * ( v2 x v3)                                         *
+c **********************************************************************
+      real*8 function hexa_vol(x)
+      implicit none
+      real*8 x(3,*)
+c ...
+      real*8 v1(3),v2(3),v3(3),v4(3),volum
+c ... v1
+      v1(1)      = x(1,2) - x(1,1)
+      v1(2)      = x(2,2) - x(2,1)
+      v1(3)      = x(3,2) - x(3,1)
+c ... v2
+      v2(1)      = x(1,4) - x(1,1)
+      v2(2)      = x(2,4) - x(2,1)
+      v2(3)      = x(3,4) - x(3,1)
+c ... v3
+      v3(1)      = x(1,5) - x(1,1)
+      v3(2)      = x(2,5) - x(2,1)
+      v3(3)      = x(3,5) - x(3,1)
+c ...
+      call vet(v3,v2,v4)
+      hexa_vol  = v1(1)*v4(1) + v1(2)*v4(2) + v1(3)*v4(3)
+c ...
+      return
+      end
 c **********************************************************************
       block data
 c **********************************************************************

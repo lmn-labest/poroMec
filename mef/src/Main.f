@@ -1,8 +1,3 @@
-c*****************************Svn***************************************
-c*$Date: 2015-06-09 16:23:50 -0300 (Tue, 09 Jun 2015) $                 
-c*$Rev: 971 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************
       program Mef
 c **********************************************************************
 c *                                                                    *
@@ -28,6 +23,7 @@ c
       character*30 string
       character*80 str
       integer  iloop,imacro,nmacro,nmc,loop,j
+      logical flag_macro_mesh
 c ----------------------------------------------------------------------
 c
 c ... Variaveis para controle de arquivos:
@@ -38,9 +34,9 @@ c
       integer totfiles,openflag
       integer*8 i_no,i_nfile
       integer num_pnode
-c ... arquivo de impressao nos nos ( temp,flux,disp,stress,...)  
-      integer nfiles
-      parameter ( nfiles = 4)
+c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
+      integer nfiles,ifiles
+      parameter ( nfiles = 5)
       logical new_file(nfiles),flag_pnd
 c      logical cont1
 c ----------------------------------------------------------------------
@@ -56,7 +52,7 @@ c
 c ... Variaveis descritivas do problema:
 c
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndm,nst
-      integer neq,nequ,neqp,nad,nadpu
+      integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
       logical block_pu
 c ----------------------------------------------------------------------
 c
@@ -87,15 +83,21 @@ c ... Ponteiros:
 c
 c ... malha
       integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_e,i_x,i_xq,i_inum
+      integer*8 i_ic
 c ... arranjos locais ao elemento
-      integer*8 i_xl,i_ul,i_vl,i_zl,i_wl,i_pl,i_sl,i_ld,i_dpl
+      integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl
 c ... forcas e graus de liberdade 
       integer*8 i_f
       integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
+      integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0,i_x0
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2
+c ... coo
+      integer*8 i_lin,i_col,i_acoo
+      integer*8 i_linuu,i_coluu,i_acoouu
+      integer*8 i_linpp,i_colpp,i_acoopp
 c ----------------------------------------------------------------------
 c
 c ... Variaveis de controle do MPI:
@@ -107,12 +109,12 @@ c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','        ','mesh    ','solv    ','dt      ',
-     .'pgeo    ','pgeoquad','block_pu','gravity ','        ','        ',
-     .'        ','        ','        ','        ','pup     ','pstress ',
+     .'pgeo    ','pgeoquad','block_pu','gravity ','reord   ','gmres   ',
+     .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','        ',
      .'        ','        ','        ','        ','        ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','        ','setpnode','        ','        ','pnup    ',
-     .'pnstress','        ','maxit   ','solvtol ','stop    '/
+     .'pnsf    ','        ','maxit   ','solvtol ','stop    '/
 c ----------------------------------------------------------------------
 c
 c ... Arquivos de entrada e saida:
@@ -156,18 +158,18 @@ c ... ngram   =  base de Krylov (utilizada somente no gmres)
       maxit   =  8000
       solvtol =  1.d-14
       maxnlit =  2 
-      tol     =  1.d-04
+      tol     =  1.d-03
       ngram   =  15
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
 c ... solver  =  1 (pcg), 2 (gmres), 3 (gauss / LDU), 4 (bicgstab)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline)
       unsym   = .false.
-      solver  =  4
+      solver  =  5
       stge    =  1
 c     block_pu= .true.
       block_pu= .false.
       resid0  =  0.d0
-c ... ilib    =  1 define a biblioteca padrão ( default = termico )
+c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
 c ... OpenMP 
       openmp  = .false.
@@ -175,6 +177,8 @@ c ... campo gravitacional (Padrao)
       gravity(1) =  0.0d0
       gravity(2) =  0.0d0
       gravity(3) = -9.81d0
+c ...
+      flag_macro_mesh = .false.
 c .....................................................................
 c
 c ... Inicializacao da estrutura de dados de gerenciamento de memoria:
@@ -313,6 +317,8 @@ c ......................................................................
   300 continue
       if(my_id.eq.0)print*, 'Macro MESH'  
 c
+      flag_macro_mesh = .true.
+c
 c.... Leitura de dados:
 c
 c      call rdat(nnode,numel,numat,nen,ndf,ndm,nst,i_ix,i_id,i_ie,
@@ -340,6 +346,7 @@ c.... Controle de tempos:
 c
       soltime    = 0.d0
       elmtime    = 0.d0
+      tformtime  = 0.d0
       vectime    = 0.d0
       ovhtime    = 0.d0
       dottime    = 0.d0
@@ -415,11 +422,13 @@ c
       i_ul  = alloc_8('ul      ',1  ,nst)
       i_dpl = alloc_8('dpl     ',1  ,nenv)
       i_pl  = alloc_8('pl      ',1  ,nst)
+c ... 6 - tensoes totais, 6 - tensoes de biot , 3 - fluxo de darcy
+      i_txl = alloc_8('txl     ', 15,nenv)
       i_sl  = alloc_8('sl      ',nst,nst)
       i_ld  = alloc_4('ld      ',  1,nst)
 c
 c     -----------------------------------------
-c     | xl | ul | dpl | pl | sl | ld |
+c     | xl | ul | dpl | pl | txl | sl | ld |
 c     -----------------------------------------
 c
 c ......................................................................
@@ -428,11 +437,13 @@ c ... Memoria para a estrutura de dados do sistema de equacoes:
 c
       timei = MPI_Wtime()
       if (ndf .gt. 0) then
-         call datastruct(ia(i_ix),ia(i_id),ia(i_inum),nnode,nnodev,
-     .   numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym,nad,nadpu,
-     .   i_ia,i_ja,i_au,i_al,i_ad,
-     .   'ia      ','ja      ','au      ','al      ','ad      ',
-     .   ovlp,block_pu)
+         call datastruct(ia(i_ix),ia(i_id),ia(i_inum),nnode,nnodev
+     .                  ,numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym
+     ,                  ,nad,naduu,nadpp,nadpu
+     .                  ,i_ia,i_ja,i_au,i_al,i_ad 
+     .                  ,'ia      ','ja      '
+     .                  ,'au      ','al      ','ad      '
+     .                  ,ovlp,block_pu)
       endif
       dstime = MPI_Wtime()-timei
 c
@@ -542,19 +553,25 @@ c
 c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
       if(i .eq. 1) resid0 = max(resid0,resid)
-      print*,resid/resid0,resid,tol
+      print*,'resid/resid0',resid/resid0,'resid',resid
       if ((resid/resid0) .lt. tol) goto 420     
 c ......................................................................            
+c
 c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
-      call solv_pm(neq ,nequ    ,nad     ,
-     .         ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al),
-     .         ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit,ngram,block_pu,
-     .         solver,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap,
-     .         i_xf,i_rcvs,i_dspl)
+      timei = MPI_Wtime()
+      call get_res(ia(i_u),ia(i_x0),ia(i_id),nnode,nnodev,ndf)
+      call solv_pm(neq  ,nequ    ,nad     ,naduu   ,nadpp      
+     .         ,ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al)
+     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit,ngram,block_pu
+     .         ,solver,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap
+     .         ,i_xf,i_rcvs,i_dspl)
+      soltime = soltime + MPI_Wtime()-timei
 c .....................................................................
 c
 c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
+      timei = MPI_Wtime()
       call update_pm(nnode,nnodev,ndf,ia(i_id),ia(i_u),ia(i_x0))
+      vectime = vectime + MPI_Wtime()-timei
 c     call update2(nnode,ndf,ia(i_id),ia(i_u),ia(i_u),ia(i_u)
 c    .            ,ia(i_x0)  ,0.d0,0.0d0,0.d0)
 c .....................................................................
@@ -575,8 +592,10 @@ c ... calculo da solucao no tempo t + dt e atualizacao dos valores do
 c     passo de tempo anterior: 
 c     u(n+1) = u(n) + du(n+1) 
 c     u(n)   = u(n+1)                       
+      timei = MPI_Wtime()
       call update_res(nnode  ,nnodev  ,ndf
      .               ,ia(i_u),ia(i_u0),ia(i_dp),ia(i_pres0))
+      vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
       goto 50 
 c ----------------------------------------------------------------------
@@ -647,11 +666,15 @@ c
 c ......................................................................
   800 continue
       if(my_id.eq.0)print*, 'Macro Block_pu'
+      if(flag_macro_mesh) then
+        print*,'Macro so pode ser utilizada antes da macro mesh'
+        goto 5000
+      endif
       block_pu = .true.
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: GRAVITY
 c
 c ......................................................................
   900 continue
@@ -683,25 +706,46 @@ c ... gz
       goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: REORD
 c
 c ......................................................................
  1000 continue
+      if(my_id.eq.0)print*, 'Macro REORD'
+      if(flag_macro_mesh) then
+        print*,'Macro so pode ser utilizada antes da macro mesh'
+        goto 5000
+      endif
+      reordf = .true.
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PDEF
+c ... Macro-comando: GMRES 
 c
 c ......................................................................
  1100 continue
+      if(my_id.eq.0)print*, 'Macro GMRES'
+      solver = 2       
+c ...
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1110,end =1110) ngram    
+      if(my_id.eq.0)print*, 'base de Krylov',ngram
+c ......................................................................
       goto 50
+ 1110 continue
+      print*,'Erro na leitura da macro (GMRES) ngram !'
+      goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: SCALE
+c ... Macro-comando: DELTATC
 c
 c ......................................................................
  1200 continue
-      if(my_id.eq.0) print*, 'Macro '
+      if(my_id.eq.0) print*, 'Macro DELTATC'
+      call deltat_critico(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e)
+     .             ,ia(i_x), ia(i_xl)
+     .             ,numel,nen,nenv,ndf
+     .             ,ndm,nst,1,ilib)
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -709,48 +753,181 @@ c ... Macro-comando:
 c
 c ......................................................................
  1300 continue
-      if(my_id.eq.0) print*, 'Macro '
+      if(my_id.eq.0) print*, 'Macro PCOO'
+c ... csr divido em bloco Kuu, kpp e kpu
+      if(block_pu) then
+c ...
+        i_lin    = alloc_4('lincoo  ',1,neq+2*(nad+nadpu)) 
+        i_col    = alloc_4('colcoo  ',1,neq+2*(nad+nadpu)) 
+        i_acoo   = alloc_8('acoo    ',1,neq+2*(nad+nadpu))
+c ... Kuu
+        i_linuu  = alloc_4('lincoouu',1,nequ+2*naduu) 
+        i_coluu  = alloc_4('colcoouu',1,nequ+2*naduu) 
+        i_acoouu = alloc_8('acoouu  ',1,nequ+2*naduu)
+c ... Kpp
+        i_linpp  = alloc_4('lincoopp',1,neqp+2*nadpp) 
+        i_colpp  = alloc_4('colcoopp',1,neqp+2*nadpp) 
+        i_acoopp = alloc_8('acoopp  ',1,neqp+2*nadpp)
+c ......................................................................
+c
+c ...
+        call csr_block_to_coo(ia(i_lin)  ,ia(i_col)  ,ia(i_acoo)
+     .                       ,ia(i_linuu),ia(i_coluu),ia(i_acoouu)
+     .                       ,ia(i_linpp),ia(i_colpp),ia(i_acoopp)
+     .                       ,ia(i_ia)   ,ia(i_ja)
+     .                       ,ia(i_al)   ,ia(i_ad)
+     .                       ,neq        ,nequ   ,nad, nadpu            
+     .                       ,.false.)
+c ......................................................................
+c
+c ...
+        fname   = name(prename,0,50)
+        call write_coo(ia(i_lin),ia(i_col),ia(i_acoo)
+     .               ,ia(i_b  ),neq      ,neq+2*(nad+nadpu)  
+     .               ,fname    ,nout   
+     .               ,.true.   ,.true.   )
+c ......................................................................
+c
+c ...
+        fname   = name(prename,0,51)
+        call write_coo(ia(i_linuu),ia(i_coluu),ia(i_acoouu)
+     .               ,ia(i_b  )   ,nequ       ,nequ+2*(naduu)  
+     .               ,fname       ,nout   
+     .               ,.false.     ,.true.     )
+c ......................................................................
+c
+c ...
+        fname   = name(prename,0,52)
+        call write_coo(ia(i_linpp),ia(i_colpp),ia(i_acoopp)
+     .               ,ia(i_b  )   ,neqp       ,neqp+2*(nadpp)  
+     .               ,fname       ,nout   
+     .               ,.false.     ,.true.     )
+c ......................................................................
+c
+c ...
+        i_acoopp = dealloc('acoopp  ')
+        i_colpp  = dealloc('colcoopp') 
+        i_linpp  = dealloc('lincoopp')
+c 
+        i_acoouu = dealloc('acoouu  ')
+        i_coluu  = dealloc('colcoouu') 
+        i_linuu  = dealloc('lincoouu') 
+c
+        i_acoo   = dealloc('acoo    ')
+        i_col    = dealloc('colcoo  ') 
+        i_lin    = dealloc('lincoo  ') 
+c ......................................................................
+c
+c ...
+      else
+c ...
+        fname   = name(prename,0,50)
+c ......................................................................
+c
+c ...
+        i_lin  = alloc_4('lincoo  ',1,neq+2*nad) 
+        i_col  = alloc_4('colcoo  ',1,neq+2*nad) 
+        i_acoo = alloc_8('acoo    ',1,neq+2*nad)
+c ......................................................................
+c
+c ...
+        call csr_to_coo_pm(ia(i_lin) ,ia(i_col) ,ia(i_acoo)
+     .                    ,ia(i_ia)  ,ia(i_ja)
+     .                    ,ia(i_al)  ,ia(i_ad)  
+     .                    ,neq       ,nad       ,.false.)
+c ......................................................................
+c
+c ...
+        call write_coo(ia(i_lin),ia(i_col),ia(i_acoo)
+     .                   ,ia(i_b  ),neq      ,neq+2*nad  
+     .                   ,fname    ,nout   
+     .                   ,.true.   ,.true.   )
+c ......................................................................
+c
+c ...
+        i_acoo = dealloc('acoo    ')
+        i_col  = dealloc('colcoo  ') 
+        i_lin  = dealloc('lincoo  ') 
+c ......................................................................
+      endif
+c ......................................................................
+c
+c ...      
       goto 50     
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: 
+c ... Macro-comando: BICGSTAB
 c
 c ......................................................................
  1400 continue
-      if(my_id.eq.0)print*, 'Macro '
+      if(my_id.eq.0)print*, 'Macro BICGSTAB'
+      solver = 4       
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: 
+c ... Macro-comando: PCG
 c
 c ......................................................................
  1500 continue
-      if(my_id.eq.0)print*,'Macro SOLVM'
+      if(my_id.eq.0)print*,'Macro PCG'
+      solver = 1       
       goto 50 
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PDISPPRES
+c ... Macro-comando: PUP      
 c
 c ......................................................................
  1600 continue
-      if(my_id.eq.0)print*,'Macro PUP'
-        fname = name(prename,istep,2)
-        open(nplot,file=fname)
+      if(my_id.eq.0)print*,'Macro PRES'
+c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
+      ntn   = 6
+c .....................................................................
+      i_tx  = alloc_8('tx      ',  ntn,nnodev)
+      i_txe = alloc_8('txe     ',  ntn,nnodev)
+      i_txb = alloc_8('txb     ',  ntn,nnodev)
+      i_flux= alloc_8('flux    ',  ndm,nnodev)
+      i_ic  = alloc_4('ic      ',    1,nnodev)
+c .....................................................................
+c
+c ...
+      timei = MPI_Wtime()
+      call tform_pm(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),
+     .             ia(i_ic),ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_txl),
+     .             ia(i_u) ,ia(i_dp),
+     .             ia(i_tx),ia(i_txb),ia(i_txe),ia(i_flux),
+     .             nnodev,
+     .             numel,nen,nenv,ndm,ndf,nst ,ntn,3,ilib)
+      tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+c
+c ...
+      fname = name(prename,istep,2)
+      open(nplot,file=fname)
 c       call pdata(ia(i_ix),ia(i_x),ia(i_u),nnodev,numel
 c    .           ,ndm,nenv,ndf,istep,nplot,9)
-        call write_mesh_res_pm(ia(i_ix),ia(i_x),ia(i_u) ,ia(i_dp) 
-     .                        ,nnodev  ,numel
-     .                        ,nen     ,ndm    ,ndf 
-     .                        ,fname   ,.false.,.true.  ,nplot)
-        close(nplot)  
-      goto 50     
-c ----------------------------------------------------------------------
+      call write_mesh_res_pm(ia(i_ix),ia(i_x)  ,ia(i_u)  ,ia(i_dp),
+     .                       ia(i_tx),ia(i_txb),ia(i_txe),ia(i_flux),
+     .                       nnodev  ,numel,
+     .                       nen     ,ndm      ,ndf   ,ntn,
+     .                       fname   ,.false.,.true.  ,nplot)
+      close(nplot)  
+c ......................................................................
 c
-c ... Macro-comando: PSTRESS
+c ...
+      i_ic  = dealloc('ic      ')
+      i_flux= dealloc('flux    ')
+      i_txe = dealloc('txb     ')
+      i_txe = dealloc('txe     ')
+      i_tx  = dealloc('tx      ')
+c ......................................................................
+      goto 50     
+c ......................................................................
+c
+c ... Macro-comando:         
 c
 c ......................................................................
  1700 continue
-      if(my_id.eq.0)print*, 'Macro Macro'
+      if(my_id.eq.0)print*, 'Macro'
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -930,20 +1107,20 @@ c ......................................................................
         if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
         call stop_mef()
       endif
-c ... codigo para o arquivo _disp.txt      
-      code = 29
+c ... codigo para o arquivo up_node.txt      
+      code   = 30
+      ifiles = 1
 c .....................................................................
       call global_v(ndf,nno_pload,i_u,i_g1,'dispG   ')
 c     call global_v(  1,nno_pload,i_dp,i_g1,'dispG   ')
       string = 'DeslocAndPress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
-          call printnode(ia(i_g1),ia(i_no+j-1),ndf,istep,dt
-     .                 ,string,prename,ia(i_nfile+j-1),code,new_file(3))
-c         call printnode(ia(i_g1),ia(i_no+j-1),1  ,istep,dt
-c    .                 ,string,prename,ia(i_nfile+j-1),code,new_file(3))
+          call printnode(ia(i_g1),ia(i_no+j-1),ndf            ,istep,dt
+     .                  ,string  ,prename     ,ia(i_nfile+j-1)
+     .                  ,code    ,new_file(ifiles))
         enddo
-        new_file(3) = .false.
+        new_file(ifiles) = .false.
       endif
       if( nprcs .gt. 1) then
         i_g1      = dealloc('dispG   ')
@@ -955,7 +1132,95 @@ c
 c ... Macro-comando:                                                    
 c ......................................................................
  3600 continue
-      if(my_id.eq.0) print*, 'Macro '
+      if(my_id.eq.0) print*, 'Macro PNSF    '
+      if(flag_pnd.eqv..false.) then
+        if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
+        call stop_mef()
+      endif
+c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
+      ntn   = 6
+c .....................................................................
+      i_tx  = alloc_8('tx      ',  ntn,nnodev)
+      i_txe = alloc_8('txe     ',  ntn,nnodev)
+      i_txb = alloc_8('txb     ',  ntn,nnodev)
+      i_flux= alloc_8('flux    ',  ndm,nnodev)
+      i_ic  = alloc_4('ic      ',    1,nnodev)
+c .....................................................................
+c
+c ...
+      timei = MPI_Wtime()
+      call tform_pm(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),
+     .             ia(i_ic),ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_txl),
+     .             ia(i_u) ,ia(i_dp),
+     .             ia(i_tx),ia(i_txb),ia(i_txe),ia(i_flux),
+     .             nnodev,
+     .             numel,nen,nenv,ndm,ndf,nst ,ntn,3,ilib)
+      tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+c
+c ... codigo para o arquivo stress_node.txt      
+      code   = 31
+      ifiles = 2
+      string = 'stressTotal'
+      if( my_id .eq. 0) then
+        do j = 1, num_pnode
+          call printnode(ia(i_tx),ia(i_no+j-1),ntn            ,istep,dt
+     .                 ,string   ,prename     ,ia(i_nfile+j-1)
+     .                 ,code     ,new_file(ifiles))
+        enddo
+        new_file(ifiles) = .false.
+      endif
+c ......................................................................
+c
+c ... codigo para o arquivo stressE_node.txt      
+      code   = 32
+      ifiles = 3
+      string = 'stressE'
+      if( my_id .eq. 0) then
+        do j = 1, num_pnode
+          call printnode(ia(i_txe),ia(i_no+j-1),ntn            ,istep,dt
+     .                 ,string   ,prename     ,ia(i_nfile+j-1)
+     .                 ,code     ,new_file(ifiles))
+        enddo
+        new_file(ifiles) = .false.
+      endif
+c ......................................................................
+c
+c ... codigo para o arquivo stressB_node.txt      
+      code   = 33
+      ifiles = 4
+      string = 'stressBiot'
+      if( my_id .eq. 0) then
+        do j = 1, num_pnode
+          call printnode(ia(i_txb),ia(i_no+j-1),ntn            ,istep,dt
+     .                 ,string   ,prename     ,ia(i_nfile+j-1)
+     .                 ,code     ,new_file(ifiles))
+        enddo
+        new_file(ifiles) = .false.
+      endif
+c ......................................................................
+c
+c ... codigo para o arquivo flux_node.txt      
+      code   = 34
+      ifiles = 5
+      string = 'stressFlux'
+      if( my_id .eq. 0) then
+        do j = 1, num_pnode
+          call printnode(ia(i_flux),ia(i_no+j-1),ndm          ,istep,dt
+     .                 ,string   ,prename     ,ia(i_nfile+j-1)
+     .                 ,code     ,new_file(ifiles))
+        enddo
+        new_file(ifiles) = .false.
+      endif
+c ......................................................................
+c
+c ...
+      i_ic  = dealloc('ic      ')
+      i_flux= dealloc('flux    ')
+      i_txe = dealloc('txb     ')
+      i_txe = dealloc('txe     ')
+      i_tx  = dealloc('tx      ')
+c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -1017,7 +1282,7 @@ c ... arquivo de tempo
       call write_log_file(nnode ,numel      ,numel_nov,numel_ov
      .                   ,ndf   ,neq        ,neq1     ,neq2    
      .                   ,neq32 ,neq4       ,neq1a    ,neqf1
-     .                   ,neqf2 ,nad        ,nad1
+     .                   ,neqf2 ,nad        ,nadpu    ,nad1
      .                   ,openmp,num_threads,numcolors,prename
      .                   ,my_id ,nprcs      ,nout)
 c .....................................................................

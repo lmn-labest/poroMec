@@ -41,7 +41,6 @@ c ......................................................................
       external matvec_csrc,matvec_csrcr,matvec_csrcsym,matvec_csrcrsym
       external matvec_csrc1,matvec_csrcr1
       external matvec_csrcsym1,matvec_csrcrsym1
-      external matvec_csrcb                       
 c     OpenMP'ed subroutines
       external dot_par_omp,dot_par_omp_loopwise
       external matvec_csrc_omp,matvec_csrcsym_omp,
@@ -113,6 +112,7 @@ c ......................................................................
          i_r = dealloc('r       ')
          i_z = dealloc('z       ')
 c ......................................................................
+c
 c ... Gmres com precondicionador diagonal:
       elseif(solver .eq. 2) then
          i_g = alloc_8('g       ',neqovlp,ngram+1)         
@@ -425,12 +425,12 @@ c *                                                                    *
 c *   pbcgstab                                                         *
 c *                                                                    *
 c **********************************************************************
-      subroutine solv_pm(neq   ,nequ     ,nad    ,
-     .                  ip     ,ja       ,ad     ,al     ,
-     .                  m      ,b        ,x      ,tol    ,maxit,
-     .                  ngram  ,block_pu ,solver ,
-     .                  neqf1i ,neqf2i   ,neq3i  ,neq4i  ,neq_doti,
-     .                  i_fmapi,i_xfi    ,i_rcvsi,i_dspli)
+      subroutine solv_pm(neq    ,nequ    ,nad    ,naduu  ,nadpp
+     .                  ,ip     ,ja      ,ad     ,al     
+     .                  ,m      ,b       ,x      ,tol    ,maxit
+     .                  ,ngram  ,block_pu,solver 
+     .                  ,neqf1i ,neqf2i  ,neq3i  ,neq4i  ,neq_doti
+     .                  ,i_fmapi,i_xfi   ,i_rcvsi,i_dspli)
       use Malloc
       implicit none
       include 'mpif.h'
@@ -443,10 +443,10 @@ c ... ponteiros
       integer*8 i_z,i_r,i_g,i_h,i_y,i_c,i_s
 c ......................................................................
       integer neq3i,neq4i,neq_doti
-      integer ip(*),ja(*),neq,nequ,nad
-      integer maxit,ngram,solver
+      integer ip(*),ja(*),neq,nequ,neqp,nad,naduu,nadpp
+      integer maxit,solver,ngram
       real*8  ad(*),al(*),m(*),x(*),b(*),tol,energy
-      logical block_pu
+      logical block_pu,diag
       integer neqovlp
       external dot,dot_par
       external matvec_csrc_pm,matvec_csrcsym_pm        
@@ -468,17 +468,131 @@ c ......................................................................
 c
 c ...
       if (solver .eq. 1) then
-        print*,'Solver PCG nao disponivel para o poromecanico !!'
+         diag = .true.
+c ...    precondicionador diagonal:
+         if(diag) then 
+           call pre_diag(m,ad,neq)
+c ...    
+         else                           
+           m(1:neq) = 1.d0  
+         endif           
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+     .                               i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ...
+         i_z = alloc_8('zsolver ',1,neq)
+         i_r = alloc_8('rsolver ',1,neq)
+c ......................................................................
+c
+c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
+         if(block_pu) then
+           call pcg(neq    ,nequ   ,nad,ip   ,ja
+     .             ,ad     ,al     ,al ,m    ,b ,x
+     .             ,ia(i_z),ia(i_r),tol,maxit
+c ... matvec comum:
+     .             ,matvec_csrc_pm,dot_par 
+c
+     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .             ,i_xfi ,i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
+         else
+           call pcg(neq    ,nequ   ,nad,ip   ,ja
+     .             ,ad     ,al     ,al ,m    ,b ,x
+     .             ,ia(i_z),ia(i_r),tol,maxit
+c ... matvec comum:
+     .             ,matvec_csrcsym_pm,dot_par 
+c
+     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .             ,i_xfi ,i_rcvsi,i_dspli)
+         endif
+c .....................................................................
+c
+c ...
+         i_r = dealloc('rsolver ')
+         i_z = dealloc('zsolver ')
+c ......................................................................
+c
+c ... Gmres com precondicionador diagonal:
       elseif(solver .eq. 2) then
-        print*,'Solver GMRES nao disponivel para o poromecanico !!'
+         diag = .true.
+c ...    precondicionador diagonal:
+         if(diag) then 
+           call pre_diag(m,ad,neq)
+c ...    
+         else                           
+           m(1:neq) = 1.d0  
+         endif           
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+     .                               i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ...
+         i_g = alloc_8('gsolver ',neq    ,ngram+1)         
+         i_h = alloc_8('hsolver ',ngram+1,ngram)
+         i_y = alloc_8('ysolver ',1,ngram)
+         i_c = alloc_8('csolver ',1,ngram)
+         i_s = alloc_8('ssolver ',1,ngram)
+         i_r = alloc_8('rsolver ',1,ngram+1)
+c .....................................................................
+c
+c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
+         if(block_pu) then
+           call gmres(neq,nequ,nad,ip,ja,
+     .                ad ,al  ,al ,m ,b ,x,ngram,ia(i_g),
+     .                ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+     .                tol    ,maxit,  
+c ... matvec comum:
+     .                matvec_csrc_pm  ,dot_par,
+c ... matvec desenrolado:
+c    .                matvec_csrcsym1,dot_par,
+     .                neqovlp ,my_id  ,neqf1i ,neqf2i ,
+     .                neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
+         else
+           call gmres(neq,nequ,nad,ip,ja,
+     .                ad ,al  ,al ,m ,b ,x,ngram,ia(i_g),
+     .                ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+     .                tol    ,maxit,  
+c ... matvec comum:
+     .                matvec_csrcsym_pm,dot_par,
+c ... matvec desenrolado:
+c    .                matvec_csrcsym1,dot_par,
+     .                neqovlp ,my_id  ,neqf1i ,neqf2i ,
+     .                neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli)
+         endif
+c .....................................................................
+c
+c ......................................................................
+         i_r = dealloc('rsolver ')
+         i_s = dealloc('ssolver ')
+         i_c = dealloc('csolver ')
+         i_y = dealloc('ysolver ')
+         i_h = dealloc('hsolver ')
+         i_g = dealloc('gsolver ')
+c ......................................................................
+c
+c ...                                         
       elseif(solver .eq. 3) then
         print*,'Solver GUASS nao disponivel para o poromecanico !!'
 c ......................................................................
 c
 c ... BICGSTAB com precondicionador diagonal:
       else if (solver .eq. 4) then
+         diag = .true.
 c ...    precondicionador diagonal:
-         call aequalb(m,ad,neq)      
+         if(diag) then 
+           call pre_diag(m,ad,neq)
+c ...    
+         else                           
+           m(1:neq) = 1.d0  
+         endif           
 c ...    Comunicacao da diagonal para o caso non-overlapping:
          if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
      .                               i_rcvsi,i_dspli)
@@ -494,30 +608,30 @@ c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
-           call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
-     .                   ad     ,al     ,al     ,m      ,b      ,x, 
-     .                   ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                   tol    ,maxit,
+           call pbicgstab(neq   ,nequ   ,nad  ,ip     ,ja      
+     .                  ,ad     ,al     ,al     ,m      ,b      ,x  
+     .                  ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     .                  ,tol    ,maxit 
 c ... matvec comum:
-     .                   matvec_csrc_pm ,dot_par,
+     .                  ,matvec_csrc_pm ,dot_par 
 c ... matvec desenrolado:
 c    .                   matvec_csrcsym1,dot_par,
-     .                   my_id        ,neqf1i  ,neqf2i,
-     .                   neq_doti     ,i_fmapi ,i_xfi ,i_rcvsi,i_dspli)
+     .                  ,my_id        ,neqf1i  ,neqf2i 
+     .                  ,neq_doti     ,i_fmapi ,i_xfi ,i_rcvsi,i_dspli)
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
          else
-           call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
-     .                   ad     ,al     ,al     ,m      ,b      ,x, 
-     .                   ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                   tol    ,maxit,
+           call pbicgstab(neq   ,nequ   ,nad    ,ip   ,ja      
+     .                  ,ad     ,al     ,al     ,m      ,b      ,x  
+     .                  ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     .                  ,tol    ,maxit 
 c ... matvec comum:
-     .                   matvec_csrcsym_pm,dot_par,
+     .                  ,matvec_csrcsym_pm,dot_par 
 c ... matvec desenrolado:
 c    .                     matvec_csrcsym1,dot_par,
-     .                   my_id        ,neqf1i  ,neqf2i ,
-     .                   neq_doti     ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli)
+     .                  ,my_id        ,neqf1i  ,neqf2i  
+     .                  ,neq_doti     ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli)
          endif
 c .....................................................................
 c
@@ -528,13 +642,116 @@ c ...
          i_h = dealloc('hsolver ')
          i_c = dealloc('tsolver ')
 c ......................................................................         
-      endif
+c
+c ...                                                                     
+      else if (solver .eq. 5) then
+         diag = .true.
+c ...    precondicionador diagonal:
+         if(diag) then 
+           call pre_diag(m,ad,neq)
+c ...    
+         else                           
+           m(1:neq) = 1.d0  
+         endif           
+c ...
+         neqp = neq - nequ
+         i_z  = alloc_8('zsolver ',1,nequ)
+         i_r  = alloc_8('rsolver ',1,nequ)
+         i_s  = alloc_8('ssolver ',1,nequ)
+         i_c  = alloc_8('csolver ',1,neqp)
+         i_h  = alloc_8('hsolver ',1,nequ)
+         i_g  = alloc_8('gsolver ',1,neqp)
 c ......................................................................
-      if (openmp) then
-         pmatrixtime = Mpi_Wtime() - pmatrixtime 
-         i_threads_y = dealloc('buffer_y')
-         pmatrixtime = Mpi_Wtime() - pmatrixtime
+c
+c ... 
+         call pcg_block_it(neq    ,nequ   ,neqp     ,nad,naduu,nadpp    
+     .                    ,ip     ,ja     ,ip(neq+2),ja(nad+1)
+     .                    ,ad     ,al     ,al(nad+1)  
+     .                    ,m      ,b      ,x
+     .                    ,ia(i_z),ia(i_r),ia(i_s)  ,ia(i_c)
+     .                    ,ia(i_h),ia(i_g)
+     .                    ,tol    ,maxit
+     .                    ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .                    ,i_xfi  ,i_rcvsi,i_dspli)
+c ......................................................................
+c
+c ...
+         i_g  = dealloc('gsolver ')        
+         i_h  = dealloc('hsolver ')        
+         i_c  = dealloc('csolver ')        
+         i_s  = dealloc('ssolver ')         
+         i_r  = dealloc('rsolver ')        
+         i_z  = dealloc('zsolver ') 
+c ......................................................................
       endif
+c ......................................................................         
+c
+c ...                                                                     
+      if (openmp) then
+        pmatrixtime = Mpi_Wtime() - pmatrixtime 
+        i_threads_y = dealloc('buffer_y')
+        pmatrixtime = Mpi_Wtime() - pmatrixtime
+      endif
+c ......................................................................         
+c
+c ...                                                                     
       return
       end
+c ************************************************************************
 
+c ************************************************************************
+c *                                                                    *
+c *   PRE_DIAG: precondicionador diagonal                              *
+c *   --------                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *   m   - indefinido                                                 *
+c *   ad  - coeficientes da diagonal principal                         *
+c *   neq - numero de equacoes                                         *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *   m   - precondicionador diagonal ( M-1)                           *
+c *                                                                    *
+c *************************************************************************
+      subroutine pre_diag(m,ad,neq)
+      implicit none
+      real*8 m(*),ad(*)
+      integer i,neq
+      do i = 1, neq
+        m(i) = 1.d0/ad(i)
+      enddo
+      return
+      end
+c *************************************************************************
+c
+c *************************************************************************
+      subroutine get_res(u,x,id,nnode,nnodev,ndf)
+      implicit none
+      integer nnode,nnodev,ndf
+      integer id(ndf,*),i,j,k
+      real*8 u(ndf,*),x(*)
+c ... loop nos
+      do i = 1, nnode
+        do j = 1, ndf - 1
+          k    = id(j,i)
+          if( k .gt. 0 ) then
+            x(k) = u(j,i)
+          endif
+        enddo
+      enddo
+c .....................................................................
+c
+c ... loop nos vertices
+      do i = 1, nnodev
+        k    = id(ndf,i)
+        if( k .gt. 0 ) then
+          x(k) = u(ndf,i)
+        endif
+      enddo
+c .....................................................................
+c
+c ...
+      return
+      end
+c *************************************************************************

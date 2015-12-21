@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-12-02 14:45:55 -0200 (Fri, 02 Dec 2011) $                 
-c*$Rev: 958 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************      
 c **********************************************************************
 c *                                                                    *
 c *   MATVEC.F                                           31/08/2005    *
@@ -1383,6 +1378,7 @@ c
 c ...       Produto dos coef. da parte triangular superior por x(i):
 c
             y(jak) = y(jak) + s*xi
+c           print*,i,s,jak
   100    continue
 c
 c ...    Armazena o resultado em y(i):
@@ -1396,6 +1392,74 @@ c ... Comunicacao do vetor y no sistema non-overlapping:
 c
       if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
      .                            i_dspli)
+c ......................................................................
+      return
+      end
+c **********************************************************************
+      subroutine matvec_csr_pm(neqi,neqj,ia  ,ja,al  ,x   ,y,flag)
+c **********************************************************************
+c *                                                                    *
+c *   MATVEC_CSRCSYM_PM: produto matriz-vetor y = Ax  (A simetrica),   *
+c *                   coef. de A no formato CSRC.                      *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   neq       - numero de equacoes                                   *
+c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
+c *                     coeficiente nao-nulo da linha   i              *
+c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
+c *               a posicao k no vetor au                              *
+c *   ad(neq)- diagonal da matriz A                                    *
+c *   al(nad)- parte triangular inferior de A, no formato CSR, ou      *
+c *            parte triangular superior de A, no formato CSC          *
+c *   x(neq) - vetor a ser multiplicado                                *
+c *   y(neq) - nao definido                                            *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'parallel.fi'
+      include 'time.fi'
+      integer neqi,neqj,ia(*),ja(*),i,k,jak
+      real*8  al(*),x(*),y(*),xi
+c ... ponteiros      
+      logical flag
+c ......................................................................
+      time0 = MPI_Wtime()
+c ... loop nas linha Kpu
+      if(flag) then
+        y(1:neqj) = 0.d0
+        do i = 1, neqi
+          xi = x(i)
+          do k = ia(i), ia(i+1)-1
+            jak   = ja(k)
+c           print*,i,k,al(k),xi,jak
+c ... Kup
+            y(jak) =  y(jak) - al(k)*xi
+          enddo      
+        enddo   
+c ......................................................................
+c
+c ... loop nas linha Kup
+      else 
+        do i = 1, neqi
+          y(i) = 0.0d0
+c ......................................................................
+c
+          do k = ia(i), ia(i+1)-1
+            jak   = ja(k)
+c           print*,i,k,al(k),x(jak),jak
+c ... Kpu
+            y(i)  =  y(i)  + al(k)*x(jak)
+          enddo
+        enddo
+      endif
+c .....................................................................
+      matvectime = matvectime + MPI_Wtime() - time0
 c ......................................................................
       return
       end
@@ -1614,4 +1678,22 @@ c ......................................................................
          c(i) = a(i)*x
   100 continue
       return
-      end        
+      end 
+c **********************************************************************
+      subroutine vet(a,b,c)
+c **********************************************************************
+c *                                                                    *
+c *   VET: Produto vetorial axb                                        *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      real*8  c(3),a(3),b(3)
+c ......................................................................
+      c(1) = a(2)*b(3) - a(3)*b(2)
+      c(2) = a(3)*b(1) - a(1)*b(3)
+      c(3) = a(1)*b(2) - a(2)*b(1)
+c ......................................................................    
+      return
+      end
+c **********************************************************************
+ 

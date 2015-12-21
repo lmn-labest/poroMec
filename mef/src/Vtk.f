@@ -853,7 +853,7 @@ c ... escalar float BINARY
                 write(nfile)fprop(1,i),fprop(2,i),fprop(3,i)
               endif
             enddo
-c ... escalardouble BINARY         
+c ... escalar double BINARY         
           elseif(cod2.eq.3)then  
             buffer =' VECTORS '//cname//' double'//lf
             write(nfile)trim(buffer)
@@ -949,13 +949,27 @@ c .. escalar double ASCII
             enddo
           endif  
 c ......................................................................
-c ......................................................................
 c 
 c ... campo tensorial ASCII
         elseif(cod1.eq.3) then
-          print*,'\nnao implementado '
+          if(cod2.eq.1)then
+            print*,'\nnao implementado '
+c .. escalar float ASCII 
+          elseif(cod2.eq.2)then  
+            print*,'\nnao implementado '
+c .. escalar double ASCII 
+          elseif(cod2.eq.3)then
+            write(nfile,'(a,15a,a)')'TENSORS ',cname,' double'
+            do i=1,nnode
+              write(nfile,'(9e15.5e3)')dprop(1,i),dprop(2,i),dprop(3,i)
+     .                                ,dprop(4,i),dprop(5,i),dprop(6,i)
+     .                                ,dprop(7,i),dprop(8,i),dprop(9,i)
+            enddo
+c ......................................................................
+          endif
 c ......................................................................
         endif
+c ......................................................................
       endif  
 c ======================================================================
 c

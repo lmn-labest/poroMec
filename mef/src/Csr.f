@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-03-16 15:32:53 -0300 (Wed, 16 Mar 2011) $                 
-c*$Rev: 914 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************    
 c **********************************************************************
 c *                                                                    *
 c *   CSR.F                                               31/08/2005   *
@@ -15,10 +10,10 @@ c *   csria                                                            *
 c *   csrja                                                            *
 c *                                                                    *
 c **********************************************************************
-      subroutine csrstruct(id,ix,num,nnode,nnodev,numel,nen,ndf,
-     .                    neq ,nequ,neqp,
-     .                    i2  ,i3   ,nad,nadup,
-     .                    lower,diag,upper,right,ija,ja,dualCsr)
+      subroutine csrstruct(id,ix,num,nnode,nnodev,numel,nen,ndf
+     .                    ,neq ,nequ,neqp
+     .                    ,i2  ,i3   ,nad,naduu,nadpp,nadpu
+     .                    ,lower,diag,upper,right,ija,ja,dualCsr)
 c **********************************************************************
 c *                                                                    *
 c *   CSRSTRUCT: monta os arranjos ia e ja do formato CSR.             *
@@ -34,9 +29,19 @@ c *    numel - numero de elementos                                     *
 c *    nen   - numero de nos por elemento                              *
 c *    ndf   - numero max. de graus de liberdade por no                *
 c *    neq   - numero de equacoes                                      *
+c *    nequ  - numero de equacoes de deslocamentos                     *
+c *    neqp  - numero de equacoes de  pressao                          *
+c *    i2    - nao definido                                            *
+c *    i3    - nao definido                                            *
+c *    nad   - nao definido                                            *
+c *    naduu - nao definido                                            *
+c *    nadpp - nao definido                                            *
+c *    nad   - nao definido                                            *
 c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
 c *    diag  = .true.  -> inclui a diagonal no csr                     *
 c *    upper = .true.  -> inclui a parte triangular superior no csr    *
+c *    ija   = string do nome do vetor ija                             *
+c *    ja    = string do nome do vetor ja                              *
 c *    dualCsr - flag para matrizes (Kuu+Kpp) e Kup separadas          *
 c *                                                                    *
 c *   Parametros de saida:                                             *
@@ -45,7 +50,9 @@ c *    i2    - ponteiro para o arranjo ia(neq+1)                       *
 c *    i3    - ponteiro para o arranjo ja(nad)                         *
 c * dualCsr = true                                                     *
 c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
-c *    nadup - numero de coeficientes nao nulos do bloco up            *
+c *    naduu - numero de coeficientes nao nulos do bloco uu            *
+c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
+c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c * dualCsr = false                                                    *
 c *    nad   - numero de coeficientes nao nulos                        *
 c *                                                                    *
@@ -54,7 +61,7 @@ c **********************************************************************
       implicit none
       integer id(ndf,*),ix(nen+1,*),num(*)
       integer nnode,nnodev,numel,nen,ndf,neq,nequ,neqp
-      integer nad,nadup,nad1
+      integer nad,naduu,nadpp,nadpu,nad1
       logical dualCsr
 c ... ponteiros      
       integer*8 i0,i1,i2,i3
@@ -88,7 +95,7 @@ c                                equacao i do bloco pu
 c ... blocos uu, pp e up
         call csriaup(id,num,ia(i0),ia(i1),ia(i2),ia(i2+neq+1),
      .               nnode,ndf,neq,
-     .               nequ,neqp,nad,nadup,nad1,lower,diag,upper,
+     .               nequ,neqp,nad,nadpu,nad1,lower,diag,upper,
      .               right)
 c ......................................................................     
 c
@@ -97,10 +104,10 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-        i3 = alloc_4(ja,1,nad+nadup)
+        i3 = alloc_4(ja,1,nad+nadpu)
         call csrjaup(id,num,ia(i0),ia(i1),ia(i3),ia(i3+nad),
      .              nnode,nnodev,ndf,neq,
-     .              nequ,nad,nadup,lower,diag,upper,right)
+     .              nequ,nad,nadpu,lower,diag,upper,right)
         call sortgraph(ia(i2),ia(i3),neq)
         call sortgraph(ia(i2+neq+1),ia(i3+nad),neqp)
 c       if (right) then
@@ -108,14 +115,20 @@ c         call sortgraph(ia(i2+neq+2),ia(i3+nad),neq)
 c       endif
 c ......................................................................
 c
+c ...
+        call get_nads(ia(i2),naduu,nadpp,neq,nequ)
+c ......................................................................
+c
 c ...      
-        call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
-     .                 nad,nadup)
+c       call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
+c    .                 nad,nadpu)
 c ......................................................................      
 c
 c ... csrc(uu+pp+up)
       else
-        nadup = 0
+        nadpu = 0
+        naduu = 0
+        nadpp = 0
 c
 c ... Montagem do arranjo ia(neq+1):
 c
@@ -145,8 +158,8 @@ c
 c ......................................................................
 c
 c ...      
-        call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
-     .                 nad,nadup)
+c       call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
+c    .                 nad,nadup)
 c ......................................................................      
       endif
 c ......................................................................
@@ -798,6 +811,35 @@ c
   290 continue
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c * GET_NADS :                                                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    ia    - vetor ia dos blocos Kuu e Kpp                           *
+c *    neq   - numero de equacoes                                      *
+c *    nequ  - numero de equacoes de deslocamentos                     *
+c *    naduu - nao definido                                            *
+c *    nadpp - nao definido                                            *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    naduu - numero de coeficientes nao nulos do bloco uu            *
+c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
+c *                                                                    *
+c **********************************************************************
+      subroutine get_nads(ia,naduu,nadpp,neq,nequ)
+      implicit none
+      integer ia(*),naduu,nadpp,neq,nequ
+      naduu = ia(nequ+1) - ia(1)
+      nadpp = ia(neq+1)  - ia(nequ+1)
+      return
+      end
+c **********************************************************************
+c
 c **********************************************************************
       subroutine printIaJa(ia,ja,iar,jar,neq,neqr,nad,nadr)
       implicit none

@@ -1,11 +1,10 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-12-02 14:45:55 -0200 (Fri, 02 Dec 2011) $                 
-c*$Rev: 958 $                                                           
-c*$Author: henrique $                                                   
 c***********************************************************************      
-      subroutine pcg(neq,nequ,nad,ia,ja,ad,au,al,m,b,x,z,r,tol,maxit,
-     .               matvec,dot,my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .               i_xfi,i_rcvsi,i_dspli)
+      subroutine pcg(neq   ,nequ  ,nad   ,ia      ,ja
+     .              ,ad    ,au    ,al    ,m        ,b      
+     .              ,x     ,z     ,r     ,tol      ,maxit
+     .              ,matvec,dot
+     .              ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .              ,i_xfi ,i_rcvsi,i_dspli)
 c **********************************************************************
 c *                                                                    *
 c *   Subroutine PCG                                                   *
@@ -17,6 +16,8 @@ c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
 c *   neq    - numero de equacoes                                      *
+c *   nequ   - numero de equacoes no bloco Kuu                         *
+c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
 c *   ia(*)  - ponteiro do formato CSR                                 *
 c *   ja(*)  - ponteiro das colunas no formato CSR                     *
 c *   ad(neq)- diagonal da matriz A                                    *
@@ -47,7 +48,7 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,maxit,i,j,nad
+      integer neq,nequ,nad,maxit,i,j,jj
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),r(*),z(*),b(*)
       real*8  dot,ddot,tol,conv,energy,d,alpha,beta
@@ -56,9 +57,6 @@ c .....................................................................
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
-c ......................................................................
-      nad = ia(neq+1)-1
-      if(my_id.eq.0)print *, 'nad :',nad
 c ......................................................................
 c
 c ... Chute inicial:
@@ -72,12 +70,13 @@ c ----------------------------------------------------------------------
      .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
       do 100 i = 1, neq
          r(i) = b(i) - z(i)
-         z(i) = r(i) / m(i)
+         z(i) = r(i) * m(i)
          b(i) = z(i)
   100 continue
-      d    = dot(r(1),z(1),neq_doti)
+      d    = dot(r,z,neq_doti)
       conv = tol*dsqrt(dabs(d))
 c ----------------------------------------------------------------------
+      jj = 1
       do 230 j = 1, maxit
          call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
      .               b,z,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
@@ -86,7 +85,7 @@ c ----------------------------------------------------------------------
          do 210 i = 1, neq
             x(i) = x(i) + alpha * b(i)
             r(i) = r(i) - alpha * z(i)
-            z(i) = r(i) / m(i)
+            z(i) = r(i) * m(i)
   210    continue
          beta = dot(r,z,neq_doti) / d
          do 220 i = 1, neq
@@ -94,6 +93,13 @@ c ----------------------------------------------------------------------
   220    continue
          d = beta * d
          if (dsqrt(dabs(d)) .lt. conv) goto 300
+c ......................................................................
+         if( jj .eq.  200) then
+           jj = 0
+           write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c ......................................................................
   230 continue
 c ----------------------------------------------------------------------
       write(*,1200) maxit
@@ -105,12 +111,12 @@ c
       call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
      .           x,z,
      .           neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
-      energy = dot(x(1),z(1),neq_doti)
+      energy = dot(x,z,neq_doti)
 c ......................................................................
       time = MPI_Wtime()
       time = time-time0
 c ----------------------------------------------------------------------
-      if(my_id.eq.0)write(*,1100)tol,neq,j,energy,time
+      if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
 c ......................................................................
 c     Controle de flops
       if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10)')"PCG: ",
@@ -123,13 +129,15 @@ c ======================================================================
  1100 format(' (PCG) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
      . 5x,'Energy norm          = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
+ 1300 format (' PCG:',5x,'It',i7,5x,2d20.10)
       end
-      subroutine gmres(neq,ia,ja,ad,au,al,m,b,x,k,g,h,y,c,s,e,
+      subroutine gmres(neq,nequ,nad,ia,ja,ad,au,al,m,b,x,k,g,h,y,c,s,e,
      .              tol,maxit,matvec,dot,neqovlp,my_id,neqf1i,neqf2i,
      .              neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli)
 c **********************************************************************
@@ -177,9 +185,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,k,maxit,ia(*),ja(*),neqovlp,nit,i,j,l,ni,ic,nad,nad1
-      real*8  ad(neq),au(*),al(*),m(*),b(*),x(*)
-c      real*8  g(0:neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
+      integer neq,nequ,nad
+      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nad1
+      real*8  ad(*),au(*),al(*),m(*),b(*),x(*)
       real*8  g(neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
       real*8  energy,econv,norm,dot,ddot,r,aux1,aux2,beta
       real*8  time0,time
@@ -190,8 +198,8 @@ c      integer nii(maxit)
 c ......................................................................
       time0 = MPI_Wtime()
 c ......................................................................
-      nad = ia(neq+1)-1
-      if(my_id.eq.0)print*,nad
+c     nad = ia(neq+1)-1
+c     if(my_id.eq.0)print*,nad
 c ----------------------------------------------------------------------
 c
 c.... Chute inicial:
@@ -199,7 +207,7 @@ c
       do 10 i = 1, neq
          x(i) = 0.d0
 c ...    pre-condicionador diagonal:                  
-         g(i,1) = b(i)/m(i)
+         g(i,1) = b(i)*m(i)
    10 continue
 c ----------------------------------------------------------------------
 c
@@ -212,18 +220,22 @@ c
 c ... Ciclos GMRES:
 c
       nit = 0
+      jj  = 1
       do 1000 l = 1, maxit
 c
 c ...... Residuo g(1) = b - A x:
 c
-         call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
+c        call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
+c    .               x,g(1,1),neqf1i,neqf2i,i_fmapi,i_xfi,
+c    .               i_rcvsi,i_dspli,dum1)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
      .               x,g(1,1),neqf1i,neqf2i,i_fmapi,i_xfi,
      .               i_rcvsi,i_dspli,dum1)
 c
 c ...... Residuo com precondicionador diagonal:
 c
          do 200 i = 1, neq
-            g(i,1) = (b(i) - g(i,1))/m(i)
+            g(i,1) = (b(i) - g(i,1))*m(i)
   200    continue
 c
 c ...... Norma do residuo:
@@ -245,14 +257,17 @@ c
 c
 c ......... Produto g(i+1) = A.g(i):
 c
-            call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,
+c           call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,
+c    .                  al(nad+1),g(1,i),g(1,i+1),neqf1i,neqf2i,
+c    .                  i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+            call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,
      .                  al(nad+1),g(1,i),g(1,i+1),neqf1i,neqf2i,
      .                  i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
 c
 c ......... Precondicionador diagonal:
 c
             do 300 j = 1, neq
-                g(j,i+1) = g(j,i+1)/m(j)
+                g(j,i+1) = g(j,i+1)*m(j)
   300       continue
 c
 c ......... Ortogonalizacao (Gram-Schmidt modificado):
@@ -317,13 +332,20 @@ c ...... Verifica a convergencia:
 c
 c         nii(l)=ni
          if (dabs(e(ni+1)) .le. econv) goto 1100
+c ......................................................................
+         if( jj .eq. 200) then
+           jj = 0
+           write(*,2300),l,dabs(e(ni+1)),econv 
+         endif  
+         jj = jj + 1
+c ......................................................................
  1000 continue
-c ----------------------------------------------------------------------
+c ......................................................................
  1100 continue
 c
 c ... Norma de energia da solucao:
 c
-      energy = dot(x(1),b(1),neq_doti)
+      energy = dot(x,b,neq_doti)
 c ......................................................................
       time = MPI_Wtime()
       time = time-time0
@@ -350,6 +372,7 @@ c ----------------------------------------------------------------------
      . 5x,'CPU time (s)         = ',f20.2/)
  2100 format(' *** WARNING: no convergence reached for ',i9,' cycles !',
      . /)
+ 2300 format (' GMRES:',5x,'It',i7,5x,2d20.10)
       end      
       subroutine bicgstab(neq,ia,ja,ad,au,al,m,b,x,y,z,p,r,s,tol,maxit,
      .                    matvec,dot,my_id,neqf1i,neqf2i,neq_doti,
@@ -509,6 +532,8 @@ c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
 c *   neq    - numero de equacoes                                      *
+c *   nequ   - numero de equacoes no bloco Kuu                         *
+c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
 c *   ia(*)  - ponteiro do formato CSR                                 *
 c *   ja(*)  - ponteiro das colunas no formato CSR                     *
 c *   ad(neq)- diagonal da matriz A                                    *
@@ -543,7 +568,7 @@ c ... ponteiros
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
       integer neq,nequ,nad
-      integer maxit,i,j,k
+      integer maxit,i,j,jj,k
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),r(*),p(*),b(*),t(*),v(*),z(*)
       real*8  dot,tol,conv,energy,d,alpha,beta,rr0,w,vi
@@ -569,21 +594,22 @@ c ----------------------------------------------------------------------
          r(i) = b(i) - z(i)
          p(i) = r(i)
          b(i) = p(i)
-         z(i) = p(i)/m(i) 
+         z(i) = p(i)*m(i) 
   100 continue
       d    = dot(r,z,neq_doti)
       conv = tol*dsqrt(dabs(d))
 c ----------------------------------------------------------------------
+      jj = 1
       do 230 j = 1, maxit
          call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
      .               z,v,
      .               neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
-         rr0 = dot(b,r,neq_doti)
+         rr0   = dot(b,r,neq_doti)
          alpha = rr0/dot(v,r,neq_doti)
          do 210 i = 1, neq
             x(i) = x(i) + alpha * z(i)
             b(i) = b(i) - alpha * v(i)
-            z(i) = b(i) / m(i)
+            z(i) = b(i) * m(i)
   210    continue
          call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
      .               z,t,
@@ -594,14 +620,22 @@ c ----------------------------------------------------------------------
             b(i) = b(i) - w*t(i)
   220    continue
          d = dot(b,z,neq_doti)
+c        if ( j .eq. 300) goto 300 
          if (dsqrt(dabs(d)) .lt. conv) goto 300
          beta = (dot(r,b,neq_doti) / rr0)*(alpha/w)
          do 225 i = 1, neq
              p(i) = b(i) + beta*(p(i)-w*v(i))
-             z(i) = p(i)/m(i)
+             z(i) = p(i)*m(i)
   225    continue
+c ......................................................................
+         if( jj .eq. 200) then
+           jj = 0
+           write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c ......................................................................
   230 continue
-c ----------------------------------------------------------------------
+c ......................................................................
       write(*,1200) maxit
       call stop_mef()
   300 continue
@@ -619,9 +653,9 @@ c ----------------------------------------------------------------------
       if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
 c ......................................................................
 c     Controle de flops
-      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10)')
+      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
      .               "PBICGSTAB: ","it",j, " energy norm ",energy,
-     .               " tol ",tol
+     .               " tol ",tol," time ",time
 c ......................................................................
       return
 c ======================================================================
@@ -636,4 +670,234 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
+ 1300 format (' BICGSTAB:',5x,'It',i7,5x,2d20.10)
       end
+c *********************************************************************
+c
+c *********************************************************************      
+      subroutine pcg_block_it(neq   ,nequ  ,neqp  ,nad  ,naduu,nadpp
+     .                       ,ia    ,ja    ,iapu  ,japu    
+     .                       ,ad    ,al    ,alpu
+     .                       ,m     ,b     ,x     
+     .                       ,z     ,r     ,bu    ,bp
+     .                       ,u     ,p
+     .                       ,tol   ,maxit
+     .                       ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .                       ,i_xfi ,i_rcvsi,i_dspli)
+c **********************************************************************
+c *                                                                    *
+c *   Subroutine PCG                                                   *
+c *                                                                    *
+c *   Solucao de sistemas de equacoes pelo metodo dos gradientes       *
+c *   conjugados com precondicionador diagonal para matrizes           *
+c *   simetricas.                                                      *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   neq    - numero de equacoes                                      *
+c *   nequ   - numero de equacoes no bloco Kuu                         *
+c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c *   ia(*)  - ponteiro do formato CSR                                 *
+c *   ja(*)  - ponteiro das colunas no formato CSR                     *
+c *   ad(neq)- diagonal da matriz A                                    *
+c *   au(*)  - parte triangular superior de A                          *
+c *   al(*)  - parte triangular inferior de A                          *
+c *   m(*)   - precondicionador diagonal                               *
+c *   b(neq) - vetor de forcas                                         *
+c *   x(neq) - chute inicial                                           *
+c *   z(neq) - arranjo local de trabalho                               *
+c *   r(neq) - arranjo local de trabalho                               *
+c *   tol    - tolerancia de convergencia                              *
+c *   maxit  - numero maximo de iteracoes                              *
+c *   matvec - nome da funcao externa para o produto matrix-vetor      *
+c *   dot    - nome da funcao externa para o produto escalar           *
+c *   energy - nao definido                                            *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *   x(neq) - vetor solucao                                           *
+c *   b(neq) - modificado                                              *
+c *   ad(*),al(*),au(*) - inalterados                                  *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      integer neqf1i,neqf2i,neq_doti
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi
+      integer*8 i_rcvsi,i_dspli
+c .....................................................................      
+      integer neq,nequ,neqp,nad,naduu,nadpp,maxit,i,j,jj
+      integer ia(*),ja(*),iapu(*),japu(*)
+      integer my_id
+      real*8  ad(*),al(*),alpu(*),m(*),x(*),r(*),z(*),b(*),bp(*),bu(*)
+      real*8  u(*),p(*)
+      real*8  dot,ddot,tol,conv,energy,d,alpha,beta
+      real*8  resid_u,resid_p,p_conv,u_conv,alfap,alfau
+      real*8  time0,time
+      real*8 dum1
+      logical l_u_conv,l_p_conv
+      external matvec_csrcsym_pm
+      external dot_par,dot
+c ======================================================================
+      time0 = MPI_Wtime()
+c ......................................................................
+c
+c ====================== GAMBIARRA ==================================== 
+      do i = naduu+1 ,nad
+        ja(i) = ja(i) - nequ 
+      enddo
+c ====================== GAMBIARRA ==================================== 
+c 
+c ... 
+      alfap = 0.6d0
+      alfau = 0.1d0
+c.......................................................................
+c 
+c ...
+      do j = 1, nequ 
+        u(j) = x(j) 
+      enddo
+      do j = 1, neqp
+        p(j) = x(nequ+j) 
+      enddo
+c.......................................................................
+c 
+c ... 
+      l_u_conv = .false.
+      l_p_conv = .false.
+c.......................................................................
+c 
+c ... 
+      conv = 1.d-9
+      do i = 1, 500
+c ... bu
+        call aequalb(bu,b,nequ)
+c ... bp
+        call aequalb(bp,b(nequ+1),neqp)
+c.......................................................................
+c
+c ...  Fp-kpu*U
+        call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,u,r,.false.)
+c       do j = 1, neqp
+c         print*,'rp',bp(j),r(j)
+c       enddo
+        call aminusb(bp,r,bp,neqp) 
+c ......................................................................
+c
+c ... P = inv(Kpp)*(Fp - kpu*U)
+        call pcg(neqp      ,neqp       ,nadpp
+     .          ,ia(nequ+1),ja
+     .          ,ad(nequ+1),al         ,al             
+     .          ,m(nequ+1) ,bp         ,x               
+     .          ,z         ,r          ,tol,maxit
+     .          ,matvec_csrcsym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neqp    ,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli)
+c ......................................................................
+c
+c ... x - > u
+       do j = 1, neqp
+         p(j) = (1.d0-alfap)*p(j) + alfap*x(j)
+c        print*,'p',j,p(j) 
+       enddo
+c ......................................................................
+c
+c ...  Fu-kup*P
+        call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,p,r,.true.)
+        call aminusb(bu,r,bu,nequ)
+c       do j = 1, nequ
+c         print*,'ru',bu(j),r(j)
+c       enddo
+c ......................................................................
+c
+c ... U = inv(Kuu)*(Fu - kup*P)
+        call pcg(nequ   ,nequ   ,naduu
+     .          ,ia     ,ja
+     .          ,ad     ,al     ,al 
+     .          ,m      ,bu     ,x
+     .          ,z      ,r      
+     .          ,tol    ,maxit
+     .          ,matvec_csrcsym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,nequ    ,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli)
+c ......................................................................
+c
+c ... x - > u
+       do j = 1, nequ 
+         u(j) = (1.d0-alfau)*u(j) + alfau*x(j) 
+c        print*,'u',j,u(j) 
+       enddo
+c ......................................................................
+c            
+c ... Kpp*P
+        call matvec_csrcsym_pm(neqp      ,neqp
+     .                        ,ia(nequ+1),ja  ,ia(neq+2),ja(nad+1)
+     .                        ,ad(nequ+1),al  ,al(nad+1) 
+     .                        ,p         ,z
+     .                        ,neqf1i,neqf2i
+     .                        ,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c ... Kpu*U
+        call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,u,r,.false.)
+c ... bp
+        call aequalb(bp,b(nequ+1),neqp)
+c ...
+        call aminusb(bp,r,bp,neqp)
+        call aminusb(bp,z,bp,neqp)
+        resid_p = dsqrt(dot(bp,bp,neqp))
+c .....................................................................
+c            
+c ... Kpp*U
+        call matvec_csrcsym_pm(nequ      ,nequ
+     .                        ,ia        ,ja  ,ia(neq+2),ja(nad+1)
+     .                        ,ad        ,al  ,al(nad+1) 
+     .                        ,u         ,z
+     .                        ,neqf1i,neqf2i
+     .                        ,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c ... Kpu*P
+        call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,p,r,.true.)
+c ... bu
+        call aequalb(bu,b,nequ)
+c ...
+        call aminusb(bu,r,bu,nequ)
+        call aminusb(bu,z,bu,nequ)
+        resid_u = dsqrt(dot(bu,bu,nequ))
+c ... 
+        if( i .eq. 1) then
+          u_conv = dsqrt(dot(bu,bu,nequ))*conv
+          p_conv = dsqrt(dot(bp,bp,neqp))*conv
+c ......................................................................
+c 
+c ... 
+        else 
+          if( resid_u .lt. u_conv ) l_u_conv = .true.
+          if( resid_p .lt. p_conv ) l_p_conv = .true.
+        endif
+c ......................................................................
+        print*,'it',i,'t',resid_p ,p_conv,resid_u,u_conv
+        print*,'it',i,'t',l_p_conv,l_u_conv
+        if( l_u_conv .and. l_p_conv ) goto 100
+        if( i .eq. 500) then
+          print*, 'MAXIT'
+          stop
+        endif
+      enddo
+  100 continue   
+c ......................................................................
+c
+c ...
+      do j = 1, nequ 
+        x(j) = u(j) 
+      enddo
+      do j = 1, neqp
+        x(nequ+j) = p(j) 
+      enddo
+c ......................................................................
+c ====================== GAMBIARRA ==================================== 
+      do i = naduu +1,nad
+        ja(i) = ja(i) + nequ 
+      enddo
+c ====================== GAMBIARRA ==================================== 
+      return
+      end
+c **********************************************************************

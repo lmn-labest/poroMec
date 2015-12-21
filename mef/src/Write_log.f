@@ -1,9 +1,3 @@
-* ***************************svn****************************************
-* $LastChangedDate:: 2011-12-19 11:13:07 -0200 (Mon, 19 Dec 2011)    $:*
-* $Author:: henrique                                                 $:*
-* $Rev:: 961                                                         $:*
-* $Id:: Write_log.f 961 2011-12-19 13:13:07Z henrique                $:* 
-* **********************************************************************
 c *********************************************************************
 c * WRITE_LOG : Escrever o arquivo de log de excuacao                 *
 c * ----------------------------------------------------------------- *
@@ -24,6 +18,7 @@ c * neq1a     - numero de equacoes V1a do mecanico                    *
 c * neqf1     - buffer de equacoes do mecanico                        *
 c * neqf2     - buffer de equacoes do mecanico                        *
 c * nad       - numero de elementos nao nulos fora da diag principal  *
+c * nadup     - numero de coeficientes nao nulos do bloco up          *
 c * nad1      - numero de elementos nao nulos di csrcr(overlaping)    *
 c * neqt      - numero de equacoes do termico                         *
 c * openmp    - flag do openmp                                        *
@@ -41,7 +36,7 @@ c *********************************************************************
       subroutine write_log_file(nnode ,numel      ,numel_nov ,numel_ov
      .                         ,ndf   ,neq        ,neq1      ,neq2
      .                         ,neq32 ,neq4       ,neq1a     ,neqf1
-     .                         ,neqf2 ,nad        ,nad1
+     .                         ,neqf2 ,nad        ,nadpu     ,nad1
      .                         ,openmp,num_threads,num_colors,prename
      .                         ,my_id ,nprcs      ,nlog)
       use Malloc
@@ -52,7 +47,7 @@ c ... malha
       integer nnode,numel,numel_nov,numel_ov
 c ... informacoes do sistema      
       integer neq,neq1,neq2,neq32,neq4,neq1a,neqf1,neqf2
-      integer nad,nad1
+      integer nad,nadpu,nad1
       integer ndf
 c ... mpi      
       integer mcw,mi,mdp,ierr
@@ -76,9 +71,9 @@ c ... abre o arquivo de logs
       if(my_id .eq.0) then
         fname = name(prename,nprcs,14)
         open(nlog, file= fname)
-        write(nlog,'(a)')"# Arquivo de log do Termomecanico"
+        write(nlog,'(a)')"# Arquivo de log do poro mecanico"
         write(nlog,'(a)')"Tempos (seg):"
-        write(nlog,'(a,es10.2)') "Resolucao do tempo:", MPI_WTICK() 
+        write(nlog,'(a,es10.2)') "Resolucao do tempo:", mpi_wtick() 
       endif
 c .....................................................................
 c
@@ -115,6 +110,11 @@ c ... Tempo levado na pform
 c
       call MPI_GATHER(elmtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
       if (my_id.eq.0) call twrite('ELMT  ',ia(i_ts),nprcs,nlog)
+c
+c ... Tempo levado na tform
+c
+      call MPI_GATHER(tformtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+      if (my_id.eq.0) call twrite('TFORM ',ia(i_ts),nprcs,nlog)
 c
 c ... Tempo levado no solver
 c
@@ -222,6 +222,11 @@ c ... numero de coeficientes nao nulos
 c
            call MPI_GATHER(nad,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
            if (my_id.eq.0) call itwrite('nad   ',ia(i_ts),nprcs,nlog)
+c
+c ... numero de coeficieno nao nulos overlapping
+c
+           call MPI_GATHER(nadpu,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
+           if (my_id.eq.0) call itwrite('nadpu ',ia(i_ts),nprcs,nlog)
 c
 c ... numero de coeficieno nao nulos overlapping
 c
