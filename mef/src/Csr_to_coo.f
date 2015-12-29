@@ -35,7 +35,8 @@ c*********************************************************************
       integer neq ,nad
       logical unsym,bin,pre_diag
       integer nl,nc,kk
-      pre_diag = .true.
+c     pre_diag = .true.
+      pre_diag = .false.
 c ... CSRC poro mecanico (ad-diagonal principal;al-parte inferior)
       kk = 0
       do nl = 1, neq
@@ -59,7 +60,7 @@ c ... CSRC poro mecanico (ad-diagonal principal;al-parte inferior)
             val(kk) = 1.0
           else
             if(pre_diag) then
-              val(kk) = al(nc)/ad(nl)
+               val(kk) = al(nc)/ad(nl)
             else
               val(kk) = al(nc)
             endif
@@ -130,7 +131,7 @@ c*********************************************************************
       logical bin,pre_diag
       integer nl,nc,kk,ii
       integer desloc_ia,desloc_ja
-      pre_diag = .true.
+      pre_diag = .false.
 c ... matriz completa
       kk = 0
 c ... Kuu e Kpp

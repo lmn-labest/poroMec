@@ -1,7 +1,8 @@
-block_pu
+//block_pu 2
 //reord
-//gmres 200
-//bicgstab
+//gmres 50 6000   1.0d-11
+bicgstab 6000 1.0d-11
+//pcg      6000 0.0d0
 gravity 0.0d0 0.0d0 -10.d0
 mesh
 nnode      1331 numel      1000 numat  1 maxno 20 ndf 4 dim 3
