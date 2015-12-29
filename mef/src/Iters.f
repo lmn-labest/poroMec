@@ -94,7 +94,7 @@ c ----------------------------------------------------------------------
          d = beta * d
          if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ......................................................................
-         if( jj .eq.  200) then
+         if( jj .eq.500) then
            jj = 0
            write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
@@ -119,8 +119,9 @@ c ----------------------------------------------------------------------
       if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
 c ......................................................................
 c     Controle de flops
-      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10)')"PCG: ",
-     .               "it",j, " energy norm ",energy," tol ",tol
+      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
+     .            "PCG: "," it ",j, " energy norm ",energy," tol ",tol,
+     .            " time ",time
 c ......................................................................
       return
 c ======================================================================
@@ -498,8 +499,9 @@ c ----------------------------------------------------------------------
       if(my_id.eq.0)write(*,1100) neq,j,energy,time
 c ......................................................................
 c     Controle de flops
-      if(my_id.eq.0)write(10,'(a,a,i9,a,d20.10,a,d20.10)')"BICGSTAB: ",
-     .              "it",j, " energy norm ",energy," tol ",tol
+      if(my_id.eq.0)write(10,'(a,a,i9,a,d20.10,a,d20.10,f20.2)')
+     .              "BICGSTAB: ", "it",j, " energy norm ",energy,
+     .              " tol ",tol,"time",time
 c ......................................................................
       return
 c ======================================================================
@@ -676,12 +678,14 @@ c *********************************************************************
 c
 c *********************************************************************      
       subroutine pcg_block_it(neq   ,nequ  ,neqp  ,nad  ,naduu,nadpp
-     .                       ,ia    ,ja    ,iapu  ,japu    
-     .                       ,ad    ,al    ,alpu
-     .                       ,m     ,b     ,x     
-     .                       ,z     ,r     ,bu    ,bp
+     .                       ,iau   ,jau   ,iap   ,jap  ,iapu ,japu    
+     .                       ,adu   ,adp   ,alu   ,alp  ,alpu
+     .                       ,mu    ,mp    ,b     ,x     
+     .                       ,z     ,r     
+     .                       ,bu    ,bp    ,bu0   ,bp0
      .                       ,u     ,p
-     .                       ,tol   ,maxit
+     .                       ,tol   ,ctol  ,maxit ,cmaxit
+     .                       ,fnew  ,istep
      .                       ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .                       ,i_xfi ,i_rcvsi,i_dspli)
 c **********************************************************************
@@ -696,19 +700,35 @@ c *   Parametros de entrada:                                           *
 c *                                                                    *
 c *   neq    - numero de equacoes                                      *
 c *   nequ   - numero de equacoes no bloco Kuu                         *
+c *   neqp   - numero de equacoes no bloco Kuu                         *
 c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
-c *   ia(*)  - ponteiro do formato CSR                                 *
-c *   ja(*)  - ponteiro das colunas no formato CSR                     *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   au(*)  - parte triangular superior de A                          *
-c *   al(*)  - parte triangular inferior de A                          *
-c *   m(*)   - precondicionador diagonal                               *
+c *   naduu  - numero de termos nao nulos no bloco Kuu                 *  
+c *   nadpp  - numero de termos nao nulos no bloco Kpp                 *
+c *   ia(*)  - ponteiro do formato CSR (bloco Kuu e Kpp)               *
+c *   ja(*)  - ponteiro das colunas no formato CSR (bloco Kuu e Kpp)   *
+c *   iapu(*)- ponteiro do formato CSR (bloco Kpu )                    *
+c *   japu(*)- ponteiro das colunas no formato CSR (bloco Kpu)         *
+c *   ad(neq)- diagonal da matriz A  (bloco Kuu e Kpp)                 *
+c *   al(*)  - parte triangular inferior de A (bloco Kuu e Kpp)        *
+c *   alpu(*)- parte triangular inferior de A (bloco Kpu)              *
+c *   m(*)   - precondicionador diagonal (bloco Kuu e Kpp)             *
 c *   b(neq) - vetor de forcas                                         *
-c *   x(neq) - chute inicial                                           *
+c *   x(neq) - valores do passo anterior                               *
 c *   z(neq) - arranjo local de trabalho                               *
 c *   r(neq) - arranjo local de trabalho                               *
+c *   bu(nequ) - arranjo local de trabalho                             *
+c *   bp(neqp) - arranjo local de trabalho                             *
+c *   bu0(nequ)- arranjo local de trabalho                             *
+c *   bp0(neqp)- arranjo local de trabalho                             *
+c *   u(nequ) - arranjo local de trabalho                              *
+c *   p(neq0) - arranjo local de trabalho                              *
 c *   tol    - tolerancia de convergencia                              *
 c *   maxit  - numero maximo de iteracoes                              *
+c *   ctol   - tolerancia de convergencia do ciclo externo             *
+c *   cmaxit - numero maximo de iteracoes do ciclo externo             *
+c *   fnew   - .true. chute inicial nulo                               * 
+c *            .false. passo anterior                                  *
+c *   istep  - numero do passo de tempo                                *
 c *   matvec - nome da funcao externa para o produto matrix-vetor      *
 c *   dot    - nome da funcao externa para o produto escalar           *
 c *   energy - nao definido                                            *
@@ -727,40 +747,52 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,neqp,nad,naduu,nadpp,maxit,i,j,jj
-      integer ia(*),ja(*),iapu(*),japu(*)
-      integer my_id
-      real*8  ad(*),al(*),alpu(*),m(*),x(*),r(*),z(*),b(*),bp(*),bu(*)
-      real*8  u(*),p(*)
-      real*8  dot,ddot,tol,conv,energy,d,alpha,beta
-      real*8  resid_u,resid_p,p_conv,u_conv,alfap,alfau
-      real*8  time0,time
+      integer neq,nequ,neqp,nad,naduu,nadpp,maxit,i,j,jj,istep
+      integer cmaxit
+      integer iau(*),jau(*),iap(*),jap(*),iapu(*),japu(*)
+      integer my_id,idum
+      real*8 adu(*),adp(*),alu(*),alp(*),alpu(*)
+      real*8 mu(*),mp(*),x(*),r(*),z(*),b(*)
+      real*8 bp(*),bu(*),bp0(*),bu0(*)
+      real*8 u(*),p(*)
+      real*8 dot,tol,ctol,energy,d,alpha,beta
+      real*8 resid_u,resid_p,p_conv,u_conv,alfap,alfau
+      real*8 time0,time,time_csr
       real*8 dum1
-      logical l_u_conv,l_p_conv
+      logical l_u_conv,l_p_conv,fnew
       external matvec_csrcsym_pm
       external dot_par,dot
 c ======================================================================
-      time0 = MPI_Wtime()
+      time0    = MPI_Wtime()
+      time_csr = 0.d0
 c ......................................................................
 c
-c ====================== GAMBIARRA ==================================== 
-      do i = naduu+1 ,nad
-        ja(i) = ja(i) - nequ 
-      enddo
-c ====================== GAMBIARRA ==================================== 
-c 
+c ...
+      time0 = MPI_Wtime()
 c ... 
-      alfap = 0.6d0
-      alfau = 0.1d0
+      alfap = 0.1d0
+      alfau = 0.2d0
 c.......................................................................
 c 
 c ...
-      do j = 1, nequ 
-        u(j) = x(j) 
-      enddo
-      do j = 1, neqp
-        p(j) = x(nequ+j) 
-      enddo
+      if(fnew) then
+        do j = 1, nequ 
+          u(j) = 0.d0 
+        enddo
+        do j = 1, neqp
+          p(j) = 0.d0        
+        enddo
+c.......................................................................
+c 
+c ...
+      else
+        do j = 1, nequ 
+          u(j) = x(j) 
+        enddo
+        do j = 1, neqp
+          p(j) = x(nequ+j) 
+        enddo
+      endif
 c.......................................................................
 c 
 c ... 
@@ -768,54 +800,52 @@ c ...
       l_p_conv = .false.
 c.......................................................................
 c 
-c ... 
-      conv = 1.d-9
-      do i = 1, 500
-c ... bu
-        call aequalb(bu,b,nequ)
+c ... bu 
+      call aequalb(bu0,b,nequ)
 c ... bp
-        call aequalb(bp,b(nequ+1),neqp)
+      call aequalb(bp0,b(nequ+1),neqp)
 c.......................................................................
 c
-c ...  Fp-kpu*U
+c ... 
+      print*,ctol,cmaxit,maxit,tol
+      do i = 1, cmaxit
+c
+c ...  r = Fp-kpu*U
+        time_csr = MPI_Wtime() - time_csr
         call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,u,r,.false.)
-c       do j = 1, neqp
-c         print*,'rp',bp(j),r(j)
-c       enddo
-        call aminusb(bp,r,bp,neqp) 
+        call aminusb(bp0,r,bp,neqp) 
+        time_csr = MPI_Wtime() - time_csr
 c ......................................................................
 c
 c ... P = inv(Kpp)*(Fp - kpu*U)
         call pcg(neqp      ,neqp       ,nadpp
-     .          ,ia(nequ+1),ja
-     .          ,ad(nequ+1),al         ,al             
-     .          ,m(nequ+1) ,bp         ,x               
+     .          ,iap       ,jap
+     .          ,adp       ,alp        ,alp            
+     .          ,mp        ,bp         ,x               
      .          ,z         ,r          ,tol,maxit
      .          ,matvec_csrcsym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neqp    ,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli)
 c ......................................................................
 c
-c ... x - > u
+c ... x - > p
        do j = 1, neqp
          p(j) = (1.d0-alfap)*p(j) + alfap*x(j)
-c        print*,'p',j,p(j) 
        enddo
 c ......................................................................
 c
-c ...  Fu-kup*P
+c ...  r = Fu-kup*P
+        time_csr = MPI_Wtime() - time_csr
         call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,p,r,.true.)
-        call aminusb(bu,r,bu,nequ)
-c       do j = 1, nequ
-c         print*,'ru',bu(j),r(j)
-c       enddo
+        call aminusb(bu0,r,bu,nequ)
+        time_csr = MPI_Wtime() - time_csr
 c ......................................................................
 c
 c ... U = inv(Kuu)*(Fu - kup*P)
         call pcg(nequ   ,nequ   ,naduu
-     .          ,ia     ,ja
-     .          ,ad     ,al     ,al 
-     .          ,m      ,bu     ,x
+     .          ,iau    ,jau
+     .          ,adu    ,alu    ,alu
+     .          ,mu     ,bu     ,x
      .          ,z      ,r      
      .          ,tol    ,maxit
      .          ,matvec_csrcsym_pm,dot_par 
@@ -826,46 +856,45 @@ c
 c ... x - > u
        do j = 1, nequ 
          u(j) = (1.d0-alfau)*u(j) + alfau*x(j) 
-c        print*,'u',j,u(j) 
        enddo
 c ......................................................................
 c            
 c ... Kpp*P
+        time_csr = MPI_Wtime() - time_csr
         call matvec_csrcsym_pm(neqp      ,neqp
-     .                        ,ia(nequ+1),ja  ,ia(neq+2),ja(nad+1)
-     .                        ,ad(nequ+1),al  ,al(nad+1) 
+     .                        ,iap       ,jap ,idum     ,idum        
+     .                        ,adp       ,alp ,alp       
      .                        ,p         ,z
      .                        ,neqf1i,neqf2i
      .                        ,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
 c ... Kpu*U
         call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,u,r,.false.)
-c ... bp
-        call aequalb(bp,b(nequ+1),neqp)
 c ...
-        call aminusb(bp,r,bp,neqp)
-        call aminusb(bp,z,bp,neqp)
+        call aminusb(bp0,r,bp,neqp)
+        call aminusb(bp ,z,bp,neqp)
+        time_csr = MPI_Wtime() - time_csr
         resid_p = dsqrt(dot(bp,bp,neqp))
 c .....................................................................
 c            
-c ... Kpp*U
+c ... Kuu*U
+        time_csr = MPI_Wtime() - time_csr
         call matvec_csrcsym_pm(nequ      ,nequ
-     .                        ,ia        ,ja  ,ia(neq+2),ja(nad+1)
-     .                        ,ad        ,al  ,al(nad+1) 
+     .                        ,iau       ,jau ,idum     ,idum         
+     .                        ,adu       ,alu ,alu              
      .                        ,u         ,z
      .                        ,neqf1i,neqf2i
      .                        ,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
 c ... Kpu*P
         call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,p,r,.true.)
-c ... bu
-        call aequalb(bu,b,nequ)
 c ...
-        call aminusb(bu,r,bu,nequ)
+        call aminusb(bu0,r,bu,nequ)
         call aminusb(bu,z,bu,nequ)
+        time_csr = MPI_Wtime() - time_csr
         resid_u = dsqrt(dot(bu,bu,nequ))
 c ... 
         if( i .eq. 1) then
-          u_conv = dsqrt(dot(bu,bu,nequ))*conv
-          p_conv = dsqrt(dot(bp,bp,neqp))*conv
+          u_conv = dsqrt(dot(b,b,neq))*ctol
+          p_conv = dsqrt(dot(b,b,neq))*ctol
 c ......................................................................
 c 
 c ... 
@@ -875,7 +904,6 @@ c ...
         endif
 c ......................................................................
         print*,'it',i,'t',resid_p ,p_conv,resid_u,u_conv
-        print*,'it',i,'t',l_p_conv,l_u_conv
         if( l_u_conv .and. l_p_conv ) goto 100
         if( i .eq. 500) then
           print*, 'MAXIT'
@@ -884,7 +912,9 @@ c ......................................................................
       enddo
   100 continue   
 c ......................................................................
-c
+      time = MPI_Wtime()
+c ......................................................................
+      write(16,*) istep,i,time-time0,time_csr
 c ...
       do j = 1, nequ 
         x(j) = u(j) 
@@ -893,11 +923,22 @@ c ...
         x(nequ+j) = p(j) 
       enddo
 c ......................................................................
-c ====================== GAMBIARRA ==================================== 
-      do i = naduu +1,nad
-        ja(i) = ja(i) + nequ 
-      enddo
-c ====================== GAMBIARRA ==================================== 
       return
       end
 c **********************************************************************
+c
+c **********************************************************************
+      real*8 function smachn()
+c **********************************************************************
+c *                                                                    *
+c *   SMACHN: calcula a precisao da maquina para real*8                *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      smachn = 1.0d0
+100   smachn = smachn*0.5d0
+      if(smachn+1.d0 .ne. 1.d0) go to 100
+c     smachn = 2.0d0*smachn
+      return
+      end
+c ***********************************************************************

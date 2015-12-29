@@ -8,12 +8,15 @@ c *                                                                    *
 c *   csrstruct                                                        *
 c *   csria                                                            *
 c *   csrja                                                            *
+c *   csriaup                                                          *
+c *   csrjaup                                                          *
 c *                                                                    *
 c **********************************************************************
       subroutine csrstruct(id,ix,num,nnode,nnodev,numel,nen,ndf
      .                    ,neq ,nequ,neqp
      .                    ,i2  ,i3   ,nad,naduu,nadpp,nadpu
-     .                    ,lower,diag,upper,right,ija,ja,dualCsr)
+     .                    ,lower,diag,upper,right,ija,ja
+     ,                    ,n_blocks_up,dualCsr)
 c **********************************************************************
 c *                                                                    *
 c *   CSRSTRUCT: monta os arranjos ia e ja do formato CSR.             *
@@ -42,6 +45,10 @@ c *    diag  = .true.  -> inclui a diagonal no csr                     *
 c *    upper = .true.  -> inclui a parte triangular superior no csr    *
 c *    ija   = string do nome do vetor ija                             *
 c *    ja    = string do nome do vetor ja                              *
+c *    n_blocks_up = numero de blocos                                  *
+c *                  1 - ( [ Kuu Kpp]  )                               *
+c *                  2 - ( [Kuu, Kpp] e [kpu] )                        *
+c *                  3 - ( [Kuu], [Kpp] e [kpu])                       *     
 c *    dualCsr - flag para matrizes (Kuu+Kpp) e Kup separadas          *
 c *                                                                    *
 c *   Parametros de saida:                                             *
@@ -61,7 +68,7 @@ c **********************************************************************
       implicit none
       integer id(ndf,*),ix(nen+1,*),num(*)
       integer nnode,nnodev,numel,nen,ndf,neq,nequ,neqp
-      integer nad,naduu,nadpp,nadpu,nad1
+      integer nad,naduu,nadpp,nadpu,nad1,n_blocks_up
       logical dualCsr
 c ... ponteiros      
       integer*8 i0,i1,i2,i3
@@ -81,50 +88,135 @@ c ......................................................................
 c      
 c ... csrc(uu+pp) + csr(up)
       if(dualCsr) then
-c
-c ... Montagem do arranjo ia(neq+1 + neqp +1):
+c ... [Kuu] [Kpp]
+        if( n_blocks_up .eq. 1) then
+c ... Montagem do arranjo ia(nequ +1 + neqp +1):
 c
 c ... ia(i2)=>ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro
 c                               coeficiente nao-nulo da equacao i dos 
-c                               blocos uu e pp
-c ...                   - ia(neq+1+i) informa a posicao no vetor a 
-c                               do primeiro coeficiente nao-nulo da 
-c                                equacao i do bloco pu 
-        n = (neq + 1) + (neqp + 1) 
-        i2 = alloc_4(ija,1,n)
-c ... blocos uu, pp e up
-        call csriaup(id,num,ia(i0),ia(i1),ia(i2),ia(i2+neq+1),
-     .               nnode,ndf,neq,
-     .               nequ,neqp,nad,nadpu,nad1,lower,diag,upper,
-     .               right)
+c                               blocos Kuu e Kpp
+          n = (neq + 1) + (neqp + 1) 
+          i2 = alloc_4(ija,1,n)
+c ... blocos [Kuu] [Kpp]
+          call csriaup(id,num,ia(i0),ia(i1),ia(i2),ia(i2+neq+1) 
+     .                ,nnode,ndf,neq 
+     .                ,nequ,neqp,nad,nadpu,nad1,lower,diag,upper 
+     .                ,right)
 c ......................................................................     
 c
 c ... Montagem do arranjo ja(nad):
 c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
-c                       a posicao k no vetor a  
+c                       a posicao k no vetor a do bloco Kuu e Kpp
 c
-        i3 = alloc_4(ja,1,nad+nadpu)
-        call csrjaup(id,num,ia(i0),ia(i1),ia(i3),ia(i3+nad),
-     .              nnode,nnodev,ndf,neq,
-     .              nequ,nad,nadpu,lower,diag,upper,right)
-        call sortgraph(ia(i2),ia(i3),neq)
-        call sortgraph(ia(i2+neq+1),ia(i3+nad),neqp)
-c       if (right) then
-c         call sortgraph(ia(i2+neq+2),ia(i3+nad),neq)      
-c       endif
+          i3 = alloc_4(ja,1,nad)
+          call csrjaup(id,num,ia(i0),ia(i1),ia(i3),ia(i3+nad)
+     .                ,nnode,nnodev,ndf,neq
+     .                ,nequ,nad,nadpu,lower,diag,upper,right)
+          call sortgraph(ia(i2),ia(i3),neq)
 c ......................................................................
 c
 c ...
-        call get_nads(ia(i2),naduu,nadpp,neq,nequ)
+c         call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
+c    .                   nad,nadpu)
+c ......................................................................      
+c      
+c ... | Kuu   0  |
+c     |  0   Kpp | e [kpu]
+        else if(n_blocks_up .eq. 2) then
+c
+c ... Montagem do arranjo ia(neq + 1 + neqp +1):
+c
+c ... ia(i2)=>ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro
+c                               coeficiente nao-nulo da equacao i dos 
+c                               blocos Kuu e Kpp
+c ... ia(i2+neq+1)=>ia(neq+1) - ia(neq+1+i) informa a posicao no vetor a 
+c                               do primeiro coeficiente nao-nulo da 
+c                                equacao i do bloco Kpu 
+          n = (neq + 1) + (neqp + 1) 
+          i2 = alloc_4(ija,1,n)
+c ... blocos [ Kuu, Kpp]  e [Kup]
+          call csriaup(id,num,ia(i0),ia(i1),ia(i2),ia(i2+neq+1) 
+     .                ,nnode,ndf,neq 
+     .                ,nequ,neqp,nad,nadpu,nad1,lower,diag,upper 
+     .                ,right)
+c ......................................................................     
+c
+c ... Montagem do arranjo ja(nad):
+c
+c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
+c                       a posicao k no vetor a do bloco Kuu e Kpp
+c
+c ... ia(i3+nad)=>ja(nadpu) - ja(k) informa a coluna do coeficiente que 
+c                             ocupa a posicao k no vetor a do bloco Kpu
+c
+          i3 = alloc_4(ja,1,nad+nadpu)
+          call csrjaup(id,num,ia(i0),ia(i1),ia(i3),ia(i3+nad)
+     .                ,nnode,nnodev,ndf,neq
+     .                ,nequ,nad,nadpu,lower,diag,upper,right)
+          call sortgraph(ia(i2),ia(i3),neq)
+          call sortgraph(ia(i2+neq+1),ia(i3+nad),neqp)
 c ......................................................................
 c
+c ...
+          call get_nads(ia(i2),naduu,nadpp,neq,nequ)
 c ...      
-c       call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
-c    .                 nad,nadpu)
+c         call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
+c    .                   nad,nadpu)
 c ......................................................................      
 c
+c ... blocos [Kuu] [Kpp] e [Kpu]
+        else if(n_blocks_up .eq. 3) then
+c
+c ... Montagem do arranjo ia(nequ + 1 + neqp +1 + neqp + 1):
+c
+c ... ia(i2)=>ia(nequ+1)        - ia(i) informa a posicao no vetor a 
+c                                 do primeiro coeficiente nao-nulo da 
+c                                 equacao i do bloco Kuu
+c ... ia(i2+nequ+1)=>ia(neqp+1) - ia(i) informa a posicao no vetor a 
+c                                 do primeiro coeficiente nao-nulo da 
+c                                 equacao i dos bloco Kpp
+c ... ia(i2+neq+2)=>ia(neqp+1)  - informa a posicao no vetor a 
+c                                 do primeiro coeficiente nao-nulo da 
+c                                 equacao i do bloco Kpu 
+          n = (nequ + 1) + 2*(neqp + 1)
+          i2 = alloc_4(ija,1,n)
+c ... blocos uu, pp e up
+          call csriaup2(id    ,num          ,ia(i0)       ,ia(i1)
+     .                 ,ia(i2),ia(i2+nequ+1),ia(i2+neq+2)
+     .                 ,nnode ,ndf          
+     .                 ,neq   ,nequ  ,neqp         
+     .                 ,nad   ,naduu ,nadpp ,nadpu 
+     .                 ,lower ,diag  ,upper )
+c .......................................................................     
+c
+c ... Montagem do arranjo ja(nadu+nadp+nadpu):
+c
+c ... ia(i3)=>ja(nadu)      - ja(k) informa a coluna do coeficiente que ocupa
+c                          a posicao k no vetor a do bloco Kuu
+c
+c ... ia(i3+nadu)=>ja(nadp) - ja(k) informa a coluna do coeficiente que ocupa
+c                           a posicao k no vetor a do bloco Kpp
+c
+c ... ia(i3+nadu+nadp)=>ja(nadpu) - ja(k) informa a coluna do coeficiente que 
+c                                   ocupa a posicao k no vetor a do bloco Kpu
+c
+          i3  = alloc_4(ja,1,naduu+nadpp+nadpu)
+          call csrjaup2(id,num,ia(i0),ia(i1)
+     .                 ,ia(i3),ia(i3+naduu  ),ia(i3+naduu+nadpp)
+     .                 ,nnode ,ndf
+     .                 ,neq   ,nequ       
+     .                 ,lower ,diag          ,upper,right)
+          call sortgraph(ia(i2)       ,ia(i3)            ,nequ)
+          call sortgraph(ia(i2+nequ+1),ia(i3+naduu)      ,neqp)
+          call sortgraph(ia(i2+neq +2),ia(i3+naduu+nadpp),neqp)
+c ......................................................................
+      endif
+c ......................................................................
+c
 c ... csrc(uu+pp+up)
+c     | Kuu Kpu |
+c     | kpu Kpp |
       else
         nadpu = 0
         naduu = 0
@@ -403,7 +495,7 @@ c **********************************************************************
      .                   neqp,nad,nadup,nad1,lower,diag,upper,right)
 c **********************************************************************
 c *                                                                    *
-c *   CSRIA: monta o arranjo ia do formato CSRC para os blocos uu e pp *
+c *   CSRIA: monta o arranjo ia do formato CSRC para os blocos (uu pp) *
 c *   e csr para o bloco up                                            *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
@@ -429,6 +521,8 @@ c *    iaup(neqp+1) - ia(i) informa a posicao no vetor a do primeiro   *
 c *                      coeficiente nao-nulo da equacao i             *
 c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c *    nadup - numero de coeficientes nao nulos do bloco up            *
+c *                                                                    *
+c *    OBS: Kuu e Kpp juntos e Kpu separado                            *
 c *                                                                    *
 c **********************************************************************
       implicit none
@@ -637,14 +731,15 @@ c *              a posicao k no vetor a                                *
 c *    jaup(nadup) - ja(k) informa a coluna do coeficiente que ocupa   *
 c *              a posicao k no vetor a                                *
 c *                                                                    *
+c *    OBS: Kuu e Kpp juntos e Kpu separado                            *
+c *                                                                    *
 c **********************************************************************
       implicit none
       integer nnode,nnodev,ndf,neq,nequ,nad,nadup
       integer id(ndf,*),num(*),ip(*),ips(*),ja(*),jaup(*)
-      integer i,j,k,ii,jj,kk,neqi,neqj,no,n,m
+      integer i,j,k,ii,jj,kk,neqi,neqj,no,n
       logical lower,diag,upper,right
 c ......................................................................
-      m = 0
       n = 0
 c ... Equacoes uu
 c
@@ -763,6 +858,436 @@ c              endif
                if (upper) then
                  n = n + 1
                  ja(n) = neqj
+               endif
+             endif
+  170      continue
+         endif
+  190 continue
+c .....................................................................
+c
+c ...
+      n = 0
+c ... loop nas equacoes pu
+c
+c ... Loop nos nos:
+c
+      do 290 no = 1, nnode
+         i = num(no)
+         neqi = id(ndf,i)
+c ---------------------------------------------------------      
+         if(neqi .gt. 0) then 
+c
+c ... Loop nas equacoes de deslocamento do no i:
+c
+             do 310 jj = 1, ndf-1
+               neqj  = id(jj,i)
+               if (neqj .le. 0 ) goto 310
+               n = n + 1
+               jaup(n) = neqj
+  310        continue
+c .....................................................................
+c
+c
+c ... Loop nos nos conectados ao no i:
+c
+           do 270 k = ip(i), ip(i+1)-1
+             j = ips(k)
+c
+c ... Loop nas equacoes de deslocamento do no j:
+c
+             do 320 jj = 1, ndf-1
+               neqj  = id(jj,j)
+               if (neqj .le. 0) goto 320
+               n = n + 1
+               jaup(n) = neqj
+  320        continue
+  270      continue
+         endif
+  290 continue
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csriaup2(id   ,num  ,ip   ,ips
+     .                   ,iau  ,iap  ,iapu
+     .                   ,nnode,ndf
+     .                   ,neq  ,nequ ,neqp
+     .                   ,nad  ,naduu,nadpp,nadup
+     .                   ,lower,diag ,upper)
+c **********************************************************************
+c *                                                                    *
+c *   CSRIAUP2: monta o arranjo ia do formato CSRC para os blocos      *
+c *   uu e pp                                                          *
+c *   e csr para o bloco up separados                                  *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    id(ndf,nnode)- numeracao global das equacoes                    *
+c *    num(nnode)   - renumeracao nodal                                *
+c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no     *
+c *                   conectado ao no i                                *
+c *    ips(ipos)    - contem as conetividades nodais de cada no        *
+c *    nnode - numero de nos                                           *
+c *    iau(nequ+1) - nao definido                                      *
+c *    iap(neqp+1) - nao definido                                      *
+c *    iaup(neq+1) - nao definido                                      *
+c *    ndf   - numero max. de graus de liberdade por no                *
+c *    neq   - numero de equacoes                                      *
+c *    nequ  - numero de equacoes de deslocamentos                     *
+c *    neqp  - numero de equacoes de  pressao                          *
+c *    ja(nad) - ja(k) informa a coluna do coeficiente que ocupa       *
+c *              a posicao k no vetor a do bloco Kuu                   *
+c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
+c *    diag  = .true.  -> inclui a diagonal no csr                     *
+c *    upper = .true.  -> inclui a parte triangular superior no csr    *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    iau(nequ+1) - ia(i) informa a posicao no vetor a do primeiro    *
+c *                  coeficiente nao-nulo da equacao i do bloco Kuu    *
+c *    iap(neqp+1) - ia(i) informa a posicao no vetor a do primeiro    *
+c *                  coeficiente nao-nulo da equacao i do bloco Kpp    *
+c *    iaup(neq+1) - ia(i) informa a posicao no vetor a do primeiro    *
+c *                  coeficiente nao-nulo da equacao i  do bloco Kup   *
+c *    nad   - numero de coeficientes nao nulos dos blocos Kuu e Kpp   *
+c *    naduu - numero de coeficientes nao nulos do bloco Kuu           *
+c *    nadpp - numero de coeficientes nao nulos do bloco Kpp           *
+c *    nadup - numero de coeficientes nao nulos do bloco Kup           *
+c *                                                                    *
+c *    OBS: Kuu ,Kpp e Kpu separados                                   *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nnode,ndf,neq,nequ,neqp,nad,naduu,nadpp,nadup
+      integer id(ndf,*),ip(*),ips(*),iau(*),iap(*),iapu(*),num(*)
+      integer i,j,k,ii,jj,kk,neqi,neqii,neqj,no
+      logical lower,diag,upper
+c ......................................................................
+c
+c ... Inicializa o arranjo ia:
+c
+      iau(1:nequ+1) = 0
+c 
+      iap(1:neqp+1) = 0
+c ----------------------------------------------
+c
+c ... Loop nos nos:
+c
+      do 150 no = 1, nnode
+         i = num(no)
+         do 140 ii = 1, ndf
+c
+c ...    Loop nas equacoes do no i:
+c
+            neqi = id(ii,i)
+c ... equacoes uu
+            if (neqi .gt. 0 .and. neqi .le. nequ) then
+c ----------------------------------------------
+c
+c ...          Loop nas equacoes de deslocamantos do no i:
+c
+               do 100 kk = 1, ndf-1
+                  neqj = id(kk,i)
+                  if (neqj .le. 0) goto 100
+                  if (neqj .lt. neqi) then
+                     if (lower) iau(neqi) = iau(neqi) + 1
+                  elseif (neqj .eq. neqi) then
+                     if (diag) iau(neqi)  = iau(neqi) + 1
+                  elseif (neqj .gt. neqi) then
+                     if (upper) iau(neqi) = iau(neqi) + 1
+                  endif
+  100          continue
+c
+c ...          Loop nos nos conectados ao no i:
+c
+               do 120 k = ip(i), ip(i+1)-1
+                  j = ips(k)
+c
+c ...             Loop nas equacoes de deslocamentos do no j:
+c
+                  do 110 jj = 1, ndf-1
+                     neqj = id(jj,j)
+                     if (neqj .le. 0) goto 110
+                     if (neqj .lt. neqi) then
+                        if (lower) iau(neqi) = iau(neqi) + 1
+                     elseif (neqj .gt. neqi) then
+                        if (upper) iau(neqi) = iau(neqi) + 1
+                     endif
+  110             continue
+  120          continue
+c ----------------------------------------------
+c
+c ... equacoes pp
+            else if(neqi .gt. nequ .and. neqi .le. neq) then 
+              neqii = neqi-nequ
+c
+c ...          equacao do no i (diagonal):
+c
+              if (diag) iap(neqii)  = iap(neqii) + 1
+c             
+c ...          Loop nos nos conectados ao no i:
+c
+              do 130 k = ip(i), ip(i+1)-1
+                j = ips(k)
+c
+c ...         Loop nas equacoes de pressao do no j:
+c
+                neqj = id(ndf,j)
+                if (neqj .le. 0) goto 130
+                if (neqj .lt. neqi) then
+                  if (lower) iap(neqii) = iap(neqii) + 1
+                elseif (neqj .gt. neqi) then
+                  if (upper) iap(neqii) = iap(neqii) + 1
+                endif
+  130         continue
+            endif
+  140    continue
+  150 continue
+c .....................................................................
+c
+c ...
+      do 200 i = nequ, 1, -1
+         iau(i+1) = iau(i)
+  200 continue
+      iau(1) = 1
+c .....................................................................
+c
+c ...
+      do 201 i = neqp, 1, -1
+         iap(i+1) = iap(i)
+  201 continue
+      iap(1) = 1
+c .....................................................................
+c
+c ...
+      do 210 i = 1, nequ
+         iau(i+1) = iau(i+1) + iau(i)
+  210 continue
+      naduu= iau(nequ+1)-1
+c .....................................................................
+c
+c ...
+      do 211 i = 1, neqp
+         iap(i+1) = iap(i+1) + iap(i)
+  211 continue
+      nadpp= iap(neqp+1)-1
+c ...................................................................... 
+c
+c ... Inicializa o arranjo iaup:
+c
+      do 250 i = 1, neqp+1
+         iapu(i) = 0
+  250 continue
+c ----------------------------------------------
+c
+c ... Loop nos nos:
+c
+      do 300 no = 1, nnode
+        i = num(no)
+c ... equacoes up
+        neqi = id(ndf,i)
+        if(neqi .gt. 0) then
+            neqii = neqi-nequ
+c ----------------------------------------------
+c
+c ...  Loop nas equacoes de deslocamento do no i:
+c
+            do 310 jj = 1, ndf-1
+              neqj = id(jj,i)
+              if (neqj .gt. 0) then     
+                iapu(neqii) = iapu(neqii) + 1
+              endif
+  310     continue
+c .....................................................................
+c
+c ...  Loop nos nos conectados ao no i:
+c
+          do 340 k = ip(i), ip(i+1)-1
+            j = ips(k)
+c
+c ... Loop nas equacoes de deslocamento do no j:
+c
+            do 330 jj = 1, ndf-1
+              neqj = id(jj,j)
+              if (neqj .gt. 0) then 
+                iapu(neqii) = iapu(neqii) + 1
+              endif
+  330       continue
+  340     continue
+        endif     
+c ----------------------------------------------
+  300 continue
+c ----------------------------------------------
+      do 400 i = neqp, 1, -1
+        iapu(i+1) = iapu(i)
+  400 continue
+      iapu(1) = 1
+      do 410 i = 1, neqp
+        iapu(i+1) = iapu(i+1) + iapu(i)
+  410 continue
+      nadup = iapu(neqp+1)-1
+c ...
+      nad   = naduu + nadpp + nadup
+c ......................................................................      
+c **********************************************************************
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csrjaup2(id    ,num,ip  ,ips
+     .                   ,jau   ,jap,jaup
+     .                   ,nnode ,ndf
+     .                   ,neq   ,nequ
+     .                   ,lower ,diag,upper,right)
+c **********************************************************************
+c *                                                                    *
+c *   CSRJAUP2: monta o arranjo ja do formato CSRC para os blocos      *
+c *   uu e pp e csr para o bloco up                                    * 
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    id(ndf,nnode)- numeracao global das equacoes                    *
+c *    num(nnode)   - renumeracao nodal                                *
+c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro        *
+c *    ips(ipos)    - contem as conetividades nodais de cada no        *
+c *    jau          - nao definido                                     *
+c *    jap          - nao definido                                     *
+c *    japu         - nao definido                                     *
+c *    nnode        - numero de nos                                    *
+c *    ndf          - numero max. de graus de liberdade por no         *
+c *    neq          - numero de equacoes                               *
+c *    nequ         - numero de equacoes de deslocamentos              *
+c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
+c *    diag  = .true.  -> inclui a diagonal no csr                     *
+c *    upper = .true.  -> inclui a parte triangular superior no csr    *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    jau(nadu) - ja(k) informa a coluna do coeficiente que ocupa     *
+c *              a posicao k no vetor a do bloco Kuu                   *
+c *    jap(nadp) - ja(k) informa a coluna do coeficiente que ocupa     *
+c *              a posicao k no vetor a do bloco Kpp                   *
+c *    jaup(nadup) - ja(k) informa a coluna do coeficiente que ocupa   *
+c *              a posicao k no vetor a do bloco Kpu                   *
+c *                                                                    *
+c *    OBS: Kuu ,Kpp e Kpu separados                                   *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nnode,nnodev,ndf,neq,nequ
+      integer id(ndf,*),num(*),ip(*),ips(*),jau(*),jap(*),jaup(*)
+      integer i,j,k,ii,jj,kk,neqi,neqj,no,n
+      logical lower,diag,upper,right
+c ......................................................................
+      n = 0
+c ... Equacoes uu
+c
+c ... Loop nos nos:
+c
+      do 160 no = 1, nnode
+         i = num(no)
+c
+c ...    Loop nas equacoes de deslocamento do no i:
+c
+         do 150 ii = 1, ndf - 1
+            neqi = id(ii,i)
+            if (neqi .gt. 0 .and. neqi .le. nequ) then
+c ----------------------------------------------------------
+c
+c ...          Loop nas equacoes de deslocamento do no i:
+c
+               do 100 kk = 1, ndf-1
+                  neqj  = id(kk,i)
+                  if (neqj .le. 0) goto 100
+                  if (neqj .lt. neqi) then
+                     if (lower) then
+                        n = n + 1
+                        jau(n) = neqj
+                     endif
+                  elseif (neqj .eq. neqi) then
+                     if (diag) then
+                        n = n + 1
+                        jau(n) = neqj
+                     endif
+                  elseif (neqj .gt. neqi) then
+                     if (upper) then
+                        n = n + 1
+                        jau(n) = neqj
+                     endif
+                  endif                  
+  100          continue
+c
+c ...          Loop nos conectados ao no i:
+c
+               do 120 k = ip(i), ip(i+1)-1
+                  j = ips(k)
+c
+c ...             Loop nas equacoes de deslocamento do no j:
+c
+                  do 110 jj = 1, ndf - 1
+                     neqj  = id(jj,j)
+                     if (neqj .le. 0) goto 110
+                     if (neqj .lt. neqi) then
+                        if (lower) then
+                           n = n + 1
+                           jau(n) = neqj
+                        endif
+                     elseif (neqj .gt. neqi) then
+                        if (upper) then
+                           n = n + 1
+                           jau(n) = neqj
+                        endif
+                     endif
+  110             continue
+  120          continue
+            endif   
+c ----------------------------------------------------------
+c
+  150    continue
+  160 continue
+c ......................................................................
+c
+c ......................................................................
+      n = 0
+c ... Equacoes pp
+c
+c ... Loop nos nos:
+c
+      do 190 no = 1, nnode
+         i = num(no)
+c
+c ...    equacao da pressao do no i:
+c
+         neqi = id(ndf,i)
+c ---------------------------------------------------------      
+         if(neqi .gt. nequ .and. neqi .le. neq) then  
+c
+c ...    equacao da pressao do no i (diagonal):
+c
+           if (diag) then
+             n     = n + 1
+             jap(n) = neqi - nequ
+           endif
+c
+c ...          Loop nos nos conectados ao no i:
+c
+           do 170 k = ip(i), ip(i+1)-1
+             j = ips(k)
+c
+c ...             Loop nas equacoes de pressao do no j:
+c
+             neqj  = id(ndf,j)
+             if (neqj .le. 0) goto 170
+             if (neqj .lt. neqi) then
+             if (lower) then
+               n = n + 1
+               jap(n) = neqj - nequ
+             endif
+             elseif (neqj .gt. neqi) then
+               if (upper) then
+                 n = n + 1
+                 jap(n) = neqj - nequ
                endif
              endif
   170      continue

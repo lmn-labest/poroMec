@@ -1,13 +1,8 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-03-16 15:32:53 -0300 (Wed, 16 Mar 2011) $                 
-c*$Rev: 914 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************
       subroutine datastruct(ix,id,num,nnode,nnodev,numel,nen,ndf,nst
      .               ,neq,nequ,neqp,stge
      .               ,unsym,nad,naduu,nadpp,nadpu
      .               ,i_ia,i_ja,i_au,i_al,i_ad,ija,ja,au
-     .               ,al,ad,ovlp,dualCsr)
+     .               ,al,ad,ovlp,n_blocks_up,dualCsr)
 c **********************************************************************
 c *                                                                    *
 c *   DATASTRUCT: monta a estrutura de dados para a matriz de          *
@@ -31,6 +26,10 @@ c *    neqp  - numero de equacoes de  pressao                          *
 c *    stge  - estrutura de dados, 1 = CSR, 2 = ARESTAS, 3 = EBE,      *
 c *                                4 = skyline                         *
 c *    unsym - flag para matrizes nao simetricas                       *
+c *    n_blocks_up = numero de blocos                                  *
+c *                  1 - ( [Kuu  Kpp]  )                               *
+c *                  2 - ( [Kuu, Kpp] e [kpu] )                        *
+c *                  3 - ( [Kuu], [Kpp] e [kpu])                       *     
 c *    dualCsr - flag para matrizes (Kuu+Kpp) e Kup separadas          *
 c *                                                                    *
 c *   Parametros de saida:                                             *
@@ -62,7 +61,7 @@ c **********************************************************************
       use Malloc
       implicit none
       integer ix(nen+1,*),id(ndf,*),num(*),nnode,nnodev
-      integer numel,nen,ndf,nst,neq
+      integer numel,nen,ndf,nst,neq, n_blocks_up
       integer stge,nad,naduu,nadpp,nadpu,nequ,neqp
 c ... ponteiros      
       integer*8 i_ia,i_ja,i_au,i_al,i_ad
@@ -96,11 +95,11 @@ c        --------------------------
 c
 c ...    estrutura de dados do csr:
 c
-         call csrstruct(id,ix,num,nnode,nnodev,
-     .                  numel,nen,ndf,neq,nequ,neqp,
-     .                  i_ia,i_ja,nad,naduu,nadpp,nadpu,
-c ... matvec novo:
-     .                 .true.,.false.,.false.,ovlp,ija,ja,dualCsr)
+         call csrstruct(id,ix,num,nnode,nnodev
+     .                 ,numel,nen,ndf,neq,nequ,neqp
+     .                 ,i_ia,i_ja,nad,naduu,nadpp,nadpu
+     .                 ,.true.,.false.,.false.,ovlp,ija,ja
+     .                 ,n_blocks_up,dualCsr)
 c     
 c ...    matriz de coeficientes:
 c

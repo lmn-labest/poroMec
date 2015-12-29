@@ -112,6 +112,11 @@ c ... kpp mtx
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_kpp_'//trim(StrExtensao)
+c ... pcg duplo
+      elseif(code .eq. 53) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_dpcg_'//trim(StrExtensao)//'.txt'
       endif
 c ......................................................................      
       TamanhoNome = INDEX( NomeArqDados, ' '  )

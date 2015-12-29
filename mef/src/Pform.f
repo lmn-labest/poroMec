@@ -1,7 +1,14 @@
-      subroutine pform_pm(ix,iq,ie,e,x,id,ia,ja,au,al,ad,b,u,dp,
-     .                    xl,ul,dpl,pl,sl,ld,numel,nen,nenv,ndf,
-     .                    ndm,nst,neq,nequ,nad,nadpu,lhs,rhs,unsym,
-     .                    stge,isw,ilib,nlit,block_pu)
+      subroutine pform_pm(ix  ,iq   ,ie   ,e
+     .                   ,x   ,id   ,ia   ,ja
+     .                   ,au  ,al   ,ad   ,b
+     .                   ,u   ,dp 
+     .                   ,xl  ,ul   ,dpl  ,pl   ,sl
+     .                   ,ld  ,numel,nen  ,nenv ,ndf 
+     .                   ,ndm ,nst  ,neq  ,nequ ,neqp 
+     .                   ,nad ,nadu ,nadp ,nadpu
+     .                   ,lhs ,rhs  ,unsym 
+     .                   ,stge,isw  ,ilib ,nlit 
+     .                   ,block_pu,n_blocks_pu)
 c **********************************************************************
 c *                                                                    *
 c *   PFORMPMEC:                                                       *
@@ -40,6 +47,8 @@ c *    nst   - nen*ndf                                                 *
 c *    neq   - numero de equacoes                                      *
 c *    nequ  - numero de equacoes em kuu                               *   
 c *    nad   - numero de posicoes no CSR (storage = 1)                 *
+c *    nadu  - numero de posicoes no CSR (storage = 1)                 *
+c *    nadp  - numero de posicoes no CSR (storage = 1)                 *
 c *    nadpu - numero de posicoes no CSR (storage = 1,block_pu = true) *      
 c *    lhs   - flag para montagem de ad                                *
 c *    rhs   - flag para correcao de b                                 *
@@ -67,8 +76,9 @@ c      include 'openmp.fi'
       include 'omp_lib.h'
       include 'transiente.fi'
       include 'termprop.fi'
-      integer numel,nen,nenv,ndf,ndm,nst,nad,nadpu,stge,isw,numat,nlit
-      integer neq,nequ
+      integer numel,nen,nenv,ndf,ndm,nst,nad,nadu,nadp,nadpu
+      integer stge,isw,numat,nlit
+      integer neq,nequ,neqp,n_blocks_pu
       integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
       integer ia(*),ja(*)
       integer iel,ma,nel,no,i,j,k,kk,nad1,ilib
@@ -132,18 +142,15 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-        call assbly(sl,pl,ld,ia,ja,au,al,ad,b,nst,neq,nequ,nad,
-     .              lhs,rhs,unsym,stge,block_pu)
+        call assbly(sl      ,pl         ,ld
+     .             ,ia      ,ja         ,au
+     .             ,al      ,ad         ,b    ,nst
+     .             ,neq     ,nequ       ,neqp
+     .             ,nad     ,nadu       ,nadp ,nadpu
+     .             ,lhs     ,rhs        ,unsym,stge
+     .             ,block_pu,n_blocks_pu)
   900 continue
 c ......................................................................
-      if (lhs) then 
-        call printadal(ad,al,al(nad+1),b,ja,ja(nad+1),neq,nad,nadpu,
-     .                 block_pu)
-c       call printAx(sl,b,neq)
-      endif
-c     do i = 1, 10
-c       if(lhs) write(*,*)i,b(i)
-c     enddo
       return
       end
 c **********************************************************************
@@ -809,53 +816,3 @@ c .......................................................................
 c     return
 c     end 
 c ***********************************************************************
-      subroutine printadal(ad,al,apul,b,ja,japu,neq,nad,nadpu,flag)
-      implicit none
-      integer i,ja(*),japu(*),neq,nad,nadpu
-      real*8 ad(*),al(*),apul(*),b(*)
-      logical flag
-c ...  
-      open(14,file='adCsr.dat',action='write')
-c      
-      write(14,*)'ad'
-      do i = 1, neq
-        write(14,'(i9,e24.16)'),i,ad(i)          
-       enddo
-c       
-      write(14,*)'al'
-      do i = 1, nad
-        write(14,'(i9,i9,e24.16)'),i,ja(i),al(i)   
-      enddo
-c
-      if(flag) then      
-        write(14,*)'alpu'
-        do i = 1, nadpu 
-          write(14,'(i9,i9,e24.16)'),i,japu(i),apul(i)   
-        enddo
-      endif
-c
-      write(14,*)'b'
-      do i = 1, neq 
-        write(14,'(i9,e24.16)'),i,b(i)   
-      enddo
-c
-      close(14)
-c .....................................................................      
-      return
-      end
-      subroutine printAx(sl,b,neq)
-      implicit none
-      integer i,j,neq
-      real*8 sl(neq,*),x(100),b(*)
-      do i = 1 , 68 
-        x(i) = 0.d0
-        do j = 1 , 68 
-          if(j .ge. 61) then
-            x(i) = x(i) - sl(i,j)*b(j)
-          else
-            x(i) = x(i) + sl(j,i)*b(j)
-          endif
-        enddo
-      enddo
-      return
-      end

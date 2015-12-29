@@ -9,7 +9,9 @@ c * numel_nov - numero de elementos non-overllaping                   *
 c * numel_ov  - numero de elementos overllaping                       *
 c * ndf       - graus de liberdade mecanico                           *
 c * ndft      - graus de liberdade termico                            *
-c * neq       - numero de equacoes do mecanico                        *
+c * neq       - numero de equacoes total                              *
+c * nequ      - numero de equacoes u                                  *
+c * neqp      - numero de equacoes p                                  *
 c * neq1      - numero de equacoes V1 do mecanico                     *
 c * neq2      - numero de equacoes V2 do mecanico                     *
 c * neq32     - numero de equacoes V3 do mecanico                     *
@@ -18,6 +20,8 @@ c * neq1a     - numero de equacoes V1a do mecanico                    *
 c * neqf1     - buffer de equacoes do mecanico                        *
 c * neqf2     - buffer de equacoes do mecanico                        *
 c * nad       - numero de elementos nao nulos fora da diag principal  *
+c * nadu      - numero de coeficientes nao nulos do bloco u           *
+c * nadu      - numero de coeficientes nao nulos do bloco p           *
 c * nadup     - numero de coeficientes nao nulos do bloco up          *
 c * nad1      - numero de elementos nao nulos di csrcr(overlaping)    *
 c * neqt      - numero de equacoes do termico                         *
@@ -33,10 +37,10 @@ c * parametros de saida                                               *
 c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-      subroutine write_log_file(nnode ,numel      ,numel_nov ,numel_ov
-     .                         ,ndf   ,neq        ,neq1      ,neq2
-     .                         ,neq32 ,neq4       ,neq1a     ,neqf1
-     .                         ,neqf2 ,nad        ,nadpu     ,nad1
+      subroutine write_log_file(nnode ,numel,numel_nov ,numel_ov,ndf   
+     .                         ,neq   ,nequ ,neqp ,neq1 ,neq2
+     .                         ,neq32 ,neq4 ,neq1a,neqf1,neqf2 
+     .                         ,nad   ,nadu ,nadp ,nadpu,nad1
      .                         ,openmp,num_threads,num_colors,prename
      .                         ,my_id ,nprcs      ,nlog)
       use Malloc
@@ -46,8 +50,8 @@ c *********************************************************************
 c ... malha
       integer nnode,numel,numel_nov,numel_ov
 c ... informacoes do sistema      
-      integer neq,neq1,neq2,neq32,neq4,neq1a,neqf1,neqf2
-      integer nad,nadpu,nad1
+      integer neq,nequ,neqp,neq1,neq2,neq32,neq4,neq1a,neqf1,neqf2
+      integer nad,nadu,nadp,nadpu,nad1
       integer ndf
 c ... mpi      
       integer mcw,mi,mdp,ierr
@@ -178,7 +182,12 @@ c
       if(nprcs.eq.1)then
         if(ndf .gt. 0)then
          call itwrite('neq   ',neq  ,nprcs,nlog)
+         call itwrite('nequ  ',nequ ,nprcs,nlog)
+         call itwrite('neqp  ',neqp ,nprcs,nlog)
          call itwrite('nad   ',nad  ,nprcs,nlog)
+         call itwrite('nadu  ',nadu ,nprcs,nlog)
+         call itwrite('nadp  ',nadp ,nprcs,nlog)
+         call itwrite('nadpu ',nadpu,nprcs,nlog)
         endif
         call itwrite('nnode ',nnode,nprcs,nlog)
         call itwrite('numel ',numel,nprcs,nlog)

@@ -15,7 +15,7 @@ c **********************************************************************
       include 'elementos.fi'
       include 'time.fi'
       include 'openmp.fi'
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis da estrutura interna de macro-comandos:
 c
@@ -24,13 +24,13 @@ c
       character*80 str
       integer  iloop,imacro,nmacro,nmc,loop,j
       logical flag_macro_mesh
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis para controle de arquivos:
 c
       character*80 prename,fname,name,filein
       character*80 pnodename
-      integer nin,nplot,ngid,nout,logsolv,fconf
+      integer nin,nplot,ngid,nout,logsolv,fconf,logsolvd
       integer totfiles,openflag
       integer*8 i_no,i_nfile
       integer num_pnode
@@ -39,7 +39,7 @@ c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)
       parameter ( nfiles = 5)
       logical new_file(nfiles),flag_pnd
 c      logical cont1
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis de controle de solucao:
 c
@@ -47,25 +47,29 @@ c
       integer ilib,ntn,code
       real*8  tol,solvtol,resid,resid0
       logical reordf,unsym
-c ----------------------------------------------------------------------
+c ... pcg duplo
+      integer cmaxit
+      real*8  ctol
+c.......................................................................
 c
 c ... Variaveis descritivas do problema:
 c
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndm,nst
       integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
+      integer n_blocks_up
       logical block_pu
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis da interface de linha de comando
       integer nargs
       character arg*80
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis locais:
 c
       integer i,k
       real*8  dot_par
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis de medicao de tempo:
 c
@@ -77,7 +81,11 @@ c
       integer numcolors 
 c ... Ponteiros:
       integer*8 i_colorg,i_elcolor    
-c ----------------------------------------------------------------------
+c ......................................................................
+c
+c ...
+      real*8 smachn
+c ......................................................................
 c
 c ... Ponteiros:
 c
@@ -98,51 +106,52 @@ c ... coo
       integer*8 i_lin,i_col,i_acoo
       integer*8 i_linuu,i_coluu,i_acoouu
       integer*8 i_linpp,i_colpp,i_acoopp
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Variaveis de controle do MPI:
 c
       integer status(MPI_STATUS_SIZE)      
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','        ','mesh    ','solv    ','dt      ',
      .'pgeo    ','pgeoquad','block_pu','gravity ','reord   ','gmres   ',
-     .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','        ',
+     .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','spcgm   ',
      .'        ','        ','        ','        ','        ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','        ','setpnode','        ','        ','pnup    ',
      .'pnsf    ','        ','maxit   ','solvtol ','stop    '/
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Arquivos de entrada e saida:
 c
-      data nin /1/, nplot /3/, ngid /4/, logsolv /10/, nout /15/
+      data nin /1/, nplot /3/, ngid /4/, logsolv /10/, nout /15/,
+     .     logsolvd /16/ 
       data fconf /5/
       data flag_pnd /.false./ 
 c     arquivo de impressao de nos associados aos seguintes inteiros
 c     nfile = 50,51,52,...,num_pnode
-c ----------------------------------------------------------------------      
+c ......................................................................      
 c
 c ... Inicializacao MPI:
 c
       call MPI_INIT( ierr )
       call MPI_COMM_SIZE( MPI_COMM_WORLD, nprcs, ierr )
       call MPI_COMM_RANK( MPI_COMM_WORLD, my_id, ierr )
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Inicializacao de variaveis da estrutura interna de macro-comandos:
 c
       iloop   = 0
       imacro  = 0
       nmacro  = 0
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Inicializacao de variaveis de controle de solucao:
 c
-c.......................................................................
+c ......................................................................
       istep   =  0
       t       =  0.d0
       dt      =  1.d0
@@ -156,15 +165,19 @@ c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
       maxit   =  8000
-      solvtol =  1.d-14
+      solvtol =  1.d-11
       maxnlit =  2 
-      tol     =  1.d-03
-      ngram   =  15
+      tol     =  1.d-04
+      ngram   =  30
+c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
+c ... ctol    =  tolerancia do ciclo externo do pcg duplo
+      cmaxit  =  200
+      ctol    =  1.d-6
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
 c ... solver  =  1 (pcg), 2 (gmres), 3 (gauss / LDU), 4 (bicgstab)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline)
       unsym   = .false.
-      solver  =  5
+      solver  =  4
       stge    =  1
 c     block_pu= .true.
       block_pu= .false.
@@ -179,12 +192,13 @@ c ... campo gravitacional (Padrao)
       gravity(3) = -9.81d0
 c ...
       flag_macro_mesh = .false.
-c .....................................................................
+c ......................................................................
 c
 c ... Inicializacao da estrutura de dados de gerenciamento de memoria:
 c
       call init_malloc(maxmem)
-c ----------------------------------------------------------------------
+c ......................................................................
+c
 c ...
       call init_openmp(num_threads,openmp,my_id)
 c ......................................................................
@@ -239,9 +253,9 @@ c ... intervace de linha de comando
           print*, 'Arquivo de saida: '
           read(*,'(a)') prename
         endif 
-         fname = name(prename,nprcs,15)
-         open(logsolv,file=fname)
-         write(logsolv,'(a)') 'Solver control flop.'
+        fname = name(prename,nprcs,15)
+        open(logsolv,file=fname)
+        write(logsolv,'(a)') 'Solver control flop.'
 c ...    Arquivo de resultados para o GID:
 c         fname = name(prename,istep,2)
 c         open(ngid,file=fname)
@@ -249,7 +263,7 @@ c         write(ngid,'(a)') 'GID post results file 1.0'
       endif
 c ......................................................................      
       call MPI_barrier(MPI_COMM_WORLD,ierr)
-c-----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Leitura dos macro-comandos:
 c
@@ -276,14 +290,13 @@ c ......................................................................
      .     1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,2500,
      .     2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,
      ,     3800,3900,5000) j
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Execucao dos macro-comandos:
 c
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando LOOP:
-c ......................................................................
   100 continue
       call readmacro(nin,.false.)
       write(string,'(12a)') (word(i),i=1,12)
@@ -302,7 +315,7 @@ c ......................................................................
   120 continue
       print*,'Erro na leitura da macro (LOOP) !'
       goto 5000            
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando NCONC: 
 c
@@ -442,8 +455,8 @@ c
      ,                  ,nad,naduu,nadpp,nadpu
      .                  ,i_ia,i_ja,i_au,i_al,i_ad 
      .                  ,'ia      ','ja      '
-     .                  ,'au      ','al      ','ad      '
-     .                  ,ovlp,block_pu)
+     .                  ,'au      ','al      ' ,'ad      '
+     .                  ,ovlp      ,n_blocks_up,block_pu  )
       endif
       dstime = MPI_Wtime()-timei
 c
@@ -506,15 +519,18 @@ c
 c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
 c     do passo t:  
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e),
-     .              ia(i_x),ia(i_id),ia(i_ia),ia(i_ja),
-     .              ia(i_au),ia(i_al),ia(i_ad),ia(i_b0),
-     .              ia(i_u0),ia(i_dp),
-     .              ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl),
-     .              ia(i_ld),
-     .              numel,nen,nenv,ndf,
-     .              ndm,nst,neq,nequ,nad,nadpu,.false.,.true.,unsym,
-     .              stge,4,ilib,i,block_pu)
+      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e) 
+     .             ,ia(i_x),ia(i_id),ia(i_ia),ia(i_ja)
+     .             ,ia(i_au),ia(i_al),ia(i_ad),ia(i_b0) 
+     .             ,ia(i_u0),ia(i_dp) 
+     .             ,ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl) 
+     .             ,ia(i_ld) 
+     .             ,numel   ,nen  ,nenv ,ndf 
+     .             ,ndm     ,nst  ,neq  ,nequ ,neqp 
+     .             ,nad     ,naduu,nadpp,nadpu 
+     .             ,.false.,.true.,unsym 
+     .             ,stge,4,ilib,i
+     .             ,block_pu,n_blocks_up)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -538,15 +554,18 @@ c .....................................................................
 c
 c ... Residuo: b = F - K.du(n+1,i)
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e),
-     .               ia(i_x),ia(i_id),ia(i_ia),ia(i_ja),
-     .               ia(i_au),ia(i_al),ia(i_ad),ia(i_b),
-     .               ia(i_u) ,ia(i_dp),
-     .               ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl),
-     .               ia(i_ld),
-     .               numel,nen,nenv,ndf,
-     .               ndm,nst,neq,nequ,nad,nadpu,.true.,.true.,unsym,
-     .               stge,2,ilib,i,block_pu)
+      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e)
+     .             ,ia(i_x),ia(i_id),ia(i_ia),ia(i_ja)
+     .             ,ia(i_au),ia(i_al),ia(i_ad),ia(i_b)
+     .             ,ia(i_u) ,ia(i_dp)
+     .             ,ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl)
+     .             ,ia(i_ld) 
+     .             ,numel ,nen  ,nenv ,ndf
+     .             ,ndm   ,nst  ,neq  ,nequ ,neqp
+     .             ,nad   ,naduu,nadpp,nadpu
+     .             ,.true.,.true.,unsym
+     .             ,stge  ,2,ilib,i
+     .             ,block_pu,n_blocks_up)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -560,10 +579,13 @@ c
 c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
       timei = MPI_Wtime()
       call get_res(ia(i_u),ia(i_x0),ia(i_id),nnode,nnodev,ndf)
-      call solv_pm(neq  ,nequ    ,nad     ,naduu   ,nadpp      
+      call solv_pm(neq  ,nequ    ,neqp  
+     .         ,nad     ,naduu   ,nadpp      
      .         ,ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al)
-     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit,ngram,block_pu
-     .         ,solver,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap
+     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit
+     .         ,ngram,block_pu,n_blocks_up,solver,istep
+     .         ,cmaxit,ctol
+     .         ,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap
      .         ,i_xf,i_rcvs,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
 c .....................................................................
@@ -671,8 +693,15 @@ c ......................................................................
         goto 5000
       endif
       block_pu = .true.
+c ... n_blocks_up
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =801,end =801) n_blocks_up   
       goto 50
-c ----------------------------------------------------------------------
+  801 continue
+      print*,'Erro na leitura da macro (BLOCK_PU) n_blocks_up   !'
+      goto 5000
+c ......................................................................
 c
 c ... Macro-comando: GRAVITY
 c
@@ -717,7 +746,7 @@ c ......................................................................
       endif
       reordf = .true.
       goto 50
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando: GMRES 
 c
@@ -725,17 +754,44 @@ c ......................................................................
  1100 continue
       if(my_id.eq.0)print*, 'Macro GMRES'
       solver = 2       
-c ...
+c ... numero de base de krylov
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1110,end =1110) ngram    
-      if(my_id.eq.0)print*, 'base de Krylov',ngram
+      read(string,*,err =1101,end =1101) ngram    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Krylov subspace:',ngram
+      endif
+c ......................................................................
+c
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1102,end =1102) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1103,end =1103) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
 c ......................................................................
       goto 50
- 1110 continue
+ 1101 continue
       print*,'Erro na leitura da macro (GMRES) ngram !'
       goto 5000
-c ----------------------------------------------------------------------
+ 1102 continue
+      print*,'Erro na leitura da macro (GMRES) maxit !'
+      goto 5000
+ 1103 continue
+      print*,'Erro na leitura da macro (GMRES) solvtol !'
+      goto 5000
+c ......................................................................
 c
 c ... Macro-comando: DELTATC
 c
@@ -861,7 +917,33 @@ c
 c ......................................................................
  1400 continue
       if(my_id.eq.0)print*, 'Macro BICGSTAB'
-      solver = 4       
+      solver = 4 
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1402,end =1402) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1403,end =1403) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
+c ......................................................................
+      goto 50
+ 1402 continue
+      print*,'Erro na leitura da macro (BICGSTAB) maxit !'
+      goto 5000
+ 1403 continue
+      print*,'Erro na leitura da macro (BICGSTAB) solvtol !'
+      goto 5000
+c ----------------------------------------------------------------------
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -871,6 +953,32 @@ c ......................................................................
  1500 continue
       if(my_id.eq.0)print*,'Macro PCG'
       solver = 1       
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1502,end =1502) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1503,end =1503) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
+c ......................................................................
+      goto 50
+ 1502 continue
+      print*,'Erro na leitura da macro (PCG) maxit !'
+      goto 5000
+ 1503 continue
+      print*,'Erro na leitura da macro (PCG) solvtol !'
+      goto 5000
+c ----------------------------------------------------------------------
       goto 50 
 c ----------------------------------------------------------------------
 c
@@ -923,11 +1031,61 @@ c ......................................................................
       goto 50     
 c ......................................................................
 c
-c ... Macro-comando:         
+c ... Macro-comando: SPCGM        
 c
 c ......................................................................
  1700 continue
-      if(my_id.eq.0)print*, 'Macro'
+      if(my_id.eq.0)print*,'Macro SPCGM'
+c ...
+      fname = name(prename,nprcs,53)
+      open(logsolvd,file=fname)
+c ......................................................................
+      solver = 5       
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1701,end =1701) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1702,end =1702) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
+c ......................................................................
+c
+c
+c ... tolerancia no ciclo
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1702,end =1702) cmaxit   
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max cycles it solver for:',cmaxit
+      endif
+c ......................................................................
+c
+c ... tolerancia no ciclo
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1702,end =1702) ctol   
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set cycle tol for:', ctol 
+      endif
+c ......................................................................
+      goto 50
+ 1701 continue
+      print*,'Erro na leitura da macro (PCG) maxit !'
+      goto 5000
+ 1702 continue
+      print*,'Erro na leitura da macro (PCG) solvtol !'
+      goto 5000
+c ----------------------------------------------------------------------
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -1003,7 +1161,8 @@ c ......................................................................
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =2610,end =2610) maxnlit
-      write(*,'(a,i10)')' Set max mechanic nonlinear it for ',maxnlit
+      write(*,'(a,i10)')' Set max poromechanic nonlinear it for ',
+     .                    maxnlit
       goto 50
  2610 continue
       print*,'Erro na leitura da macro (MAXNLIT) !'
@@ -1273,16 +1432,17 @@ c ... fecha o arquivo gid , view3d  e log do solv
 c     close(ngid)
 c     close(nplot)
       close(logsolv)
+      if(solver .eq. 5 ) close(logsolvd)
 c .....................................................................
 c
 c ...
       totaltime = MPI_Wtime() - totaltime
 c
 c ... arquivo de tempo      
-      call write_log_file(nnode ,numel      ,numel_nov,numel_ov
-     .                   ,ndf   ,neq        ,neq1     ,neq2    
-     .                   ,neq32 ,neq4       ,neq1a    ,neqf1
-     .                   ,neqf2 ,nad        ,nadpu    ,nad1
+      call write_log_file(nnode ,numel      ,numel_nov,numel_ov,ndf 
+     .                   ,neq   ,nequ       ,neqp     ,neq1    ,neq2
+     .                   ,neq32 ,neq4       ,neq1a    ,neqf1   ,neqf2 
+     .                   ,nad   ,naduu      ,nadpp    ,nadpu   ,nad1
      .                   ,openmp,num_threads,numcolors,prename
      .                   ,my_id ,nprcs      ,nout)
 c .....................................................................

@@ -1,9 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-12-02 14:45:55 -0200 (Fri, 02 Dec 2011) $                 
-c*$Rev: 958 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************      
-c
 c **********************************************************************
 c *                                                                    *
 c *   SOLV.F                                             31/08/2005    *
@@ -418,19 +412,24 @@ c **********************************************************************
 c
 c **********************************************************************
 c *                                                                    *
-c *   SOLV_PM.F                                            31/08/2005  *
+c *   SOLV_PM.F                                            06/12/2015  *
 c *                                                                    *
 c *   Metodos iterativos de solucao:                                   *
 c *                                                                    *
+c *   pcg                                                              *
+c *   gmres                                                            *
 c *   pbcgstab                                                         *
+c *   bi_pcg_it                                                        *
 c *                                                                    *
 c **********************************************************************
-      subroutine solv_pm(neq    ,nequ    ,nad    ,naduu  ,nadpp
-     .                  ,ip     ,ja      ,ad     ,al     
-     .                  ,m      ,b       ,x      ,tol    ,maxit
-     .                  ,ngram  ,block_pu,solver 
-     .                  ,neqf1i ,neqf2i  ,neq3i  ,neq4i  ,neq_doti
-     .                  ,i_fmapi,i_xfi   ,i_rcvsi,i_dspli)
+      subroutine solv_pm(neq    ,nequ    ,neqp
+     .                  ,nad    ,naduu   ,nadpp
+     .                  ,ip     ,ja      ,ad         ,al     
+     .                  ,m      ,b       ,x          ,tol    ,maxit
+     .                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
+     .                  ,cmaxit ,ctol
+     .                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
+     .                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
       implicit none
       include 'mpif.h'
@@ -440,12 +439,16 @@ c **********************************************************************
       integer neqf1i,neqf2i
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
-      integer*8 i_z,i_r,i_g,i_h,i_y,i_c,i_s
+      integer*8 i_z,i_r,i_s,i_c,i_h,i_g,i_y,i_a
 c ......................................................................
       integer neq3i,neq4i,neq_doti
       integer ip(*),ja(*),neq,nequ,neqp,nad,naduu,nadpp
-      integer maxit,solver,ngram
+      integer maxit,solver,ngram,istep,n_blocks_up
       real*8  ad(*),al(*),m(*),x(*),b(*),tol,energy
+c ... pcg duplo
+      integer cmaxit
+      real*8  ctol
+c ......................................................................
       logical block_pu,diag
       integer neqovlp
       external dot,dot_par
@@ -488,14 +491,8 @@ c ......................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
-           call pcg(neq    ,nequ   ,nad,ip   ,ja
-     .             ,ad     ,al     ,al ,m    ,b ,x
-     .             ,ia(i_z),ia(i_r),tol,maxit
-c ... matvec comum:
-     .             ,matvec_csrc_pm,dot_par 
-c
-     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .             ,i_xfi ,i_rcvsi,i_dspli)
+           print*,"PCG não disponivel para a matriz blocada"
+           stop   
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
@@ -585,6 +582,17 @@ c ......................................................................
 c
 c ... BICGSTAB com precondicionador diagonal:
       else if (solver .eq. 4) then
+c ...
+        if(n_blocks_up .eq. 1 ) then
+          print*,"BICGSTAB não disponivel para a matriz",
+     .           " blocada [Kuu Kpp]."
+          stop   
+        else if( n_blocks_up .eq. 3 ) then
+          print*,"BICGSTAB não disponivel para a matriz",
+     .           " blocada [Kuu] [Kpp] [Kpu]."
+          stop   
+        endif
+c ...
          diag = .true.
 c ...    precondicionador diagonal:
          if(diag) then 
@@ -648,34 +656,61 @@ c ...
          diag = .true.
 c ...    precondicionador diagonal:
          if(diag) then 
-           call pre_diag(m,ad,neq)
+           call pre_diag(m        ,ad        ,nequ)
+           call pre_diag(m(nequ+1),ad(nequ+1),neqp)
 c ...    
          else                           
            m(1:neq) = 1.d0  
          endif           
 c ...
-         neqp = neq - nequ
          i_z  = alloc_8('zsolver ',1,nequ)
          i_r  = alloc_8('rsolver ',1,nequ)
          i_s  = alloc_8('ssolver ',1,nequ)
          i_c  = alloc_8('csolver ',1,neqp)
          i_h  = alloc_8('hsolver ',1,nequ)
          i_g  = alloc_8('gsolver ',1,neqp)
+         i_y  = alloc_8('ysolver ',1,nequ)
+         i_a  = alloc_8('asolver ',1,neqp)
 c ......................................................................
 c
 c ... 
-         call pcg_block_it(neq    ,nequ   ,neqp     ,nad,naduu,nadpp    
-     .                    ,ip     ,ja     ,ip(neq+2),ja(nad+1)
-     .                    ,ad     ,al     ,al(nad+1)  
-     .                    ,m      ,b      ,x
+         if(block_pu) then
+            if(n_blocks_up .eq. 1 ) then
+              print*,"PCG_BLOCK não disponivel para a matriz",
+     .               " blocada [Kuu Kpp]."
+              stop   
+            else if( n_blocks_up .eq. 2 ) then
+              print*,"PCG_BLOCK não disponivel para a matriz",
+     .               " blocada [Kuu Kpp] [Kpu]."
+              stop   
+            endif
+c ...
+            call pcg_block_it(neq    ,nequ       ,neqp  
+     .                    ,nad       ,naduu      ,nadpp
+     .                    ,ip        ,ja     
+     .                    ,ip(nequ+2),ja(naduu+1)
+     .                    ,ip(neq+3) ,ja(naduu+nadpp+1)         
+     .                    ,ad        ,ad(nequ+1)
+     .                    ,al        ,al(naduu+1),al(naduu+nadpp+1)  
+     .                    ,m         ,m(nequ+1)  ,b               ,x
      .                    ,ia(i_z),ia(i_r),ia(i_s)  ,ia(i_c)
-     .                    ,ia(i_h),ia(i_g)
-     .                    ,tol    ,maxit
+     .                    ,ia(i_h),ia(i_g),ia(i_y)  ,ia(i_a)
+     .                    ,tol    ,ctol   ,maxit    ,cmaxit 
+     .                    ,.false.,istep
      .                    ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                    ,i_xfi  ,i_rcvsi,i_dspli)
+     .                    ,i_xfi  ,i_rcvsi,i_dspli) 
+c ......................................................................
+c
+c ... 
+         else 
+           print*,"PCG_BLOCK não disponivel para a matriz nao blocada"
+           stop   
+         endif 
 c ......................................................................
 c
 c ...
+         i_a  = dealloc('asolver ')        
+         i_y  = dealloc('ysolver ')        
          i_g  = dealloc('gsolver ')        
          i_h  = dealloc('hsolver ')        
          i_c  = dealloc('csolver ')        
@@ -698,7 +733,7 @@ c ...
       return
       end
 c ************************************************************************
-
+c
 c ************************************************************************
 c *                                                                    *
 c *   PRE_DIAG: precondicionador diagonal                              *

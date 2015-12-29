@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2010-09-06 18:52:24 -0300 (Mon, 06 Sep 2010) $                 
-c*$Rev: 847 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************      
 c **********************************************************************
 c *                                                                    *
 c *   ASSBLY.F                                            31/08/2005   *
@@ -19,8 +14,13 @@ c *   ebe: armazena matrizes de elemento.                              *
 c *   blockdg: monta a diagonal em blocos.                             *
 c *                                                                    *
 c **********************************************************************
-      subroutine assbly(s,p,ld,ia,ja,au,al,ad,b,nst,neq,nequ,nad,lhs,
-     .                 rhs,unsym,stge,dualCsr)
+      subroutine assbly(s       ,p          ,ld
+     .                 ,ia      ,ja         ,au
+     .                 ,al      ,ad         ,b    ,nst
+     .                 ,neq     ,nequ       ,neqp
+     .                 ,nad     ,nadu       ,nadp ,nadpu 
+     .                 ,lhs     ,rhs        ,unsym,stge
+     .                 ,dualCsr ,n_blocks_up)
 c **********************************************************************
 c *                                                                    *
 c *   ASSBLY: montagem da matriz A e do vetor b.                       *
@@ -40,10 +40,16 @@ c *    nst         - numero de graus de liberdade por elemento         *
 c *    neq         - numero de equacoes                                *
 c *    nequ        - numero de equacoes em kuu                         *
 c *    nad         - numero de posicoes no CSR dos blocos Kuu e Kpp    *
+c *    nadu        - numero de posicoes no CSR dos blocos Kuu          *
+c *    nadp        - numero de posicoes no CSR dos blocos Kpp          *
 c *    lhs         - flag para a montagem da matriz A                  *
 c *    rhs         - flag para a montagem de b                         *
 c *    unsym       - flag para matriz nao-simetrica                    *
 c *    stge        - tipo de armazenamento                             *
+c *    n_blocks_up = numero de blocos                                  *
+c *                  1 - ( [ Kuu Kpp]  )                               *
+c *                  2 - ( [Kuu, Kpp] e [kpu] )                        *
+c *                  3 - ( [Kuu], [Kpp] e [kpu])                       *     
 c *    dualCsr     - true - armazenamento em blocos Kuu,Kpp e kpu      *
 c *                  false- aramzenamento em unico bloco               *
 c *                                                                    *
@@ -52,33 +58,83 @@ c *                                                                    *
 c **********************************************************************     
       implicit none
       real*8  s(*),p(*),au(*),al(*),ad(*),b(*)
-      integer ld(*),ia(*),ja(*),nst,neq,nequ,nad,stge
+      integer ld(*),ia(*),ja(*),nst
+      integer neq,nequ,neqp
+      integer nad,nadu,nadp,nadpu
+      integer stge,n_blocks_up
       logical lhs,rhs,unsym,dualCsr
-c ......................................................................      
+c ...................................................................... 
+c
+c ... csrc     
       if (stge .eq. 1) then
-         if(dualCsr) then 
-           call csr2(s ,p,ld,ia,ia(neq+2),ja,ja(nad+1),
-     .              al,al(nad+1),ad,b,nst,neq,nequ,
-     .              lhs,rhs)
+c ... bloco Kuu, Kpp e Kpu
+         if(dualCsr) then
+c ... | Kuu   0  |
+c     |  0   Kpp |         
+           if(n_blocks_up .eq. 1) then    
+c .....................................................................
+c
+c ... | Kuu   0  |
+c     |  0   Kpp | e [kpu]
+           else if(n_blocks_up .eq. 2) then    
+             call csr2(s ,p        ,ld
+     .                ,ia,ia(neq+2)
+     .                ,ja,ja(nad+1)
+     .                ,al,al(nad+1)
+     .                ,ad,b
+     .                ,nst,neq     ,nequ
+     .                ,lhs,rhs)
+c .....................................................................
+c
+c ... [Kuu], [Kpp] e [kpu]
+           else if(n_blocks_up .eq. 3) then
+c            print*,neq,nequ,neqp,nad,nadu,nadp
+             call csr3(s   ,p         ,ld
+     .                ,ia  ,ia(nequ+2),ia(neq+3)
+     .                ,ja  ,ja(nadu+1),ja(nadu+nadp+1)
+     .                ,al  ,al(nadu+1),al(nadu+nadp+1)
+     .                ,ad  ,ad(nequ+1),b
+     .                ,nst ,neq ,nequ 
+     .                ,lhs ,rhs)
+           endif 
+c .....................................................................
+c
+c ... | Kuu Kpu |
+c     | kpu Kpp |
          else
            call csr(s,p,ld,ia,ja,au,al,ad,b,nst,neq,lhs,rhs,unsym)
          endif     
+c .....................................................................
+c
+c ...
       elseif (stge .eq. 2) then
           print*,'(ASSBLY) Formato nao implementado !'
           stop
 c         call kedg(ix,ip,edge,s,au,nel,nen,nst,ndf,nc,unsym)
+c .....................................................................
+c
+c ...
       elseif (stge .eq. 3) then
           print*,'(ASSBLY) Formato nao implementado !'
           stop      
 c         call kel(s,au,nen,ndf,nst,nc,nel,unsym)
+c .....................................................................
+c
+c ...
       elseif (stge .eq. 4) then
           call skyline(s,p,ld,ja,au,al,ad,b,nst,lhs,rhs,unsym)
+c .....................................................................
+c
+c ...
       elseif (stge .eq. 5) then
           call diagonal(s,p,ld,ad,b,nst,lhs,rhs)
       endif
 c ......................................................................      
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine csr(s,p,ld,ia,ja,au,al,ad,b,nst,neq,lhs,rhs,unsym)
 c **********************************************************************
 c *                                                                    *
@@ -159,8 +215,16 @@ c ......................................................................
 c ...................................................................... 
       return
       end
-      subroutine csr2(s,p,ld,ia,iapu,ja,japu,al,apul,ad,b,nst,neq,nequ,
-     .               lhs,rhs)
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csr2(s  ,p   ,ld
+     .               ,ia ,iapu
+     .               ,ja ,japu
+     .               ,al ,apul
+     .               ,ad ,b
+     .               ,nst,neq ,nequ
+     .               ,lhs,rhs)
 c **********************************************************************
 c *                                                                    *
 c *   CSR2: armazenamento da matriz no formato CSRC para os blocos uu  *
@@ -181,7 +245,7 @@ c *                 a posicao k no vetor a do bloco Kpu                *
 c *    al(nad)      - parte triangular inferior da matriz global       *
 c *                 armazenada no formato CSR dp bloco Kuu e Kpp       *
 c *    apul(nadup)  - parte triangular inferior da matriz global       *
-c *                 armazenada no formato CSR dp bloco Kpu             *                               *
+c *                 armazenada no formato CSR dp bloco Kpu             *                                
 c *    ad(*)      - diagonal da matriz de coeficientes                 *
 c *    b(*)       - vetor de forcas                                    *
 c *    nst        - numero de graus de liberdade por elemento          *
@@ -196,6 +260,8 @@ c *    al   -  coeficientes abaixo da diagonal dos blocos Kuu e Kpp    *
 c *    apul -  coeficientes abaixo da diagonal dos blocos Kuu e Kpp    *
 c *    ad   -  coeficientes da diagonal dos blocos Kuu e Kpp           *
 c *    b    -  vetor de forcas corrigido                               *
+c *                                                                    *
+c *    OBS: Kuu e Kpp juntos e Kpu separado                            *
 c *                                                                    *
 c **********************************************************************
       implicit none
@@ -259,6 +325,129 @@ c ......................................................................
 c ...................................................................... 
       return
       end      
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csr3(s   ,p    ,ld
+     .               ,iau ,iap  ,iapu
+     .               ,jau ,jap  ,japu
+     .               ,alu ,alp  ,alpu
+     .               ,adu ,adp  ,b
+     .               ,nst ,neq  ,nequ
+     .               ,lhs ,rhs)
+c **********************************************************************
+c *                                                                    *
+c *   CSR3: armazenamento da matriz no formato CSRC para os blocos uu  *
+c *   e pp e csr para o bloco up                                       *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    s(nst,nst) - matriz do elemento nel                             *
+c *    p(nst)   - vetor de elemento                                    *
+c *    ld(nst)  - numeracao das equacoes do elemento                   *
+c *    iau(nequ+1)- ia(i) informa a posicao no vetor a do primeiro     *
+c *               coeficiente nao-nulo da equacao i do bloco Kuu       *
+c *    iap(neqp+1)- ia(i) informa a posicao no vetor a do primeiro     *
+c *               coeficiente nao-nulo da equacao i do bloco Kpp       *
+c *    iaup(neq+1)- iaup(i) informa a posicao no vetor a do primeiro   *
+c *               coeficiente nao-nulo da equacao i do bloco Kpu       *      
+c *    jau(nadu)  - ja(k) informa a coluna do coeficiente que ocupa    *
+c *                 a posicao k no vetor a do bloco Kuu                *
+c *    jau(nadp)  - ja(k) informa a coluna do coeficiente que ocupa    *
+c *                 a posicao k no vetor a do bloco Kpp                *
+c *    jaup(nadup)- ja(k) informa a coluna do coeficiente que ocupa    *
+c *                 a posicao k no vetor a do bloco Kpu                *
+c *    al(nad)      - parte triangular inferior da matriz global       *
+c *                 armazenada no formato CSR dp bloco Kuu e Kpp       *
+c *    apul(nadup)  - parte triangular inferior da matriz global       *
+c *                 armazenada no formato CSR dp bloco Kpu             *                                
+c *    adu(*)     - diagonal da matriz de coeficientes Kuu             *
+c *    adp(*)     - diagonal da matriz de coeficientes Kpp             *
+c *    b(*)       - vetor de forcas                                    *
+c *    nst        - numero de graus de liberdade por elemento          *
+c *    neq        - numero de equacoes totais                          *
+c *    nequ       - numero de equacoes de do bloco Kuu                 *
+c *    lhs        - flag para a montagem da matriz A                   *
+c *    rhs        - flag para a montagem de b                          *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    al   -  coeficientes abaixo da diagonal dos blocos Kuu e Kpp    *
+c *    apul -  coeficientes abaixo da diagonal dos blocos Kuu e Kpp    *
+c *    ad   -  coeficientes da diagonal dos blocos Kuu e Kpp           *
+c *    b    -  vetor de forcas corrigido                               *
+c *                                                                    *
+c *    OBS: Kuu ,Kpp e Kpu separados                                   *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer ld(*)
+      integer iau(*) ,jau(*) ,iap(*),jap(*),iapu(*),japu(*)
+      integer nst,neq,nequ
+      integer i,j,k,ki,l,kk
+      real*8  s(nst,*),p(*)
+      real*8  alu(*),alp(*),alpu(*),adu(*),adp(*),b(*)
+      logical lhs,rhs
+c ......................................................................
+c
+c ...................................................................... 
+      do 200 i = 1, nst
+         k = ld(i)
+         if (k .le. 0 .or. k .gt. neq) goto 200
+         if(rhs) b(k) = b(k) - p(i)
+c ......................................................................
+         if(lhs) then
+c ... bloco Kuu
+            if (k .le. nequ) then 
+               adu(k) = adu(k) + s(i,i)
+               do 110 j = 1, nst
+                  l = ld(j)
+                  if( l .le. 0 ) go to 110
+                  if (l .le. nequ)  then
+                     do 100 kk = iau(k), iau(k+1)-1
+                        if (l .eq. jau(kk)) then
+                          alu(kk) = alu(kk) + s(i,j)
+                        endif
+  100                continue
+                  endif   
+  110          continue
+c .....................................................................
+c
+c ... bloco Kpp e kpu
+            else if (k .gt. nequ) then 
+               ki = k - nequ     
+               adp(ki) = adp(ki) + s(i,i)
+               do 140 j = 1, nst
+                  l = ld(j)
+                  if( l .le. 0 ) go to 140
+c ... bloco Kpp                  
+                  if (l .gt. nequ )  then
+                     do 130 kk = iap(ki), iap(ki+1)-1
+                        if ( (l - nequ) .eq. jap(kk)) then
+                          alp(kk) = alp(kk) + s(i,j)
+                        endif
+  130                continue
+c ..................................................................
+c                 
+c ... bloco Kpu    
+                  else if(l .le. nequ )  then
+                     ki = k - nequ     
+                     do 150 kk = iapu(ki), iapu(ki+1)-1
+                        if (l .eq. japu(kk)) then
+                          alpu(kk) = alpu(kk) + s(i,j)
+                        endif
+  150                continue
+                  endif
+  140          continue
+            endif     
+c ......................................................................
+         endif
+  200 continue
+c ...................................................................... 
+      return
+      end      
+c **********************************************************************
+c
+c **********************************************************************
       subroutine skyline(s,p,ld,jd,au,al,ad,b,nst,lhs,rhs,unsym)
 c **********************************************************************
 c *                                                                    *
@@ -319,6 +508,9 @@ c
 c ......................................................................
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine arestas(ix,ip,edge,s,se,nel,nen,nst,ndf,nc,unsym)
 c **********************************************************************
 c *                                                                    *
@@ -391,6 +583,9 @@ c.......................................................................
 c ......................................................................  
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine ebe(s,se,nen,ndf,nst,nc,nel,unsym)
 c **********************************************************************
 c *                                                                    *
@@ -445,6 +640,9 @@ c ......................................................................
 c ......................................................................      
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine blockdg(ix,s,bd,nen,nst,ndf,nc,nel,unsym)
 c **********************************************************************
 c *                                                                    *
@@ -510,6 +708,9 @@ c
 c ......................................................................      
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine diagonal(s,p,ld,ad,b,nst,lhs,rhs)
 c **********************************************************************
 c *                                                                    *
@@ -558,3 +759,4 @@ c
 c ......................................................................
       return
       end
+c **********************************************************************
