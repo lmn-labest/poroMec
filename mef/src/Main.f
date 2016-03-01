@@ -49,7 +49,7 @@ c
       logical reordf,unsym
 c ... pcg duplo
       integer cmaxit
-      real*8  ctol
+      real*8  ctol,alfap,alfau
 c.......................................................................
 c
 c ... Variaveis descritivas do problema:
@@ -584,7 +584,7 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
      .         ,ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al)
      .         ,ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit
      .         ,ngram,block_pu,n_blocks_up,solver,istep
-     .         ,cmaxit,ctol
+     .         ,cmaxit,ctol,alfap,alfau
      .         ,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap
      .         ,i_xf,i_rcvs,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1041,10 +1041,28 @@ c ...
       open(logsolvd,file=fname)
 c ......................................................................
       solver = 5       
+c ... fator de sobre-relaxação p
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1703,end =1701) alfap    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set alfaP :',alfap
+      endif
+c ......................................................................
+c
+c ... fator de sobre-relaxação p
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1702,end =1702) alfau    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set alfaU :',alfau
+      endif
+c ......................................................................
+c
 c ... numero maximo de iteracoes
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1701,end =1701) maxit    
+      read(string,*,err =1703,end =1703) maxit    
       if(my_id.eq.0) then
         write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
       endif
@@ -1053,7 +1071,7 @@ c
 c ... tolerancia 
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1702,end =1702) solvtol   
+      read(string,*,err =1704,end =1704) solvtol   
       if( solvtol .eq. 0.d0) solvtol = smachn()
       if(my_id.eq.0) then
         write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
@@ -1064,7 +1082,7 @@ c
 c ... tolerancia no ciclo
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1702,end =1702) cmaxit   
+      read(string,*,err =1705,end =1705) cmaxit   
       if(my_id.eq.0) then
         write(*,'(1x,a25,1x,i10)')'Set max cycles it solver for:',cmaxit
       endif
@@ -1080,10 +1098,22 @@ c ... tolerancia no ciclo
 c ......................................................................
       goto 50
  1701 continue
-      print*,'Erro na leitura da macro (PCG) maxit !'
+      print*,'Erro na leitura da macro (SPCG) alfaP   !'
       goto 5000
  1702 continue
-      print*,'Erro na leitura da macro (PCG) solvtol !'
+      print*,'Erro na leitura da macro (SPCG) alfaU!'
+      goto 5000
+ 1703 continue
+      print*,'Erro na leitura da macro (SPCG) maxit !'
+      goto 5000
+ 1704 continue
+      print*,'Erro na leitura da macro (SPCG) solvtol !'
+      goto 5000
+ 1705 continue
+      print*,'Erro na leitura da macro (SPCG) cmaxit !'
+      goto 5000
+ 1706 continue
+      print*,'Erro na leitura da macro (SPCG) ctol !'
       goto 5000
 c ----------------------------------------------------------------------
       goto 50

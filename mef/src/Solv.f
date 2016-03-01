@@ -1,414 +1,3 @@
-c **********************************************************************
-c *                                                                    *
-c *   SOLV.F                                             31/08/2005    *
-c *                                                                    *
-c *   Metodos iterativos de solucao:                                   *
-c *                                                                    *
-c *   pcg                                                              *
-c *   gmres                                                            *
-c *   prediag                                                          *
-c *   pbcgstab                                                         *
-c *                                                                    *
-c **********************************************************************
-      subroutine solv(neq,nequ,nad,ip,ja,ad,au,al,m,b,x,tol,maxit,ngram,
-     .               unsym,solver,neqf1i,neqf2i,neq3i,neq4i,neq_doti,
-     .               i_fmapi,i_xfi,i_rcvsi,i_dspli)
-      use Malloc
-      implicit none
-      include 'mpif.h'
-      include 'parallel.fi'
-      include 'openmp.fi'
-      include 'time.fi'
-      integer neqf1i,neqf2i
-c ... ponteiros      
-      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
-      integer*8 i_z,i_r,i_g,i_h,i_y,i_c,i_s
-c ......................................................................
-      integer neq3i,neq4i,neq_doti
-      integer ip(*),ja(*),neq,nequ,nad
-      integer maxit,ngram,solver
-      real*8  ad(*),au(*),al(*),m(*),x(*),b(*),tol,energy
-      logical unsym
-      integer neqovlp
-      external matvec_csrsym1
-      external dot,dot_par
-      external matvec_csrc,matvec_csrcr,matvec_csrcsym,matvec_csrcrsym
-      external matvec_csrc1,matvec_csrcr1
-      external matvec_csrcsym1,matvec_csrcrsym1
-c     OpenMP'ed subroutines
-      external dot_par_omp,dot_par_omp_loopwise
-      external matvec_csrc_omp,matvec_csrcsym_omp,
-     .         matvec_csrcr_omp,matvec_csrcrsym_omp
-c ......................................................................
-c ... numero total de equacoes na particao overlapping:
-c    (neqovlp = neq, no sequencial e no non-overlapping)
-      neqovlp = neq+neq3i+neq4i
-      if (openmp) then
-         pmatrixtime = Mpi_Wtime() - pmatrixtime 
-         i_threads_y = alloc_8('buffer_y',num_threads,neq)
-         call partition_matrix(ip,ja,neq,ovlp)
-         pmatrixtime = Mpi_Wtime() - pmatrixtime
-      endif
-c ......................................................................
-c
-c ... Gradientes conjugados com precondicionador diagonal:
-      if (solver .eq. 1) then
-         if (unsym) then
-            print*,'Solver 1 nao disponivel para matriz nao-simetrica !'
-            call stop_mef()
-         endif
-         i_z = alloc_8('z       ',1,neq)
-c         i_z = alloc_8('z       ',1,neq+1) + 2
-         i_r = alloc_8('r       ',1,neq)
-c ...    precondicionador diagonal:
-         call aequalb(m,ad,neq)
-c ...    Comunicacao da diagonal para o caso non-overlapping:
-         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                   i_rcvsi,i_dspli)
-c ......................................................................
-         if (ovlp) then
-c ......... Overlapping:
-            if (openmp) then
-               call pcg_omp(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),
-     .                  ia(i_r),tol,maxit,matvec_csrcrsym_omp,
-     .                  dot_par_omp,my_id,neqf1i,neqf2i,neq_doti,
-     .                  i_fmapi,i_xfi,i_rcvsi,i_dspli,ia(i_threads_y))
-            else
-               call pcg(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),ia(i_r),
-     .                  tol,maxit,
-c ... matvec comum:
-c    .                  matvec_csrcrsym,dot_par,
-c ... matvec desenrolado:
-     .                  matvec_csrcrsym1,dot_par,
-     .                  my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
-     .                  i_rcvsi,i_dspli)
-c ......................................................................
-            endif
-         else
-c ......... Sequencial e non-overlapping:
-            if (openmp) then
-               call pcg_omp(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),ia(i_r),
-     .                  tol,maxit,matvec_csrcsym_omp,dot_par_omp,my_id,
-     .                  neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,i_rcvsi,
-     .                  i_dspli,ia(i_threads_y))
-            else
-               call pcg(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),ia(i_r),
-     .                  tol,maxit,
-c ... matvec comum:
-c    .                  matvec_csrcsym,dot_par,
-c ... matvec desenrolado:
-     .                  matvec_csrcsym1,dot_par,
-     .                  my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
-     .                  i_rcvsi,i_dspli)
-            endif
-         endif
-c ......................................................................
-         i_r = dealloc('r       ')
-         i_z = dealloc('z       ')
-c ......................................................................
-c
-c ... Gmres com precondicionador diagonal:
-      elseif(solver .eq. 2) then
-         i_g = alloc_8('g       ',neqovlp,ngram+1)         
-         i_h = alloc_8('h       ',ngram+1,ngram)
-         i_y = alloc_8('y       ',1,ngram)
-         i_c = alloc_8('c       ',1,ngram)
-         i_s = alloc_8('s       ',1,ngram)
-         i_r = alloc_8('r       ',1,ngram+1)
-c ...... precondicionador diagonal:
-         call aequalb(m,ad,neq)
-c ...... Comunicacao da diagonal para o caso non-overlapping:
-         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                   i_rcvsi,i_dspli)
-         if(unsym) then
-c ......................................................................
-            if(ovlp) then
-c ............ Matriz nao-simetrica, overlapping:
-               if (openmp) then
-                  call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-     .                       tol,maxit,matvec_csrcr_omp,dot_par_omp,
-     .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
-     .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .                       ia(i_threads_y))
-               else
-                  call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-c ... matvec comum:
-c     .                       maxit,matvec_csrcr,dot_par,neqovlp)
-c ... matvec desenrolado:
-     .                       tol,maxit,matvec_csrcr1,dot_par,neqovlp,
-     .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
-     .                       i_rcvsi,i_dspli)
-               endif
-               call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                          i_rcvsi,i_dspli)
-c ......................................................................
-            else
-c ............ Matriz nao-simetrica, sequencial e non-overlapping:
-               if (openmp) then
-                  call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-     .                       tol,maxit,matvec_csrc_omp,dot_par_omp,
-     .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
-     .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .                       ia(i_threads_y))
-               else
-                  call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-c ... matvec comum:
-c     .                       maxit,matvec_csrc,dot_par,neqovlp)
-c ... matvec desenrolado:
-     .                       tol,maxit,matvec_csrc1,dot_par,neqovlp,
-     .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
-     .                       i_rcvsi,i_dspli)
-              endif
-            endif
-c ......................................................................
-         else
-c ......................................................................
-            if (ovlp) then
-c ............ Matriz simetrica, overlapping:
-               if (openmp) then
-                  call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-     .                       tol,maxit,matvec_csrcrsym_omp,dot_par_omp,
-     .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
-     .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .                       ia(i_threads_y))
-               else
-                  call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-c ... matvec comum:
-c     .                       maxit,matvec_csrcrsym,dot_par,neqovlp)
-c ... matvec desenrolado:
-     .                       tol,maxit,matvec_csrcrsym1,dot_par,neqovlp,
-     .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
-     .                       i_rcvsi,i_dspli)
-               endif
-               call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
-     .                          i_dspli)
-c ......................................................................
-            else
-c ............ Matriz simetrica, sequencial e non-overlapping:
-               if (openmp) then
-                  call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-     .                       tol,maxit,matvec_csrcsym_omp,dot_par_omp,
-     .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
-     .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .                       ia(i_threads_y))
-              else
-                 call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
-     .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-c ... matvec comum:
-c     .                       maxit,matvec_csrcsym,dot_par,neqovlp)
-c ... matvec desenrolado:
-     .                       tol,maxit,matvec_csrcsym1,dot_par,neqovlp,
-     .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
-     .                       i_rcvsi,i_dspli)
-               endif
-            endif
-c ......................................................................
-         endif
-c ......................................................................
-         i_r = dealloc('r       ')
-         i_s = dealloc('s       ')
-         i_c = dealloc('c       ')
-         i_c = dealloc('y       ')
-         i_h = dealloc('h       ')
-         i_g = dealloc('g       ')
-c ......................................................................
-c
-c ... Gauss:
-      elseif(solver .eq. 3) then
-         time0 = MPI_Wtime()
-         call dtri(ad,au,al,ja,neq,unsym)
-         call dsolv(ad,au,al,b,ja,neq,energy,.true.)
-         time = MPI_Wtime()
-         print*,'CPU time (s) ',time-time0
-         x(1:neq) = b(1:neq)
-c ......................................................................
-c
-c ... BICGSTAB com precondicionador diagonal:
-      elseif(solver .eq. 4) then
-c ...    precondicionador diagonal:
-         call aequalb(m,ad,neq)      
-c ...    Comunicacao da diagonal para o caso non-overlapping:
-         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                               i_rcvsi,i_dspli)
-c .....................................................................
-c
-c ...     
-         i_c = alloc_8('tsolver ',1,neq)
-         i_h = alloc_8('hsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
-         i_z = alloc_8('zsolver ',1,neq)
-c .....................................................................
-c
-c ............ Matriz nao-simetrica 
-         if(unsym) then
-c ............ Matriz nao-simetrica, overlapping:
-           if(ovlp) then
-c ... Openmp            
-             if(openmp) then
-c              call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x,
-               call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
-     .                            ia(i_c),ia(i_h),   
-     .                            ia(i_r),ia(i_s),ia(i_z),tol,maxit,
-c ... dot_par_omp_loopwise:     
-c    .                            matvec_csrcr_omp,dot_par_omp_loopwise,
-c ... dot_par_omp      
-     .                            matvec_csrcr_omp,dot_par_omp,     
-     .                            my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                            i_xfi,i_rcvsi,i_dspli,
-     .                            ia(i_threads_y))
-c ... sem openmp     
-             else
-               call pbicgstab(neq,ip,ja,ad,au,al,m,b,x,
-c              call bicgstab(neq,ip,ja,ad,au,al,m,b,x,
-     .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                      tol,maxit,
-c ... matvec comum:
-c    .                      matvec_csrcr,dot_par,
-c ... matvec desenrolado:
-     .                      matvec_csrcr1,dot_par,
-     .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                      i_xfi,i_rcvsi,i_dspli)
-             endif
-             call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                        i_rcvsi,i_dspli)
-c .....................................................................
-c
-c ............ Matriz nao-simetrica, sequencial e non-overlapping:  
-           else
-c ... Openmp            
-             if(openmp) then
-c               call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x,
-                call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
-     .                            ia(i_c),ia(i_h),   
-     .                            ia(i_r),ia(i_s),ia(i_z),tol,maxit,
-c ... dot_par_omp_loopwise:     
-c    .                            matvec_csrc_omp,dot_par_omp_loopwise,
-c ... dot_par_omp      
-     .                            matvec_csrc_omp,dot_par_omp,     
-     .                            my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                            i_xfi,i_rcvsi,i_dspli,
-     .                            ia(i_threads_y))
-c .....................................................................
-c     
-c ... sem openmp     
-             else
-               call pbicgstab(neq,nequ,nad,ip,ja,ad,au,al,m,b,x,
-c              call bicgstab(neq,ip,ja,ad,au,al,m,b,x,
-     .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                      tol,maxit,
-c ... matvec comum:
-c     .                      matvec_csrc,dot_par,
-c ... matvec desenrolado:
-     .                      matvec_csrc1,dot_par,
-     .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                      i_xfi,i_rcvsi,i_dspli)
-            endif
-c .....................................................................
-c
-c ....................................................................     
-           endif
-c ....................................................................             
-c
-c ............ Matriz simetrica 
-         else       
-c ............ Matriz simetrica, overlapping:
-           if(ovlp) then
-c ... Openmp       
-             if(openmp) then
-c              call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x,
-               call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
-     .                         ia(i_c),ia(i_h),   
-     .                         ia(i_r),ia(i_s),ia(i_z),tol,maxit,
-c ... dot_par_omp_loopwise:     
-c    .                         matvec_csrcrsym_omp,dot_par_omp_loopwise,
-c ... dot_par_omp      
-     .                         matvec_csrcrsym_omp,dot_par_omp,     
-     .                         my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                         i_xfi,i_rcvsi,i_dspli,
-     .                         ia(i_threads_y))
-c .....................................................................
-c     
-c ... sem openmp     
-             else
-               call pbicgstab(neq,ip,ja,ad,au,al,m,b,x,
-     .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                      tol,maxit,
-c ... matvec comum:
-c    .                      matvec_csrcrsym,dot_par,
-c ... matvec desenrolado:
-     .                      matvec_csrcrsym1,dot_par,
-     .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                      i_xfi,i_rcvsi,i_dspli)
-             endif
-c .....................................................................
-c
-c ...
-             call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
-     .                        i_dspli)
-c .....................................................................
-c
-c ............ Matriz simetrica, sequencial e non-overlapping:
-           else
-c ... Openmp       
-             if(openmp) then
-c              call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x, 
-               call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
-     .                          ia(i_c),ia(i_h),   
-     .                          ia(i_r),ia(i_s),ia(i_z),tol,maxit,
-c ... dot_par_omp_loopwise:     
-c    .                          matvec_csrcsym_omp,dot_par_omp_loopwise,
-c ... dot_par_omp      
-     .                          matvec_csrcsym_omp,dot_par_omp,     
-     .                          my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .                          i_xfi,i_rcvsi,i_dspli,
-     .                          ia(i_threads_y))
-c .....................................................................
-c     
-c ... sem openmp     
-             else
-               call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
-     .                       ad     ,au     ,al     ,m      ,b      ,x, 
-     .                       ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
-     .                       tol    ,maxit,
-c ... matvec comum:
-c    .                       matvec_csrcb  ,dot_par,
-     .                     matvec_csrcsym,dot_par,
-c ... matvec desenrolado:
-c    .                     matvec_csrcsym1,dot_par,
-     .                       my_id   ,neqf1i  ,neqf2i,
-     .                       neq_doti,i_fmapi,i_xfi  ,i_rcvsi,i_dspli)
-             endif
-c .....................................................................
-           endif  
-c .....................................................................       
-         endif
-c .....................................................................
-c
-c ...             
-         i_z = dealloc('zsolver ')     
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_h = dealloc('hsolver ')
-         i_c = dealloc('tsolver ')
-c ......................................................................         
-      endif
-c ......................................................................
-      if (openmp) then
-         pmatrixtime = Mpi_Wtime() - pmatrixtime 
-         i_threads_y = dealloc('buffer_y')
-         pmatrixtime = Mpi_Wtime() - pmatrixtime
-      endif
-      return
-      end
-c **********************************************************************
 c
 c **********************************************************************
 c *                                                                    *
@@ -427,7 +16,7 @@ c **********************************************************************
      .                  ,ip     ,ja      ,ad         ,al     
      .                  ,m      ,b       ,x          ,tol    ,maxit
      .                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
-     .                  ,cmaxit ,ctol
+     .                  ,cmaxit ,ctol    ,alfap      ,alfau
      .                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
      .                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
@@ -447,7 +36,7 @@ c ......................................................................
       real*8  ad(*),al(*),m(*),x(*),b(*),tol,energy
 c ... pcg duplo
       integer cmaxit
-      real*8  ctol
+      real*8  ctol,alfap,alfau
 c ......................................................................
       logical block_pu,diag
       integer neqovlp
@@ -504,7 +93,8 @@ c ... matvec comum:
      .             ,matvec_csrcsym_pm,dot_par 
 c
      .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .             ,i_xfi ,i_rcvsi,i_dspli)
+     .             ,i_xfi ,i_rcvsi,i_dspli
+     .             ,.true.)
          endif
 c .....................................................................
 c
@@ -539,30 +129,32 @@ c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
-           call gmres(neq,nequ,nad,ip,ja,
-     .                ad ,al  ,al ,m ,b ,x,ngram,ia(i_g),
-     .                ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-     .                tol    ,maxit,  
+           call gmres(neq,nequ,nad,ip,ja 
+     .               ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     .               ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     .               ,tol    ,maxit   
 c ... matvec comum:
-     .                matvec_csrc_pm  ,dot_par,
+     .               ,matvec_csrc_pm  ,dot_par 
 c ... matvec desenrolado:
-c    .                matvec_csrcsym1,dot_par,
-     .                neqovlp ,my_id  ,neqf1i ,neqf2i ,
-     .                neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli)
+c    .               ,matvec_csrcsym1,dot_par 
+     .               ,neqovlp ,my_id  ,neqf1i ,neqf2i  
+     .               ,neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli  
+     .               ,.true.)
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
          else
-           call gmres(neq,nequ,nad,ip,ja,
-     .                ad ,al  ,al ,m ,b ,x,ngram,ia(i_g),
-     .                ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
-     .                tol    ,maxit,  
+           call gmres(neq,nequ,nad,ip,ja 
+     .               ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     .               ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     .               ,tol    ,maxit   
 c ... matvec comum:
-     .                matvec_csrcsym_pm,dot_par,
+     .               ,matvec_csrcsym_pm,dot_par 
 c ... matvec desenrolado:
-c    .                matvec_csrcsym1,dot_par,
-     .                neqovlp ,my_id  ,neqf1i ,neqf2i ,
-     .                neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli)
+c    .               ,matvec_csrcsym1,dot_par,
+     .               ,neqovlp ,my_id  ,neqf1i ,neqf2i  
+     .               ,neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli 
+     .               ,.true.)
          endif
 c .....................................................................
 c
@@ -625,7 +217,8 @@ c ... matvec comum:
 c ... matvec desenrolado:
 c    .                   matvec_csrcsym1,dot_par,
      .                  ,my_id        ,neqf1i  ,neqf2i 
-     .                  ,neq_doti     ,i_fmapi ,i_xfi ,i_rcvsi,i_dspli)
+     .                  ,neq_doti     ,i_fmapi ,i_xfi ,i_rcvsi,i_dspli
+     .                  ,.true.)
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
@@ -639,7 +232,8 @@ c ... matvec comum:
 c ... matvec desenrolado:
 c    .                     matvec_csrcsym1,dot_par,
      .                  ,my_id        ,neqf1i  ,neqf2i  
-     .                  ,neq_doti     ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli)
+     .                  ,neq_doti     ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
+     .                  ,.true.)
          endif
 c .....................................................................
 c
@@ -695,8 +289,9 @@ c ...
      .                    ,m         ,m(nequ+1)  ,b               ,x
      .                    ,ia(i_z),ia(i_r),ia(i_s)  ,ia(i_c)
      .                    ,ia(i_h),ia(i_g),ia(i_y)  ,ia(i_a)
-     .                    ,tol    ,ctol   ,maxit    ,cmaxit 
-     .                    ,.false.,istep
+     .                    ,tol    ,ctol   ,maxit    ,cmaxit
+     .                    ,alfap  ,alfau 
+     .                    ,.true.,istep
      .                    ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .                    ,i_xfi  ,i_rcvsi,i_dspli) 
 c ......................................................................
@@ -790,3 +385,415 @@ c ...
       return
       end
 c *************************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c *   SOLV.F                                             31/08/2005    *
+c *                                                                    *
+c *   Metodos iterativos de solucao:                                   *
+c *                                                                    *
+c *   pcg                                                              *
+c *   gmres                                                            *
+c *   prediag                                                          *
+c *   pbcgstab                                                         *
+c *                                                                    *
+c **********************************************************************
+c     subroutine solv(neq,nequ,nad,ip,ja,ad,au,al,m,b,x,tol,maxit,ngram,
+c    .               unsym,solver,neqf1i,neqf2i,neq3i,neq4i,neq_doti,
+c    .               i_fmapi,i_xfi,i_rcvsi,i_dspli)
+c     use Malloc
+c     implicit none
+c     include 'mpif.h'
+c     include 'parallel.fi'
+c     include 'openmp.fi'
+c     include 'time.fi'
+c     integer neqf1i,neqf2i
+c ... ponteiros      
+c     integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+c     integer*8 i_z,i_r,i_g,i_h,i_y,i_c,i_s
+c ......................................................................
+c     integer neq3i,neq4i,neq_doti
+c     integer ip(*),ja(*),neq,nequ,nad
+c     integer maxit,ngram,solver
+c     real*8  ad(*),au(*),al(*),m(*),x(*),b(*),tol,energy
+c     logical unsym
+c     integer neqovlp
+c     external matvec_csrsym1
+c     external dot,dot_par
+c     external matvec_csrc,matvec_csrcr,matvec_csrcsym,matvec_csrcrsym
+c     external matvec_csrc1,matvec_csrcr1
+c     external matvec_csrcsym1,matvec_csrcrsym1
+c     OpenMP'ed subroutines
+c     external dot_par_omp,dot_par_omp_loopwise
+c     external matvec_csrc_omp,matvec_csrcsym_omp,
+c    .         matvec_csrcr_omp,matvec_csrcrsym_omp
+c ......................................................................
+c ... numero total de equacoes na particao overlapping:
+c    (neqovlp = neq, no sequencial e no non-overlapping)
+c     neqovlp = neq+neq3i+neq4i
+c     if (openmp) then
+c        pmatrixtime = Mpi_Wtime() - pmatrixtime 
+c        i_threads_y = alloc_8('buffer_y',num_threads,neq)
+c        call partition_matrix(ip,ja,neq,ovlp)
+c        pmatrixtime = Mpi_Wtime() - pmatrixtime
+c     endif
+c ......................................................................
+c
+c ... Gradientes conjugados com precondicionador diagonal:
+c     if (solver .eq. 1) then
+c        if (unsym) then
+c           print*,'Solver 1 nao disponivel para matriz nao-simetrica !'
+c           call stop_mef()
+c        endif
+c        i_z = alloc_8('z       ',1,neq)
+c         i_z = alloc_8('z       ',1,neq+1) + 2
+c        i_r = alloc_8('r       ',1,neq)
+c ...    precondicionador diagonal:
+c        call aequalb(m,ad,neq)
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+c        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+c    .                   i_rcvsi,i_dspli)
+c ......................................................................
+c        if (ovlp) then
+c ......... Overlapping:
+c           if (openmp) then
+c              call pcg_omp(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),
+c    .                  ia(i_r),tol,maxit,matvec_csrcrsym_omp,
+c    .                  dot_par_omp,my_id,neqf1i,neqf2i,neq_doti,
+c    .                  i_fmapi,i_xfi,i_rcvsi,i_dspli,ia(i_threads_y))
+c           else
+c              call pcg(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),ia(i_r),
+c    .                  tol,maxit,
+c ... matvec comum:
+c    .                  matvec_csrcrsym,dot_par,
+c ... matvec desenrolado:
+c    .                  matvec_csrcrsym1,dot_par,
+c    .                  my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
+c    .                  i_rcvsi,i_dspli)
+c ......................................................................
+c           endif
+c        else
+c ......... Sequencial e non-overlapping:
+c           if (openmp) then
+c              call pcg_omp(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),ia(i_r),
+c    .                  tol,maxit,matvec_csrcsym_omp,dot_par_omp,my_id,
+c    .                  neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,i_rcvsi,
+c    .                  i_dspli,ia(i_threads_y))
+c           else
+c              call pcg(neq,ip,ja,ad,au,al,m,b,x,ia(i_z),ia(i_r),
+c    .                  tol,maxit,
+c ... matvec comum:
+c    .                  matvec_csrcsym,dot_par,
+c ... matvec desenrolado:
+c    .                  matvec_csrcsym1,dot_par,
+c    .                  my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
+c    .                  i_rcvsi,i_dspli)
+c           endif
+c        endif
+c ......................................................................
+c        i_r = dealloc('r       ')
+c        i_z = dealloc('z       ')
+c ......................................................................
+c
+c ... Gmres com precondicionador diagonal:
+c     elseif(solver .eq. 2) then
+c        i_g = alloc_8('g       ',neqovlp,ngram+1)         
+c        i_h = alloc_8('h       ',ngram+1,ngram)
+c        i_y = alloc_8('y       ',1,ngram)
+c        i_c = alloc_8('c       ',1,ngram)
+c        i_s = alloc_8('s       ',1,ngram)
+c        i_r = alloc_8('r       ',1,ngram+1)
+c ...... precondicionador diagonal:
+c        call aequalb(m,ad,neq)
+c ...... Comunicacao da diagonal para o caso non-overlapping:
+c        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+c    .                   i_rcvsi,i_dspli)
+c        if(unsym) then
+c ......................................................................
+c           if(ovlp) then
+c ............ Matriz nao-simetrica, overlapping:
+c              if (openmp) then
+c                 call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c    .                       tol,maxit,matvec_csrcr_omp,dot_par_omp,
+c    .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
+c    .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
+c    .                       ia(i_threads_y))
+c              else
+c                 call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c ... matvec comum:
+c     .                       maxit,matvec_csrcr,dot_par,neqovlp)
+c ... matvec desenrolado:
+c    .                       tol,maxit,matvec_csrcr1,dot_par,neqovlp,
+c    .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
+c    .                       i_rcvsi,i_dspli)
+c              endif
+c              call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,
+c    .                          i_rcvsi,i_dspli)
+c ......................................................................
+c           else
+c ............ Matriz nao-simetrica, sequencial e non-overlapping:
+c              if (openmp) then
+c                 call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c    .                       tol,maxit,matvec_csrc_omp,dot_par_omp,
+c    .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
+c    .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
+c    .                       ia(i_threads_y))
+c              else
+c                 call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c ... matvec comum:
+c     .                       maxit,matvec_csrc,dot_par,neqovlp)
+c ... matvec desenrolado:
+c    .                       tol,maxit,matvec_csrc1,dot_par,neqovlp,
+c    .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
+c    .                       i_rcvsi,i_dspli)
+c             endif
+c           endif
+c ......................................................................
+c        else
+c ......................................................................
+c           if (ovlp) then
+c ............ Matriz simetrica, overlapping:
+c              if (openmp) then
+c                 call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c    .                       tol,maxit,matvec_csrcrsym_omp,dot_par_omp,
+c    .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
+c    .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
+c    .                       ia(i_threads_y))
+c              else
+c                 call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c ... matvec comum:
+c     .                       maxit,matvec_csrcrsym,dot_par,neqovlp)
+c ... matvec desenrolado:
+c    .                       tol,maxit,matvec_csrcrsym1,dot_par,neqovlp,
+c    .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
+c    .                       i_rcvsi,i_dspli)
+c              endif
+c              call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
+c    .                          i_dspli)
+c ......................................................................
+c           else
+c ............ Matriz simetrica, sequencial e non-overlapping:
+c              if (openmp) then
+c                 call gmres_omp(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c    .                       tol,maxit,matvec_csrcsym_omp,dot_par_omp,
+c    .                       neqovlp,my_id,neqf1i,neqf2i,neq_doti,
+c    .                       i_fmapi,i_xfi,i_rcvsi,i_dspli,
+c    .                       ia(i_threads_y))
+c             else
+c                call gmres(neq,ip,ja,ad,au,al,m,b,x,ngram,ia(i_g),
+c    .                       ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r),
+c ... matvec comum:
+c     .                       maxit,matvec_csrcsym,dot_par,neqovlp)
+c ... matvec desenrolado:
+c    .                       tol,maxit,matvec_csrcsym1,dot_par,neqovlp,
+c    .                       my_id,neqf1i,neqf2i,neq_doti,i_fmapi,i_xfi,
+c    .                       i_rcvsi,i_dspli)
+c              endif
+c           endif
+c ......................................................................
+c        endif
+c ......................................................................
+c        i_r = dealloc('r       ')
+c        i_s = dealloc('s       ')
+c        i_c = dealloc('c       ')
+c        i_c = dealloc('y       ')
+c        i_h = dealloc('h       ')
+c        i_g = dealloc('g       ')
+c ......................................................................
+c
+c ... Gauss:
+c     elseif(solver .eq. 3) then
+c        time0 = MPI_Wtime()
+c        call dtri(ad,au,al,ja,neq,unsym)
+c        call dsolv(ad,au,al,b,ja,neq,energy,.true.)
+c        time = MPI_Wtime()
+c        print*,'CPU time (s) ',time-time0
+c        x(1:neq) = b(1:neq)
+c ......................................................................
+c
+c ... BICGSTAB com precondicionador diagonal:
+c     elseif(solver .eq. 4) then
+c ...    precondicionador diagonal:
+c        call aequalb(m,ad,neq)      
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+c        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+c    .                               i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ...     
+c        i_c = alloc_8('tsolver ',1,neq)
+c        i_h = alloc_8('hsolver ',1,neq)
+c        i_r = alloc_8('rsolver ',1,neq)
+c        i_s = alloc_8('psolver ',1,neq)
+c        i_z = alloc_8('zsolver ',1,neq)
+c .....................................................................
+c
+c ............ Matriz nao-simetrica 
+c        if(unsym) then
+c ............ Matriz nao-simetrica, overlapping:
+c          if(ovlp) then
+c ... Openmp            
+c            if(openmp) then
+c              call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x,
+c              call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
+c    .                            ia(i_c),ia(i_h),   
+c    .                            ia(i_r),ia(i_s),ia(i_z),tol,maxit,
+c ... dot_par_omp_loopwise:     
+c    .                            matvec_csrcr_omp,dot_par_omp_loopwise,
+c ... dot_par_omp      
+c    .                            matvec_csrcr_omp,dot_par_omp,     
+c    .                            my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                            i_xfi,i_rcvsi,i_dspli,
+c    .                            ia(i_threads_y))
+c ... sem openmp     
+c            else
+c              call pbicgstab(neq,ip,ja,ad,au,al,m,b,x,
+c              call bicgstab(neq,ip,ja,ad,au,al,m,b,x,
+c    .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+c    .                      tol,maxit,
+c ... matvec comum:
+c    .                      matvec_csrcr,dot_par,
+c ... matvec desenrolado:
+c    .                      matvec_csrcr1,dot_par,
+c    .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                      i_xfi,i_rcvsi,i_dspli)
+c            endif
+c            call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,
+c    .                        i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ............ Matriz nao-simetrica, sequencial e non-overlapping:  
+c          else
+c ... Openmp            
+c            if(openmp) then
+c               call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x,
+c               call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
+c    .                            ia(i_c),ia(i_h),   
+c    .                            ia(i_r),ia(i_s),ia(i_z),tol,maxit,
+c ... dot_par_omp_loopwise:     
+c    .                            matvec_csrc_omp,dot_par_omp_loopwise,
+c ... dot_par_omp      
+c    .                            matvec_csrc_omp,dot_par_omp,     
+c    .                            my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                            i_xfi,i_rcvsi,i_dspli,
+c    .                            ia(i_threads_y))
+c .....................................................................
+c     
+c ... sem openmp     
+c            else
+c              call pbicgstab(neq,nequ,nad,ip,ja,ad,au,al,m,b,x,
+c              call bicgstab(neq,ip,ja,ad,au,al,m,b,x,
+c    .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+c    .                      tol,maxit,
+c ... matvec comum:
+c     .                      matvec_csrc,dot_par,
+c ... matvec desenrolado:
+c    .                      matvec_csrc1,dot_par,
+c    .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                      i_xfi,i_rcvsi,i_dspli)
+c           endif
+c .....................................................................
+c
+c ....................................................................     
+c          endif
+c ....................................................................             
+c
+c ............ Matriz simetrica 
+c        else       
+c ............ Matriz simetrica, overlapping:
+c          if(ovlp) then
+c ... Openmp       
+c            if(openmp) then
+c              call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x,
+c              call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
+c    .                         ia(i_c),ia(i_h),   
+c    .                         ia(i_r),ia(i_s),ia(i_z),tol,maxit,
+c ... dot_par_omp_loopwise:     
+c    .                         matvec_csrcrsym_omp,dot_par_omp_loopwise,
+c ... dot_par_omp      
+c    .                         matvec_csrcrsym_omp,dot_par_omp,     
+c    .                         my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                         i_xfi,i_rcvsi,i_dspli,
+c    .                         ia(i_threads_y))
+c .....................................................................
+c     
+c ... sem openmp     
+c            else
+c              call pbicgstab(neq,ip,ja,ad,au,al,m,b,x,
+c    .                      ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+c    .                      tol,maxit,
+c ... matvec comum:
+c    .                      matvec_csrcrsym,dot_par,
+c ... matvec desenrolado:
+c    .                      matvec_csrcrsym1,dot_par,
+c    .                      my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                      i_xfi,i_rcvsi,i_dspli)
+c            endif
+c .....................................................................
+c
+c ...
+c            call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
+c    .                        i_dspli)
+c .....................................................................
+c
+c ............ Matriz simetrica, sequencial e non-overlapping:
+c          else
+c ... Openmp       
+c            if(openmp) then
+c              call pbicgstab_omp_loopwise(neq,ip,ja,ad,au,al,m,b,x, 
+c              call pbicgstab_omp(neq,ip,ja,ad,au,al,m,b,x,           
+c    .                          ia(i_c),ia(i_h),   
+c    .                          ia(i_r),ia(i_s),ia(i_z),tol,maxit,
+c ... dot_par_omp_loopwise:     
+c    .                          matvec_csrcsym_omp,dot_par_omp_loopwise,
+c ... dot_par_omp      
+c    .                          matvec_csrcsym_omp,dot_par_omp,     
+c    .                          my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
+c    .                          i_xfi,i_rcvsi,i_dspli,
+c    .                          ia(i_threads_y))
+c .....................................................................
+c     
+c ... sem openmp     
+c            else
+c              call pbicgstab(neq   ,nequ   ,nad    ,ip     ,ja     ,
+c    .                       ad     ,au     ,al     ,m      ,b      ,x, 
+c    .                       ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),
+c    .                       tol    ,maxit,
+c ... matvec comum:
+c    .                       matvec_csrcb  ,dot_par,
+c    .                     matvec_csrcsym,dot_par,
+c ... matvec desenrolado:
+c    .                     matvec_csrcsym1,dot_par,
+c    .                       my_id   ,neqf1i  ,neqf2i,
+c    .                       neq_doti,i_fmapi,i_xfi  ,i_rcvsi,i_dspli)
+c            endif
+c .....................................................................
+c          endif  
+c .....................................................................       
+c        endif
+c .....................................................................
+c
+c ...             
+c        i_z = dealloc('zsolver ')     
+c        i_s = dealloc('psolver ')
+c        i_r = dealloc('rsolver ')
+c        i_h = dealloc('hsolver ')
+c        i_c = dealloc('tsolver ')
+c ......................................................................         
+c     endif
+c ......................................................................
+c     if (openmp) then
+c        pmatrixtime = Mpi_Wtime() - pmatrixtime 
+c        i_threads_y = dealloc('buffer_y')
+c        pmatrixtime = Mpi_Wtime() - pmatrixtime
+c     endif
+c     return
+c     end
+c **********************************************************************

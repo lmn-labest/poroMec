@@ -4,7 +4,8 @@ c***********************************************************************
      .              ,x     ,z     ,r     ,tol      ,maxit
      .              ,matvec,dot
      .              ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .              ,i_xfi ,i_rcvsi,i_dspli)
+     .              ,i_xfi ,i_rcvsi,i_dspli
+     .              ,flog)
 c **********************************************************************
 c *                                                                    *
 c *   Subroutine PCG                                                   *
@@ -32,7 +33,7 @@ c *   tol    - tolerancia de convergencia                              *
 c *   maxit  - numero maximo de iteracoes                              *
 c *   matvec - nome da funcao externa para o produto matrix-vetor      *
 c *   dot    - nome da funcao externa para o produto escalar           *
-c *   energy - nao definido                                            *
+c *   flog   - log do arquivo de saida                                 *
 c *                                                                    *
 c *   Parametros de saida:                                             *
 c *                                                                    *
@@ -54,6 +55,7 @@ c .....................................................................
       real*8  dot,ddot,tol,conv,energy,d,alpha,beta
       real*8  time0,time
       real*8 dum1
+      logical flog
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
@@ -103,6 +105,7 @@ c ......................................................................
   230 continue
 c ----------------------------------------------------------------------
       write(*,1200) maxit
+      if(flog) write(10,1200) maxit
       call stop_mef()
   300 continue
 c
@@ -119,9 +122,11 @@ c ----------------------------------------------------------------------
       if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
 c ......................................................................
 c     Controle de flops
-      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
-     .            "PCG: "," it ",j, " energy norm ",energy," tol ",tol,
-     .            " time ",time
+      if(flog) then
+        if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
+     .             "PCG: "," it ",j, " energy norm ",energy," tol ",tol,
+     .             " time ",time
+      endif
 c ......................................................................
       return
 c ======================================================================
@@ -140,7 +145,7 @@ c ======================================================================
       end
       subroutine gmres(neq,nequ,nad,ia,ja,ad,au,al,m,b,x,k,g,h,y,c,s,e,
      .              tol,maxit,matvec,dot,neqovlp,my_id,neqf1i,neqf2i,
-     .              neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli)
+     .              neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli,flog)
 c **********************************************************************
 c *                                                                    *
 c *   GMRES: Solucao iterativa de sistemas simetricos e nao-simetricos *
@@ -149,6 +154,8 @@ c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
 c *   neq    - numero de equacoes                                      *
+c *   nequ   - numero de equacoes no bloco Kuu                         *
+c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
 c *   ia(*)  - ponteiro do formato CSR                                 *
 c *   ja(*)  - ponteiro das colunas no formato CSR                     *
 c *   ad(neq)- diagonal da matriz A                                    *
@@ -163,6 +170,7 @@ c *   tol    - tolerancia de convergencia                              *
 c *   maxit  - numero maximo de iteracoes                              *
 c *   matvec - nome da funcao externa para o produto matrix-vetor      *
 c *   dot    - nome da funcao externa para o produto escalar           *
+c *   flog   - log do arquivo de saida                                 *
 c *                                                                    *
 c *   Arranjos locais de trabalho:                                     *
 c *                                                                    *
@@ -193,6 +201,7 @@ c .....................................................................
       real*8  energy,econv,norm,dot,ddot,r,aux1,aux2,beta
       real*8  time0,time
       real*8 dum1
+      logical flog
       external matvec,dot
       integer my_id
 c      integer nii(maxit)
@@ -354,12 +363,20 @@ c ----------------------------------------------------------------------
       if(my_id.eq.0)write(*,2000) tol,neq,l,nit,dabs(e(ni+1)),energy
      .                           ,time
       if (dabs(e(ni+1)) .gt. econv) then
-         write(*,2100) maxit
+         if(my_id .eq. 0) then
+           write(*,2100) maxit
+           if(flog) write(10,2100) maxit
+         endif 
          call stop_mef()
       endif
 c ......................................................................
 c     Controle de flops
 c      if(my_id.eq.0)write(10,'(999(i4,1x))') l,nit,(nii(j),j=1,l)
+      if(flog) then
+      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
+     .         "GMRES: "," it ",nit, " energy norm ",energy," tol ",tol,
+     .         " time ",time
+      endif
 c ......................................................................
       return
 c ----------------------------------------------------------------------
@@ -522,7 +539,7 @@ c **********************************************************************
      .                     tol     ,maxit ,
      .                     matvec  ,dot   ,
      .                     my_id   ,neqf1i,neqf2i,
-     .                     neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli)
+     .                     neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli,flog)
 c **********************************************************************
 c *                                                                    *
 c *   Subroutine PBICGSTAB                                             *
@@ -553,7 +570,7 @@ c *   tol    - tolerancia de convergencia                              *
 c *   maxit  - numero maximo de iteracoes                              *
 c *   matvec - nome da funcao externa para o produto matrix-vetor      *
 c *   dot    - nome da funcao externa para o produto escalar           *
-c *   energy - nao definido                                            *
+c *   flog   - log do arquivo de saida                                 *
 c *                                                                    *
 c *   Parametros de saida:                                             *
 c *                                                                    *
@@ -576,6 +593,7 @@ c .....................................................................
       real*8  dot,tol,conv,energy,d,alpha,beta,rr0,w,vi
       real*8  time0,time
       real*8  dum1 
+      logical flog
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
@@ -632,13 +650,16 @@ c        if ( j .eq. 300) goto 300
 c ......................................................................
          if( jj .eq. 200) then
            jj = 0
-           write(*,1300),j,dsqrt(dabs(d)),conv 
+           if(my_id.eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
          jj = jj + 1
 c ......................................................................
   230 continue
 c ......................................................................
-      write(*,1200) maxit
+      if(my_id.eq.0) then
+        write(*,1200) maxit
+        if(fLog) write(10,1200) maxit
+      endif
       call stop_mef()
   300 continue
 c
@@ -655,9 +676,11 @@ c ----------------------------------------------------------------------
       if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
 c ......................................................................
 c     Controle de flops
+      if(flog) then
       if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
      .               "PBICGSTAB: ","it",j, " energy norm ",energy,
      .               " tol ",tol," time ",time
+      endif
 c ......................................................................
       return
 c ======================================================================
@@ -684,17 +707,13 @@ c *********************************************************************
      .                       ,z     ,r     
      .                       ,bu    ,bp    ,bu0   ,bp0
      .                       ,u     ,p
-     .                       ,tol   ,ctol  ,maxit ,cmaxit
+     .                       ,tol   ,ctol  ,maxit ,cmaxit,alfap ,alfau 
      .                       ,fnew  ,istep
      .                       ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .                       ,i_xfi ,i_rcvsi,i_dspli)
 c **********************************************************************
 c *                                                                    *
-c *   Subroutine PCG                                                   *
-c *                                                                    *
-c *   Solucao de sistemas de equacoes pelo metodo dos gradientes       *
-c *   conjugados com precondicionador diagonal para matrizes           *
-c *   simetricas.                                                      *
+c *   Subroutine PCG_BLOCK_IT                                          *
 c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
@@ -770,8 +789,8 @@ c
 c ...
       time0 = MPI_Wtime()
 c ... 
-      alfap = 0.1d0
-      alfau = 0.2d0
+c     alfap = 0.1d0
+c     alfau = 0.2d0
 c.......................................................................
 c 
 c ...
@@ -825,7 +844,7 @@ c ... P = inv(Kpp)*(Fp - kpu*U)
      .          ,z         ,r          ,tol,maxit
      .          ,matvec_csrcsym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neqp    ,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli)
+     .          ,i_xfi ,i_rcvsi,i_dspli,.false.)
 c ......................................................................
 c
 c ... x - > p
@@ -850,7 +869,7 @@ c ... U = inv(Kuu)*(Fu - kup*P)
      .          ,tol    ,maxit
      .          ,matvec_csrcsym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,nequ    ,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli)
+     .          ,i_xfi ,i_rcvsi,i_dspli,.true.)
 c ......................................................................
 c
 c ... x - > u
