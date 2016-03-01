@@ -230,7 +230,7 @@ c
 c ... Ciclos GMRES:
 c
       nit = 0
-      jj  = 1
+      jj  = 0
       do 1000 l = 1, maxit
 c
 c ...... Residuo g(1) = b - A x:
@@ -343,11 +343,11 @@ c
 c         nii(l)=ni
          if (dabs(e(ni+1)) .le. econv) goto 1100
 c ......................................................................
+         jj = jj + 1
          if( jj .eq. 200) then
            jj = 0
-           write(*,2300),l,dabs(e(ni+1)),econv 
-         endif  
-         jj = jj + 1
+           write(*,2300),l,nit,dabs(e(ni+1)),econv
+         endif
 c ......................................................................
  1000 continue
 c ......................................................................
@@ -360,8 +360,6 @@ c ......................................................................
       time = MPI_Wtime()
       time = time-time0
 c ----------------------------------------------------------------------
-      if(my_id.eq.0)write(*,2000) tol,neq,l,nit,dabs(e(ni+1)),energy
-     .                           ,time
       if (dabs(e(ni+1)) .gt. econv) then
          if(my_id .eq. 0) then
            write(*,2100) maxit
@@ -369,6 +367,9 @@ c ----------------------------------------------------------------------
          endif 
          call stop_mef()
       endif
+c ......................................................................
+      if(my_id.eq.0)write(*,2000) tol,neq,l,nit,dabs(e(ni+1)),energy
+     .                           ,time
 c ......................................................................
 c     Controle de flops
 c      if(my_id.eq.0)write(10,'(999(i4,1x))') l,nit,(nii(j),j=1,l)
@@ -390,7 +391,7 @@ c ----------------------------------------------------------------------
      . 5x,'CPU time (s)         = ',f20.2/)
  2100 format(' *** WARNING: no convergence reached for ',i9,' cycles !',
      . /)
- 2300 format (' GMRES:',5x,'It',i7,5x,2d20.10)
+ 2300 format (' GMRES:',5x,'cycles',i7,5x,'It',i7,5x,2d20.10)
       end      
       subroutine bicgstab(neq,ia,ja,ad,au,al,m,b,x,y,z,p,r,s,tol,maxit,
      .                    matvec,dot,my_id,neqf1i,neqf2i,neq_doti,
@@ -826,7 +827,7 @@ c ... bp
 c.......................................................................
 c
 c ... 
-      print*,ctol,cmaxit,maxit,tol
+c     print*,ctol,cmaxit,maxit,tol
       do i = 1, cmaxit
 c
 c ...  r = Fp-kpu*U
