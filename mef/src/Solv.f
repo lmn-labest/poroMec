@@ -50,9 +50,9 @@ c ......................................................................
 c ... numero total de equacoes na particao overlapping:
 c    (neqovlp = neq, no sequencial e no non-overlapping)
       neqovlp = neq+neq3i+neq4i
-      if (openmp) then
+      if (omp_solv) then
          pmatrixtime = Mpi_Wtime() - pmatrixtime 
-         i_threads_y = alloc_8('buffer_y',num_threads,neq)
+         i_threads_y = alloc_8('buffer_y',nth_solv,neq)
          call partition_matrix(ip,ja,neq,ovlp)
          pmatrixtime = Mpi_Wtime() - pmatrixtime
       endif
@@ -317,7 +317,7 @@ c ......................................................................
 c ......................................................................         
 c
 c ...                                                                     
-      if (openmp) then
+      if (omp_solv) then
         pmatrixtime = Mpi_Wtime() - pmatrixtime 
         i_threads_y = dealloc('buffer_y')
         pmatrixtime = Mpi_Wtime() - pmatrixtime
@@ -433,7 +433,7 @@ c    (neqovlp = neq, no sequencial e no non-overlapping)
 c     neqovlp = neq+neq3i+neq4i
 c     if (openmp) then
 c        pmatrixtime = Mpi_Wtime() - pmatrixtime 
-c        i_threads_y = alloc_8('buffer_y',num_threads,neq)
+c        i_threads_y = alloc_8('buffer_y',nth_solv,neq)
 c        call partition_matrix(ip,ja,neq,ovlp)
 c        pmatrixtime = Mpi_Wtime() - pmatrixtime
 c     endif

@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $                 
-c*$Rev: 967 $                                                           
-c*$Author: ana $                                                   
-c***********************************************************************    
       subroutine rdat(nnode ,nnodev ,numel  ,numat   
      .               ,nen   ,nenGeo
      .               ,ndf   ,ndm    ,nst    ,i_ix 
@@ -1545,3 +1540,112 @@ c ...
 c .....................................................................  
       return
       end
+c *********************************************************************
+c
+c *********************************************************************
+c * read_config : leitura das configuracoes basicas de excucao        *
+c * ------------------------------------------------------------------*
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * maxmem        - memoria do vetor de trabalho                      *
+c * omp_elmt  - flag do openmp na fase de elemento                    *
+c * nth_elmt  - numero de threads usado na fase de elemento           *
+c * omp_solv  - flag do openmp na fase do solver                      *
+c * nth_solv  - numero de threads usado do solver                     *
+c * reord     - reordanaco do sistema de equacao                      *
+c * bvtk      - saida binario para o vtk legacy                       *
+c * nin       - arquivo de entrada                                    *
+c * ----------------------------------------------------------------- *
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- *
+c *********************************************************************
+      subroutine read_config(maxmem  
+     .                      ,omp_elmt,omp_solver
+     .                      ,nth_elmt,nth_solver
+     .                      ,reord   ,bvtk    
+     .                      ,nin)
+      implicit none
+      include 'string.fi'
+      character*15 string,macro(7)
+      integer maxmem,nth_elmt,nth_solver
+      logical omp_elmt,omp_solver,r(7),reord,bvtk
+      integer n,j,nmacro
+      integer nin
+      data nmacro /7/
+      data macro/'memoria        ','omp_elmt       ','omp_solver     ',
+     .           'nth_elmt       ','nth_solver     ','reord          ',
+     .           'bvtk           '/
+c .....................................................................
+      n      = 0
+      r(1:nmacro) = .false.
+      call readmacro(nin,.true.)
+      write(string,'(15a)') (word(j),j=1,12)
+      do while (strl .ne. 0)
+         if     (string .eq. macro(1)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) maxmem
+c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
+            maxmem = maxmem*1024*1024/4
+            n = n + 1
+            r(1) = .true.
+         elseif (string .eq. macro(2)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) omp_elmt
+            n = n + 1
+            r(2) = .true.
+         elseif (string .eq. macro(3)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)           
+            read(string,*,err = 100,end = 100) omp_solver
+            n = n + 1
+            r(3) = .true.
+         elseif (string .eq. macro(4)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) nth_elmt
+            n = n + 1
+            r(4) = .true.
+         elseif (string .eq. macro(5)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) nth_solver
+            n = n + 1
+            r(5) = .true.
+         elseif (string .eq. macro(6)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) reord          
+            n = n + 1
+            r(6) = .true.
+         elseif (string .eq. macro(7)) then
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) bvtk          
+            n = n + 1
+            r(7) = .true.
+         endif 
+         call readmacro(nin,.false.)
+         write(string,'(15a)') (word(j),j=1,15)                 
+      end do
+c ...
+      call readmacro(nin,.true.)
+      call readmacro(nin,.false.)
+c ......................................................................
+c
+c ...
+      if(n .lt. 7) goto 100
+      return
+c ......................................................................                        
+  100 continue
+      print*,'*** Erro na leitura das variaveis de controle !'
+      do j = 1, nmacro
+        if(.NOT.r(j)) print*,macro(j), ' faltando!!'
+      enddo
+      stop       
+c ......................................................................                  
+      end
+c **********************************************************************
+

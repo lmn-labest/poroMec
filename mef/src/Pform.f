@@ -1,13 +1,16 @@
-      subroutine pform_pm(ix  ,iq   ,ie   ,e
-     .                   ,x   ,id   ,ia   ,ja
-     .                   ,au  ,al   ,ad   ,b
-     .                   ,u   ,dp 
-     .                   ,xl  ,ul   ,dpl  ,pl   ,sl
-     .                   ,ld  ,numel,nen  ,nenv ,ndf 
-     .                   ,ndm ,nst  ,neq  ,nequ ,neqp 
-     .                   ,nad ,nadu ,nadp ,nadpu
-     .                   ,lhs ,rhs  ,unsym 
-     .                   ,stge,isw  ,ilib ,nlit 
+      subroutine pform_pm(ix      ,iq         ,ie       ,e
+     .                   ,x       ,id         ,ia       ,ja
+     .                   ,au      ,al         ,ad       ,b
+     .                   ,u       ,dp 
+     .                   ,xl      ,ul         ,dpl      ,pl   
+     .                   ,sl      ,ld      
+     .                   ,numel   ,nen        ,nenv     ,ndf 
+     .                   ,ndm     ,nst      
+     .                   ,neq     ,nequ       ,neqp 
+     .                   ,nad     ,nadu       ,nadp     ,nadpu
+     .                   ,lhs     ,rhs        ,unsym 
+     .                   ,stge    ,isw        ,ilib     ,nlit
+     .                   ,i_colorg,i_elcolor  ,numcolors 
      .                   ,block_pu,n_blocks_pu)
 c **********************************************************************
 c *                                                                    *
@@ -50,8 +53,8 @@ c *    nad   - numero de posicoes no CSR (storage = 1)                 *
 c *    nadu  - numero de posicoes no CSR (storage = 1)                 *
 c *    nadp  - numero de posicoes no CSR (storage = 1)                 *
 c *    nadpu - numero de posicoes no CSR (storage = 1,block_pu = true) *      
-c *    lhs   - flag para montagem de ad                                *
-c *    rhs   - flag para correcao de b                                 *
+c *    lhs   - flag para montagem de ad (letf hand side)               *
+c *    rhs   - flag para correcao de b  (right hand side)              *
 c *    unsym - flag para matrizes nao simetricas                       *
 c *    stge  - = 1, armazenamento CSR                                  *
 c *            = 2, armazenamento por arestas                          *
@@ -60,8 +63,10 @@ c *            = 4, armazenamento SKYLINE                              *
 c *            = 0, nao monta matriz                                   *
 c *    isw   - codigo de instrucao para as rotinas de elemento         *
 c *    ilib  - determina a biblioteca do elemento                      *
+c *                  false- aramzenamento em unico bloco         'dd   *      
 c *    block_pu    - true - armazenamento em blocos Kuu,Kpp e kpu      *
 c *                  false- aramzenamento em unico bloco               *      
+c *    n_block_pu  - numeros de blocos                                 *
 c *                                                                    *
 c *   Parametros de saida:                                             *
 c *                                                                    *
@@ -72,7 +77,7 @@ c *    al(nad) - parte triangular inf. de A (lhs = true, unsym = true) *
 c *                                                                    *
 c **********************************************************************
       implicit none
-c      include 'openmp.fi'
+      include 'openmp.fi'
       include 'omp_lib.h'
       include 'transiente.fi'
       include 'termprop.fi'
@@ -82,75 +87,153 @@ c      include 'openmp.fi'
       integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
       integer ia(*),ja(*)
       integer iel,ma,nel,no,i,j,k,kk,nad1,ilib
+      integer i_colorg(2,*),i_elcolor(*),numcolors
       integer ic,jc
       real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
       real*8  u(ndf,*),dp(*)
       real*8  xl(ndm,nenv),ul(nst),dpl(nenv),el(prop)
       real*8  pl(nst),sl(nst,nst)
       logical lhs,rhs,unsym,block_pu
-c ----------------------------------------------------------------------
+c .....................................................................
 c
-c.... Zera a matriz de coeficientes:
+c ... Zera a matriz de coeficientes:
 c
       if(lhs) then
-         call azero(au,nad)
-         call azero(al,nad+nadpu)
-         call azero(ad,neq)      
+        call azero(au,nad)
+        call azero(al,nad+nadpu)
+        call azero(ad,neq)      
       endif
-c ----------------------------------------------------------------------
+c ..................................................................... 
 c
+c ... openmp
+      if(omp_elmt)then
+c ... loop nos cores
+c$omp parallel num_threads(nth_elmt)
+c$omp.default(none)
+c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
+c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
+c$omp.shared(id,u,ix,dp,ie,e,block_pu,n_blocks_pu,ilib,nlit,isw,nst,dt)
+c$omp.shared(stge,unsym,rhs,lhs)
+c$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu)
+        do ic = 1, numcolors
+c$omp do
 c ... Loop nos elementos:
 c     ------------------
-      do 900 nel = 1, numel
-        kk = 0
+          do jc = i_colorg(1,ic), i_colorg(2,ic)
+            nel = i_elcolor(jc)
+c           print*,omp_get_thread_num(),jc,nel,ic
+            kk = 0
 c ... loop nos nos de deslocamentos
-        do 600 i = 1, nen
-          no = ix(i,nel)
-          do 500 j = 1, ndf - 1
-            kk     = kk + 1
-            ld(kk) = id(j,no)
-            pl(kk) = 0.d0
-            ul(kk) = u(j,no)
-  500     continue
-  600   continue
+            do i = 1, nen
+              no = ix(i,nel)
+              do j = 1, ndf - 1
+                kk     = kk + 1
+                ld(kk) = id(j,no)
+                ul(kk) = u(j,no)
+                pl(kk) = 0.d0
+              enddo
+            enddo   
 c
 c...... loop nos nos do pressao
-        do 400 i = 1, nenv
-          no       = ix(i,nel)
-          kk       = kk + 1
-          ld(kk)   = id(ndf,no)
-          pl(kk)   = 0.d0
-          ul(kk)   = u(ndf,no)
-          dpl(i)   = dp(no)
-          do 300 j = 1, ndm
-            xl(j,i) = x(j,no)
-  300     continue
-  400   continue 
+            do i = 1, nenv
+              no       = ix(i,nel)
+              kk       = kk + 1
+              ld(kk)   = id(ndf,no)
+              pl(kk)   = 0.d0
+              ul(kk)   = u(ndf,no)
+              dpl(i)   = dp(no)
+              do j = 1, ndm
+                xl(j,i) = x(j,no)
+              enddo   
+            enddo    
 c ......................................................................
 c
 c ...... Arranjos de elemento:
-        ma  = ix(nen+1,nel)
-        iel = ie(ma)
-        do 610 i = 1, prop
-          el(i) = e(i,ma)
-  610   continue
+            ma  = ix(nen+1,nel)
+            iel = ie(ma)
+            do i = 1, prop
+              el(i) = e(i,ma)
+            enddo   
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el,iq(1,nel),xl,ul,dpl,pl,sl,dt,ndm,nst,nel,
-     .                 iel,isw,ma,nlit,ilib,block_pu)
+            call elmlib_pm(el,iq(1,nel),xl,ul,dpl,pl,sl,dt,ndm,nst,nel
+     .                    ,iel,isw,ma,nlit,ilib,block_pu)
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-        call assbly(sl      ,pl         ,ld
-     .             ,ia      ,ja         ,au
-     .             ,al      ,ad         ,b    ,nst
-     .             ,neq     ,nequ       ,neqp
-     .             ,nad     ,nadu       ,nadp ,nadpu
-     .             ,lhs     ,rhs        ,unsym,stge
-     .             ,block_pu,n_blocks_pu)
-  900 continue
+           call assbly(sl      ,pl         ,ld
+     .                ,ia      ,ja         ,au
+     .                ,al      ,ad         ,b    ,nst
+     .                ,neq     ,nequ       ,neqp
+     .                ,nad     ,nadu       ,nadp ,nadpu
+     .                ,lhs     ,rhs        ,unsym,stge
+     .                ,block_pu,n_blocks_pu)
+          enddo   
+c$omp end do
+c .....................................................................
+        enddo
+c$omp end parallel
+c .....................................................................
+c
+c ... sequencial
+      else  
+c ... Loop nos elementos:
+c     ------------------
+        do nel = 1, numel
+          kk = 0
+c ... loop nos nos de deslocamentos
+          do i = 1, nen
+            no = ix(i,nel)
+            do j = 1, ndf - 1
+              kk     = kk + 1
+              ld(kk) = id(j,no)
+              pl(kk) = 0.d0
+              ul(kk) = u(j,no)
+            enddo   
+          enddo   
+c
+c...... loop nos nos do pressao
+          do i = 1, nenv
+            no       = ix(i,nel)
+            kk       = kk + 1
+            ld(kk)   = id(ndf,no)
+            pl(kk)   = 0.d0
+            ul(kk)   = u(ndf,no)
+            dpl(i)   = dp(no)
+            do j = 1, ndm
+              xl(j,i) = x(j,no)
+            enddo   
+          enddo    
 c ......................................................................
+c
+c ...... Arranjos de elemento:
+          ma  = ix(nen+1,nel)
+          iel = ie(ma)
+          do i = 1, prop
+            el(i) = e(i,ma)
+          enddo   
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+          call elmlib_pm(el,iq(1,nel),xl,ul,dpl,pl,sl,dt,ndm,nst,nel
+     .                  ,iel,isw,ma,nlit,ilib,block_pu)
+c ......................................................................
+c
+c ...... Monta arrranjos locais em arranjos globais:
+          call assbly(sl      ,pl         ,ld
+     .               ,ia      ,ja         ,au
+     .               ,al      ,ad         ,b    ,nst
+     .               ,neq     ,nequ       ,neqp
+     .               ,nad     ,nadu       ,nadp ,nadpu
+     .               ,lhs     ,rhs        ,unsym,stge
+     .               ,block_pu,n_blocks_pu)
+        enddo   
+c ......................................................................
+      endif
+c ......................................................................
+c
+c ...
       return
       end
 c **********************************************************************

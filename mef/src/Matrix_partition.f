@@ -38,7 +38,7 @@ c
 c      
 c ... checa se a divisao da matriz ocorreu sem problemas
 c
-      do i = 1 ,num_threads
+      do i = 1 ,nth_solv
         if (thread_height(i) .le. 0 ) goto 1000
         if ( thread_begin(i) .le. 0 ) goto 1000
         if ( thread_end(i)   .le. 0 ) goto 1000
@@ -50,7 +50,7 @@ c ... controle de erro
       print*,'***error: divisao da matrix para o openmp falhou!'
       print*,'Diminua o numero de threads usado ou desabilite o openmp.'
       print*,'Log da partition_matrix:'
-      do i = 1 ,num_threads
+      do i = 1 ,nth_solv
         print*,'thread id',i,'height' , thread_height(i)
         print*,'thread id',i,'begin ' , thread_begin(i)
         print*,'thread id',i,'end   ' , thread_end(i)
@@ -91,11 +91,11 @@ c *********************************************************************
       integer*8 nad  
 c
       nad = ia(neq+1)-1
-      mean_variables = (2*nad + neq)/num_threads + 1
-      if (ovlp) mean_variables = mean_variables + nnzr/num_threads
+      mean_variables = (2*nad + neq)/nth_solv + 1
+      if (ovlp) mean_variables = mean_variables + nnzr/nth_solv
       line = 2
       thread_begin(1) = 1
-      do i = 1, num_threads - 1
+      do i = 1, nth_solv - 1
         thread_size(i) = 0
         tam = 0
 c
@@ -109,12 +109,12 @@ c
            goto 100
         endif
       enddo
-      thread_size(num_threads) = 2*(ia(neq+1) -
-     .   ia(thread_begin(num_threads))) +
-     .   neq + 1 - thread_begin(num_threads)
-      if (ovlp) thread_size(num_threads) = thread_size(num_threads) +
-     .   iar(neq+1) - iar(thread_begin(num_threads))
-      thread_end(num_threads) = neq
+      thread_size(nth_solv) = 2*(ia(neq+1) -
+     .   ia(thread_begin(nth_solv))) +
+     .   neq + 1 - thread_begin(nth_solv)
+      if (ovlp) thread_size(nth_solv) = thread_size(nth_solv) +
+     .   iar(neq+1) - iar(thread_begin(nth_solv))
+      thread_end(nth_solv) = neq
       return
       end
 c *********************************************************************
@@ -143,19 +143,19 @@ c *********************************************************************
 c
 c$omp parallel private(split)
 !$    thread_id = omp_get_thread_num()
-      split = mod(neq, num_threads)
-      thread_begin(thread_id+1) = thread_id*(neq/num_threads)
+      split = mod(neq, nth_solv)
+      thread_begin(thread_id+1) = thread_id*(neq/nth_solv)
 c
       if (thread_id .lt. split) then
          thread_begin(thread_id+1) = thread_begin(thread_id+1) +
      .      thread_id + 1
          thread_end(thread_id+1) = thread_begin(thread_id+1) +
-     .      neq/num_threads
+     .      neq/nth_solv
       else
          thread_begin(thread_id+1) = thread_begin(thread_id+1) +
      .      split + 1
          thread_end(thread_id+1) = thread_begin(thread_id+1) +
-     .      neq/num_threads - 1
+     .      neq/nth_solv - 1
       endif
 c$omp end parallel
       return
@@ -212,7 +212,7 @@ c **********************************************************************
       integer neq
       character*2 tp
 c ... 8 byts vector
-      nbytes = 8*num_threads*neq
+      nbytes = 8*nth_solv*neq
 c ......................................................................
 c
 c ...      

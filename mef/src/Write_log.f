@@ -25,8 +25,10 @@ c * nadu      - numero de coeficientes nao nulos do bloco p           *
 c * nadup     - numero de coeficientes nao nulos do bloco up          *
 c * nad1      - numero de elementos nao nulos di csrcr(overlaping)    *
 c * neqt      - numero de equacoes do termico                         *
-c * openmp    - flag do openmp                                        *
-c * num_threa - numero de threads usado                               *
+c * omp_elmt  - flag do openmp na fase de elemento                    *
+c * nth_elmt  - numero de threads usado na fase de elemento           *
+c * omp_solv  - flag do openmp na fase do solver                      *
+c * nth_solv  - numero de threads usado do solver                     *
 c * num_colors- numero de cores usado para colorir a malha            *
 c * prename   - prefixo do nome do arquivo de saida                   *
 c * my_id     - rank do porcesso mpi                                  *
@@ -37,11 +39,13 @@ c * parametros de saida                                               *
 c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-      subroutine write_log_file(nnode ,numel,numel_nov ,numel_ov,ndf   
-     .                         ,neq   ,nequ ,neqp ,neq1 ,neq2
-     .                         ,neq32 ,neq4 ,neq1a,neqf1,neqf2 
-     .                         ,nad   ,nadu ,nadp ,nadpu,nad1
-     .                         ,openmp,num_threads,num_colors,prename
+      subroutine write_log_file(nnode   ,numel,numel_nov ,numel_ov,ndf 
+     .                         ,neq     ,nequ ,neqp ,neq1 ,neq2
+     .                         ,neq32   ,neq4 ,neq1a,neqf1,neqf2 
+     .                         ,nad     ,nadu ,nadp ,nadpu,nad1
+     .                         ,omp_elmt,nth_elmt
+     .                         ,omp_solv,nth_solv
+     .                         ,num_colors,prename
      .                         ,my_id ,nprcs      ,nlog)
       use Malloc
       implicit none
@@ -57,8 +61,8 @@ c ... mpi
       integer mcw,mi,mdp,ierr
       integer my_id,nprcs
 c ... openmp
-      integer num_threads,num_colors
-      logical openmp
+      integer nth_elmt,nth_solv,num_colors
+      logical omp_elmt,omp_solv
 c ... variaveis de arquivos      
       character*80 fname,name,prename
       integer nlog
@@ -153,7 +157,7 @@ c
 c
 c ... Tempo levado no matix partition
 c
-      if(openmp) then
+      if(omp_solv) then
         call MPI_GATHER(pmatrixtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
         if (my_id.eq.0) call twrite('PMATRI ',ia(i_ts),nprcs,nlog)
       endif   
@@ -281,7 +285,7 @@ c .....................................................................
 c
 c ... openmp
 c
-      if(openmp) then
+      if(omp_elmt .or. omp_solv) then
         if(my_id.eq.0) write(nlog,'(a)')"Openmp:"
 c
 c ... numero de cores usado         
@@ -289,12 +293,20 @@ c
         call MPI_GATHER(num_colors,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
         if (my_id.eq.0) call itwrite('ncolor',ia(i_ts),nprcs,nlog)
 c 
-c ... numero de cores
+c ... numero de nthreads na fase do elemento
 c 
-        call MPI_GATHER(num_threads,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
-        if (my_id.eq.0) call itwrite('ncores',ia(i_ts),nprcs,nlog)
+        if(omp_elmt) then
+          call MPI_GATHER(nth_elmt,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
+          if (my_id.eq.0) call itwrite('nth_elmt',ia(i_ts),nprcs,nlog)
+        endif
+c ... numero de nthreads na fase do elemento
+c 
+        if(omp_solv)then
+          call MPI_GATHER(nth_solv,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
+          if (my_id.eq.0) call itwrite('nth_solv',ia(i_ts),nprcs,nlog)
+        endif
 c
-c ... mecanico      
+c ... poro-mecanico      
         if(ndf .gt. 0) then
           buf = neq
           call MPI_GATHER(get_buffer_size('MB',buf),1,mdp,ia(i_ts),1,mdp

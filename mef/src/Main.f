@@ -70,6 +70,10 @@ c
       integer i,k
       real*8  dot_par
 c ......................................................................
+c 
+c ...
+      logical bvtk
+c ......................................................................
 c
 c ... Variaveis de medicao de tempo:
 c
@@ -117,12 +121,12 @@ c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','        ','mesh    ','solv    ','dt      ',
-     .'pgeo    ','pgeoquad','block_pu','gravity ','reord   ','gmres   ',
+     .'pgeo    ','pgeoquad','block_pu','gravity ','        ','gmres   ',
      .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','spcgm   ',
      .'        ','        ','        ','        ','        ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','        ','setpnode','        ','        ','pnup    ',
-     .'pnsf    ','        ','maxit   ','solvtol ','stop    '/
+     .'pnsf    ','config  ','maxit   ','solvtol ','stop    '/
 c ......................................................................
 c
 c ... Arquivos de entrada e saida:
@@ -184,23 +188,19 @@ c     block_pu= .true.
       resid0  =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
-c ... OpenMP 
-      openmp  = .false.
 c ... campo gravitacional (Padrao)
       gravity(1) =  0.0d0
       gravity(2) =  0.0d0
       gravity(3) = -9.81d0
 c ...
       flag_macro_mesh = .false.
-c ......................................................................
-c
-c ... Inicializacao da estrutura de dados de gerenciamento de memoria:
-c
-      call init_malloc(maxmem)
-c ......................................................................
-c
-c ...
-      call init_openmp(num_threads,openmp,my_id)
+c ... 
+      bvtk = .false.
+c ... OpenMP
+      omp_elmt = .false.
+      omp_solv = .false.
+      nth_elmt = 2
+      nth_solv = 1
 c ......................................................................
 c
 c ... Abertura de arquivos:    
@@ -256,10 +256,6 @@ c ... intervace de linha de comando
         fname = name(prename,nprcs,15)
         open(logsolv,file=fname)
         write(logsolv,'(a)') 'Solver control flop.'
-c ...    Arquivo de resultados para o GID:
-c         fname = name(prename,istep,2)
-c         open(ngid,file=fname)
-c         write(ngid,'(a)') 'GID post results file 1.0'
       endif
 c ......................................................................      
       call MPI_barrier(MPI_COMM_WORLD,ierr)
@@ -329,6 +325,15 @@ c
 c ......................................................................
   300 continue
       if(my_id.eq.0)print*, 'Macro MESH'  
+c ... Inicializacao da estrutura de dados de gerenciamento de memoria:
+c
+      call init_malloc(maxmem)
+c ......................................................................
+c
+c ...
+      call init_openmp(omp_elmt,omp_solv,nth_elmt,nth_solv,my_id)
+c ......................................................................
+c
 c
       flag_macro_mesh = .true.
 c
@@ -462,10 +467,10 @@ c
 c
 c ... colorir a malha (openmp)
 c
-c     colortime = MPI_Wtime()
-c     call coloredmesh(ia(i_ix),nnode,numel,nen,numcolors,i_colorg,
-c    .                 i_elcolor)           
-c     colortime = MPI_Wtime()-colortime
+      colortime = MPI_Wtime()
+      call coloredmesh(ia(i_ix),nnode,nnodev,numel,nenv,nen,numcolors
+     .               ,i_colorg,i_elcolor)     
+      colortime = MPI_Wtime()-colortime
 c ......................................................................
 c
 c ......................................................................
@@ -519,18 +524,20 @@ c
 c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
 c     do passo t:  
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e) 
-     .             ,ia(i_x),ia(i_id),ia(i_ia),ia(i_ja)
-     .             ,ia(i_au),ia(i_al),ia(i_ad),ia(i_b0) 
-     .             ,ia(i_u0),ia(i_dp) 
-     .             ,ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl) 
-     .             ,ia(i_ld) 
-     .             ,numel   ,nen  ,nenv ,ndf 
-     .             ,ndm     ,nst  ,neq  ,nequ ,neqp 
-     .             ,nad     ,naduu,nadpp,nadpu 
-     .             ,.false.,.true.,unsym 
-     .             ,stge,4,ilib,i
-     .             ,block_pu,n_blocks_up)
+      call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
+     .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
+     .             ,ia(i_u0)    ,ia(i_dp) 
+     .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     .             ,ia(i_sl)    ,ia(i_ld) 
+     .             ,numel       ,nen          ,nenv     ,ndf 
+     .             ,ndm         ,nst          
+     .             ,neq         ,nequ         ,neqp 
+     .             ,nad         ,naduu        ,nadpp    ,nadpu 
+     .             ,.false.     ,.true.       ,unsym 
+     .             ,stge,4      ,ilib         ,i
+     .             ,ia(i_colorg),ia(i_elcolor),numcolors
+     .             ,block_pu    ,n_blocks_up)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -554,17 +561,19 @@ c .....................................................................
 c
 c ... Residuo: b = F - K.du(n+1,i)
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e)
-     .             ,ia(i_x),ia(i_id),ia(i_ia),ia(i_ja)
-     .             ,ia(i_au),ia(i_al),ia(i_ad),ia(i_b)
-     .             ,ia(i_u) ,ia(i_dp)
-     .             ,ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_pl),ia(i_sl)
-     .             ,ia(i_ld) 
-     .             ,numel ,nen  ,nenv ,ndf
-     .             ,ndm   ,nst  ,neq  ,nequ ,neqp
-     .             ,nad   ,naduu,nadpp,nadpu
-     .             ,.true.,.true.,unsym
-     .             ,stge  ,2,ilib,i
+      call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
+     .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
+     .             ,ia(i_u)     ,ia(i_dp)
+     .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     .             ,ia(i_sl)    ,ia(i_ld) 
+     .             ,numel       ,nen          ,nenv     ,ndf
+     .             ,ndm         ,nst          
+     .             ,neq         ,nequ         ,neqp
+     .             ,nad         ,naduu        ,nadpp    ,nadpu
+     .             ,.true.      ,.true.       ,unsym
+     .             ,stge        ,2            ,ilib     ,i
+     .             ,ia(i_colorg),ia(i_elcolor),numcolors
      .             ,block_pu,n_blocks_up)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
@@ -735,16 +744,11 @@ c ... gz
       goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: REORD
+c ... Macro-comando:       
 c
 c ......................................................................
  1000 continue
-      if(my_id.eq.0)print*, 'Macro REORD'
-      if(flag_macro_mesh) then
-        print*,'Macro so pode ser utilizada antes da macro mesh'
-        goto 5000
-      endif
-      reordf = .true.
+      if(my_id.eq.0)print*, 'Macro      '
       goto 50
 c ......................................................................
 c
@@ -1413,11 +1417,20 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: CONFIG
 c
 c ......................................................................
  3700 continue
-      print*, 'Macro     '
+      print*, 'Macro CONFIG    '
+      if(flag_macro_mesh) then
+        print*,'Macro so pode ser utilizada antes da macro mesh'
+        goto 5000
+      endif
+      call read_config(maxmem
+     .                ,omp_elmt,omp_solv
+     .                ,nth_elmt,nth_solv
+     .                ,reordf  ,bvtk 
+     .                ,nin)
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -1469,11 +1482,13 @@ c ...
       totaltime = MPI_Wtime() - totaltime
 c
 c ... arquivo de tempo      
-      call write_log_file(nnode ,numel      ,numel_nov,numel_ov,ndf 
-     .                   ,neq   ,nequ       ,neqp     ,neq1    ,neq2
-     .                   ,neq32 ,neq4       ,neq1a    ,neqf1   ,neqf2 
-     .                   ,nad   ,naduu      ,nadpp    ,nadpu   ,nad1
-     .                   ,openmp,num_threads,numcolors,prename
+      call write_log_file(nnode   ,numel      ,numel_nov,numel_ov,ndf 
+     .                   ,neq     ,nequ       ,neqp     ,neq1    ,neq2
+     .                   ,neq32   ,neq4       ,neq1a    ,neqf1   ,neqf2 
+     .                   ,nad     ,naduu      ,nadpp    ,nadpu   ,nad1
+     .                   ,omp_elmt,nth_elmt   
+     .                   ,omp_solv,nth_solv   
+     .                   ,numcolors,prename
      .                   ,my_id ,nprcs      ,nout)
 c .....................................................................
 c

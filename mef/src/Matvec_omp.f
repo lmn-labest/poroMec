@@ -1,8 +1,3 @@
-c*****************************Svn***************************************
-c*$Date: 2011-12-02 22:10:15 -0200 (Fri, 02 Dec 2011) $                 
-c*$Rev: 959 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************
 c **********************************************************************
 c *                                                                    *
 c *   MATVEC.F                                           14/09/2011    *
@@ -73,7 +68,7 @@ c$omp single
       time0 = MPI_Wtime()
 c$omp end single
 !$    thread_id = omp_get_thread_num() + 1
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i)+inc, thread_begin(i)+inc-1
@@ -99,7 +94,7 @@ c$omp barrier
 c
 c ... Acumula thread_y(i) em y(i)
 c
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i), thread_end(i)
@@ -172,7 +167,7 @@ c$omp single
       time0 = MPI_Wtime()
 c$omp end single
 !$    thread_id = omp_get_thread_num() + 1
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i)+inc, thread_begin(i)+inc-1
@@ -199,7 +194,7 @@ c$omp barrier
 c
 c ... Accumulate thread_y(i) into y(i)
 c
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i), thread_end(i)
@@ -272,7 +267,7 @@ c ......................................................................
       time0 = MPI_Wtime()
 c$omp end single
 !$    thread_id = omp_get_thread_num() + 1
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i)+inc, thread_begin(i)+inc-1
@@ -303,7 +298,7 @@ c$omp barrier
 c
 c ... Accumulate thread_y(i) into y(i)
 c
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i), thread_end(i)
@@ -375,7 +370,7 @@ c ......................................................................
       time0 = MPI_Wtime()
 c$omp end single
 !$    thread_id = omp_get_thread_num() + 1
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i)+inc, thread_begin(i)+inc-1
@@ -407,7 +402,7 @@ c$omp barrier
 c
 c ... Accumulate thread_y(i) into y(i)
 c
-      do i = 1, num_threads
+      do i = 1, nth_solv
          inc = (i-1)*neq
 c$omp do
          do j = thread_height(i), thread_end(i)
