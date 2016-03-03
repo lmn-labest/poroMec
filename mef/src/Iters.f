@@ -1,4 +1,3 @@
-c***********************************************************************      
       subroutine pcg(neq   ,nequ  ,nad   ,ia      ,ja
      .              ,ad    ,au    ,al    ,m        ,b      
      .              ,x     ,z     ,r     ,tol      ,maxit
@@ -780,7 +779,7 @@ c .....................................................................
       real*8 time0,time,time_csr
       real*8 dum1
       logical l_u_conv,l_p_conv,fnew
-      external matvec_csrcsym_pm
+      external matvec_csrc_sym_pm
       external dot_par,dot
 c ======================================================================
       time0    = MPI_Wtime()
@@ -843,7 +842,7 @@ c ... P = inv(Kpp)*(Fp - kpu*U)
      .          ,adp       ,alp        ,alp            
      .          ,mp        ,bp         ,x               
      .          ,z         ,r          ,tol,maxit
-     .          ,matvec_csrcsym_pm,dot_par 
+     .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neqp    ,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli,.false.)
 c ......................................................................
@@ -868,7 +867,7 @@ c ... U = inv(Kuu)*(Fu - kup*P)
      .          ,mu     ,bu     ,x
      .          ,z      ,r      
      .          ,tol    ,maxit
-     .          ,matvec_csrcsym_pm,dot_par 
+     .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,nequ    ,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli,.true.)
 c ......................................................................
@@ -881,7 +880,7 @@ c ......................................................................
 c            
 c ... Kpp*P
         time_csr = MPI_Wtime() - time_csr
-        call matvec_csrcsym_pm(neqp      ,neqp
+        call matvec_csrc_sym_pm(neqp      ,neqp
      .                        ,iap       ,jap ,idum     ,idum        
      .                        ,adp       ,alp ,alp       
      .                        ,p         ,z
@@ -898,7 +897,7 @@ c .....................................................................
 c            
 c ... Kuu*U
         time_csr = MPI_Wtime() - time_csr
-        call matvec_csrcsym_pm(nequ      ,nequ
+        call matvec_csrc_sym_pm(nequ      ,nequ
      .                        ,iau       ,jau ,idum     ,idum         
      .                        ,adu       ,alu ,alu              
      .                        ,u         ,z

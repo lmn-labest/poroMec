@@ -307,7 +307,7 @@ c
         endif
 c
 c ... poro-mecanico      
-        if(ndf .gt. 0) then
+        if(ndf .gt. 0 .and. omp_solv) then
           buf = neq
           call MPI_GATHER(get_buffer_size('MB',buf),1,mdp,ia(i_ts),1,mdp
      .                   ,0,mcw,ierr)

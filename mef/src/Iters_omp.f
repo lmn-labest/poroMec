@@ -1,11 +1,9 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-12-02 22:10:15 -0200 (Fri, 02 Dec 2011) $                 
-c*$Rev: 959 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************      
-      subroutine pcg_omp(neq,ia,ja,ad,au,al,m,b,x,z,r,tol,maxit,
-     .              matvec,dot,my_id,neqf1i,neqf2i,neq_doti,i_fmapi,
-     .              i_xfi,i_rcvsi,i_dspli,thread_y)
+      subroutine pcg_omp(neq   ,nequ,nad,ia ,ja
+     .                  ,ad    ,au  ,al ,m  ,b
+     .                  ,x     ,z   ,r  ,tol,maxit
+     .                  ,matvec,dot
+     .                  ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     .                  ,i_xfi ,i_rcvsi,i_dspli,thread_y,flog)
 c **********************************************************************
 c *                                                                    *
 c *   Subroutine PCG                                                   *
@@ -17,6 +15,8 @@ c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
 c *   neq    - numero de equacoes                                      *
+c *   nequ   - numero de equacoes no bloco Kuu                         *
+c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
 c *   ia(*)  - ponteiro do formato CSR                                 *
 c *   ja(*)  - ponteiro das colunas no formato CSR                     *
 c *   ad(neq)- diagonal da matriz A                                    *
@@ -31,7 +31,7 @@ c *   tol    - tolerancia de convergencia                              *
 c *   maxit  - numero maximo de iteracoes                              *
 c *   matvec - nome da funcao externa para o produto matrix-vetor      *
 c *   dot    - nome da funcao externa para o produto escalar           *
-c *   energy - nao definido                                            *
+c *   flog   - log do arquivo de saida                                 *
 c *   thread_y - buffer de equacoes para o vetor y (openmp)            *
 c *                                                                    *
 c *   Parametros de saida:                                             *
@@ -53,21 +53,23 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c ......................................................................      
-      integer neq,maxit,i,j,nad
+      integer neq,nequ,maxit,i,j,jj,nad
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),r(*),z(*),b(*)
       real*8  dot,tol,conv,energy,d,alpha,beta
       real*8  time0,time
-      real*8  dottmp
       real*8  thread_y(*)
+      logical flog
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
 c ......................................................................
-      nad = ia(neq+1)-1
-      if(my_id.eq.0)print *, 'nad :',nad
-c$omp parallel private(i,j,d,conv,alpha,beta,dottmp,energy)
-!$      thread_id = omp_get_thread_num()
+c$omp parallel default(none) 
+c$omp.private(i,j,jj,d,conv,alpha,beta,energy)
+c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,z,r,tol,maxit,thread_y)
+c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti,flog)
+c$omp.shared(my_id,time,time0)
+c$omp.num_threads(nth_solv)                                          
 c ......................................................................
 c
 c ... Chute inicial:
@@ -78,33 +80,34 @@ c$omp do
    10 continue
 c$omp end do
 c ----------------------------------------------------------------------
-      call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),x,z,
-     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,thread_y)
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .           ,x,z
+     .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,thread_y)
 c$omp do
       do 100 i = 1, neq
          r(i) = b(i) - z(i)
-         z(i) = r(i) / m(i)
+         z(i) = r(i) * m(i)
          b(i) = z(i)
   100 continue
 c$omp end do
-      d    = dot(r(1),z(1),neq_doti)
+      d    = dot(r,z,neq_doti)
       conv = tol*dsqrt(dabs(d))
 c ----------------------------------------------------------------------
+      jj = 1
       do 230 j = 1, maxit
-         call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
-     .               b,z,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
-     .               thread_y)
-         dottmp = dot(b,z,neq_doti)
-         alpha = d / dottmp
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .              ,b,z
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .              ,thread_y)
+         alpha = d / dot(b,z,neq_doti)
 c$omp do
          do 210 i = 1, neq
             x(i) = x(i) + alpha * b(i)
             r(i) = r(i) - alpha * z(i)
-            z(i) = r(i) / m(i)
+            z(i) = r(i) * m(i)
   210    continue
 c$omp end do
-         dottmp = dot(r,z,neq_doti)
-         beta = dottmp / d
+         beta = dot(r,z,neq_doti)/d
 c$omp do
          do 220 i = 1, neq
             b(i) = z(i) + beta * b(i)
@@ -112,19 +115,31 @@ c$omp do
 c$omp end do
          d = beta * d
          if (dsqrt(dabs(d)) .lt. conv) goto 300
+c ......................................................................
+c$omp master
+         if( jj .eq.500) then
+           jj = 0
+           write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c$omp end master
+c ......................................................................
   230 continue
 c ----------------------------------------------------------------------
 c$omp master
       write(*,1200) maxit
+      if(flog) write(10,1200) maxit
       call stop_mef()
 c$omp end master
   300 continue
 c
 c ... Energy norm:
 c
-      call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),x,z,
-     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,thread_y)
-      energy = dot(x(1),z(1),neq_doti)
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .           ,x,z
+     .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .           ,thread_y)
+      energy = dot(x,z,neq_doti)
 c ......................................................................
 c$omp single
       time = MPI_Wtime()
@@ -149,6 +164,7 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
+ 1300 format (' PCG_OMP:',5x,'It',i7,5x,2d20.10)
       end
       subroutine gmres_omp(neq,ia,ja,ad,au,al,m,b,x,k,g,h,y,c,s,e,
      .               tol,maxit,matvec,dot,neqovlp,my_id,neqf1i,

@@ -1307,12 +1307,12 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine matvec_csrcsym_pm(neq ,dum0,ia  ,ja,dum1,dum2,
-     .                            ad  ,al  ,dum3,
-     .                            x   ,y   ,
-     .                            neqf1i   ,neqf2i,
-     .                            i_fmapi  ,i_xfi ,i_rcvsi,
-     .                            i_dspli  ,dum4)
+      subroutine matvec_csrc_sym_pm(neq ,dum0,ia  ,ja,dum1,dum2,
+     .                             ad  ,al  ,dum3,
+     .                             x   ,y   ,
+     .                             neqf1i   ,neqf2i,
+     .                             i_fmapi  ,i_xfi ,i_rcvsi,
+     .                             i_dspli  ,dum4)
 c **********************************************************************
 c *                                                                    *
 c *   MATVEC_CSRCSYM_PM: produto matriz-vetor y = Ax  (A simetrica),   *
@@ -1378,7 +1378,6 @@ c
 c ...       Produto dos coef. da parte triangular superior por x(i):
 c
             y(jak) = y(jak) + s*xi
-c           print*,i,s,jak
   100    continue
 c
 c ...    Armazena o resultado em y(i):
