@@ -470,6 +470,8 @@ c ......................................................................
 c$omp single
       time0 = MPI_Wtime()
 c$omp end single
+
+c ... inicializando thread_y(i) 
 !$    thread_id = omp_get_thread_num() + 1
       do i = 1, nth_solv
          inc = (i-1)*neq
@@ -479,6 +481,9 @@ c$omp do
          enddo
 c$omp end do
       enddo
+c .....................................................................
+c
+c ...
       inc = (thread_id - 1)*neq
 c$omp barrier
       do 110 i = thread_begin(thread_id), thread_end(thread_id)
@@ -495,6 +500,7 @@ c$omp barrier
          thread_y(i+inc) = t
   110 continue
 c$omp barrier
+c .....................................................................
 c
 c ... Accumulate thread_y(i) into y(i)
 c
@@ -516,6 +522,132 @@ c ......................................................................
       end
 c **********************************************************************
 c
+c **********************************************************************
+c *                                                                    *
+c *   MATVEC_CSRC_PM_OMP: produto matriz-vetor y = Ax                  *
+c *   (A simetrica),  coef. de A no formato CSRC e grafo simetrico.    *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   neq   - numero de equacoes                                       *
+c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
+c *                     coeficiente nao-nulo da linha   i              *
+c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
+c *               a posicao k no vetor au                              *
+c *   ad(neq)- diagonal da matriz A                                    *
+c *   al(nad)- parte triangular inferior de A, no formato CSR, ou      *
+c *            parte triangular superior de A, no formato CSC          *
+c *   au(*)  - nao utilizado                                           *
+c *   x(neq) - vetor a ser multiplicado                                *
+c *   y(neq) - nao definido                                            *
+c *   neqf1i - numero de equacoes no buffer de recebimento (MPI)       *
+c *   neqf2i - numero de equacoes no buffer de envio (MPI)             *
+c *   i_fmapi- ponteiro para o mapa de comunicacao  (MPI)              *
+c *   i_xfi  - ponteiro para o buffer de valores    (MPI)              *
+c *   i_rcvsi- ponteiro extrutura da comunicacao    (MPI)              *
+c *   i_dspli- ponteiro extrutura da comunicacao    (MPI)              *
+c *   thread_y - buffer de equacoes para o vetor y (openmp)            *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
+c *                                                                    *
+c **********************************************************************
+      subroutine matvec_csrc_pm_omp(neq   ,nequ  ,ia     ,ja  
+     .                             ,iapu  ,japu  ,ad     ,al    
+     .                             ,apul  ,x     ,y
+     .                             ,neqf1i,neqf2i,i_fmapi,i_xfi
+     .                             ,i_rcvsi,i_dspli,thread_y)
+      implicit none 
+      include 'mpif.h'
+      include 'omp_lib.h'
+      include 'parallel.fi'
+      include 'time.fi'
+      include 'openmp.fi'
+      integer neq,nequ
+      integer ia(*),ja(*),iapu(*),japu(*)
+      integer i,ii,j,k,jak,inc
+      real*8  ad(*),al(*),apul(*),x(*),y(*),s,t,xi
+      integer neqf1i,neqf2i
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      real*8  thread_y(*)
+c ......................................................................
+c$omp single
+      time0 = MPI_Wtime()
+c$omp end single
+c .....................................................................
+c
+c ... inicializando thread_y(i) 
+!$    thread_id = omp_get_thread_num() + 1
+      do i = 1, nth_solv
+         inc = (i-1)*neq
+c$omp do
+         do j = thread_height(i)+inc, thread_pm_end(i)+inc
+            thread_y(j) = 0.d0
+         enddo
+c$omp end do
+      enddo
+c .....................................................................
+c
+c ...
+      inc = (thread_id - 1)*neq
+c$omp barrier
+      do 110 i = thread_begin(thread_id), thread_end(thread_id)
+         y(i) = 0.d0
+         xi = x(i)
+         t  = ad(i)*xi
+         do 100 k = ia(i), ia(i+1)-1
+            jak = ja(k)
+            s   = al(k)
+            t   = t + s*x(jak)
+            jak = jak + inc
+            thread_y(jak) = thread_y(jak) + s*xi
+  100    continue
+         thread_y(i+inc) = t
+  110 continue
+c .....................................................................
+c
+c ... loop nas linha Kpu
+      do 120 i = thread_pu_begin(thread_id), thread_pu_end(thread_id)
+        ii = nequ+i
+        xi = x(ii)
+        ii = ii + inc 
+        do 130 k = iapu(i), iapu(i+1)-1
+          jak   = japu(k)
+          s     = apul(k)
+c ... Kpu
+          thread_y(ii)  = thread_y(ii)  + s*x(jak)
+c ... Kup
+          jak           = jak + inc 
+          thread_y(jak) = thread_y(jak) - s*xi
+  130   continue
+  120 continue
+c$omp barrier
+c .....................................................................
+c
+c ... Accumulate thread_y(i) into y(i)
+c
+      do i = 1, nth_solv
+         inc = (i-1)*neq
+c$omp do
+         do j = thread_height(i), thread_pm_end(i)
+            y(j) = y(j) + thread_y(j+inc)
+         end do
+c$omp end do
+      end do
+c .....................................................................
+c
+c ...
+c$omp single
+      matvectime = matvectime + MPI_Wtime() - time0
+c     if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
+c    .                            i_dspli)
+c$omp end single
+c ......................................................................
+      return
+      end
+c **********************************************************************
 c **********************************************************************
 c *                                                                    *
 c *   DOT_PAR_OMP: produto escalar omp(versao de diretiva orfã,  funcao*

@@ -44,7 +44,7 @@ c ......................................................................
       external matvec_csrc_pm,matvec_csrc_sym_pm        
 c     OpenMP'ed subroutines
       external dot_par_omp,dot_par_omp_loopwise
-      external matvec_csrc_sym_pm_omp
+      external matvec_csrc_sym_pm_omp,matvec_csrc_pm_omp
 c ......................................................................
 c ... numero total de equacoes na particao overlapping:
 c    (neqovlp = neq, no sequencial e no non-overlapping)
@@ -52,13 +52,17 @@ c    (neqovlp = neq, no sequencial e no non-overlapping)
       if (omp_solv) then
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
+           pmatrixtime = Mpi_Wtime() - pmatrixtime 
+           i_threads_y = alloc_8('buffer_y',nth_solv,neq)
+           call partition_matrix(ip,ja,neq,nequ,nad,ovlp,block_pu)
+           pmatrixtime = Mpi_Wtime() - pmatrixtime
 c .......................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
          else   
            pmatrixtime = Mpi_Wtime() - pmatrixtime 
            i_threads_y = alloc_8('buffer_y',nth_solv,neq)
-           call partition_matrix(ip,ja,neq,ovlp)
+           call partition_matrix(ip,ja,neq,nequ,nad,ovlp,block_pu)
            pmatrixtime = Mpi_Wtime() - pmatrixtime
          endif
       endif
@@ -150,32 +154,65 @@ c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
-           call gmres(neq,nequ,nad,ip,ja 
-     .               ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     .               ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     .               ,tol    ,maxit   
+c ... omp
+           if(omp_solv) then
+             call gmres_omp(neq,nequ,nad,ip,ja 
+     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     .                 ,tol    ,maxit   
 c ... matvec comum:
-     .               ,matvec_csrc_pm  ,dot_par 
-c ... matvec desenrolado:
-c    .               ,matvec_csrcsym1,dot_par 
-     .               ,neqovlp ,my_id  ,neqf1i ,neqf2i  
-     .               ,neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli  
-     .               ,.true.)
+     .                 ,matvec_csrc_pm_omp,dot_par_omp 
+     .                 ,neqovlp 
+     .                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     .                 ,i_xfi  ,i_rcvsi,i_dspli  
+     .                 ,ia(i_threads_y),.true.)
+c .....................................................................
+c
+c ... sequencial
+           else 
+             call gmres(neq,nequ,nad,ip,ja 
+     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     .                 ,tol    ,maxit   
+c ... matvec comum:
+     .                 ,matvec_csrc_pm  ,dot_par 
+     .                 ,neqovlp 
+     .                 ,my_id   ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     .                 ,i_xfi   ,i_rcvsi,i_dspli  
+     .                 ,.true.)
+           endif
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
          else
-           call gmres(neq,nequ,nad,ip,ja 
-     .               ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     .               ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     .               ,tol    ,maxit   
+c ... omp
+           if(omp_solv) then
+             call gmres_omp(neq,nequ,nad,ip,ja 
+     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     .                 ,tol    ,maxit   
 c ... matvec comum:
-     .               ,matvec_csrc_sym_pm,dot_par 
-c ... matvec desenrolado:
-c    .               ,matvec_csrcsym1,dot_par,
-     .               ,neqovlp ,my_id  ,neqf1i ,neqf2i  
-     .               ,neq_doti,i_fmapi,i_xfi ,i_rcvsi,i_dspli 
-     .               ,.true.)
+     .                 ,matvec_csrc_sym_pm_omp,dot_par_omp 
+     .                 ,neqovlp 
+     .                 ,my_id   ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .                 ,i_xfi   ,i_rcvsi,i_dspli 
+     .                 ,ia(i_threads_y),.true.)
+c .....................................................................
+c
+c ... sequencial
+           else 
+             call gmres(neq,nequ,nad,ip,ja 
+     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     .                 ,tol    ,maxit   
+c ... matvec comum:
+     .                 ,matvec_csrc_sym_pm,dot_par 
+     .                 ,neqovlp
+     .                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     .                 ,i_xfi  ,i_rcvsi,i_dspli 
+     .                 ,.true.)
+           endif 
+c .....................................................................
          endif
 c .....................................................................
 c
@@ -229,32 +266,61 @@ c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
-           call pbicgstab(neq   ,nequ   ,nad  ,ip     ,ja      
-     .                  ,ad     ,al     ,al     ,m      ,b      ,x  
-     .                  ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .                  ,tol    ,maxit 
+c ... omp
+           if(omp_solv) then
+             call pbicgstab_omp(neq   ,nequ,nad    ,ip   ,ja      
+     .                     ,ad     ,al     ,al     ,m      ,b      ,x  
+     .                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     .                     ,tol    ,maxit 
 c ... matvec comum:
-     .                  ,matvec_csrc_pm ,dot_par 
-c ... matvec desenrolado:
-c    .                   matvec_csrcsym1,dot_par,
-     .                  ,my_id        ,neqf1i  ,neqf2i 
-     .                  ,neq_doti     ,i_fmapi ,i_xfi ,i_rcvsi,i_dspli
-     .                  ,.true.)
+     .                     ,matvec_csrc_pm_omp,dot_par_omp 
+     .                     ,my_id  ,neqf1i  ,neqf2i  ,neq_doti   
+     .                     ,i_fmapi,i_xfi  ,i_rcvsi,i_dspli
+     .                     ,ia(i_threads_y),.true.)
+c .....................................................................
+c
+c ... sequencial
+           else 
+             call pbicgstab(neq   ,nequ   ,nad  ,ip     ,ja      
+     .                    ,ad     ,al     ,al   ,m      ,b      ,x  
+     .                    ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     .                    ,tol    ,maxit 
+c ... matvec comum:
+     .                    ,matvec_csrc_pm ,dot_par 
+     .                    ,my_id    ,neqf1i,neqf2i ,neq_doti 
+     .                    ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
+     .                    ,.true.)
+           endif 
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
          else
-           call pbicgstab(neq   ,nequ   ,nad    ,ip   ,ja      
-     .                  ,ad     ,al     ,al     ,m      ,b      ,x  
-     .                  ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .                  ,tol    ,maxit 
+c ... omp
+           if(omp_solv) then
+             call pbicgstab_omp(neq   ,nequ,nad    ,ip   ,ja      
+     .                     ,ad     ,al     ,al     ,m      ,b      ,x  
+     .                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     .                     ,tol    ,maxit 
 c ... matvec comum:
-     .                  ,matvec_csrc_sym_pm,dot_par 
-c ... matvec desenrolado:
-c    .                     matvec_csrcsym1,dot_par,
-     .                  ,my_id        ,neqf1i  ,neqf2i  
-     .                  ,neq_doti     ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
-     .                  ,.true.)
+     .                     ,matvec_csrc_sym_pm_omp,dot_par_omp 
+     .                     ,my_id  ,neqf1i  ,neqf2i  ,neq_doti   
+     .                     ,i_fmapi,i_xfi  ,i_rcvsi,i_dspli
+     .                     ,ia(i_threads_y),.true.)
+c .....................................................................
+c
+c ... sequencial
+           else 
+             call pbicgstab(neq   ,nequ   ,nad    ,ip   ,ja      
+     .                     ,ad    ,al     ,al     ,m    ,b      ,x  
+     .                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     .                     ,tol    ,maxit 
+c ... matvec comum:
+     .                     ,matvec_csrc_sym_pm,dot_par 
+     .                     ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
+     .                     ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
+     .                     ,.true.)
+           endif      
+c .....................................................................
          endif
 c .....................................................................
 c

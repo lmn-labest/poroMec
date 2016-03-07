@@ -163,6 +163,7 @@ c *   al(*)  - parte triangular inferior de A                          *
 c *   m(*)   - precondicionador diagonal                               *
 c *   b(neq) - vetor de forcas                                         *
 c *   x(neq) - chute inicial                                           *
+c *   k      - base de Krylov                                          *
 c *   z(neq) - arranjo local de trabalho                               *
 c *   r(neq) - arranjo local de trabalho                               *
 c *   tol    - tolerancia de convergencia                              *
@@ -203,13 +204,9 @@ c .....................................................................
       logical flog
       external matvec,dot
       integer my_id
-c      integer nii(maxit)
 c ......................................................................
       time0 = MPI_Wtime()
 c ......................................................................
-c     nad = ia(neq+1)-1
-c     if(my_id.eq.0)print*,nad
-c ----------------------------------------------------------------------
 c
 c.... Chute inicial:
 c
@@ -237,9 +234,10 @@ c
 c        call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,al(nad+1),
 c    .               x,g(1,1),neqf1i,neqf2i,i_fmapi,i_xfi,
 c    .               i_rcvsi,i_dspli,dum1)
-         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
-     .               x,g(1,1),neqf1i,neqf2i,i_fmapi,i_xfi,
-     .               i_rcvsi,i_dspli,dum1)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .              ,x,g(1,1)
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi 
+     .              ,i_rcvsi,i_dspli,dum1)
 c
 c ...... Residuo com precondicionador diagonal:
 c
@@ -269,9 +267,11 @@ c
 c           call matvec(neq,ia,ja,ia(neq+2),ja(nad+1),ad,al,au,
 c    .                  al(nad+1),g(1,i),g(1,i+1),neqf1i,neqf2i,
 c    .                  i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
-            call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,
-     .                  al(nad+1),g(1,i),g(1,i+1),neqf1i,neqf2i,
-     .                  i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+            call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al
+     .                 ,al(nad+1)
+     .                 ,g(1,i),g(1,i+1)
+     .                 ,neqf1i,neqf2i 
+     .                 ,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
 c
 c ......... Precondicionador diagonal:
 c
@@ -336,17 +336,20 @@ c
                x(i) = x(i) + y(j) * g(i,j)
   600       continue
   610    continue
+c ......................................................................
+c
+c ...
+         jj = jj + 1
+         if( jj .eq. 500) then
+           jj = 0
+           write(*,2300),l,nit,dabs(e(ni+1)),econv
+         endif
+c ......................................................................
 c
 c ...... Verifica a convergencia:
 c
 c         nii(l)=ni
          if (dabs(e(ni+1)) .le. econv) goto 1100
-c ......................................................................
-         jj = jj + 1
-         if( jj .eq. 200) then
-           jj = 0
-           write(*,2300),l,nit,dabs(e(ni+1)),econv
-         endif
 c ......................................................................
  1000 continue
 c ......................................................................
@@ -354,15 +357,18 @@ c ......................................................................
 c
 c ... Norma de energia da solucao:
 c
-      energy = dot(x,b,neq_doti)
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,
+     .           al(nad+1),x     ,g(1,1)  ,neqf1i,neqf2i,
+     .           i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      energy = dot(x,g,neq_doti)
 c ......................................................................
       time = MPI_Wtime()
       time = time-time0
 c ----------------------------------------------------------------------
       if (dabs(e(ni+1)) .gt. econv) then
          if(my_id .eq. 0) then
-           write(*,2100) maxit
-           if(flog) write(10,2100) maxit
+           write(*,2100) maxit,k,nit
+           if(flog) write(10,2100) maxit,k,nit
          endif 
          call stop_mef()
       endif
@@ -371,7 +377,6 @@ c ......................................................................
      .                           ,time
 c ......................................................................
 c     Controle de flops
-c      if(my_id.eq.0)write(10,'(999(i4,1x))') l,nit,(nii(j),j=1,l)
       if(flog) then
       if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
      .         "GMRES: "," it ",nit, " energy norm ",energy," tol ",tol,
@@ -385,11 +390,11 @@ c ----------------------------------------------------------------------
      . 5x,'Number of equations  = ',i20/
      . 5x,'Number of cycles     = ',i20/
      . 5x,'Number of iterations = ',i20/
-     . 5x,'Norm                 = ',d20.6/
+     . 5x,'Norm                 = ',d20.10/
      . 5x,'Energy norm          = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
- 2100 format(' *** WARNING: no convergence reached for ',i9,' cycles !',
-     . /)
+ 2100 format(' *** WARNING: no convergence reached for '
+     .      ,i9,' cycles !',5x,i7,' nKylov',5x,' It ',i7/)
  2300 format (' GMRES:',5x,'cycles',i7,5x,'It',i7,5x,2d20.10)
       end      
       subroutine bicgstab(neq,ia,ja,ad,au,al,m,b,x,y,z,p,r,s,tol,maxit,

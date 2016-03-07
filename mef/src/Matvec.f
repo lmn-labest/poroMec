@@ -1315,7 +1315,7 @@ c **********************************************************************
      .                             i_dspli  ,dum4)
 c **********************************************************************
 c *                                                                    *
-c *   MATVEC_CSRCSYM_PM: produto matriz-vetor y = Ax  (A simetrica),   *
+c *   MATVEC_CSRC_SYM_PM: produto matriz-vetor y = Ax  (A simetrica),  *
 c *                   coef. de A no formato CSRC.                      *
 c *                                                                    *
 c *   Parametros de entrada:                                           *

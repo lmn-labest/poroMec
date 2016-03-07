@@ -59,7 +59,6 @@ c * dualCsr = true                                                     *
 c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c *    naduu - numero de coeficientes nao nulos do bloco uu            *
 c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
-c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c * dualCsr = false                                                    *
 c *    nad   - numero de coeficientes nao nulos                        *
 c *                                                                    *
