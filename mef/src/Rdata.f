@@ -1,5 +1,5 @@
       subroutine rdat(nnode ,nnodev ,numel  ,numat   
-     .               ,nen   ,nenGeo
+     .               ,nen   ,nenv
      .               ,ndf   ,ndm    ,nst    ,i_ix 
      .               ,i_ie  ,i_inum ,i_e    ,i_x 
      .               ,i_id  ,i_nload,i_eload,i_f
@@ -21,7 +21,7 @@ c *    nnodev- numero de nos dos vertices                              *
 c *    numel - numero de elementos                                     *
 c *    numat - numero de materiais                                     *
 c *    nen   - numero max. de nos por elemento                         *
-c *    nenGeo- numero max. de nos geometicos por elemento              *
+c *    nenv  - numero max. de nos geometicos por elemento              *
 c *    ndf   - numero max. de graus de liberdade por no                *
 c *    ndm   - dimensao (1, 2 ou 3)                                    *
 c *    nst   - numero de graus de liberdade por elemento               *
@@ -68,7 +68,7 @@ c ......................................................................
       include 'parallel.fi'
       include 'termprop.fi'
 c ......................................................................      
-      integer nnodev,nnode,numel,numat,nen,nenGeo,ndf,ndft,ndm,nst
+      integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
       integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
@@ -193,10 +193,61 @@ c
 c ... Conetividades tetra4:          
 c
   600 continue
+      print*,'load tetra4 ...'
+      fReadEl    = .true.
       ntetra4(1) = 0
-      call elconn(ia(i_ix),nen+1,4,ntetra4(1),numel,nin)
+      nenv       = 4
+      call elconn(ia(i_ix),nen+1,nenv,ntetra4(1),numel,nin)
       ntetra4(2) = totnel+1
       totnel    = totnel + ntetra4(1)
+c ... transforma os elementos lineares em quadraticos (10 nos)
+      if( nen .eq. 10) then
+        nst       = nen*(ndf-1) + nenv  
+        elQuad    = .true.
+        i_nelcon  = alloc_4('nelcon  ',  4,numel)
+        i_nodcon  = alloc_4('nodcon  ',  1,nnode)
+c ... obetem os vizinhos por face
+        call adjtetra4(numel        ,nnodev      ,nen  
+     .                ,ia(i_nodcon) ,ia(i_nelcon),ia(i_ix))
+c .....................................................................
+c
+c ... gera a conectividade dos elementos quadraticos
+        call mk_elConn_tetra_quad(ia(i_ix),ia(i_nelcon)
+     .                           ,numel   
+     .                           ,nnode   ,nnodev
+     .                           ,nen     ,nenv  
+     .                           ,4)
+c .....................................................................
+c
+c ...
+        i_nodcon    = dealloc('nodcon  ')
+        i_nelcon    = dealloc('nelcon  ')
+c .....................................................................
+c
+c ...                                                                   
+c     Alocacao de arranjos na memoria:
+c     ---------------------------------------------------------------
+c     | id  nload | inum | e | x | f | u | u0 | tx0 |
+c     ---------------------------------------------------------------
+        if (ndf .gt. 0) then
+          i_inum  = alloc_4('inum    ',    1,nnode)  
+          i_id    = alloc_4('id      ',  ndf,nnode)
+          i_nload = alloc_4('nload   ',  ndf,nnode)
+          i_f     = alloc_8('f       ',  ndf,nnode)
+          i_u     = alloc_8('u       ',  ndf,nnode)
+          i_u0    = alloc_8('u0      ',  ndf,nnode)
+          i_tx0   = alloc_8('tx0     ',  ndf,nnode)
+          call mzero(ia(i_inum) ,nnode)  
+          call mzero(ia(i_id)   ,nnode*ndf)
+          call mzero(ia(i_nload),nnode*ndf)
+          call azero(ia(i_f)    ,nnode*ndf)
+          call azero(ia(i_u)    ,nnode*ndf)
+          call azero(ia(i_u0)   ,nnode*ndf)
+          call azero(ia(i_tx0)  ,nnode*6  )
+        endif
+c .....................................................................
+      endif
+      print*,'load.'
       go to 100
 c ......................................................................      
 c
@@ -206,13 +257,13 @@ c
       print*,'load hexa8 ...'
       fReadEl   = .true.
       nhexa8(1) = 0
-      nenGeo    = 8
-      call elconn(ia(i_ix),nen+1,nenGeo,nhexa8(1),numel,nin)
+      nenv      = 8
+      call elconn(ia(i_ix),nen+1,nenv,nhexa8(1),numel,nin)
       nhexa8(2) = totnel + 1
       totnel    = totnel + nhexa8(1)
 c ... transforma os elementos lineares em quadraticos (20 nos)
       if( nen .eq. 20) then
-        nst       = nen*(ndf-1) + nenGeo  
+        nst       = nen*(ndf-1) + nenv  
         elQuad    = .true.
         i_nelcon  = alloc_4('nelcon  ',  6,numel)
         i_nodcon  = alloc_4('nodcon  ',  1,nnode)
@@ -223,11 +274,11 @@ c ... obetem os vizinhos por face
 c .....................................................................
 c
 c ... gera a conectividade dos elementos quadraticos
-        call mk_elConn_quad(ia(i_ix),ia(i_nelcon)
-     .                   ,numel   
-     .                   ,nnode   ,nnodev
-     .                   ,nen     ,nenGeo  
-     .                   ,6)
+        call mk_elConn_hex_quad(ia(i_ix),ia(i_nelcon)
+     .                         ,numel   
+     .                         ,nnode   ,nnodev
+     .                         ,nen     ,nenv  
+     .                         ,6)
 c .....................................................................
 c
 c ...
@@ -1419,8 +1470,13 @@ c ...
       integer numel,ndf,nedge,no1,no2,no3,nen
       integer id(ndf,*)
 c ...
-      nedge = 0  
-      if( nen .eq. 20 ) then
+      nedge = 0 
+c ... tetraedros de 10 nos 
+      if( nen .eq. 10 ) then
+        nedge =  6
+        call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+      else if( nen .eq. 20 ) then
         nedge = 12
         call hexa20edgeNod(iEdge) 
       endif
@@ -1482,7 +1538,12 @@ c ...
       real*8  f(ndf,*)
 c ...
       nedge = 0  
-      if( nen .eq. 20 ) then
+c ... tetraedros de 10 nos 
+      if( nen .eq. 10 ) then
+        nedge =  6
+        call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+      else if( nen .eq. 20 ) then
         nedge = 12
         call hexa20edgeNod(iEdge) 
       endif

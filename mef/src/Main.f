@@ -120,7 +120,7 @@ c
 c ... Macro-comandos disponiveis:
 c
       data nmc /40/
-      data macro/'loop    ','        ','mesh    ','solv    ','dt      ',
+      data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
      .'pgeo    ','pgeoquad','block_pu','gravity ','        ','gmres   ',
      .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','spcgm   ',
      .'        ','        ','        ','        ','        ','        ',
@@ -199,7 +199,7 @@ c ...
 c ... OpenMP
       omp_elmt = .false.
       omp_solv = .false.
-      nth_elmt = 2
+      nth_elmt = 1
       nth_solv = 1
 c ......................................................................
 c
@@ -313,10 +313,12 @@ c ... Macro-comando LOOP:
       goto 5000            
 c ......................................................................
 c
-c ... Macro-comando NCONC: 
+c ... Macro-comando HEXTOTET:
 c
 c ......................................................................
   200 continue
+      if(my_id.eq.0)print*, 'Macro HEXTOTET'  
+        call hexa_to_tetra(ia(i_ix),numel,nen,prename,nplot)
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -675,19 +677,37 @@ c ......................................................................
   700 continue
       if(my_id.eq.0)  then  
         print*, 'Macro PGEOQ'
-        i_xq = alloc_8('xq      ',ndm,nnode)
-        call mkCoorQuad(ia(i_x) ,ia(i_xq)
-     .                 ,ia(i_ix)
-     .                 ,numel   ,nen  
-     .                 ,nnode   ,nnodev  ,ndm)   
-        nhexa20(1:4) = nhexa8(1:4)   
-        nhexa8(1:4)  = 0 
-        call writeMeshGeo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
-     .                   ,nen    ,ndm     ,prename,.false.
-     .                   ,.true. ,nplot)
-        nhexa8(1:4)  = nhexa20(1:4)
-        nhexa20(1:4) = 0
-        i_xq = dealloc('xq      ')      
+c ... tetraedros de 10 nos     
+        if( nen .eq. 10 ) then
+          i_xq = alloc_8('xq      ',ndm,nnode)
+          call mkCoorQuad(ia(i_x) ,ia(i_xq)
+     .                   ,ia(i_ix)
+     .                   ,numel   ,nen  
+     .                   ,nnode   ,nnodev  ,ndm)   
+          ntetra10(1:4) = ntetra4(1:4)   
+          ntetra4(1:4)  = 0 
+          call writeMeshGeo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
+     .                     ,nen    ,ndm     ,prename,.false.
+     .                     ,.true. ,nplot)
+          ntetra4(1:4)  = ntetra10(1:4)
+          ntetra10(1:4) = 0
+          i_xq = dealloc('xq      ') 
+c ... hexaedros de 20 nos     
+        else if( nen .eq. 20 ) then
+          i_xq = alloc_8('xq      ',ndm,nnode)
+          call mkCoorQuad(ia(i_x) ,ia(i_xq)
+     .                   ,ia(i_ix)
+     .                   ,numel   ,nen  
+     .                   ,nnode   ,nnodev  ,ndm)   
+          nhexa20(1:4) = nhexa8(1:4)   
+          nhexa8(1:4)  = 0 
+          call writeMeshGeo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
+     .                     ,nen    ,ndm     ,prename,.false.
+     .                     ,.true. ,nplot)
+          nhexa8(1:4)  = nhexa20(1:4)
+          nhexa20(1:4) = 0
+          i_xq = dealloc('xq      ')      
+        endif
       endif
       goto 50
 c ----------------------------------------------------------------------

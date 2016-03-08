@@ -422,7 +422,7 @@ c **********************************************************************
       implicit none
       integer numel,nnode,nen,nodcon(*),neighbors(4,*)
       integer ix(nen+1,*),node(3)
-      integer i,j,miss,el,k
+      integer i,j,miss,el,k,tetra4face
 c ----------------------------------------------------------------------
       do 200 i = 1, numel
       do 100 j = 1, 4
@@ -439,7 +439,7 @@ c ----------------------------------------------------------------------
           do 500 i = 1, numel
           do 400 j = 1, 4
              if (neighbors(j,i) .eq. -2) then
-                call tetra4fnod(i,j,nen,ix,node)
+                call tetra4fnod(i,j,ix,node,nen)
                 if (nodcon(node(1)).eq.-2 .and. nodcon(node(2)).eq.-2
      .                              .and. nodcon(node(3)).eq.-2) then
                    nodcon(node(1)) = i
@@ -455,12 +455,12 @@ c ----------------------------------------------------------------------
           do 700 i = 1, numel
           do 600 j = 1, 4
              if (neighbors(j,i) .eq. -2) then
-                call tetra4fnod(i,j,nen,ix,node)
+                call tetra4fnod(i,j,ix,node,nen)
                 el = nodcon(node(1))
                 if(el .ne. -2) then
                    if(nodcon(node(2)) .eq. el .and. nodcon(node(3))
      .                                .eq. el .and. el .ne. i) then
-                      call tetra4face(el,nen,ix,node,k)
+                      k = tetra4face(el,ix,node,nen)
                       if(k .eq. -1) then
                           print*, 'Erro !'
                           stop
@@ -480,7 +480,7 @@ c ----------------------------------------------------------------------
           do 900 i = 1, numel
           do 800 j = 1, 4
              if (neighbors(j,i) .eq. -2) then
-                call tetra4fnod(i,j,nen,ix,node)
+                call tetra4fnod(i,j,ix,node,nen)
                 el = nodcon(node(1))
                 if (nodcon(node(2)) .eq. el .and. nodcon(node(3)) 
      .                              .eq. el .and. el .eq. i) then
@@ -505,81 +505,15 @@ c ----------------------------------------------------------------------
 c ----------------------------------------------------------------------      
       return
       end
-      subroutine tetra4face(nel,nen,ix,node,n)
+c **********************************************************************
+      subroutine mk_elconn_hex_quad(ix    ,nelcon ,numel
+     .                             ,nnode ,nnodev ,nen
+     .                             ,nenv  ,nMaxViz)
 c **********************************************************************
 c *                                                                    *
-c *   TETRA4FACE                                          07/08/2014   *
-c *                                                                    *
-c *   Rotina para comparar as faces do tetraedro                       *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   nel - numero do elemento                                         *
-c *   nen - numero de nos por elemento                                 *      
-c *   ix(nen+1,*) - conetividades nodais dos elementos                 *
-c *   node(3) - nos da face k do elemento nel                          *      
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   n - numero da face do elemento vizinho                           * 
-c *       ou -1 caso nao tenha vizinho                                 *
-c *                                                                    *
-c *                                                                    *  
-c **********************************************************************
-      integer nel,nen,ix(nen+1,*),node(*)
-      integer i,j,n,no(3),edge(2,3)
-      data edge/2,3,3,1,1,2/
-c ----------------------------------------------------------------------
-      n = -1
-      do 200 i = 1, 4
-         call tetra4fnod(nel,i,nen,ix,no)
-         do 100 j = 1, 3
-            if(no(1) .eq. node(j)) then
-               if(no(2) .eq. node(edge(2,j)) .and. no(3) .eq.
-     .                       node(edge(1,j))) then
-                  n = i
-               endif
-            endif
- 100     continue
- 200  continue
-      return
-      end
-      subroutine tetra4fnod(nel,k,nen,ix,node)
-c **********************************************************************
-c *                                                                    *
-c *   tetra4fnod                                     07/08/2014   *
-c *                                                                    *
-c *   Rotina para identificar os nos das faces do tetraedro            *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   nel - numero do elemento                                         *
-c *   k   - numero da face                                             *
-c *   nen - numero de nos por elemento                                 *      
-c *   ix(nen+1,*) - conetividades nodais dos elementos                 *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   node(3) - nos da face k do elemento nel                          *
-c *                                                                    *
-c *                                                                    *  
-c **********************************************************************
-      integer nel,k,nen,ix(nen+1,*),node(*)
-      integer fnode(3,4),i,j
-      data fnode/4,3,2,4,2,1,4,1,3,1,2,3/
-c ----------------------------------------------------------------------
-      do 100 j = 1, 3
-         i = fnode(j,k)
-         node(j) = ix(i,nel)
-  100 continue
-      return
-      end
-c **********************************************************************
-c
-c **********************************************************************
-      subroutine mk_elconn_quad(ix    ,nelcon ,numel
-     .                         ,nnode ,nnodev ,nen
-     .                         ,nenv,nMaxViz)
-c **********************************************************************
-c *                                                                    *
-c *   MKELCONQUAD - gera a connectividade dos elementos quadraticos    *
-c *   ----------   a partir dos verticeis dos elementos lineares       *
+c *   MK_ELCON_HEX_QUAD - gera a connectividade dos elementos          *
+c *   -----------------   quadraticos a partir dos verticeis dos       *
+c *                       elementos lineares                           *
 c *                                                                    *
 c *   Parametros de entrada                                            *
 c *   ---------------------                                            *
@@ -661,6 +595,164 @@ c .....................................................................
       return
       end
 c **********************************************************************
+      integer function tetra4face(nel,ix,node,nen)
+c **********************************************************************
+c *                                                                    *
+c *   TETRA4FACE                                          07/08/2014   *
+c *                                                                    *
+c *   Rotina para comparar as faces do tetraedro                       *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   nel - numero do elemento                                         *
+c *   nen - numero de nos por elemento                                 *      
+c *   ix(nen+1,*) - conetividades nodais dos elementos                 *
+c *   node(3) - nos da face k do elemento nel                          *      
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   n - numero da face do elemento vizinho                           * 
+c *       ou -1 caso nao tenha vizinho                                 *
+c *                                                                    *
+c *                                                                    *  
+c **********************************************************************
+      integer nel,nen,ix(nen+1,*),node(*)
+      integer i,j,n,no(3),edge(2,3)
+      data edge/2,3,3,1,1,2/
+c ----------------------------------------------------------------------
+      tetra4face = -1
+      do 200 i = 1, 4
+         call tetra4fnod(nel,i,ix,no,nen)
+         do 100 j = 1, 3
+            if(no(1) .eq. node(j)) then
+               if(no(2) .eq. node(edge(2,j)) .and. no(3) .eq.
+     .                       node(edge(1,j))) then
+                  tetra4face = i
+                  return
+               endif
+            endif
+ 100     continue
+ 200  continue
+      return
+      end
+      subroutine tetra4fnod(nel,k,ix,node,nen)
+c **********************************************************************
+c *                                                                    *
+c *   tetra4fnod                                     07/08/2014        *
+c *                                                                    *
+c *   Rotina para identificar os nos das faces do tetraedro            *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   nel - numero do elemento                                         *
+c *   k   - numero da face                                             *
+c *   nen - numero de nos por elemento                                 *      
+c *   ix(nen+1,*) - conetividades nodais dos elementos                 *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   node(3) - nos da face k do elemento nel                          *
+c *                                                                    *
+c *                                                                    *  
+c **********************************************************************
+      integer nel,k,nen,ix(nen+1,*),node(*)
+      integer fnode(3,4),i,j
+      data fnode/2,3,4,1,4,3,1,2,4,1,3,2/
+c ----------------------------------------------------------------------
+      do 100 j = 1, 3
+         i = fnode(j,k)
+         node(j) = ix(i,nel)
+  100 continue
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine mk_elconn_tetra_quad(ix    ,nelcon ,numel
+     .                             ,nnode ,nnodev ,nen
+     .                             ,nenv  ,nMaxViz)
+c **********************************************************************
+c *                                                                    *
+c *   MK_ELCON_TETRA_QUAD - gera a connectividade dos elementos        *
+c *   -----------------   quadraticos a partir dos verticeis dos       *
+c *                       elementos lineares                           *
+c *                                                                    *
+c *   Parametros de entrada                                            *
+c *   ---------------------                                            *
+c *                                                                    *
+c *   ix(*,numel) - conetividades nodais dos elementos(Vertices apenas)*
+c *   nelcon(j,i) - elementos vizinhos ao elemento ao i                *
+c *   numel       - numero de elementos                                *
+c *   nnodev      - numero de nos dos vertices                         *
+c *   nnode       - numero total de nos                                *
+c *   nen         - numero maximo de nos por elemento                  *
+c *   nenv        - numero maximo de vertices por elemento             *
+c *   maxViz      - numero maximo de vizinhos                          *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   --------------------                                             *
+c *   ix(*,numel) - conetividades nodais dos elementos atualizadas     *
+c **********************************************************************
+      implicit none
+      integer i,j,k,nElViz,numFace
+      integer nenv,nen,nMaxViz,numel,nnodev,nnode,nno,noFace,noF1,noF2
+      integer ix(nen+1,*),nelcon(nMaxViz,*)
+      integer node1(3),node2(3)
+      integer tetra10(3,4),tetra10r(3,4)
+      integer tetra4face
+c ... hexaedro
+      noFace = 3
+c .....................................................................
+      nno = nnodev + 1
+      call tetra10faceNodi(tetra10,.false.)
+      call tetra10faceNodi(tetra10r,.true.)
+c ... loop nos elementos
+      do 100 i = 1, numel
+        do 110 j = nenv, nen
+          if( ix(j,i) .eq. 0 )  then
+            ix(j,i) = nno
+            nno = nno + 1
+          endif             
+ 110    continue
+c ... loop nas faces
+c        do j = 1, nMaxViz
+c          do k = 1, noFace
+c            noF1 = hexa20(4+k,j)
+c            if( ix(noF1,i) .eq. 0 )  then
+c              ix(noF1,i) = nno
+c              nno = nno + 1
+c            endif         
+c          enddo
+c        enddo
+c ... vizinhos
+        do 120 j = 1, nMaxViz
+          numFace = 0
+          call tetra4fnod(i,j,ix,node1,nen)
+c ... elemento vizinho a face
+          nElViz  = nelcon(j,i)
+          if(nElViz .gt. 0) then
+            numFace = tetra4face(nElViz,ix,node1,nen)
+c           call tetra4fnod(nElViz,numFace ,ix,node2,nen)
+            do 130 k = 1, noFace
+              noF2 = tetra10r(k,numFace)
+              if( ix(noF2,nElViz) .eq. 0 ) then
+                noF1            = tetra10(k,j)
+                ix(noF2,nElViz) = ix(noF1,i)
+              endif
+  130       continue
+          endif
+  120   continue
+  100 continue
+c .....................................................................
+c
+c ...
+      nnode = nno - 1
+c .....................................................................
+c
+c ...
+c     do i = 1, numel
+c       print*,i,ix(1:nen,i)
+c     enddo
+c ..................................................................... 
+      return
+      end
+c **********************************************************************
 c
 c **********************************************************************
 c *                                                                    *
@@ -703,6 +795,43 @@ c **********************************************************************
       end
 c **********************************************************************
 c
+c **********************************************************************
+c *                                                                    *
+c *   tetra10faceNodi numeracao dos nos medios das faces                *
+c *   -------------                                                    *
+c *                                                                    *
+c *   Parametros de entrada                                            *
+c *   ---------------------                                            *
+c *                                                                    *
+c *   hexa        - nao definido                                       *
+c *   rev         - true - numeracao reversa; false numera direta      *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   --------------------                                             *
+c *   hexa - numera dos nos medios das faces                           *
+c **********************************************************************
+      subroutine tetra10faceNodi(tetra,rev)
+      implicit none
+      integer tetra(*)
+      integer tetra10(12),tetra10Rev(12)
+      logical rev
+      data tetra10 / 8, 9, 10  
+     .            ,  6, 7, 9   
+     .            ,  5,10, 7   
+     .            ,  5, 6, 8/  
+      data tetra10Rev /10, 9, 8   
+     .                , 9, 7, 6   
+     .                , 7,10, 5   
+     .               ,  8, 6, 5/  
+      if(rev) then
+        tetra(1:12) = tetra10Rev(1:12) 
+      else 
+        tetra(1:12) = tetra10(1:12) 
+      endif
+      return
+      end
+c *********************************************************************
+c
 c *********************************************************************                
       subroutine mkCoorQuad(x       ,xq
      .                     ,el
@@ -718,8 +847,14 @@ c ...
       integer el(nen+1,*)
       integer iEdge(3,maxEdge)
       real*8 x(ndm,*),xq(ndm,*)
-
-      if( nen .eq. 20 ) then
+c
+      nedge = 0  
+c ... tetraedros de 10 nos 
+      if( nen .eq. 10 ) then
+        nedge =  6
+        call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+      else if( nen .eq. 20 ) then
         nedge = 12
         call hexa20edgeNod(iEdge) 
       endif
@@ -750,6 +885,8 @@ c .....................................................................
 c *********************************************************************
 c
 c *********************************************************************                
+c * HEXA20EDGENOD : numera de nos por aresta do hexaedro de 20 nos    *
+c *********************************************************************                
       subroutine Hexa20edgeNod(iEdge)  
       integer iEdge(36),edge(36)
       data edge/  1, 2, 9
@@ -766,6 +903,24 @@ c *********************************************************************
      .          , 4, 8,20/
 c ...
       iEdge(1:36) = edge(1:36) 
+c .....................................................................
+      return
+      end
+c *********************************************************************                
+c
+c *********************************************************************                
+c * TETRA10EDGENOD : numera de nos por aresta do tetraedro de 10 nos  *
+c *********************************************************************                
+      subroutine tetra10edgeNod(iEdge)  
+      integer iEdge(18),edge(18)
+      data edge/  1, 2, 5
+     .          , 1, 3, 6
+     .          , 1, 4, 7
+     .          , 2, 3, 8
+     .          , 3, 4, 9
+     .          , 4, 2,10/
+c ...
+      iEdge(1:18) = edge(1:18) 
 c .....................................................................
       return
       end

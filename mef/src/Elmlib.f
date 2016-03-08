@@ -517,6 +517,17 @@ c *   hr(10)   - derivadas de h em relacao a r                         *
 c *   hs(10)   - derivadas de h em relacao a s                         *
 c *   ht(10)   - derivadas de h em relacao a t                         *
 c *                                                                    *
+c * no  (   r,   s,   t,  u)                                           *
+c * no1 (   1,   0,   0,  0)                                           * 
+c * no2 (   0,   1,   0,  0)                                           * 
+c * no3 (   0,   0,   1,  0)                                           * 
+c * no4 (   0,   0,   0,  1)                                           * 
+c * no5 ( 1/2, 1/2,   0,  0)                                           * 
+c * no6 ( 1/2,   0, 1/2,  0)                                           * 
+c * no7 ( 1/2,   0,   0,1/2)                                           * 
+c * no8 (   0, 1/2,   0,  0)                                           * 
+c * no9 (   0,   0, 1/2,1/2)                                           * 
+c * no10(   0, 1/2,   0,1/2)                                           * 
 c **********************************************************************
       implicit none
       real*8  h(*),hr(*),hs(*),ht(*),r,s,t,u
@@ -527,10 +538,10 @@ c ......................................................................
 c
 c ...... Funcoes de interpolacao quadraticas standard:
 c
-         h(1) = r * (2.d0*r-1)
-         h(2) = s * (2.d0*s-1)
-         h(3) = t * (2.d0*t-1)
-         h(4) = u * (2.d0*u-1)         
+         h(1) = r * (2.d0*r-1.d0)
+         h(2) = s * (2.d0*s-1.d0)
+         h(3) = t * (2.d0*t-1.d0)
+         h(4) = u * (2.d0*u-1.d0)         
          h(5) = 4.d0 * r * s
          h(6) = 4.d0 * r * t
          h(7) = 4.d0 * r * u

@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $                 
-c*$Rev: 967 $                                                           
-c*$Author: ana $                                                   
-c***********************************************************************    
       subroutine pdata(ix,x,u,nnode,numel,ndm,nen,ndf,istep,nplot,code)
 c **********************************************************************
 c *                                                                    *
@@ -502,9 +497,9 @@ c ======================================================================
 c ... Transforma uma malha de hexaedros em tetraedros
 c ======================================================================
       elseif(code .eq. 121) then
-       write(nplot,'(a,i10)') 'tetra4 ', numel*6
-       k = 1
-       do 200 i = 1, nhexa8(1)
+        write(nplot,'(a,i10)') 'tetra4 ', numel*6
+        k = 1
+        do 200 i = 1, nhexa8(1)
          write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(6,i),ix(7,i),ix(9,i)
          k = k + 1
          write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(7,i),ix(3,i),ix(9,i)

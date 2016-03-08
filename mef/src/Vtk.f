@@ -192,7 +192,7 @@ c **********************************************************************
       include 'elementos.fi'
       integer numel,nen,nfile
       integer nnoel
-      integer numet,nb2,nt3,nq4,nt4,nh8,nh20
+      integer numet,nb2,nt3,nq4,nt4,nh8,nt10,nh20
       integer i,j
       integer nos(nen+1,*)
       character buffer*1024,lf*1,str1*15,str2*15
@@ -207,15 +207,17 @@ c ... Calculo do numero de tipo de cada elemento
       nq4  = nquad4(1) 
       nt4  = ntetra4(1)
       nh8  = nhexa8(1)
+      nt10 = ntetra10(1)
       nh20 = nhexa20(1)
-      numet = 3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 21*nh20
+      numet = 3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10 +21*nh20
 c ... elemento em overllaping 
       nt3  = ntria3(3) 
       nq4  = nquad4(3) 
       nt4  = ntetra4(3)
       nh8  = nhexa8(3)
+      nt10 = nhexa20(1)
       nh20 = nhexa20(3)
-      numet = 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 21*nh20 + numet
+      numet = 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10 + 21*nh20 + numet
 c ... total de elemntos e tamnhanho dos dados totais
       if(bvtk)then
         write(str1(1:15),'(i15)')numel
@@ -291,13 +293,30 @@ c ......................................................................
 c ......................................................................
 c
 c ......................................................................
+      if (ntetra10(1) .gt. 0) then
+        nnoel = 10 
+        do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
+          if(bvtk)then
+            write(nfile) nnoel,(nos(j,i)-1,j=1,10)
+          else
+            write(nfile,'(11i10)') nnoel,nos(1 ,i)-1,nos(2,i)-1
+     .                                  ,nos(3 ,i)-1,nos(4,i)-1
+     .                                  ,nos(5 ,i)-1,nos(8,i)-1
+     .                                  ,nos(6 ,i)-1,nos(7,i)-1
+     .                                  ,nos(10,i)-1,nos(9,i)-1
+          endif  
+        enddo 
+      endif
+c ......................................................................
+c
+c ......................................................................
       if (nhexa20(1) .gt. 0) then
         nnoel = 20 
         do i = nhexa20(2), nhexa20(2) + nhexa20(1)-1
           if(bvtk)then
             write(nfile) nnoel,(nos(j,i)-1,j=1,20)
           else
-            write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,20)
+            write(nfile,'(21i10)') nnoel,(nos(j,i)-1,j=1,20)
           endif  
         enddo 
       endif
@@ -417,6 +436,19 @@ c ...
       if (nhexa8(1) .gt. 0) then
         nnoel = 12
         do i = nhexa8(2), nhexa8(2) + nhexa8(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (ntetra10(1) .gt. 0) then
+        nnoel = 24
+        do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
           if(bvtk)then
             write(nfile)nnoel
           else  

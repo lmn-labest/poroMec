@@ -62,6 +62,9 @@ c ... res .vtu
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)  
         StrExtensao='_istep_'//trim(StrExtensao)//'.vtu'
+c ... _tetra.dat
+      else if    (code .eq. 4) then
+        StrExtensao='_tetra.dat'
 c ... log de tempos
       elseif(code .eq. 14) then
         write(StrExtensao,'( I6 )') NumArq
