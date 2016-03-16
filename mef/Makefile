@@ -1,13 +1,11 @@
 #!/bin/sh
-# $URL: svn+ssh://henrique@146.164.26.19/mnt/shared/repositorio/mefpar/branches/geoacustica/mef/Makefile $
-# $Id: Makefile 2 2009-04-03 17:46:50Z helano $
 
 #make
 #------------------Variaveis Globais-----------------------
 PATH_MOD="src/"
 PATH_INCLUDE="include/"    
 PRENAME=poroMec
-DEBUG=no
+DEBUG=no 
 FC=gfortran
 OPENMP=yes
 OT=O2
@@ -60,7 +58,7 @@ src/Rdata.f
 
 mod_mef=src/Malloc.f
 #-------------------Flags necessarios--------------------------------
-NFLAGS=-I$(PATH_INCLUDE)    
+NFLAGS=-I$(PATH_INCLUDE) -fno-range-check
 LDFLAGS=
 #--------------------compiladores------------------------------------
 # intel ifort

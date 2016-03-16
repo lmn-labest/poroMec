@@ -459,7 +459,7 @@ c
       if (ndf .gt. 0) then
          call datastruct(ia(i_ix),ia(i_id),ia(i_inum),nnode,nnodev
      .                  ,numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym
-     ,                  ,nad,naduu,nadpp,nadpu
+     .                  ,nad,naduu,nadpp,nadpu
      .                  ,i_ia,i_ja,i_au,i_al,i_ad 
      .                  ,'ia      ','ja      '
      .                  ,'au      ','al      ' ,'ad      '

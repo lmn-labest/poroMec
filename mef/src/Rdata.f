@@ -69,11 +69,12 @@ c ......................................................................
       include 'termprop.fi'
 c ......................................................................      
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst
+      integer maxgrade
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
       integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
       integer*8 i_ix,i_id,i_ie
-      integer*8 i_nelcon,i_nodcon
+      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid
 c ......................................................................      
       integer nin
       integer j,nmc,totnel,nmacros
@@ -204,24 +205,25 @@ c ... transforma os elementos lineares em quadraticos (10 nos)
       if( nen .eq. 10) then
         nst       = nen*(ndf-1) + nenv  
         elQuad    = .true.
-        i_nelcon  = alloc_4('nelcon  ',  4,numel)
-        i_nodcon  = alloc_4('nodcon  ',  1,nnode)
-c ... obetem os vizinhos por face
-        call adjtetra4(numel        ,nnodev      ,nen  
-     .                ,ia(i_nodcon) ,ia(i_nelcon),ia(i_ix))
 c .....................................................................
 c
+c ...  Multicore finite element assembling:
+        i_nincid = alloc_4('nincid  ',1,nnodev) 
+c ... Compute the maxgrade of the mesh and element incidences:
+        call nodegrade(ia(i_ix),nnodev,numel,nenv,nen,ia(i_nincid)
+     .                ,maxgrade) 
+        i_incid  = alloc_4('incid   ',maxgrade,nnode)
+        call elmincid(ia(i_ix),ia(i_incid),ia(i_nincid),nnodev,numel
+     .               ,nenv    ,nen        ,maxgrade)
 c ... gera a conectividade dos elementos quadraticos
-        call mk_elConn_tetra_quad(ia(i_ix),ia(i_nelcon)
-     .                           ,numel   
-     .                           ,nnode   ,nnodev
-     .                           ,nen     ,nenv  
-     .                           ,4)
+        call mk_elconn_tetra_quad_v1(ia(i_ix),ia(i_incid),ia(i_nincid)
+     .                            ,numel     ,nnode      ,nnodev
+     .                            ,nen       ,nenv       ,maxgrade)
 c .....................................................................
 c
 c ...
-        i_nodcon    = dealloc('nodcon  ')
-        i_nelcon    = dealloc('nelcon  ')
+        i_incid     = dealloc('incid   ')
+        i_nincid    = dealloc('nincid  ')
 c .....................................................................
 c
 c ...                                                                   
