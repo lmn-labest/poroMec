@@ -397,7 +397,8 @@ c ......................................................................
       print*, k,e(1,k),e(2,k),e(3,k)
       stop
       end
-      subroutine adjtetra4(numel,nnode,nen,nodcon,neighbors,ix)
+c **********************************************************************
+      subroutine adjtetra4(ix,nodcon,neighbors,nnode,numel,nen)
 c **********************************************************************
 c *                                                                    *
 c *   TETRA4NEIGHBORS                                     07/08/2014   *
@@ -552,16 +553,6 @@ c ... loop nos elementos
             nno = nno + 1
           endif             
  110    continue
-c ... loop nas faces
-c        do j = 1, nMaxViz
-c          do k = 1, noFace
-c            noF1 = hexa20(4+k,j)
-c            if( ix(noF1,i) .eq. 0 )  then
-c              ix(noF1,i) = nno
-c              nno = nno + 1
-c            endif         
-c          enddo
-c        enddo
 c ... vizinhos
         do 120 j = 1, nMaxViz
           numFace = 0
@@ -591,6 +582,118 @@ c ...
 c     do i = 1, numel
 c       print*,i,ix(1:nen+1,i)
 c     enddo
+c ..................................................................... 
+      return
+      end
+c **********************************************************************
+      subroutine mk_elconn_tetra_quad_v2(ix    ,nelcon ,numel
+     .                             ,nnode ,nnodev ,nen
+     .                             ,nenv  ,nMaxViz)
+c **********************************************************************
+c *                                                                    *
+c *   MK_ELCON_TETRA_QUAD - gera a connectividade dos elementos        *
+c *   -----------------   quadraticos a partir dos verticeis dos       *
+c *                       elementos lineares                           *
+c *                                                                    *
+c *   Parametros de entrada                                            *
+c *   ---------------------                                            *
+c *                                                                    *
+c *   ix(*,numel) - conetividades nodais dos elementos(Vertices apenas)*
+c *   nelcon(j,i) - elementos vizinhos ao elemento ao i                *
+c *   numel       - numero de elementos                                *
+c *   nnodev      - numero de nos dos vertices                         *
+c *   nnode       - numero total de nos                                *
+c *   nen         - numero maximo de nos por elemento                  *
+c *   nenv        - numero maximo de vertices por elemento             *
+c *   maxViz      - numero maximo de vizinhos                          *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   --------------------                                             *
+c *   ix(*,numel) - conetividades nodais dos elementos atualizadas     *
+c **********************************************************************
+      implicit none
+      integer i,j,k,l,ll,m,mm,nElViz,num_face
+      integer nenv,nen,nMaxViz,numel,nnodev,nnode
+      integer no_viz,nno,noFace,no1,no2,no3,no1v,no2v,no3v
+      integer ix(nen+1,*),nelcon(nMaxViz,*)
+      integer node1(3)
+      integer iEdge(3,6),nedge,eface(3,4)
+      integer tetra4face
+c ... tetraedro
+      nedge =  6
+      call tetra10edgeNod(iEdge)
+      noFace = 3
+      call tetra4_edge_face(eface)
+c ... tetraedro
+c .....................................................................
+      nno = nnodev
+c ... loop nos elementos
+      do 100 i = 1, numel
+        do 110 j = nenv, nen
+          if( ix(j,i) .eq. 0 )  then
+            nno = nno + 1
+            ix(j,i) = nno
+          endif             
+ 110    continue
+c ... vizinhos
+        do 120 j = 1, nMaxViz
+          num_face = 0
+          call tetra4fnod(i,j,ix,node1,nen)
+c ... elemento vizinho a face
+          nElViz  = nelcon(j,i)
+          if(nElViz .gt. 0) then
+            num_face = tetra4face(nElViz,ix,node1,nen)
+c ... loop nas arestas
+            do 150 m = 1, 3
+              mm      = eface(m,j)
+c ... no vertices
+              no1     = ix(iEdge(1,mm),i)
+              no2     = ix(iEdge(2,mm),i)
+c ... no central
+              no3     = ix(iEdge(3,mm),i)
+c ... loop nas arestas
+              do 140 l = 1, 3    
+                ll       = eface(l,num_face)
+c ...
+                no1v     = ix(iEdge(1,ll),nElViz)
+                no2v     = ix(iEdge(2,ll),nElViz)
+c ...
+                if((no1 .eq. no1v) .and. (no2 .eq. no2v) .or.
+     .             (no1 .eq. no2v) .and. (no2 .eq. no1v) ) then
+c ... no central
+                  no3v     = ix(iEdge(3,ll),nElViz)
+                  if( no3v .eq. 0 ) then
+c ...
+                    ix(iEdge(3,ll),nElViz) = no3
+                  endif
+c .....................................................................
+                endif
+c .....................................................................
+ 140          continue
+c .....................................................................
+ 150          continue
+c .....................................................................
+          endif
+c .....................................................................
+  120   continue
+c .....................................................................
+  100 continue
+c .....................................................................
+c
+c ...
+      nnode = nno
+c .....................................................................
+c
+c ...
+c     do i = 1, numel
+c       print*,i,ix(1:nen+1,i)
+c     enddo
+c     ix( 5,2) = 9
+c     ix( 6,2) =11
+c     ix( 7,2) =15
+c     ix( 8,2) =14
+c     ix( 9,2) =16
+c     ix(10,2) =17
 c ..................................................................... 
       return
       end
@@ -829,12 +932,12 @@ c **********************************************************************
       logical rev
       data tetra10 / 8, 9, 10  
      .            ,  6, 7, 9   
-     .            ,  5,10, 7   
+     .            ,  7, 5,10   
      .            ,  5, 6, 8/  
-      data tetra10Rev / 10, 9, 8   
-     .                ,  6, 7, 9   
+      data tetra10Rev /  8,10, 9   
+     .                ,  6, 9, 7   
      .                ,  7,10, 5   
-     .                ,  8, 6, 5/  
+     .                ,  5, 8, 6/  
       if(rev) then
         tetra(1:12) = tetra10Rev(1:12) 
       else 
@@ -897,7 +1000,20 @@ c .....................................................................
 c *********************************************************************
 c
 c *********************************************************************                
-c * HEXA20EDGENOD : numera de nos por aresta do hexaedro de 20 nos    *
+c * HEXA20EDGENOD : numeracao de nos por aresta do hexaedro de 20 nos *
+c * ----------------------------------------------------------------- *
+c * aresta 1: no(1,2, 9)                                              * 
+c * aresta 2: no(2,3,10)                                              * 
+c * aresta 3: no(3,4,11)                                              * 
+c * aresta 4: no(4,1,12)                                              * 
+c * aresta 5: no(5,6,13)                                              * 
+c * aresta 6: no(6,7,14)                                              * 
+c * aresta 7: no(7,8,15)                                              * 
+c * aresta 8: no(8,5,16)                                              * 
+c * aresta 9: no(1,5,17)                                              * 
+c * aresta10: no(2,6,18)                                              * 
+c * aresta11: no(3,7,19)                                              * 
+c * aresta12: no(4,8,20)                                              * 
 c *********************************************************************                
       subroutine Hexa20edgeNod(iEdge)  
       integer iEdge(36),edge(36)
@@ -921,7 +1037,14 @@ c .....................................................................
 c *********************************************************************                
 c
 c *********************************************************************       
-c * TETRA10EDGENOD : numera de nos por aresta do tetraedro de 10 nos  *
+c * TETRA10EDGENOD:numeracao de nos por aresta do tetraedro de 10 nos *
+c * ----------------------------------------------------------------- *
+c * aresta 1: no(1,2, 5)                                              * 
+c * aresta 2: no(1,3, 6)                                              * 
+c * aresta 3: no(1,4, 7)                                             * 
+c * aresta 4: no(2,3, 8)                                              * 
+c * aresta 5: no(3,4, 9)                                              * 
+c * aresta 6: no(4,2,10)                                              * 
 c *********************************************************************                
       subroutine tetra10edgeNod(iEdge)  
       integer iEdge(18),edge(18)
@@ -933,6 +1056,32 @@ c *********************************************************************
      .          , 4, 2,10/
 c ...
       iEdge(1:18) = edge(1:18) 
+c .....................................................................
+      return
+      end
+c *********************************************************************                
+c
+c *********************************************************************       
+c * TETRA4_EDGE_FACE : aresta por faces do tetraedro                  *
+c * ----------------------------------------------------------------- *
+c * face1 :                                                           *
+c * no(2,3,4) aresta(4,5,6)                                           *
+c * face2 :                                                           *
+c * no(1,4,3) aresta(3,5,2)                                           *
+c * face3 :                                                           *
+c * no(1,2,4) aresta(1,6,3)                                           *
+c * face4 :                                                           *
+c * no(1,3,2) aresta(2,4,1)                                           *
+c *                                                                   *
+c *********************************************************************                
+      subroutine tetra4_edge_face(ieface)  
+      integer ieface(12),eface(12)
+      data eface/  4, 5, 6
+     .           , 3, 5, 2
+     .           , 1, 6, 3
+     .           , 2, 4, 1/
+c ...
+      ieface(1:12) = eface(1:12) 
 c .....................................................................
       return
       end

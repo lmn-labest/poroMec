@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2013-04-19 11:09:37 -0300 (Fri, 19 Apr 2013) $                 
-c*$Rev: 967 $                                                           
-c*$Author: ana $                                                   
-c***********************************************************************
       subroutine elmlib_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,iel,isw,ma,
      .                    nlit,ilib,block_pu)
 c **********************************************************************
@@ -77,8 +72,10 @@ c     endif
       return
 c ......................................................................
   600 continue
-c      if (ilib .eq. 1) then
-c      endif    
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (poromec)
+        call elmt6_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,isw,block_pu)
+      endif
       return
 c ......................................................................
   700 continue
@@ -405,7 +402,7 @@ c ......................................................................
       t = 1.d0 - r - s
       if (afl) then
 c
-c ...... Funcoes de interpolacao quadraticas standard:
+c ...... Funcoes de interpolacao lineares standard:
 c
          h(1) = r
          h(2) = s
@@ -462,9 +459,9 @@ c ......................................................................
 c
 c ...... Funcoes de interpolacao quadraticas standard:
 c
-         h(1) = r * (2.d0*r-1)
-         h(2) = s * (2.d0*s-1)
-         h(3) = t * (2.d0*t-1)
+         h(1) = r * (2.d0*r-1.d0)
+         h(2) = s * (2.d0*s-1.d0)
+         h(3) = t * (2.d0*t-1.d0)
          h(4) = 4.d0 * r * s
          h(5) = 4.d0 * s * t
          h(6) = 4.d0 * t * r
@@ -492,6 +489,77 @@ c
 c ......................................................................      
       return
       end
+      subroutine sftetra4(h,hr,hs,ht,r,s,t,afl,bfl)
+c **********************************************************************
+c *                                                                    *
+c *                                                    16/03/2016      *
+c *   SFTETRA10:                                                       *
+c *   ---------                                                        *
+c *                                                                    *
+c *   Calcula as funcoes de interpolacao e suas derivadas              *
+c *   no ponto (r,s,t) do tetraedro de  4 nos.                         *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *   r,s,t - coordenadas naturais                                     *
+c *   afl = true ( calcula funcoes )                                   *
+c *   bfl = true ( calcula as derivadas )                              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *   h(40)    - funcoes de interolocao no ponto (r,s)                 *
+c *   hr( 4)   - derivadas de h em relacao a r                         *
+c *   hs( 4)   - derivadas de h em relacao a s                         *
+c *   ht( 4)   - derivadas de h em relacao a t                         *
+c *                                                                    *
+c * no  (   r,   s,   t,  u)                                           *
+c * no1 (   1,   0,   0,  0)                                           * 
+c * no2 (   0,   1,   0,  0)                                           * 
+c * no3 (   0,   0,   1,  0)                                           * 
+c * no4 (   0,   0,   0,  1)                                           * 
+c **********************************************************************
+      implicit none
+      real*8  h(*),hr(*),hs(*),ht(*),r,s,t,u
+      logical afl,bfl
+c ......................................................................
+      u = 1.d0 - r - s - t
+      if (afl) then
+c
+c ...... Funcoes de interpolacao lineares standard:
+c
+         h(1) = r
+         h(2) = s
+         h(3) = t
+         h(4) = u         
+      endif
+      if (bfl) then
+c
+c ...... Derivadas em relacao a r :
+c
+         hr(1) =   1.d0
+         hr(2) =   0.d0
+         hr(3) =   0.d0
+         hr(4) =  -1.d0
+c
+c ...... Derivadas em relacao a s :
+c
+         hs(1) =  0.d0
+         hs(2) =  1.d0           
+         hs(3) =  0.d0
+         hs(4) = -1.d0               
+c
+c ...... Derivadas em relacao a t :
+c
+         ht(1) =  0.d0
+         ht(2) =  0.d0
+         ht(3) =  1.d0               
+         ht(4) = -1.d0             
+      endif
+c ......................................................................      
+      return
+      end      
       subroutine sftetra10(h,hr,hs,ht,r,s,t,afl,bfl)
 c **********************************************************************
 c *                                                                    *
