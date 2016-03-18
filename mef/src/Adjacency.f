@@ -770,12 +770,12 @@ c ----------------------------------------------------------------------
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine mk_elconn_tetra_quad_v1(ix    ,incid  ,nincid
+      subroutine mk_elconn_quad_v1(ix    ,incid  ,nincid
      .                                  ,numel ,nnode  ,nnodev 
      .                                  ,nen   ,nenv   ,maxgrade)
 c **********************************************************************
 c *                                                                    *
-c *   MK_ELCON_TETRA_QUAD - gera a connectividade dos elementos        *
+c *   MK_ELCON_QUAD       - gera a connectividade dos elementos        *
 c *   -----------------   quadraticos a partir dos verticeis dos       *
 c *                       elementos lineares                           *
 c *                                                                    *
@@ -797,14 +797,26 @@ c *   --------------------                                             *
 c *   ix(*,numel) - conetividades nodais dos elementos atualizadas     *
 c **********************************************************************
       implicit none
+      integer max_edge
+      parameter (max_edge = 12) 
       integer i,j,k,l,nElViz,numFace
       integer nenv,nen,maxgrade,numel,nnodev,nnode,nno,nel
       integer no1,no2,no3,no1v,no2v,no3v
       integer ix(nen+1,*),incid(maxgrade,*),nincid(*)
-      integer iEdge(3,6),nedge
-c ... tetraedro
-      nedge =  6
-      call tetra10edgeNod(iEdge)
+      integer iEdge(3,max_edge),nedge
+c ...
+      nedge = 0  
+c ... tetraedros de 10 nos 
+      if( nen .eq. 10 ) then
+        nedge =  6
+        call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+      else if( nen .eq. 20 ) then
+        nedge = 12
+        call hexa20edgeNod(iEdge) 
+      endif
+c .....................................................................
+c
 c ... 
       nno = nnodev
 c ... loop nos elementos

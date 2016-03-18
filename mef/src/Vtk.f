@@ -215,7 +215,7 @@ c ... elemento em overllaping
       nq4  = nquad4(3) 
       nt4  = ntetra4(3)
       nh8  = nhexa8(3)
-      nt10 = nhexa20(1)
+      nt10 = ntetra10(3)
       nh20 = nhexa20(3)
       numet = 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10 + 21*nh20 + numet
 c ... total de elemntos e tamnhanho dos dados totais
@@ -316,7 +316,12 @@ c ......................................................................
           if(bvtk)then
             write(nfile) nnoel,(nos(j,i)-1,j=1,20)
           else
-            write(nfile,'(21i10)') nnoel,(nos(j,i)-1,j=1,20)
+            write(nfile,'(21i10)') nnoel
+     .                  ,nos( 5,i)-1,nos( 6,i)-1,nos( 7,i)-1,nos( 8,i)-1
+     .                  ,nos( 1,i)-1,nos( 2,i)-1,nos( 3,i)-1,nos( 4,i)-1
+     .                  ,nos(13,i)-1,nos(14,i)-1,nos(15,i)-1,nos(16,i)-1
+     .                  ,nos( 9,i)-1,nos(10,i)-1,nos(11,i)-1,nos(12,i)-1
+     .                  ,nos(17,i)-1,nos(18,i)-1,nos(19,i)-1,nos(20,i)-1
           endif  
         enddo 
       endif
