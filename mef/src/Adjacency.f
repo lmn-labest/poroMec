@@ -586,9 +586,9 @@ c .....................................................................
       return
       end
 c **********************************************************************
-      subroutine mk_elconn_tetra_quad_v2(ix    ,nelcon ,numel
-     .                             ,nnode ,nnodev ,nen
-     .                             ,nenv  ,nMaxViz)
+      subroutine mk_elconn_quad_v2(ix    ,nelcon ,numel
+     .                            ,nnode ,nnodev ,nen
+     .                            ,nenv  ,nMaxViz)
 c **********************************************************************
 c *                                                                    *
 c *   MK_ELCON_TETRA_QUAD - gera a connectividade dos elementos        *
@@ -612,19 +612,30 @@ c *   --------------------                                             *
 c *   ix(*,numel) - conetividades nodais dos elementos atualizadas     *
 c **********************************************************************
       implicit none
+      integer max_edge,max_face
+      parameter (max_edge = 12,max_face = 6) 
       integer i,j,k,l,ll,m,mm,nElViz,num_face
       integer nenv,nen,nMaxViz,numel,nnodev,nnode
-      integer no_viz,nno,noFace,no1,no2,no3,no1v,no2v,no3v
+      integer no_viz,nno,n_aresta,no1,no2,no3,no1v,no2v,no3v
       integer ix(nen+1,*),nelcon(nMaxViz,*)
-      integer node1(3)
-      integer iEdge(3,6),nedge,eface(3,4)
-      integer tetra4face
-c ... tetraedro
-      nedge =  6
-      call tetra10edgeNod(iEdge)
-      noFace = 3
-      call tetra4_edge_face(eface)
-c ... tetraedro
+      integer node1(4)
+      integer iEdge(3,max_edge),nedge,eface(4,max_face)
+      integer tetra4face,hexa8face
+c ...
+      nedge = 0  
+c ... tetraedros de 10 nos 
+      if( nen .eq. 10 ) then
+        nedge =  6
+        call tetra10edgeNod(iEdge)
+        n_aresta = 3
+        call tetra4_edge_face(eface,4)
+c ... hexaedros de 20 nos 
+      else if( nen .eq. 20 ) then
+        nedge    = 12
+        call hexa20edgeNod(iEdge) 
+        n_aresta = 4
+        call hexa8_edge_face(eface,4)
+      endif
 c .....................................................................
       nno = nnodev
 c ... loop nos elementos
@@ -638,13 +649,21 @@ c ... loop nos elementos
 c ... vizinhos
         do 120 j = 1, nMaxViz
           num_face = 0
-          call tetra4fnod(i,j,ix,node1,nen)
+          if( nen .eq. 10 ) then
+            call tetra4fnod(i,j,ix,node1,nen)
+          else if( nen .eq. 20) then
+            call hexa8fnod(i,j,ix,node1,nen)
+          endif
 c ... elemento vizinho a face
           nElViz  = nelcon(j,i)
           if(nElViz .gt. 0) then
-            num_face = tetra4face(nElViz,ix,node1,nen)
+            if( nen .eq. 10 ) then
+              num_face = tetra4face(nElViz,ix,node1,nen)
+            else if( nen .eq. 20) then
+              num_face = hexa8face(nElViz,ix,node1,nen)
+            endif
 c ... loop nas arestas
-            do 150 m = 1, 3
+            do 150 m = 1, n_aresta
               mm      = eface(m,j)
 c ... no vertices
               no1     = ix(iEdge(1,mm),i)
@@ -652,7 +671,7 @@ c ... no vertices
 c ... no central
               no3     = ix(iEdge(3,mm),i)
 c ... loop nas arestas
-              do 140 l = 1, 3    
+              do 140 l = 1, n_aresta    
                 ll       = eface(l,num_face)
 c ...
                 no1v     = ix(iEdge(1,ll),nElViz)
@@ -1053,7 +1072,7 @@ c * TETRA10EDGENOD:numeracao de nos por aresta do tetraedro de 10 nos *
 c * ----------------------------------------------------------------- *
 c * aresta 1: no(1,2, 5)                                              * 
 c * aresta 2: no(1,3, 6)                                              * 
-c * aresta 3: no(1,4, 7)                                             * 
+c * aresta 3: no(1,4, 7)                                              * 
 c * aresta 4: no(2,3, 8)                                              * 
 c * aresta 5: no(3,4, 9)                                              * 
 c * aresta 6: no(4,2,10)                                              * 
@@ -1084,16 +1103,92 @@ c * face3 :                                                           *
 c * no(1,2,4) aresta(1,6,3)                                           *
 c * face4 :                                                           *
 c * no(1,3,2) aresta(2,4,1)                                           *
-c *                                                                   *
 c *********************************************************************                
-      subroutine tetra4_edge_face(ieface)  
-      integer ieface(12),eface(12)
+      subroutine tetra4_edge_face(ieface,n)  
+      integer ieface(n,*),eface(12)
       data eface/  4, 5, 6
      .           , 3, 5, 2
      .           , 1, 6, 3
      .           , 2, 4, 1/
-c ...
-      ieface(1:12) = eface(1:12) 
+c ... face 1
+      ieface(1,1) = eface(1) 
+      ieface(2,1) = eface(2) 
+      ieface(3,1) = eface(3) 
+      ieface(4,1) = 0 
+c ... face 2
+      ieface(1,2) = eface(4) 
+      ieface(2,2) = eface(5) 
+      ieface(3,2) = eface(6) 
+      ieface(4,2) = 0 
+c ... face 3
+      ieface(1,3) = eface(7) 
+      ieface(2,3) = eface(8) 
+      ieface(3,3) = eface(9) 
+      ieface(4,3) = 0      
+c ... face 4
+      ieface(1,4) = eface(10) 
+      ieface(2,4) = eface(11) 
+      ieface(3,4) = eface(12) 
+      ieface(4,4) = 0      
+c .....................................................................
+      return
+      end
+c *********************************************************************                
+c
+c *********************************************************************       
+c * HEXA8_EDGE_FACE : aresta por faces do hexaedro                    *
+c * ----------------------------------------------------------------- *
+c * face1 :                                                           *
+c * no(1,2,3,4) aresta( 1, 2, 3, 4)                                   *
+c * face2 :                                                           *
+c * no(5,6,7,8) aresta( 5, 6, 7, 8)                                   *
+c * face3 :                                                           *
+c * no(1,5,6,2) aresta( 9, 5,10, 1)                                   *
+c * face4 :                                                           *
+c * no(4,3,7,8) aresta( 3,11, 7,12)                                   *
+c * face5 :                                                           *
+c * no(1,4,8,5) aresta( 4,12, 8, 9)                                   *
+c * face6 :                                                           *
+c * no(2,6,7,3) aresta(10, 6,11, 2)                                   *
+c *********************************************************************                
+      subroutine hexa8_edge_face(ieface,n)  
+      integer ieface(n,*),eface(24)
+      data eface/  1, 2, 3, 4
+     .           , 5, 6, 7, 8
+     .           , 9, 5,10, 1
+     .           , 3,11, 7,12
+     .           , 4,12, 8, 9
+     .           ,10, 6,11, 2/
+c ... face 1
+      ieface(1,1) = eface(1) 
+      ieface(2,1) = eface(2) 
+      ieface(3,1) = eface(3) 
+      ieface(4,1) = eface(4)
+c ... face 2
+      ieface(1,2) = eface(5) 
+      ieface(2,2) = eface(6) 
+      ieface(3,2) = eface(7) 
+      ieface(4,2) = eface(8)
+c ... face 3
+      ieface(1,3) = eface(9) 
+      ieface(2,3) = eface(10) 
+      ieface(3,3) = eface(11) 
+      ieface(4,3) = eface(12)      
+c ... face 4
+      ieface(1,4) = eface(13) 
+      ieface(2,4) = eface(14) 
+      ieface(3,4) = eface(15) 
+      ieface(4,4) = eface(16)
+c ... face 5
+      ieface(1,5) = eface(17) 
+      ieface(2,5) = eface(18) 
+      ieface(3,5) = eface(19) 
+      ieface(4,5) = eface(20)
+c ... face 4
+      ieface(1,6) = eface(21) 
+      ieface(2,6) = eface(22) 
+      ieface(3,6) = eface(23) 
+      ieface(4,6) = eface(24)
 c .....................................................................
       return
       end

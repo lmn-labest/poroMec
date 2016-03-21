@@ -5,7 +5,7 @@
 PATH_MOD="src/"
 PATH_INCLUDE="include/"    
 PRENAME=poroMec
-DEBUG=no 
+DEBUG=no
 FC=gfortran
 OPENMP=yes
 OT=O2

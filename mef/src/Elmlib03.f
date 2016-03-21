@@ -1238,7 +1238,7 @@ c
 c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
 c             2 | no 5 6 7 8 13 14 15 16 |
-c             3 | no 1 2 6 5  9 18 13 17 |     
+c             3 | no 1 5 6 2 17 13 18  9 |     
 c             4 | no 4 3 7 8 11 19 15 20 |
 c             5 | no 1 4 8 5 12 20 16 17 |
 c             6 | no 2 6 7 3 18 14 19 10 |
