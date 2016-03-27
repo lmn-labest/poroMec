@@ -39,14 +39,15 @@ c     compilado com flag do opnemp
 c .....................................................................
 c
 c ... openmp in compile time and run time
-      if((my_id.eq.0) .and. (omp_elmt .or. omp_solv))then
+      if(my_id.eq.0 .and. max_num_threads_available .ne. 0)then
         print*,"**************    PORO_MEC     ***********************"
         print*,"**************     OPENMP      ***********************"
-        if(omp_elmt) print*,"number threads in elmt: ",nth_elmt
-        if(omp_solv) print*,"number threads in solv: ",nth_solv
+        print*,"number of threads available: ",max_num_threads_available
+        if(omp_elmt) print*,"number of threads in elmt  : ",nth_elmt
+        if(omp_solv) print*,"number of threads in solv  : ",nth_solv
         print*,"******************************************************"
 c ...  openmp disable in complile time     
-      elseif(my_id.eq.0 )then
+      elseif(my_id.eq.0)then
         print*,"**************    PORO_MEC     ***********************"
         print*,"**************     OPENMP      ***********************"
         print*,"Openmp disable in compile time.                      "

@@ -340,7 +340,7 @@ c ......................................................................
 c
 c ...
          jj = jj + 1
-         if( jj .eq. 500) then
+         if( jj .eq. 10) then
            jj = 0
            write(*,2300),l,nit,dabs(e(ni+1)),econv
          endif

@@ -228,7 +228,7 @@ c ... ponteiros
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
       integer neq,nequ,k,maxit,ia(*),ja(*)
-      integer neqovlp,nit,i,j,l,ni,ic,nad,nad1
+      integer neqovlp,nit,i,j,jj,l,ni,ic,nad,nad1
       real*8  ad(neq),au(*),al(*),m(*),b(*),x(*)
       real*8  g(neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
       real*8  energy,econv,norm,dot,ddot,r,aux1,aux2,beta
@@ -265,6 +265,7 @@ c
 c ... Ciclos GMRES:
 c
       nit = 0
+      jj  = 0
       do 1000 l = 1, maxit
 c
 c ...... Residuo g(1) = b - A x:
@@ -399,6 +400,15 @@ c$omp parallel do num_threads(nth_solv)
   600       continue
   610    continue
 c$omp end parallel do
+c ......................................................................
+c
+c ...
+         jj = jj + 1
+         if( jj .eq. 10) then
+           jj = 0
+           write(*,2300),l,nit,dabs(e(ni+1)),econv
+         endif
+c ......................................................................
 c
 c ...... Verifica a convergencia:
 c
@@ -425,8 +435,8 @@ c ......................................................................
 c ......................................................................
       if (dabs(e(ni+1)) .gt. econv) then
          if(my_id .eq. 0) then
-           write(*,2100) maxit
-           if(flog) write(10,2100) maxit
+            write(*,2100) maxit,k,nit
+           if(flog) write(10,2100) maxit,k,nit
          endif 
          call stop_mef()
       endif
@@ -452,6 +462,7 @@ c ----------------------------------------------------------------------
      . 5x,'CPU time (s)         = ',f20.2/)
  2100 format(' *** WARNING: no convergence reached for '
      .      ,i9,' cycles !',5x,i7,' nKylov',5x,' It ',i7/)
+ 2300 format (' GMRES_OMP:',5x,'cycles',i7,5x,'It',i7,5x,2d20.10)
       end
 c **********************************************************************
       subroutine pbicgstab_omp(neq   ,nequ   ,nad    ,ia,ja
