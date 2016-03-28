@@ -3,8 +3,7 @@
      .               ,ndf   ,ndm    ,nst    ,i_ix 
      .               ,i_ie  ,i_inum ,i_e    ,i_x 
      .               ,i_id  ,i_nload,i_eload,i_f
-     .               ,i_u   ,i_u0   ,i_tx0  ,i_pres0
-     .               ,i_dp
+     .               ,i_u   ,i_u0   ,i_tx0  ,i_dp
      .               ,nin     )
 c **********************************************************************
 c *                                                                    *
@@ -37,7 +36,6 @@ c *    i_f     - ponteiro para o arranjo f (poro_mecanico)             *
 c *    i_u     - ponteiro para o arranjo u (poro_mecanico)             *
 c *    i_u0    - ponteiro para o arranjo u0(poro_mecanico)             *
 c *    i_tx0   - ponteiro para o arranjo tx(poro_mecanico)             *
-c *    i_pres0 - ponteiro para o arranjo pres(poro_mecanico)           *
 c *    i_dp      ponteiro para o arranjo deltaP(poro_mecanico)         *
 c *                                                                    *
 c *                                                                    *
@@ -120,7 +118,6 @@ c
       call mzero(ia(i_ie),numat) 
       call azero(ia(i_e),numat*10)
       call azero(ia(i_x),nnodev*ndm)
-      call azero(ia(i_pres0),nnodev)
       call azero(ia(i_dp)   ,nnodev)
       call mzero(ia(i_eload),numel*7) 
 c ......................................................................
@@ -576,7 +573,7 @@ c ... Inicializa as condicoes de contorno no vetor u:
 c
       if(ndf .gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
       call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
-      call get_pres(ia(i_u),ia(i_pres0),nnodev,ndf)
+c     call get_pres(ia(i_u),ia(i_pres0),nnodev,ndf)
       return
 c ......................................................................      
       end

@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2013-06-21 12:34:21 -0300 (Fri, 21 Jun 2013) $                 
-c*$Rev: 969 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************          
       subroutine pload_pm(id,f,u,b,nload,nnode,nnodev,ndf)
 c **********************************************************************
 c *                                                                    *
@@ -333,27 +328,31 @@ c
 c **********************************************************************
       subroutine update_res(nnode,nnodev,ndf,u,u0,dp,pres0)
 c **********************************************************************
-c *                                                                    *
-c *   Subroutine updateres: atualiza os resultados                     *
-c *   --------------------                                             *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    nnode         - numero de nos acessados na particao             *
-c *    nnodev        - numero de nos de vertices acessados na particao *
-c *    ndf           - numero de graus de liberdade por no             *
-c *    u0(ndf,nnode) - pressoes e deslocamentos em t                   *
-c *     u(ndf,nnode) - delta de pressoes e deslocamentos em t+dt       * 
-c *    dp(nnodev)    - nao definido                                    * 
-c *    pres0(nnodev) - pressao inicial                                 * 
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    u(ndf,nnode)   - pressoes e deslocamentos atualizados para o    * 
-c *                     tempo t+dt                                     *
-c *    u0(ndf,nnode)  - pressoes e deslocamentos atualizados para o    * 
-c *                     tempo t+dt                                     *
-c *    dp(nnodev)     - delta de pressao total                         * 
-c *                                                                    *
+c * Data de criacao    : 28/03/2016                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ * 
+c * UPDATE_RES : atualiza os resultados                                *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * nnode         - numero de nos acessados na particao                *
+c * nnodev        - numero de nos de vertices acessados na particao    *
+c * ndf           - numero de graus de liberdade por no                *
+c * u0(ndf,nnode) - pressoes e deslocamentos em t                      *
+c * u(ndf,nnode) - delta de pressoes e deslocamentos em t+dt           * 
+c * dp(nnodev)    - nao definido                                       *
+c * pres0(nnodev) - pressao inicial                                    *      
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * u(ndf,nnode)   - pressoes e deslocamentos atualizados para o       * 
+c *                  tempo t+dt                                        *
+c * u0(ndf,nnode)  - pressoes e deslocamentos atualizados para o       * 
+c *                  tempo t+dt                                        *
+c * dp(nnodev)     - delta de pressao total                            * 
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       integer nnode,nnodev,ndf
@@ -379,3 +378,54 @@ c .......................................................................
       end
 c **********************************************************************
 c
+c **********************************************************************
+      subroutine update_res_v2(nnode,nnodev,ndf,u,u0,dp)
+c **********************************************************************
+c * Data de criacao    : 28/03/2016                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ *     
+c * UPDATE_RES_V2 : atualiza os resultados                             *
+c * ------------------------------------------------------------------ *  
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *  
+c * nnode         - numero de nos acessados na particao                *
+c * nnodev        - numero de nos de vertices acessados na particao    *
+c * ndf           - numero de graus de liberdade por no                *
+c * u0(ndf,nnode) - pressoes e deslocamentos em t                      *
+c * u(ndf,nnode) - delta de pressoes e deslocamentos em t+dt           * 
+c * dp(nnodev)    - nao definido                                       *
+c * ------------------------------------------------------------------ *        
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *          
+c * u(ndf,nnode)   - pressoes e deslocamentos atualizados para o       * 
+c *                  tempo t+dt                                        *
+c * u0(ndf,nnode)  - pressoes e deslocamentos atualizados para o       * 
+c *                  tempo t+dt                                        *
+c * dp(nnodev)     - delta de pressao total                            * 
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      integer nnode,nnodev,ndf
+      integer i,j
+      real*8  u(ndf,*),u0(ndf,*),dp(*)
+c ......................................................................
+      do 110 i = 1, nnode 
+        do 100 j = 1, ndf-1 
+           u(j,i)  = u0(j,i) + u(j,i)
+           u0(j,i) = u(j,i)
+  100   continue
+  110 continue
+c .......................................................................
+c
+c ...
+      do 120 i = 1, nnodev
+         dp(i)     = dp(i) + u(ndf,i) 
+         u(ndf,i)  = u0(ndf,i) + u(ndf,i)
+         u0(ndf,i) = u(ndf,i)
+  120 continue
+c .......................................................................
+      return
+      end
+c **********************************************************************

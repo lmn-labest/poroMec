@@ -100,7 +100,7 @@ c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl
 c ... forcas e graus de liberdade 
       integer*8 i_f
-      integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
+      integer*8 i_u,i_u0,i_tx0,i_dp
       integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0,i_x0
@@ -349,8 +349,7 @@ c
      .         ,ndf   ,ndm    ,nst    ,i_ix  
      .         ,i_ie  ,i_inum ,i_e    ,i_x
      .         ,i_id  ,i_nload,i_eload,i_f  
-     .         ,i_u   ,i_u0   ,i_tx0  ,i_pres0
-     .         ,i_dp 
+     .         ,i_u   ,i_u0   ,i_tx0  ,i_dp 
      .         ,nin ) 
 c
 c    -----------------------------------------------------------------
@@ -623,11 +622,14 @@ c ...
   420 continue 
 c ... calculo da solucao no tempo t + dt e atualizacao dos valores do 
 c     passo de tempo anterior: 
-c     u(n+1) = u(n) + du(n+1) 
-c     u(n)   = u(n+1)                       
+c     u(n+1)  = u(n) + du(n+1) 
+c     u(n)    = u(n+1) 
+c     dp(n+1) = p(n) - p(0)
       timei = MPI_Wtime()
-      call update_res(nnode  ,nnodev  ,ndf
-     .               ,ia(i_u),ia(i_u0),ia(i_dp),ia(i_pres0))
+c     call update_res(nnode  ,nnodev  ,ndf
+c    .               ,ia(i_u),ia(i_u0),ia(i_dp),ia(i_pres0))
+      call update_res_v2(nnode  ,nnodev  ,ndf
+     .                  ,ia(i_u),ia(i_u0),ia(i_dp))
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
       goto 50 
@@ -1006,7 +1008,7 @@ c ----------------------------------------------------------------------
       goto 50 
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PUP      
+c ... Macro-comando: PRES     
 c
 c ......................................................................
  1600 continue
