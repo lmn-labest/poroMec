@@ -1,13 +1,14 @@
       subroutine elmt6_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,isw,block_pu)
 c **********************************************************************
-c *                                                                    *
-c *   ELMT07_pm: Elemento tetraedrico de 10 nos                        *
-c *   ---------                                                        *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     e(10) - constantes fisicas                                     *
+c * Data de criacao    : 27/03/2016                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ *      
+c * ELMT06_pm: Elemento tetraedrico de 10 nos para problemas           *  
+c * poromecanico elasticos                                             *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * e(10) - constantes fisicas                                         *
 c *           e(1) = modulo de Young                                   *
 c *           e(2) = coeficiente de Poisson                            *
 c *           e(3) = coeficiente de Darcy                              *
@@ -15,15 +16,15 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
-c *     x(ndm,nem) - coordenadas nodais locais                         *
-c *     u(nst)     - graus de liberade por elemento (u + p)            *
-c *     dp(*)      - delta p ( p(n  ,0  ) - p(0) )                     *
-c *     p(nst)     - nao definido                                      *
-c *     s(nst,nst) - nao definido                                      *
-c *     ndm - dimensao                                                 *
-c *     nst - numero de graus de liberdade por elemento (3*60 + 1*8)   *
-c *     nel - numero do elemento                                       *
-c *     isw - codigo de instrucao                                      *
+c * x(ndm,nem) - coordenadas nodais locais                             *
+c * u(nst)     - graus de liberade por elemento (u + p)                *
+c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
+c * p(nst)     - nao definido                                          *
+c * s(nst,nst) - nao definido                                          *
+c * ndm - dimensao                                                     *
+c * nst - numero de graus de liberdade por elemento (3*10 + 1*4)       *
+c * nel - numero do elemento                                           *
+c * isw - codigo de instrucao                                          *
 c *           1 = delta t critico                                      *
 c *           2 = matriz K e forcas internas Ku                        *
 c *           3 = tesnsoes e fluxos                                    *
@@ -32,21 +33,20 @@ c *             de tempo anterior                                      *
 c *           5 =                                                      *
 c *           6 =                                                      *
 c *           7 =                                                      *
-c *    block_pu    - true - armazenamento em blocos Kuu,Kpp e kpu      *
-c *                  false- aramzenamento em unico bloco               *      
-c *                                                                    *
+c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
+c *            false- aramzenamento em unico bloco                     *      
+c * ------------------------------------------------------------------ * 
 c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
 c *     e - constantes fisicas                                         *
 c *     s - matriz de elemento                                         *
 c *     p - isw = 2  residuo                                           *
 c *         isw = 3  tensao e fluxo                                    *
 c *         isw = 4  cargas de superfice, volume e integras do passo   *
 c *         de tempo anterior                                          *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
 c *   OBS:                                                             *
-c *   ------------------                                               *
+c * ------------------------------------------------------------------ * 
 c *   u(1:30) - isw = 2 diferenca de deslocamentos                     *
 c *   u(1:30) - isw = 3 e isw = 4 deslocamentos                        *
 c *   u(31:34)- isw = 2 diferenca de pressao                           *
@@ -55,15 +55,16 @@ c **********************************************************************
       implicit none
       include 'poro_mec_prop.fi'
       include 'load.fi'
-      common /gauss/ pg, wg
+      common /pint4/ pri4,psi4,pti4,wf4,npint4
+      common /pint / pri,psi,wf,npint
       real*8  div6         
       parameter ( div6 = 0.166666666666667d0)
       integer ndm,nst,nel,isw
       integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1
-      integer nen,nint,igrau,lx,ly,lz
+      integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(4),face_f(3),n_flux
+      real*8 face_u(3),face_f(3),n_flux
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -76,10 +77,13 @@ c ...
       real*8 ri,si,ti,w,wt1,wt2,wt3,det
       real*8 rn(10),sn(10),tn(10)
       real*8 pi,epsi(6),txi(6),dpm,pm
-      real*8 pg(10,10),wg(10,10)
+c ... integracao numerica de tetraedros     
+      real*8 pri4(5,3),psi4(5,3),pti4(5,3),wf4(5,3)
+      real*8  pri(12,5),psi(12,5),wf(12,5)
+      integer igrau,igrau_vol,igrau_face,npint(5),npint4(3)
 c ...
       real*8 dt,dt_c
-      real*8 e(*),x(ndm,*),xf(3,4)
+      real*8 e(*),x(ndm,*),xf(3,3)
 c ...
       real*8 l_c
       real*8 perm,a,b,c,ym,ps
@@ -90,7 +94,7 @@ c ...
       real*8 a1,a2,a3,tmp
 c ... 
       integer tetra_face_node10(6,4),no
-      real*8 hexa_vol,volum
+      real*8 tetra_vol,volum
 c ...
       logical block_pu
       data tetra_face_node10 / 2, 3, 4, 8, 9,10
@@ -113,7 +117,7 @@ c
      .        , 0.5d0, 0.0d0, 0.0d0 ! t7, t8, t9              
      .        , 0.5d0/              ! t10              
 c
-      data nen/10/
+      data nen/10/,igrau_vol/3/,igrau_face/2/    
 c ......................................................................
       goto (100,200,300,400,500) isw
 c ======================================================================
@@ -145,7 +149,8 @@ c ...
 c .....................................................................
 c
 c ...
-      volum = hexa_vol(x)
+      volum = tetra_vol(x)
+      print*,volum
       l_c   = volum**(1.0d0/3.d0)
 c ...
       dt_c  = ((l_c)/perm) 
@@ -197,149 +202,151 @@ c ... Matriz de rigidez:
 c .....................................................................
 c
 c ... 
-c     nint = npint4(igrau) 
-c     do lx = 1, nint
-c       ti = pti4(lx,igrau)
-c       si = psi4(lx,igrau)
-c       ri = pri4(lx,igrau)
+      igrau = igrau_vol 
+      nint = npint4(igrau) 
+      do lx = 1, nint
+c ...
+        ti = pti4(lx,igrau)
+        si = psi4(lx,igrau)
+        ri = pri4(lx,igrau)
 c ...                                               
-c       call sftetra4_m(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
-c       call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
+        call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
 c .....................................................................
 c
 c ...
-c       w   = wf4(lx,igrau)*det
-c       w   = w*div6
+        w   = wf4(lx,igrau)*det
+        w   = w*div6
 c .....................................................................
 c
 c ...
-c       call sftetra10_m(hu,hux,huy,huz,ri,si,ti,.false.,.true.)
-c       call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
+        call sftetra10(hu,hux,huy,huz,ri,si,ti,.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
 c .....................................................................
 c
 c ... Kuu ( Int((Bt)*C*(B)*dV) )
-c       wt1 = w*a
-c       do i = 1, 10
+        wt1 = w*a
+        do i = 1, 10
 c         l1 = (i-1)*3+1
-c         l1 = 3*i-2
-c         l2 = l1 + 1
-c         l3 = l2 + 1
-c         do j = 1, 10
-c               k1 = (j-1)*3+1
-c           k1 = 3*j-2
-c           k2 = k1 + 1
-c           k3 = k2 + 1
-c           s(l1,k1) = s(l1,k1) +
-c    .      (hux(i)*hux(j) + c*(huy(i)*huy(j) + huz(i)*huz(j)))*wt1
+          l1 = 3*i-2
+          l2 = l1 + 1
+          l3 = l2 + 1
+          do j = 1, 10
+c           k1 = (j-1)*3+1
+            k1 = 3*j-2
+            k2 = k1 + 1
+            k3 = k2 + 1
+            s(l1,k1) = s(l1,k1) +
+     .      (hux(i)*hux(j) + c*(huy(i)*huy(j) + huz(i)*huz(j)))*wt1
 c
-c           s(l1,k2) = s(l1,k2) +
-c    .      (b*hux(i)*huy(j) + c*huy(i)*hux(j))*wt1
+            s(l1,k2) = s(l1,k2) +
+     .      (b*hux(i)*huy(j) + c*huy(i)*hux(j))*wt1
 c
-c           s(l1,k3) = s(l1,k3) + 
-c    .      (b*hux(i)*huz(j) + c*huz(i)*hux(j))*wt1
+            s(l1,k3) = s(l1,k3) + 
+     .      (b*hux(i)*huz(j) + c*huz(i)*hux(j))*wt1
 c
-c           s(l2,k1) = s(l2,k1) + 
-c    .      (b*huy(i)*hux(j) + c*hux(i)*huy(j))*wt1
+            s(l2,k1) = s(l2,k1) + 
+     .      (b*huy(i)*hux(j) + c*hux(i)*huy(j))*wt1
 c
-c           s(l2,k2) = s(l2,k2) + 
-c    .      (huy(i)*huy(j) + c*(hux(i)*hux(j) + huz(i)*huz(j)))*wt1
+            s(l2,k2) = s(l2,k2) + 
+     .      (huy(i)*huy(j) + c*(hux(i)*hux(j) + huz(i)*huz(j)))*wt1
 c
-c           s(l2,k3) = s(l2,k3) +
-c    .      (b*huy(i)*huz(j) + c*huz(i)*huy(j))*wt1
+            s(l2,k3) = s(l2,k3) +
+     .      (b*huy(i)*huz(j) + c*huz(i)*huy(j))*wt1
 c
-c           s(l3,k1) = s(l3,k1) +
-c    .      (b*huz(i)*hux(j) + c*hux(i)*huz(j))*wt1
+            s(l3,k1) = s(l3,k1) +
+     .      (b*huz(i)*hux(j) + c*hux(i)*huz(j))*wt1
 c
-c           s(l3,k2) = s(l3,k2) + 
-c    .      (b*huz(i)*huy(j) + c*huy(i)*huz(j))*wt1
+            s(l3,k2) = s(l3,k2) + 
+     .      (b*huz(i)*huy(j) + c*huy(i)*huz(j))*wt1
 c
-c           s(l3,k3) = s(l3,k3) +
-c    .      (huz(i)*huz(j) + c*(huy(i)*huy(j) + hux(i)*hux(j)))*wt1
-c         enddo
-c       enddo   
+            s(l3,k3) = s(l3,k3) +
+     .      (huz(i)*huz(j) + c*(huy(i)*huy(j) + hux(i)*hux(j)))*wt1
+          enddo
+        enddo   
 c .....................................................................
 c
 c ...-Kpu ( Int((b*(N~t)*(1t)(B)*dV) )  
-c       wt2 = w*coef_biot
-c       do i = 1, 4
-c         l   = i + 30
-c         wt1 = hp(i)*wt2
-c         do j = 1, 10
-c               k1      = (j-1)*3+1
-c           k1      = 3*j-2
-c           k2      = k1 + 1
-c           k3      = k2 + 1
-c           s(l,k1) = s(l,k1) - hux(j)*wt1
-c           s(l,k2) = s(l,k2) - huy(j)*wt1
-c           s(l,k3) = s(l,k3) - huz(j)*wt1
-c         enddo
-c       enddo
+        wt2 = w*coef_biot
+        do i = 1, 4
+          l   = i + 30
+          wt1 = hp(i)*wt2
+          do j = 1, 10
+c           k1      = (j-1)*3+1
+            k1      = 3*j-2
+            k2      = k1 + 1
+            k3      = k2 + 1
+            s(l,k1) = s(l,k1) - hux(j)*wt1
+            s(l,k2) = s(l,k2) - huy(j)*wt1
+            s(l,k3) = s(l,k3) - huz(j)*wt1
+          enddo
+        enddo
 c ................................................................ 
 c
 c ...    
-c       wt1 = w*imod_biot
-c       wt2 = w*dt_perm
+        wt1 = w*imod_biot
+        wt2 = w*dt_perm
 c ...................................................................
 c
 c ... Kpp ( Int((1/M)*(N~t)*(N~)*dV) )    
-c       do i = 1, 4
-c         l = i + 30
-c         do j = 1, 4
-c           k = j + 30
-c           s(l,k) = s(l,k) - wt1*hp(i)*hp(j)
-c    .      - wt2*(hpx(i)*hpx(j) + hpy(i)*hpy(j) + hpz(i)*hpz(j))
-c         enddo   
-c       enddo   
+        do i = 1, 4
+          l = i + 30
+          do j = 1, 4
+            k = j + 30
+            s(l,k) = s(l,k) - wt1*hp(i)*hp(j)
+     .      - wt2*(hpx(i)*hpx(j) + hpy(i)*hpy(j) + hpz(i)*hpz(j))
+          enddo   
+        enddo   
 c .....................................................................
-c     enddo
+      enddo
 c .....................................................................
 c
 c ...Kup = kpu  
-c     do i = 1, 4 
-c       l   = i + 30 
-c       do j = 1, 10 
+      do i = 1, 4 
+        l   = i + 30 
+        do j = 1, 10 
 c         k1 = (j-1)*3+1 
-c         k1      = 3*j-2 
-c         k2      = k1 + 1  
-c         k3      = k2 + 1
-c         s(k1,l) = s(l,k1)
-c         s(k2,l) = s(l,k2)
-c         s(k3,l) = s(l,k3)
-c       enddo
-c     enddo
+          k1      = 3*j-2 
+          k2      = k1 + 1  
+          k3      = k2 + 1
+          s(k1,l) = s(l,k1)
+          s(k2,l) = s(l,k2)
+          s(k3,l) = s(l,k3)
+        enddo
+      enddo
 c ................................................................ 
 c
 c ...
-c     if(block_pu) then
+      if(block_pu) then
 c ... -Kpp
-c       do i = 1, 4
-c         l = i + 30
-c         do j = 1, 4
-c           k = j + 30
-c           s(l,k) = -s(l,k)
-c         enddo  
-c       enddo   
+        do i = 1, 4
+          l = i + 30
+          do j = 1, 4
+            k = j + 30
+            s(l,k) = -s(l,k)
+          enddo  
+        enddo   
 c ....................................................................
 c
 c ... Kpu = -Kpu
-c       do i = 1, 4
-c         l   = i + 30
-c         do j = 1, 10
+        do i = 1, 4
+          l   = i + 30
+          do j = 1, 10
 c           k1 = (j-1)*3+1
-c           k1      = 3*j-2
-c           k2      = k1 + 1
-c           k3      = k2 + 1
-c           s(l,k1) = -s(l,k1)
-c           s(l,k2) = -s(l,k2)
-c           s(l,k3) = -s(l,k3)
-c         enddo
-c       enddo
+            k1      = 3*j-2
+            k2      = k1 + 1
+            k3      = k2 + 1
+            s(l,k1) = -s(l,k1)
+            s(l,k2) = -s(l,k2)
+            s(l,k3) = -s(l,k3)
+          enddo
+        enddo
 c .....................................................................
-c     endif
+      endif
 c .....................................................................
 c
 c ... Forcas internas:
-c     call lku(s,u,p,nst)
+      call lku(s,u,p,nst)
 c ......................................................................
 c
 c ......................................................................   
@@ -350,6 +357,7 @@ c ... Tensoes nodais e fluxo nodais:
 c
 c ......................................................................
   300 continue
+
 c ...                        
       gl(1)     =  gravity(1)
       gl(2)     =  gravity(2)
@@ -377,20 +385,22 @@ c ...
 c .....................................................................
 c
 c ... tensao nodal total
-      do 310 i = 1, 8
+      do 310 i = 1, 4
 c       tp = (i-1)*6 + 1
         tp  = 6*i - 5
-c       tp1 = (i-1)*6 + 49
-        tp1 = 6*i +43
-        l   = i  + 60 
+c ... tensao efetiva de biot (4x6+1=25)     
+c       tp1 = (i-1)*6 + 25 
+        tp1 = 6*i +19
+c ...   p(1...4) = u(31...34)
+        l   = i  + 30 
 c ... calculo do terminante
-        call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
-        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel ,.true.)
+        call sftetra4(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel ,.true.)
 c ... calculo da derivadas das funcoes de interpolacao
-        call sfhexa20_m(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
-        call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
+        call sftetra10(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel ,.false.)
 c .....................................................................
-        call deform3d(hux,huy,huz,u,epsi,20)
+        call deform3d(hux,huy,huz,u,epsi,10)
         call stress3d(a,b,c,epsi,p(tp))
 c ... Tensao = D*deformacao elastica - biot*dp
         dpm     = coef_biot*dp(i)
@@ -411,14 +421,15 @@ c .....................................................................
 c .....................................................................
 c
 c ... fluxo nodal 
-      do 320 i = 1, 8
-c       tp = (i-1)*3 + 97
-        tp = 3*i + 94
+      do 320 i = 1, 4
+c ... fuxo (4x6 + 4x6=49)            
+c       tp = (i-1)*3 + 49
+        tp = 3*i + 46
 c ...
-        call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.true.,.true.)
-        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel,.true.)
+        call sftetra4(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.true.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
 c ... p nos pontos de integracao
-        call darcy_flux(perm,gl,fluid_d,hpx,hpy,hpz,u(61),8,p(tp))  
+        call darcy_flux(perm,gl,fluid_d,hpx,hpy,hpz,u(31),4,p(tp))  
 c .....................................................................
   320 enddo
 c ......................................................................
@@ -464,109 +475,108 @@ c ...
       c       = 0.5d0*(a2/a1) 
 c .....................................................................
 c
-c ...                            
-      nint = 3 
-      do lz = 1, nint
-        ti = pg(lz,nint)
-        do ly = 1, nint
-          si = pg(ly,nint)
-          do lx = 1, nint
-            ri = pg(lx,nint)
+c ...     
+      igrau = igrau_vol 
+      nint  = npint4(igrau) 
+      do lx = 1, nint
+c ...
+        ti = pti4(lx,igrau)
+        si = psi4(lx,igrau)
+        ri = pri4(lx,igrau)
 c ...                                               
-            call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
-            call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
+        call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
 c .....................................................................
 c
 c ...
-            w   = wg(lx,nint)*wg(ly,nint)*wg(lz,nint)*det
+        w   = wf4(lx,igrau)*det
+        w   = w*div6
 c .....................................................................
 c
 c ...
-            call sftetra10(hu,hux,huy,huz,ri,si,ti,.true.,.true.)
-            call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
+       call sftetra10(hu,hux,huy,huz,ri,si,ti,.true.,.true.)
+       call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
 c .....................................................................
 c
 c ... deformacoes nos pontos de integracao
-            call deform3d(hux,huy,huz,u,epsi,10)
+       call deform3d(hux,huy,huz,u,epsi,10)
 c ... tensao nos pontos de integracao
-            call stress3d(a,b,c,epsi,txi)
+       call stress3d(a,b,c,epsi,txi)
 c .....................................................................            
 c
 c ... delta p nos pontos de integracao
-            dpm = hp(1)*dp(1) + hp(2)*dp(2) + hp(3)*dp(3) + hp(4)*dp(4) 
+       dpm = hp(1)*dp(1) + hp(2)*dp(2) + hp(3)*dp(3) + hp(4)*dp(4) 
 c .....................................................................
 c
 c ...
-            dpm    = coef_biot*dpm
-            txi(1) = txi(1) - dpm
-            txi(2) = txi(2) - dpm
-            txi(3) = txi(3) - dpm
+       dpm    = coef_biot*dpm
+       txi(1) = txi(1) - dpm
+       txi(2) = txi(2) - dpm
+       txi(3) = txi(3) - dpm
 c .....................................................................
 c
 c ...
-            wt1 = w  
-            wt2 = w*pm_d 
+        wt1 = w  
+        wt2 = w*pm_d 
 c .....................................................................
 c
 c ...
-            do i = 1, 10
-c             l1  = (i-1)*3+1
-              l1  = 3*i-2
-              l2  = l1 + 1
-              l3  = l2 + 1
+        do i = 1, 10
+c         l1  = (i-1)*3+1
+          l1  = 3*i-2
+          l2  = l1 + 1
+          l3  = l2 + 1
 c ... Fu = int(BeT*sigma*dv)
-              p(l1) = p(l1) 
-     .        + wt1*(hux(i)*txi(1) + huy(i)*txi(4) + huz(i)*txi(6)) 
-              p(l2) = p(l2) 
-     .        + wt1*(hux(i)*txi(4) + huy(i)*txi(2) + huz(i)*txi(5)) 
-              p(l3) = p(l3) 
-     .        + wt1*(hux(i)*txi(6) + huy(i)*txi(5) + huz(i)*txi(3))
+          p(l1) = p(l1) 
+     .    + wt1*(hux(i)*txi(1) + huy(i)*txi(4) + huz(i)*txi(6))
+c          
+          p(l2) = p(l2) 
+     .    + wt1*(hux(i)*txi(4) + huy(i)*txi(2) + huz(i)*txi(5)) 
+c          
+          p(l3) = p(l3) 
+     .    + wt1*(hux(i)*txi(6) + huy(i)*txi(5) + huz(i)*txi(3))
 c .....................................................................
 c
 c ... Fp = int(dt*perm*fuild_d*(B~T)*ge*dv)  
-              wt3   = hu(i)*wt2  
-              p(l1) = p(l1) - wt3*gl(1)
-              p(l2) = p(l2) - wt3*gl(2)
-              p(l3) = p(l3) - wt3*gl(3)
-            enddo   
+          wt3   = hu(i)*wt2  
+          p(l1) = p(l1) - wt3*gl(1)
+          p(l2) = p(l2) - wt3*gl(2)
+          p(l3) = p(l3) - wt3*gl(3)
+        enddo   
 c .....................................................................
 c
 c ...
-            wt1 = w*dt_fluid_perm 
-            wt2 = w*dt_perm 
+        wt1 = w*dt_fluid_perm 
+        wt2 = w*dt_perm 
 c .....................................................................
 c
 c ...
-            do i = 1, 4 
-              l    = i + 30
+        do i = 1, 4 
+          l    = i + 30
 c ... Fp = int(dt*perm*fuild_d*(B~T)*ge*dv)  
-              p(l) = p(l) 
-     .             + wt1*(hpx(i)*gl(1) + hpy(i)*gl(2) + hpz(i)*gl(3))
+          p(l) = p(l) 
+     .    + wt1*(hpx(i)*gl(1) + hpy(i)*gl(2) + hpz(i)*gl(3))
 c .....................................................................
 c
 c ... Fp = int(dt*k*(B~T)*(B~)*pe*dv)
-              tmp = 0.0d0
-              do j = 1, 4
-                k    = j + 30
-                tmp  = tmp       
-     .          + wt2*u(k)*(hpx(i)*hpx(j)+hpy(i)*hpy(j)+hpz(i)*hpz(j))
-              enddo 
-              p(l) = p(l) - tmp
+          tmp = 0.0d0
+          do j = 1, 4
+            k    = j + 30
+            tmp  = tmp       
+     .      + wt2*u(k)*(hpx(i)*hpx(j)+hpy(i)*hpy(j)+hpz(i)*hpz(j))
+          enddo 
+          p(l) = p(l) - tmp
 c .....................................................................
-            enddo 
+        enddo 
 c .....................................................................
-          enddo   
-        enddo   
       enddo   
 c .....................................................................
 c
 c ... forca e fluxo distribuida no contorno
-c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
-c             2 | no 5 6 7 8 13 14 15 16 |
-c             3 | no 1 2 6 5  9 18 13 17 |     
-c             4 | no 4 3 7 8 11 19 15 20 |
-c             5 | no 1 4 8 5 12 20 16 17 |
-c             6 | no 2 6 7 3 18 14 19 10 |
+c     iq(1) = 1 | no 2 3 4  8  9 10 |
+c             2 | no 1 4 3  7  9  6 |
+c             3 | no 1 2 4  5 10  7 |     
+c             4 | no 1 3 2  6  8  5 |
       tp = 0
       do i = 1, 4
         tp    = tp + iq(i)
@@ -576,8 +586,8 @@ c             6 | no 2 6 7 3 18 14 19 10 |
 c ... face  
           if(iq(j) .gt. 0 ) then
 c ...
-            do i = 1, 4
-c             no       = hexa_face_node20(i,j)
+            do i = 1, 3
+              no       = tetra_face_node10(i,j)
               xf(1,i) = x(1,no) 
               xf(2,i) = x(2,no) 
               xf(3,i) = x(3,no)
@@ -587,46 +597,44 @@ c ...
             call rotate(xf(1,1),r,xf(1,1),.false.)
             call rotate(xf(1,2),r,xf(1,2),.false.)
             call rotate(xf(1,3),r,xf(1,3),.false.)
-            call rotate(xf(1,4),r,xf(1,4),.false.)
 c ...
             carg = load(1,iq(j))
 c ... forcas
             if( carg .eq. 40 ) then
               call tload(iq(j),0.d0,face_u,n_flux,face_f)
-c             nint = npint4(2)
-              do ly = 1, nint
-c               si = psi4(ly,nint)
-                do lx = 1, nint
-c                 ri = pri4(lx,nint)
-c ...                                               
-                  call sfquad4_m(hp,hpx,hpy,ri,si,.false.,.true.)
-                  call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,4,ndm
+              igrau = igrau_face 
+              nint = npint(igrau)
+              do lx = 1, nint
+                ri = pri(lx,igrau)
+                si = psi(lx,igrau)
+c ...                                 
+                call sftria3(hp,hpx,hpy,ri,si,.false.,.true.)
+                call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,3,ndm
      .                        ,nel,.true.)
 c .....................................................................
 c
 c ...                                               
-c                 w   = wf(lx,nint)*wf(ly,nint)*det
-                  w   = 0.5d0*w
+                w   = wf(lx,igrau)*det
+                w   = 0.5d0*w
 c .....................................................................
 c
-c ...                                               
-                  call sftria6(hu,hux,huy,ri,si,.true.,.false.)
+c ...                   
+                call sftria6(hu,hux,huy,ri,si,.true.,.false.)
 c .....................................................................
 c
 c ...
-                  do i = 1, 4
-                    no  = tetra_face_node10(i,j)
-c                   l1  = (no-1)*3+1
-                    wt1 = hu(i)*w
-                    l1    = 3*no-2
-                    l2    = l1 + 1
-                    l3    = l2 + 1
-                    p(l1) = p(l1) - face_f(1)*wt1
-                    p(l2) = p(l2) - face_f(2)*wt1
-                    p(l3) = p(l3) - face_f(3)*wt1  
-                  enddo
-c .....................................................................
+                do i = 1, 6 
+                  no  = tetra_face_node10(i,j)
+c                 l1  = (no-1)*3+1
+                  wt1   = hu(i)*w
+                  l1    = 3*no-2
+                  l2    = l1 + 1
+                  l3    = l2 + 1
+                  p(l1) = p(l1) - face_f(1)*wt1
+                  p(l2) = p(l2) - face_f(2)*wt1
+                  p(l3) = p(l3) - face_f(3)*wt1
                 enddo
+c .....................................................................
               enddo
 c .....................................................................
 c
@@ -668,14 +676,15 @@ c ....................................................................
 c *********************************************************************
       subroutine elmt7_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,isw,block_pu)
 c **********************************************************************
-c *                                                                    *
-c *   ELMT07_pm: Elemento hexaedrico de 20 nos                         *
-c *   ---------                                                        *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     e(10) - constantes fisicas                                     *
+c * Data de criacao    : 10/12/2015                                    *
+c * Data de modificaco : 27/03/2016                                    * 
+c * ------------------------------------------------------------------ *       
+c * ELMT06_pm: Elemento hexaedricos de 20 nos para problemas           *  
+c * poromecanico elasticos                                             *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * e(10) - constantes fisicas                                         *
 c *           e(1) = modulo de Young                                   *
 c *           e(2) = coeficiente de Poisson                            *
 c *           e(3) = coeficiente de Darcy                              *
@@ -683,15 +692,15 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
-c *     x(ndm,nem) - coordenadas nodais locais                         *
-c *     u(nst)     - graus de liberade por elemento (u + p)            *
-c *     dp(*)      - delta p ( p(n  ,0  ) - p(0) )                     *
-c *     p(nst)     - nao definido                                      *
-c *     s(nst,nst) - nao definido                                      *
-c *     ndm - dimensao                                                 *
-c *     nst - numero de graus de liberdade por elemento (3*60 + 1*8)   *
-c *     nel - numero do elemento                                       *
-c *     isw - codigo de instrucao                                      *
+c * x(ndm,nem) - coordenadas nodais locais                             *
+c * u(nst)     - graus de liberade por elemento (u + p)                *
+c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
+c * p(nst)     - nao definido                                          *
+c * s(nst,nst) - nao definido                                          *
+c * ndm - dimensao                                                     *
+c * nst - numero de graus de liberdade por elemento (3*20 + 1*8)       *
+c * nel - numero do elemento                                           *
+c * isw - codigo de instrucao                                          *
 c *           1 = delta t critico                                      *
 c *           2 = matriz K e forcas internas Ku                        *
 c *           3 = tesnsoes e fluxos                                    *
@@ -700,21 +709,20 @@ c *             de tempo anterior                                      *
 c *           5 =                                                      *
 c *           6 =                                                      *
 c *           7 =                                                      *
-c *    block_pu    - true - armazenamento em blocos Kuu,Kpp e kpu      *
-c *                  false- aramzenamento em unico bloco               *      
-c *                                                                    *
+c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
+c *            false- aramzenamento em unico bloco                     *      
+c * ------------------------------------------------------------------ * 
 c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
 c *     e - constantes fisicas                                         *
 c *     s - matriz de elemento                                         *
 c *     p - isw = 2  residuo                                           *
 c *         isw = 3  tensao e fluxo                                    *
 c *         isw = 4  cargas de superfice, volume e integras do passo   *
 c *         de tempo anterior                                          *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
 c *   OBS:                                                             *
-c *   ------------------                                               *
+c * ------------------------------------------------------------------ * 
 c *   u(1:60) - isw = 2 diferenca de deslocamentos                     *
 c *   u(1:60) - isw = 3 e isw = 4 deslocamentos                        *
 c *   u(61:68)- isw = 2 diferenca de pressao                           *
@@ -1054,8 +1062,10 @@ c ... tensao nodal total
       do 310 i = 1, 8
 c       tp = (i-1)*6 + 1
         tp  = 6*i - 5
-c       tp1 = (i-1)*6 + 49
+c ... tensao efetiva de biot (8x6+1=49)         
+c       tp1 = (i-1)*6 + 49  
         tp1 = 6*i +43
+c ...   p(1...8) = u(61...68) 
         l   = i  + 60 
 c ... calculo do terminante
         call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
@@ -1086,6 +1096,7 @@ c .....................................................................
 c
 c ... fluxo nodal 
       do 320 i = 1, 8
+c ... fuxo (8x6 + 8x6=96)                 
 c       tp = (i-1)*3 + 97
         tp = 3*i + 94
 c ...

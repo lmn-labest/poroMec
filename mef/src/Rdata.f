@@ -206,48 +206,48 @@ c ... transforma os elementos lineares em quadraticos (10 nos)
         nst       = nen*(ndf-1) + nenv  
         elQuad    = .true.
 c .....................................................................
-        i_nelcon  = alloc_4('nelcon  ',  4,numel)
-        i_nodcon  = alloc_4('nodcon  ',  1,nnode)
+c       i_nelcon  = alloc_4('nelcon  ',  4,numel)
+c       i_nodcon  = alloc_4('nodcon  ',  1,nnode)
 c .....................................................................
 c
 c ... obetem os vizinhos por face
-        call adjtetra4(ia(i_ix)   ,ia(i_nodcon)
-     .              ,ia(i_nelcon),nnodev
-     .              ,numel       ,nen)
+c       call adjtetra4(ia(i_ix)   ,ia(i_nodcon)
+c    .              ,ia(i_nelcon),nnodev
+c    .              ,numel       ,nen)
 c .....................................................................
 c
 c ... gera a conectividade dos elementos quadraticos
-        call mk_elConn_quad_v2(ia(i_ix),ia(i_nelcon)
-     .                        ,numel   
-     .                        ,nnode   ,nnodev
-     .                        ,nen     ,nenv  
-     .                        ,4)
+c       call mk_elConn_quad_v2(ia(i_ix),ia(i_nelcon)
+c    .                        ,numel   
+c    .                        ,nnode   ,nnodev
+c    .                        ,nen     ,nenv  
+c    .                        ,4)
 c .....................................................................
 c
 c ...
-        i_nodcon    = dealloc('nodcon  ')
-        i_nelcon    = dealloc('nelcon  ')
+c       i_nodcon    = dealloc('nodcon  ')
+c       i_nelcon    = dealloc('nelcon  ')
 c .....................................................................
 c
 c .....................................................................
 c
 c ...  Multicore finite element assembling:
-c       i_nincid = alloc_4('nincid  ',1,nnodev) 
+        i_nincid = alloc_4('nincid  ',1,nnodev) 
 c ... Compute the maxgrade of the mesh and element incidences:
-c       call nodegrade(ia(i_ix),nnodev,numel,nenv,nen,ia(i_nincid)
-c    .                ,maxgrade) 
-c       i_incid  = alloc_4('incid   ',maxgrade,nnode)
-c       call elmincid(ia(i_ix),ia(i_incid),ia(i_nincid),nnodev,numel
-c    .               ,nenv    ,nen        ,maxgrade)
+        call nodegrade(ia(i_ix),nnodev,numel,nenv,nen,ia(i_nincid)
+     .                ,maxgrade) 
+        i_incid  = alloc_4('incid   ',maxgrade,nnode)
+        call elmincid(ia(i_ix),ia(i_incid),ia(i_nincid),nnodev,numel
+     .               ,nenv    ,nen        ,maxgrade)
 c ... gera a conectividade dos elementos quadraticos
-c       call mk_elconn_tetra_quad_v1(ia(i_ix),ia(i_incid),ia(i_nincid)
-c    .                            ,numel     ,nnode      ,nnodev
-c    .                            ,nen       ,nenv       ,maxgrade)
+        call mk_elconn_quad_v1(ia(i_ix),ia(i_incid),ia(i_nincid)
+     .                        ,numel     ,nnode      ,nnodev
+     .                        ,nen       ,nenv       ,maxgrade)
 c .....................................................................
 c
 c ...
-c       i_incid     = dealloc('incid   ')
-c       i_nincid    = dealloc('nincid  ')
+        i_incid     = dealloc('incid   ')
+        i_nincid    = dealloc('nincid  ')
 c .....................................................................
       endif
 c ...                                                                   
@@ -291,44 +291,44 @@ c ... transforma os elementos lineares em quadraticos (20 nos)
         nst       = nen*(ndf-1) + nenv  
         elQuad    = .true.
 c .....................................................................
-        i_nelcon  = alloc_4('nelcon  ',  6,numel)
-        i_nodcon  = alloc_4('nodcon  ',  1,nnode)
+c       i_nelcon  = alloc_4('nelcon  ',  6,numel)
+c       i_nodcon  = alloc_4('nodcon  ',  1,nnode)
 c ... obetem os vizinhos por face
-        call adjhexa8(ia(i_ix)   ,ia(i_nodcon)
-     .              ,ia(i_nelcon),nnodev
-     .              ,numel       ,nen)
+c       call adjhexa8(ia(i_ix)   ,ia(i_nodcon)
+c    .              ,ia(i_nelcon),nnodev
+c    .              ,numel       ,nen)
 c .....................................................................
 c
 c ... gera a conectividade dos elementos quadraticos
-        call mk_elConn_quad_v2(ia(i_ix),ia(i_nelcon)
-     .                         ,numel   
-     .                         ,nnode   ,nnodev
-     .                         ,nen     ,nenv  
-     .                         ,6)
+c       call mk_elConn_quad_v2(ia(i_ix),ia(i_nelcon)
+c    .                         ,numel   
+c    .                         ,nnode   ,nnodev
+c    .                         ,nen     ,nenv  
+c    .                         ,6)
 c .....................................................................
 c
 c ...
-        i_nodcon    = dealloc('nodcon  ')
-        i_nelcon    = dealloc('nelcon  ')
+c       i_nodcon    = dealloc('nodcon  ')
+c       i_nelcon    = dealloc('nelcon  ')
 c .....................................................................
 c
 c ...  Multicore finite element assembling:
-c       i_nincid = alloc_4('nincid  ',1,nnodev) 
+        i_nincid = alloc_4('nincid  ',1,nnodev) 
 c ... Compute the maxgrade of the mesh and element incidences:
-c       call nodegrade(ia(i_ix),nnodev,numel,nenv,nen,ia(i_nincid)
-c    .                ,maxgrade) 
-c       i_incid  = alloc_4('incid   ',maxgrade,nnode)
-c       call elmincid(ia(i_ix),ia(i_incid),ia(i_nincid),nnodev,numel
-c    .               ,nenv    ,nen        ,maxgrade)
+        call nodegrade(ia(i_ix),nnodev,numel,nenv,nen,ia(i_nincid)
+     .                ,maxgrade) 
+        i_incid  = alloc_4('incid   ',maxgrade,nnode)
+        call elmincid(ia(i_ix),ia(i_incid),ia(i_nincid),nnodev,numel
+     .               ,nenv    ,nen        ,maxgrade)
 c ... gera a conectividade dos elementos quadraticos
-c       call mk_elconn_quad_v1(ia(i_ix),ia(i_incid),ia(i_nincid)
-c    .                            ,numel     ,nnode      ,nnodev
-c    .                            ,nen       ,nenv       ,maxgrade)
+        call mk_elconn_quad_v1(ia(i_ix),ia(i_incid),ia(i_nincid)
+     .                        ,numel   ,nnode      ,nnodev
+     .                        ,nen     ,nenv       ,maxgrade)
 c .....................................................................
 c
 c ...
-c       i_incid     = dealloc('incid   ')
-c       i_nincid    = dealloc('nincid  ')
+        i_incid     = dealloc('incid   ')
+        i_nincid    = dealloc('nincid  ')
 c .....................................................................
       endif
 c ...                                                                   
@@ -1542,9 +1542,9 @@ c ... no central
 c .....................................................................
 c
 c ...
-c      do i = 1, 70
-c        print*,i,id(1:4,i)
-c      enddo
+c     do i = 1, 27
+c       print*,i,id(1:4,i)
+c     enddo
 c .....................................................................  
       return
       end

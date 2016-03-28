@@ -418,7 +418,7 @@ c
 c
 c ...... Derivadas em relacao a s :
 c
-         hs(1) =  0.
+         hs(1) =  0.d0
          hs(2) =  1.d0
          hs(3) = -1.d0
       endif
@@ -493,7 +493,7 @@ c ......................................................................
 c **********************************************************************
 c *                                                                    *
 c *                                                    16/03/2016      *
-c *   SFTETRA10:                                                       *
+c *   SFTETRA4:                                                        *
 c *   ---------                                                        *
 c *                                                                    *
 c *   Calcula as funcoes de interpolacao e suas derivadas              *
@@ -509,7 +509,7 @@ c *                                                                    *
 c *   Parametros de saida:                                             *
 c *   -------------------                                              *
 c *                                                                    *
-c *   h(40)    - funcoes de interolocao no ponto (r,s)                 *
+c *   h( 4)    - funcoes de interolocao no ponto (r,s)                 *
 c *   hr( 4)   - derivadas de h em relacao a r                         *
 c *   hs( 4)   - derivadas de h em relacao a s                         *
 c *   ht( 4)   - derivadas de h em relacao a t                         *
@@ -1730,7 +1730,7 @@ c
 c
 c ... Determinante da matriz Jacobiana:  
 c
-c ......................................................................              
+c ......................................................................
         det = xj(1,1)*xj(2,2)-xj(2,1)*xj(1,2)
         if (det .le. ZERO) then        
           print*,'*** Subrotina ELMT: determinante <= 0 ',nel
@@ -1800,9 +1800,9 @@ c
 c ... Matria Jacobiana:
 c
       do 200 j = 1 , 3
-         xj(1,j) = 0.
-         xj(2,j) = 0.
-         xj(3,j) = 0.
+         xj(1,j) = 0.d0
+         xj(2,j) = 0.d0
+         xj(3,j) = 0.d0
          do 100 k = 1 , nen
             xj(1,j) = xj(1,j) + hx(k) * x(j,k)
             xj(2,j) = xj(2,j) + hy(k) * x(j,k)
@@ -2440,30 +2440,29 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-c *                                                                    *
-c *                                                    02/12/15        *
-c *   DARCY_FLUX_3D : fluxo de darcy e 3D                              *
-c *   -------------                                                    *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     perm   - coeficiente de permebilidade ( perm/peso especifico)  *
-c *     gl     - aceleracao da gravidade                               *
-c *     fluid_d- massa especifica do fluido                            *
-c *     hx     - derivada das funcoes de interpolacao                  *
-c *     hy     - derivada das funcoes de interpolacao                  *
-c *     hz     - derivada das funcoes de interpolacao                  *
-c *     u      - pressao nodal                                         *
-c *     nen    - numero de pontos por elemento                         *
-c *     p      - nao definido                                          *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     p(3) - fluxo de darcy( k( grad(P) + ro_fluid*g)                *
-c *                                                                    *
-c *                                                                    *
+c * Data de criacao    : 02/12/2015                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ * 
+c * DARCY_FLUX_3D : fluxo de darcy e 3D                                *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * perm   - coeficiente de permebilidade ( perm/peso especifico)      *
+c * gl     - aceleracao da gravidade                                   *
+c * fluid_d- massa especifica do fluido                                *
+c * hx     - derivada das funcoes de interpolacao                      *
+c * hy     - derivada das funcoes de interpolacao                      *
+c * hz     - derivada das funcoes de interpolacao                      *
+c * u      - pressao nodal                                             *
+c * nen    - numero de pontos por elemento                             *
+c * p      - nao definido                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *                                                                     *
+c * p(3) - fluxo de darcy( k( grad(P) + ro_fluid*g)                    *
+c * ------------------------------------------------------------------ *       
+c *   OBS:                                                             *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       subroutine darcy_flux(perm,gl,fluid_d,hx,hy,hz,u,nen,p) 
       implicit none 
@@ -2515,7 +2514,7 @@ c **********************************************************************
       implicit none
       real*8 x(3,*)
 c ...
-      real*8 v1(3),v2(3),v3(3),v4(3),volum
+      real*8 v1(3),v2(3),v3(3),v4(3)
 c ... v1
       v1(1)      = x(1,2) - x(1,1)
       v1(2)      = x(2,2) - x(2,1)
@@ -2532,6 +2531,52 @@ c ...
       call vet(v3,v2,v4)
       hexa_vol  = v1(1)*v4(1) + v1(2)*v4(2) + v1(3)*v4(3)
 c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c *                                                                    *
+c *                                                    27/03/16        *
+c *   TETRA_VOL : calcula o o volume do hexaedro                       *
+c *   --------_                                                        *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     x      - coordendas dos vertices do hexaedro                   *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *    retorna o volume do hexaedro                                    *
+c *                                                                    *
+c * OBS: vol = v1 * ( v2 x v3)                                         *
+c **********************************************************************
+      real*8 function tetra_vol(x)
+      implicit none
+      real*8  div6         
+      parameter ( div6 = 0.166666666666667d0)
+      real*8 x(3,*),d(3,3),det
+c ... v1
+      d(1,1) = x(1,1)-x(1,4)
+      d(1,2) = x(2,1)-x(2,4)
+	d(1,3) = x(3,1)-x(3,4)
+      d(2,1) = x(1,2)-x(1,4)
+	d(2,2) = x(2,2)-x(2,4)
+      d(2,3) = x(3,2)-x(3,4)
+      d(3,1) = x(1,3)-x(1,4)
+	d(3,2) = x(2,3)-x(2,4)
+      d(3,3) = x(3,3)-x(3,4)
+c
+c ... Determinante da matriz Jacobiana:  
+c      
+      det  = d(1,1)*d(2,2)*d(3,3) + d(1,2)*d(2,3)*d(3,1) +
+     .       d(1,3)*d(2,1)*d(3,2) - d(3,1)*d(2,2)*d(1,3) -
+     .       d(1,2)*d(2,1)*d(3,3) - d(1,1)*d(3,2)*d(2,3)
+c ...
+      tetra_vol = det*div6
+c ......................................................................      
       return
       end
 c **********************************************************************
@@ -2586,8 +2631,8 @@ c **********************************************************************
       common /pint4/ pri4,psi4,pti4,wf4,npint4      
       real*8  pg(10,10), wg(10,10)
       real*8  pri(12,5),psi(12,5),wf(12,5)
-      real*8  pri4(4,2),psi4(4,2),pti4(4,2),wf4(4,2)
-      integer npint(5),npint4(2)
+      real*8  pri4(5,3),psi4(5,3),pti4(5,3),wf4(5,3)
+      integer npint(5),npint4(3)
 c ======================================================================
 c
 c ... Pontos de integracao de Gauss-Legendre:
@@ -2695,18 +2740,26 @@ c=======================================================================
 c
 c ... Pontos de integracao em tetraedros:
 c
-c ... Numero de pontos de integracao (grau = 1, 2):
-      data npint4 /1,4/    
+c ... Numero de pontos de integracao (grau = 1, 2, 3):
+      data npint4 /1,4,5/    
 c ... Coordenadas r:
-      data pri4 / 0.25d0,      0.d0,        0.d0,        0.d0,
-     .            0.58541020d0,0.13819660d0,0.13819660d0,0.13819660d0/
+      data pri4 / 0.25d0,0.d0,0.d0,0.d0,0.d0,
+     .  0.58541020d0,0.13819660d0,0.13819660d0,0.13819660d0,0.d0,
+     .  0.25d0,.5d0,.166666666666667d0,.166666666666667d0,
+     .  .166666666666667d0/
 c ... Coordenadas s:
-      data psi4 / 0.25d0,      0.d0,        0.d0,        0.d0,
-     .            0.13819660d0,0.58541020d0,0.13819660d0,0.13819660d0/
+      data psi4 / 0.25d0,0.d0,0.d0,0.d0,0.d0,
+     .  0.13819660d0,0.58541020d0,0.13819660d0,0.13819660d0,0.d0,
+     .  0.25d0,.166666666666667d0,.5d0,.166666666666667d0,
+     .  .166666666666667d0/
 c ... Coordenadas t:
-      data pti4 / 0.25d0,      0.d0,        0.d0,        0.d0,
-     .            0.13819660d0,0.13819660d0,0.58541020d0,0.13819660d0/
+      data pti4 / 0.25d0,0.d0,0.d0,0.d0,0.d0,
+     . 0.13819660d0,0.13819660d0,0.58541020d0,0.13819660d0,0.d0,
+     . 0.25d0,.166666666666667d0,.166666666666667d0,.5d0,
+     ..166666666666667d0/
 c ... Pesos para tetraedros:
-      data wf4 /1.d0, 1.d0, 1.d0, 1.d0, 0.25d0, 0.25d0, 0.25d0, 0.25d0/
+      data wf4 /1.d0  , 0.d0  , 0.d0  , 0.d0  ,0.d0,
+     .          0.25d0, 0.25d0, 0.25d0, 0.25d0,0.d0,
+     .         -0.8d0 , 0.45d0, 0.45d0, 0.45d0,0.45d0/
 c ......................................................................      
       end

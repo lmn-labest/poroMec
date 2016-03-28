@@ -318,7 +318,7 @@ c
 c ......................................................................
   200 continue
       if(my_id.eq.0)print*, 'Macro HEXTOTET'  
-        call hexa_to_tetra(ia(i_ix),numel,nen,prename,nplot)
+      call hexa_to_tetra(ia(i_ix),numel,nen,prename,nplot)
       goto 50
 c ----------------------------------------------------------------------
 c

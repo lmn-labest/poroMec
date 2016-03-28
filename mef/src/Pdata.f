@@ -819,7 +819,56 @@ c      write(nout,*)istep,',',istep*dt,',',u(no)
       close(nout)
       return
       end
-c =====================================================================        
+c =====================================================================
+c
+c *********************************************************************
+c * Data de criacao    : 27/03/2016                                   *
+c * Data de modificaco :                                              *
+c * ----------------------------------------------------------------- *      
+c * HEXA_TO_TETRA : transforma uma malha de hexaedros em tetraedros   *
+c * ----------------------------------------------------------------- *
+c * Parametro de Entrada :                                            *
+c * ----------------------------------------------------------------- *
+c * ix      - conectividades                                          *
+c * numel   - numero do elmentos                                      *
+c * nen     - numero de nos por elemento   a                          *
+c * prename - nome do arquivo de saida                                *
+c * nplot   - numero da unidade de saida                              *
+c *  ---------------------------------------------------------------- *
+c *  Parametro de Saida :                                             *
+c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
+c * ----------------------------------------------------------------- *      
+c *********************************************************************      
+        subroutine hexa_to_tetra(ix,numel,nen,prename,nplot)
+        implicit none
+        integer ix(nen+1,*),numel,nen,nplot,k,i,n
+        character*80 prename,fname,name
+c ...
+        fname = name(prename,0,4)
+        open(nplot,file=fname)
+        n = nen + 1
+c ...
+        write(nplot,'(a,i10)') 'tetra4 ', numel*6
+        k = 1
+        do i = 1, numel
+         write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(7,i),ix(6,i),ix(n,i)
+         k = k + 1
+         write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(3,i),ix(7,i),ix(n,i)
+         k = k + 1
+         write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(1,i),ix(3,i),ix(n,i)
+         k = k + 1
+         write(nplot,'(6i10)') k,ix(3,i),ix(5,i),ix(8,i),ix(7,i),ix(n,i)
+         k = k + 1
+         write(nplot,'(6i10)') k,ix(3,i),ix(1,i),ix(4,i),ix(8,i),ix(n,i)
+         k = k + 1
+         write(nplot,'(6i10)') k,ix(3,i),ix(1,i),ix(8,i),ix(5,i),ix(n,i)
+         k = k + 1
+       enddo  
+       return
+      end 
+c ***********************************************************************
+c      
 c *********************************************************************
       subroutine p_sint(ix,x,u,nnode,numel,ndm,nen,ndf,istep,nplot,code)
 c **********************************************************************

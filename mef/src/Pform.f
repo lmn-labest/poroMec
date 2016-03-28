@@ -234,6 +234,10 @@ c ......................................................................
 c ......................................................................
 c
 c ...
+c     do i = 1,22
+c     print*,i,b(i)
+c     enddo
+c     stop
       return
       end
 c **********************************************************************
@@ -899,32 +903,6 @@ c .......................................................................
 c     return
 c     end 
 c ***********************************************************************
-        subroutine hexa_to_tetra(ix,numel,nen,prename,nplot)
-        implicit none
-        integer ix(nen+1,*),numel,nen,nplot,k,i,n
-        character*80 prename,fname,name
-c ...
-        fname = name(prename,0,4)
-        open(nplot,file=fname)
-        n = nen + 1
-c ...
-        write(nplot,'(a,i10)') 'tetra4 ', numel*6
-        k = 1
-        do i = 1, numel
-         write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(7,i),ix(6,i),ix(n,i)
-         k = k + 1
-         write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(3,i),ix(7,i),ix(n,i)
-         k = k + 1
-         write(nplot,'(6i10)') k,ix(2,i),ix(5,i),ix(1,i),ix(3,i),ix(n,i)
-         k = k + 1
-         write(nplot,'(6i10)') k,ix(3,i),ix(5,i),ix(8,i),ix(7,i),ix(n,i)
-         k = k + 1
-         write(nplot,'(6i10)') k,ix(3,i),ix(1,i),ix(4,i),ix(8,i),ix(n,i)
-         k = k + 1
-         write(nplot,'(6i10)') k,ix(3,i),ix(1,i),ix(8,i),ix(5,i),ix(n,i)
-         k = k + 1
-       enddo  
-       return
-       end 
-c ***********************************************************************
+c
+
 
