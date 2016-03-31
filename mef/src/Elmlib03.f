@@ -673,7 +673,7 @@ c ...
         si = psi4(lx,igrau)
         ri = pri4(lx,igrau)
 c ...                                               
-        call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.false.,.true.)
+        call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
         call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
 c .....................................................................
 c
@@ -683,19 +683,19 @@ c ...
 c .....................................................................
 c
 c ...
-       call sftetra10(hu,hux,huy,huz,ri,si,ti,.true.,.true.)
+       call sftetra10(hu,hux,huy,huz,ri,si,ti,.false.,.true.)
        call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
 c .....................................................................
 c  
 c ...
         txi(1:6)= 0.d0
-        do j = 1,  10 
-          txi(1) = txi(1) + hu(j)*txn(1,j)
-          txi(2) = txi(2) + hu(j)*txn(2,j) 
-          txi(3) = txi(3) + hu(j)*txn(3,j) 
-          txi(4) = txi(4) + hu(j)*txn(4,j) 
-          txi(5) = txi(5) + hu(j)*txn(5,j)
-          txi(6) = txi(6) + hu(j)*txn(6,j) 
+        do j = 1,   4
+          txi(1) = txi(1) + hp(j)*txn(1,j)
+          txi(2) = txi(2) + hp(j)*txn(2,j) 
+          txi(3) = txi(3) + hp(j)*txn(3,j) 
+          txi(4) = txi(4) + hp(j)*txn(4,j) 
+          txi(5) = txi(5) + hp(j)*txn(5,j)
+          txi(6) = txi(6) + hp(j)*txn(6,j) 
         enddo
 c .....................................................................
 c        
