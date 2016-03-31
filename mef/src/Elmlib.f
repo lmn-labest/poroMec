@@ -1,5 +1,6 @@
-      subroutine elmlib_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,iel,isw,ma,
-     .                    nlit,ilib,block_pu)
+      subroutine elmlib_pm(e ,iq  ,x   ,u      ,dp     ,p  ,s,txn
+     .                    ,dt,ndm ,nst ,nel    ,iel,isw
+     .                    ,ma,nlit,ilib,block_pu)
 c **********************************************************************
 c *                                                                    *
 c *   ELMLIB: biblioteca de elementos.                                 *
@@ -14,7 +15,8 @@ c *     x(ndm,nen)- coordenadas nodais locais                          *
 c *     u(nst)     - solucao anterior                                  *
 c *     dp(*)      - delta p ( p(n  ,0  ) - p(0) )                     *
 c *     p(nst)     - nao definido                                      *
-c *     s(nst,nst) - nao definido                                      *
+c *     s(nst,nst)   - nao definido                                    *
+c *     txn(6,nen) - tensoes nodais                                    *
 c *     ndm - dimensao                                                 *
 c *     nst - numero de graus de liberdade por elemento                *
 c *     nel - numero do elemento                                       *
@@ -38,7 +40,7 @@ c *         de tempo anterior                                          *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
-      real*8 e(*),x(*),u(*),dp(*),p(*),s(nst,*)
+      real*8 e(*),x(*),u(*),dp(*),p(*),s(nst,*),txn(6,*)
       real*8 dt
       logical block_pu
 c ......................................................................
@@ -74,7 +76,7 @@ c ......................................................................
   600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec)
-        call elmt6_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,isw,block_pu)
+        call elmt6_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
       endif
       return
 c ......................................................................

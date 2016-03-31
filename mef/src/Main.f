@@ -97,19 +97,23 @@ c ... malha
       integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_e,i_x,i_xq,i_inum
       integer*8 i_ic
 c ... arranjos locais ao elemento
-      integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl
+      integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl
 c ... forcas e graus de liberdade 
       integer*8 i_f
       integer*8 i_u,i_u0,i_tx0,i_dp
       integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
-      integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0,i_x0
+      integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0,i_x0,i_bst0
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2
 c ... coo
       integer*8 i_lin,i_col,i_acoo
       integer*8 i_linuu,i_coluu,i_acoouu
       integer*8 i_linpp,i_colpp,i_acoopp
+c ......................................................................
+c
+c ... tensoes iniciais
+      logical fstress0,fcstress0
 c ......................................................................
 c
 c ... Variaveis de controle do MPI:
@@ -161,6 +165,11 @@ c ......................................................................
       dt      =  1.d0
       alfa    =  1.d0
       beta    =  1.d0
+c ... tensoes iniciais
+c ... fstress0  = tensoes iniciais como condicao inicial
+c ... fcstress0 = tensoes iniciais utilizadas       
+      fstress0  = .false.
+      fcstress0 = .false.
 c ... reordf  =  true -> reordenacao Cuthill-McKee
       reordf  = .false.
 c ... maxit   =  numero max. de iteracoes do solver iterativo
@@ -344,12 +353,13 @@ c
 c      call rdat(nnode,numel,numat,nen,ndf,ndm,nst,i_ix,i_id,i_ie,
 c     .          i_nload,i_eload,i_inum,i_e,i_x,i_f,i_u,i_v,i_a,nin)
 c
-      call rdat(nnode ,nnodev ,numel  ,numat  
-     .         ,nen   ,nenv   
-     .         ,ndf   ,ndm    ,nst    ,i_ix  
-     .         ,i_ie  ,i_inum ,i_e    ,i_x
-     .         ,i_id  ,i_nload,i_eload,i_f  
-     .         ,i_u   ,i_u0   ,i_tx0  ,i_dp 
+      call rdat_pm(nnode  ,nnodev ,numel  ,numat  
+     .         ,nen       ,nenv   
+     .         ,ndf       ,ndm    ,nst    ,i_ix  
+     .         ,i_ie      ,i_inum ,i_e    ,i_x
+     .         ,i_id      ,i_nload,i_eload,i_f  
+     .         ,i_u       ,i_u0   ,i_tx0  ,i_dp
+     .         ,fstress0 
      .         ,nin ) 
 c
 c    -----------------------------------------------------------------
@@ -359,6 +369,11 @@ c
 c    -----------------------------------------------------------------
 c    | dp |                                                            
 c    -----------------------------------------------------------------
+c ......................................................................      
+c
+c ... calculo das forcas internas devidos as tensoes inicias tensoes
+c     habilitado
+      if(fstress0) fcstress0 = .true.
 c ......................................................................      
 c
 c.... Controle de tempos:
@@ -443,6 +458,9 @@ c
       i_pl  = alloc_8('pl      ',1  ,nst)
 c ... 6 - tensoes totais, 6 - tensoes de biot , 3 - fluxo de darcy
       i_txl = alloc_8('txl     ', 15,nenv)
+c ...      
+      i_txnl= alloc_8('txnl    ',  6,nen)
+c ...      
       i_sl  = alloc_8('sl      ',nst,nst)
       i_ld  = alloc_4('ld      ',  1,nst)
 c
@@ -481,11 +499,13 @@ c
 c ......................................................................
       if (ndf .gt. 0) then
          i_x0  = alloc_8('x0      ',    1,neq+neq3+neq4)
+         i_bst0= alloc_8('bstress0',    1,neq+neq3+neq4)
          i_b0  = alloc_8('b0      ',    1,neq+neq3+neq4)
          i_b   = alloc_8('b       ',    1,neq+neq3+neq4)
-         call azero(ia(i_x0),neq+neq3+neq4)      
-         call azero(ia(i_b0),neq+neq3+neq4)      
-         call azero(ia(i_b ),neq+neq3+neq4)
+         call azero(ia(i_x0)  ,neq+neq3+neq4)
+         call azero(ia(i_bst0),neq+neq3+neq4) 
+         call azero(ia(i_b0)  ,neq+neq3+neq4)      
+         call azero(ia(i_b )  ,neq+neq3+neq4)
 c ...    Memoria para o precondicionador diagonal:
          i_m   = alloc_8('m       ',    1,neq)
          call azero(ia(i_m),neq)      
@@ -522,24 +542,52 @@ c ... Cargas nodais e valores prescritos no tempo t+dt:
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
+c ... forcas internas devidos as tensoes inicias tensoes
+      if(fstress0 .and. fcstress0) then
+          timei = MPI_Wtime()
+          call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
+     .                 ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     .                 ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
+     .                 ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
+     .                 ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     .                 ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
+     .                 ,numel       ,nen          ,nenv     ,ndf 
+     .                 ,ndm         ,nst          
+     .                 ,neq         ,nequ         ,neqp 
+     .                 ,nad         ,naduu        ,nadpp    ,nadpu 
+     .                 ,.false.     ,.true.       ,unsym 
+     .                 ,stge        ,5            ,ilib     ,i
+     .                 ,ia(i_colorg),ia(i_elcolor),numcolors,.true.
+     .                 ,block_pu    ,n_blocks_up)
+          elmtime = elmtime + MPI_Wtime()-timei
+          fcstress0= .false.
+      endif 
+c .....................................................................      
+c
 c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
 c     do passo t:  
       timei = MPI_Wtime()
       call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
      .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
      .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
-     .             ,ia(i_u0)    ,ia(i_dp) 
+     .             ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
      .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     .             ,ia(i_sl)    ,ia(i_ld) 
+     .             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
      .             ,numel       ,nen          ,nenv     ,ndf 
      .             ,ndm         ,nst          
      .             ,neq         ,nequ         ,neqp 
      .             ,nad         ,naduu        ,nadpp    ,nadpu 
      .             ,.false.     ,.true.       ,unsym 
      .             ,stge,4      ,ilib         ,i
-     .             ,ia(i_colorg),ia(i_elcolor),numcolors
+     .             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
      .             ,block_pu    ,n_blocks_up)
       elmtime = elmtime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ... tensao inicial
+      if(fstress0) then
+        call vsum(ia(i_b0),ia(i_bst0),neq,ia(i_b0))
+      endif  
 c .....................................................................
 c
 c ... Preditor: du(n+1,0) = u(n+1) - u(n)  
@@ -565,16 +613,16 @@ c ... Residuo: b = F - K.du(n+1,i)
       call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
      .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
      .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
-     .             ,ia(i_u)     ,ia(i_dp)
+     .             ,ia(i_u)     ,ia(i_dp)     ,ia(i_tx0)
      .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     .             ,ia(i_sl)    ,ia(i_ld) 
+     .             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl)
      .             ,numel       ,nen          ,nenv     ,ndf
      .             ,ndm         ,nst          
      .             ,neq         ,nequ         ,neqp
      .             ,nad         ,naduu        ,nadpp    ,nadpu
      .             ,.true.      ,.true.       ,unsym
      .             ,stge        ,2            ,ilib     ,i
-     .             ,ia(i_colorg),ia(i_elcolor),numcolors
+     .             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
      .             ,block_pu,n_blocks_up)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
@@ -1025,12 +1073,13 @@ c .....................................................................
 c
 c ...
       timei = MPI_Wtime()
-      call tform_pm(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),
-     .             ia(i_ic),ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_txl),
-     .             ia(i_u) ,ia(i_dp),
-     .             ia(i_tx),ia(i_txb),ia(i_txe),ia(i_flux),
-     .             nnodev,
-     .             numel,nen,nenv,ndm,ndf,nst ,ntn,3,ilib)
+      call tform_pm(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     .             ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     .             ,ia(i_txl),ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
+     .             ,ia(i_tx) ,ia(i_txb),ia(i_txe),ia(i_flux)
+     .             ,nnodev   ,numel   ,nen       ,nenv
+     .             ,ndm      ,ndf     ,nst       ,ntn
+     .             ,3        ,ilib)
       tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
 c
@@ -1232,7 +1281,7 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: NLSTATIC
 c
 c ......................................................................
  2800 continue
@@ -1247,8 +1296,7 @@ c ......................................................................
       goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
-c
+c ... Macro-comando: 
 c ......................................................................
  2900 continue
       print*, 'Macro     '
@@ -1364,12 +1412,13 @@ c .....................................................................
 c
 c ...
       timei = MPI_Wtime()
-      call tform_pm(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),
-     .             ia(i_ic),ia(i_xl),ia(i_ul),ia(i_dpl),ia(i_txl),
-     .             ia(i_u) ,ia(i_dp),
-     .             ia(i_tx),ia(i_txb),ia(i_txe),ia(i_flux),
-     .             nnodev,
-     .             numel,nen,nenv,ndm,ndf,nst ,ntn,3,ilib)
+      call tform_pm(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     .             ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     .             ,ia(i_txl),ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
+     .             ,ia(i_tx) ,ia(i_txb),ia(i_txe),ia(i_flux)
+     .             ,nnodev   ,numel    ,nen      ,nenv
+     .             ,ndm      ,ndf      ,nst      ,ntn
+     .             ,3        ,ilib)
       tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
 c
@@ -1541,5 +1590,14 @@ c ...
 c .....................................................................
       return
       end
-
+c      
+      subroutine printv (v,n)
+      implicit none 
+      real*8 v(*)
+      integer i,n
+      do i = 1, n
+      print*,i,v(i)
+      enddo
+      return
+      end
 

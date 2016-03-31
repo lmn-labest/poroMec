@@ -1,61 +1,62 @@
-      subroutine rdat(nnode ,nnodev ,numel  ,numat   
-     .               ,nen   ,nenv
-     .               ,ndf   ,ndm    ,nst    ,i_ix 
-     .               ,i_ie  ,i_inum ,i_e    ,i_x 
-     .               ,i_id  ,i_nload,i_eload,i_f
-     .               ,i_u   ,i_u0   ,i_tx0  ,i_dp
-     .               ,nin     )
+      subroutine rdat_pm(nnode  ,nnodev ,numel  ,numat   
+     .                  ,nen    ,nenv
+     .                  ,ndf    ,ndm    ,nst    ,i_ix 
+     .                  ,i_ie   ,i_inum ,i_e    ,i_x 
+     .                  ,i_id   ,i_nload,i_eload,i_f
+     .                  ,i_u    ,i_u0   ,i_tx0  ,i_dp
+     .                 ,fstress0  
+     .                 ,nin     )
 c **********************************************************************
-c *                                                                    *
-c *   RDAT: leitura de dados.                                          *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    nin     - arquivo de entrada                                    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    nnode - numero total de nos                                     *
-c *    nnodev- numero de nos dos vertices                              *
-c *    numel - numero de elementos                                     *
-c *    numat - numero de materiais                                     *
-c *    nen   - numero max. de nos por elemento                         *
-c *    nenv  - numero max. de nos geometicos por elemento              *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    ndm   - dimensao (1, 2 ou 3)                                    *
-c *    nst   - numero de graus de liberdade por elemento               *
-c *    i_ix    - ponteiro para conetividades                           *
-c *    i_id    - ponteiro para restricoes nodais (poro_mecanico)       *
-c *    i_ie    - ponteiro para materiais                               *
-c *    i_nload - ponteiro para o arranjo nload (poro_mecanico)         *
-c *    i_eload - ponteiro para o arranjo eload (poro_mecanico)         *
-c *    i_inum  - ponteiro para o arranjo inum                          *
-c *    i_e     - ponteiro para o arranjo e                             *
-c *    i_x     - ponteiro para o arranjo x                             *
-c *    i_f     - ponteiro para o arranjo f (poro_mecanico)             *
-c *    i_u     - ponteiro para o arranjo u (poro_mecanico)             *
-c *    i_u0    - ponteiro para o arranjo u0(poro_mecanico)             *
-c *    i_tx0   - ponteiro para o arranjo tx(poro_mecanico)             *
-c *    i_dp      ponteiro para o arranjo deltaP(poro_mecanico)         *
-c *                                                                    *
-c *                                                                    *
-c *   Observacoes:                                                     *
-c *                                                                    *
-c *    ix    - conetividades nodais dos elementos                      *
-c *    id    - restricoes nodais                                       *
-c *    ie    - tipo de elemento                                        *
-c *    e     - constantes fisicas                                      *
-c *    x     - coordenadas nodais                                      *
-c *    f     - forcas e prescricoes nodais                             *
-c *    u0    - condicoes de contorno e inicial                         *
-c *    tx0   - tensoes inicias                                         *
-c *    pres0 - pressoes iniciais                                       *
-c *    dp    - delta P ( apenas alocado)                               *
-c *    nload(i,j) - numero identificador da carga na direcao i do no j *
-c *    load(1,n)  - tipo da carga n                                    *
-c *    load(2,n)  - numero de termos da carga n                        *
-c *    fload(i,j,k) - coeficiente i do termo j da carga k              *
-c *                                                                    *
+c * Data de criacao    : 10/01/2016                                    *
+c * Data de modificaco : 30/03/2016                                    *
+c * ------------------------------------------------------------------ *    
+c * RDAT: leitura de dados do problema poromecanico.                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * nin     - arquivo de entrada                                       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * nnode - numero total de nos                                        *
+c * nnodev- numero de nos dos vertices                                 *
+c * numel - numero de elementos                                        *
+c * numat - numero de materiais                                        *
+c * nen   - numero max. de nos por elemento                            *
+c * nenv  - numero max. de nos geometicos por elemento                 *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * ndm   - dimensao (1, 2 ou 3)                                       *
+c * nst   - numero de graus de liberdade por elemento                  *
+c * i_ix    - ponteiro para conetividades                              *
+c * i_id    - ponteiro para restricoes nodais (poro_mecanico)          *
+c * i_ie    - ponteiro para materiais                                  *
+c * i_nload - ponteiro para o arranjo nload (poro_mecanico)            *
+c * i_eload - ponteiro para o arranjo eload (poro_mecanico)            *
+c * i_inum  - ponteiro para o arranjo inum                             *
+c * i_e     - ponteiro para o arranjo e                                *
+c * i_x     - ponteiro para o arranjo x                                *
+c * i_f     - ponteiro para o arranjo f (poro_mecanico)                *
+c * i_u     - ponteiro para o arranjo u (poro_mecanico)                *
+c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
+c * i_tx0   - ponteiro para o arranjo tx(poro_mecanico)                *
+c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
+c * fstress0- leitura de tensoes iniciais (true/false)                 *      
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * ix    - conetividades nodais dos elementos                         *
+c * id    - restricoes nodais                                          *
+c * ie    - tipo de elemento                                           *
+c * e     - constantes fisicas                                         *
+c * x     - coordenadas nodais                                         *
+c * f     - forcas e prescricoes nodais                                *
+c * u0    - condicoes de contorno e inicial                            * 
+c * tx0   - tensoes inicias                                            *
+c * dp    - delta P ( apenas alocado)                                  *
+c * nload(i,j) - numero identificador da carga na direcao i do no j    *
+c * load(1,n)  - tipo da carga n                                       *
+c * load(2,n)  - numero de termos da carga n                           *
+c * fload(i,j,k) - coeficiente i do termo j da carga k                 *
 c **********************************************************************
       use Malloc
       implicit none
@@ -66,11 +67,11 @@ c ......................................................................
       include 'parallel.fi'
       include 'termprop.fi'
 c ......................................................................      
-      integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst
+      integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst,ntn
       integer maxgrade
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
-      integer*8 i_u,i_u0,i_tx0,i_pres0,i_dp
+      integer*8 i_u,i_u0,i_tx0,i_dp
       integer*8 i_ix,i_id,i_ie
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid
 c ......................................................................      
@@ -80,8 +81,9 @@ c ......................................................................
       character*80 fname
       integer naux
       integer nincl /7/
-      logical fReadEl /.false./
-      logical elQuad  /.false./
+      logical fstress0
+      logical f_read_el /.false./
+      logical el_quad  /.false./
 c ......................................................................
       data macro/'materials      ','bar2           ','tria3          ',
      .           'quad4          ','tetra4         ','hexa8          ',
@@ -90,7 +92,7 @@ c ......................................................................
      .           'nodalforces    ','elmtloads      ','nodalloads     ',
      .           '               ','               ','               ',
      .           'loads          ','               ','               ',
-     .           'initialdisp    ','initialpres    ','               ',
+     .           'initialdisp    ','initialpres    ','initialstress  ',
      .           'parallel       ','insert         ','return         ',
      .           '               ','               ','end            '/
       data nmc /30/      
@@ -101,7 +103,14 @@ c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
       call parameters(nnodev,numel,numat,nen,ndf,ndm,nin)
       print*,'load.'
       nnode  = nnodev
-c ......................................................................      
+c ......................................................................
+c
+c ... numero do tensor de tensoes
+      if( ndm .eq. 3) then
+        ntn = 6
+      endif
+c ......................................................................
+c   
 c     Alocacao de arranjos na memoria:
 c     ---------------------------------------------------------------
 c     | ix | ie | eload | 
@@ -111,7 +120,6 @@ c
       i_ie    = alloc_4('ie      ',    1,numat)
       i_e     = alloc_8('e       ', prop,numat)
       i_x     = alloc_8('x       ',  ndm,nnodev)
-      i_pres0 = alloc_8('pres0   ',    1,nnodev)
       i_dp    = alloc_8('dpres   ',    1,nnodev)
       i_eload = alloc_4('eload   ',    7,numel)
       call mzero(ia(i_ix),numel*(nen+1))
@@ -146,7 +154,7 @@ c ......................................................................
      .      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
      .      1150,1200,1250,    !           ,             ,
      .      1300,1350,1400,    !loads      ,             ,
-     .      1450,1500,1550,    !initialdisp,intialpres   ,
+     .      1450,1500,1550,    !initialdisp,intialpres   ,initialstress
      .      1600,1650,1700,    !parallel   ,insert       ,return
      .      1900,1900,2000) j  !           ,             ,end
 c ......................................................................
@@ -192,7 +200,7 @@ c ... Conetividades tetra4:
 c
   600 continue
       print*,'load tetra4 ...'
-      fReadEl    = .true.
+      f_read_el  = .true.
       ntetra4(1) = 0
       nenv       = 4
       call elconn(ia(i_ix),nen+1,nenv,ntetra4(1),numel,nin)
@@ -201,7 +209,7 @@ c
 c ... transforma os elementos lineares em quadraticos (10 nos)
       if( nen .eq. 10) then
         nst       = nen*(ndf-1) + nenv  
-        elQuad    = .true.
+        el_quad   = .true.
 c .....................................................................
 c       i_nelcon  = alloc_4('nelcon  ',  4,numel)
 c       i_nodcon  = alloc_4('nodcon  ',  1,nnode)
@@ -259,14 +267,14 @@ c     ---------------------------------------------------------------
         i_f     = alloc_8('f       ',  ndf,nnode)
         i_u     = alloc_8('u       ',  ndf,nnode)
         i_u0    = alloc_8('u0      ',  ndf,nnode)
-        i_tx0   = alloc_8('tx0     ',  ndf,nnode)
+        i_tx0   = alloc_8('tx0     ',  ntn,nnode)
         call mzero(ia(i_inum) ,nnode)  
         call mzero(ia(i_id)   ,nnode*ndf)
         call mzero(ia(i_nload),nnode*ndf)
         call azero(ia(i_f)    ,nnode*ndf)
         call azero(ia(i_u)    ,nnode*ndf)
         call azero(ia(i_u0)   ,nnode*ndf)
-        call azero(ia(i_tx0)  ,nnode*6  )
+        call azero(ia(i_tx0)  ,nnode*ntn)
       endif
 c .....................................................................
       print*,'load.'
@@ -277,16 +285,16 @@ c ... Conetividades hexa8:
 c
   650 continue
       print*,'load hexa8 ...'
-      fReadEl   = .true.
+      f_read_el = .true.
       nhexa8(1) = 0
       nenv      = 8
       call elconn(ia(i_ix),nen+1,nenv,nhexa8(1),numel,nin)
       nhexa8(2) = totnel + 1
       totnel    = totnel + nhexa8(1)
 c ... transforma os elementos lineares em quadraticos (20 nos)
-      if( nen .eq. 20) then
+      if(nen .eq. 20) then
         nst       = nen*(ndf-1) + nenv  
-        elQuad    = .true.
+        el_quad   = .true.
 c .....................................................................
 c       i_nelcon  = alloc_4('nelcon  ',  6,numel)
 c       i_nodcon  = alloc_4('nodcon  ',  1,nnode)
@@ -340,14 +348,14 @@ c     ---------------------------------------------------------------
         i_f     = alloc_8('f       ',  ndf,nnode)
         i_u     = alloc_8('u       ',  ndf,nnode)
         i_u0    = alloc_8('u0      ',  ndf,nnode)
-        i_tx0   = alloc_8('tx0     ',  ndf,nnode)
+        i_tx0   = alloc_8('tx0     ',  ntn,nnode)
         call mzero(ia(i_inum) ,nnode)  
         call mzero(ia(i_id)   ,nnode*ndf)
         call mzero(ia(i_nload),nnode*ndf)
         call azero(ia(i_f)    ,nnode*ndf)
         call azero(ia(i_u)    ,nnode*ndf)
         call azero(ia(i_u0)   ,nnode*ndf)
-        call azero(ia(i_tx0)  ,nnode*6  )
+        call azero(ia(i_tx0)  ,nnode*ntn)
       endif
 c .....................................................................
       print*,'load.'
@@ -389,10 +397,10 @@ c ... constrainpmec - restricoes nodais (deslocamentos + pressao)
 c
   900 continue
       print*,'load constrainpmec ...'
-      if(fReadEl) then
+      if(f_read_el) then
         call bound(ia(i_id),nnodev,ndf,nin,1)
 c ...
-        if(elQuad) then
+        if(el_quad) then
           call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf,nen)
         endif
 c ......................................................................
@@ -412,11 +420,11 @@ c
 c ... nodalforces - forcas nodais:
 c
  1000 continue
-      if(fReadEl) then
+      if(f_read_el) then
         print*,'load nodalforces ...'
         call forces(ia(i_f),nnodev,ndf,nin)
 c ...
-        if(elQuad) then
+        if(el_quad) then
           call mk_forces_quad(ia(i_id),ia(i_f),ia(i_ix),numel,ndf,nen)
         endif
 c ......................................................................
@@ -431,7 +439,7 @@ c ... elmtloads - cargas nos elementos
 c
  1050 continue
       print*,'load elmtloads ...'
-      if(fReadEl) then
+      if(f_read_el) then
         call bound(ia(i_eload),numel,7,nin,3) 
       else
         print*,'MACRO: elmtloads !! elementos nao lidos'
@@ -443,7 +451,7 @@ c
 c ... nodalloads - nos com cargas variaveis no tempo:
 c
  1100 continue
-      if(fReadEl) then
+      if(f_read_el) then
         call bound(ia(i_nload),nnodev,ndf,nin,2) 
       else
         print*,'MACRO: nodalloads !! elementos nao lidos'
@@ -493,14 +501,11 @@ c
 c ... initialdisp - deslocamentos iniciais:
 c
  1450 continue
-      if(fReadEl) then
-        call init_poro_mec(ia(i_u0),nnodev,ndf,1,ndf-1,nin)  
-        if(elQuad) then
-          call mk_forces_quad(ia(i_u0),ia(i_ix),numel,ndf,nen)
-        endif
-      else
-        print*,'MACRO: initialdisp !! elementos nao lidos'
-      endif
+c     if(fReadEl) then
+c       call init_poro_mec(ia(i_u0),nnodev,ndf,1,ndf-1,nin)  
+c     else
+c       print*,'MACRO: initialdisp !! elementos nao lidos'
+c     endif
       go to 100
 c ......................................................................      
 c
@@ -508,8 +513,8 @@ c ... intialpres
 c
  1500 continue
       print*,'load intialpres ...'
-      if(fReadEl) then
-        call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)  
+      if(f_read_el) then
+        call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)
       else
         print*,'MACRO: initialpres !! elementos nao lidos'
       endif
@@ -520,6 +525,17 @@ c
 c ...                                                                                       
 c      
  1550 continue
+      print*,'load initialstress ...'
+      if(f_read_el) then
+        fstress0 = .true.  
+        call init_poro_mec(ia(i_tx0),nnodev,ntn,1,ntn,nin)
+        if(el_quad) then
+          call mk_initial_quad(ia(i_tx0),ia(i_ix),numel,ntn,nen)
+        endif
+      else
+        print*,'MACRO: initialstress !! elementos nao lidos'
+      endif
+      print*,'load.'
       go to 100
 c ......................................................................
 c
@@ -537,9 +553,13 @@ c
       naux = nin
       call readmacro(nin,.false.)
       write(fname,'(80a)') (word(j),j=1,strl)
-      open(nincl, file= fname)
+      open(nincl, file= fname,status= 'old',err=1651,action='read')
       nin = nincl
       go to 100
+ 1651 continue
+      print*, trim(fname), ' arquivo nao existente !'
+      stop
+
 c ......................................................................
 c
 c ... (return) Retorna leitura para arquivo de dados basico:
@@ -1483,22 +1503,25 @@ c ......................................................................
 c *********************************************************************
 c
 c **********************************************************************
-c *                                                                    *
-c *   MKBOUNDQUAD: gera as restricoes nos deslocamente nos pontos      *  
-c *   ------------ intermediarios                                      *
-c *                                                                    *
-c *   Parâmetros de entrada:                                           *
-c *   ----------------------                                           *
-c *                                                                    *
-c *   id(ndf,*)  - restricoes nos vertices                             *
-c *   numel      - numero de elementos                                 *
-c *   ndf        - grau de liberdade                                   *
-c *   nen        - numero de nos elementos quadraticos                 *
-c *                                                                    *
-c *   Parâmetros de saida:                                             *
-c *   -------------------                                              *
-c *   id(ndf,*)  - restricoes atualizadas                              *
-c *                                                                    *
+c * Data de criacao    : 28/03/2016                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ *
+c * MK_BOUND_QUAD: gera as restricoes nos deslocamente nos pontos      *  
+c *              intermediarios                                        *
+c * ------------------------------------------------------------------ *
+c * Parâmetros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * id(ndf,*)  - restricoes nos vertices                               *
+c * numel      - numero de elementos                                   *
+c * ndf        - grau de liberdade                                     *
+c * nen        - numero de nos elementos quadraticos                   *
+c * ------------------------------------------------------------------ *
+c * Parâmetros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * id(ndf,*)  - restricoes atualizadas                                *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *     
 c **********************************************************************
       subroutine mk_bound_quad(id,el,numel,ndf,nen)
       implicit none
@@ -1548,23 +1571,27 @@ c .....................................................................
 c *********************************************************************
 c
 c **********************************************************************
-c *                                                                    *
-c *   MKFORCESQUAD: gera as valores das cargas nos deslocamente        *
-c *                 nos pontos intermediarios                          *
-c *                                                                    *
-c *   Parâmetros de entrada:                                           *
-c *   ----------------------                                           *
-c *                                                                    *
-c *   id(ndf,*)  - restricoes atualizadas                              *
-c *   f (ndf,*)  - valor das cargas nos vertices                       *
-c *   numel      - numero de elementos                                 *
-c *   ndf        - grau de liberdade                                   *
-c *   nen        - numero de nos elementos quadraticos                 *
-c *                                                                    *
-c *   Parâmetros de saida:                                             *
-c *   -------------------                                              *
-c *   id(ndf,*)  - restricoes atualizadas                              *
-c *                                                                    *
+c * Data de criacao    : 28/03/2016                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ *
+c * MK_FORCES_QUAD: gera as valores das cargas  nos pontos             *
+c * intermediarios                                                     *
+c * ------------------------------------------------------------------ *
+c * Parâmetros de entrada:                                             *
+c * ------------------------------------------------------------------ *                                                                  *
+c * id(ndf,*)  - restricoes atualizadas                                *
+c * f (ndf,*)  - valor das cargas nos vertices                         *
+c * el(nen+1,*)- conectividade nodal                                   *
+c * numel      - numero de elementos                                   *
+c * ndf        - grau de liberdade                                     *
+c * nen        - numero de nos elementos quadraticos                   *
+c * ------------------------------------------------------------------ *
+c * Parâmetros de saida:                                               *
+c * ------------------------------------------------------------------ *                                          *
+c * id(ndf,*)  - restricoes atualizadas                                *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *                                                                    *
 c **********************************************************************
       subroutine mk_forces_quad(id,f,el,numel,ndf,nen)
       implicit none
@@ -1613,6 +1640,72 @@ c .....................................................................
       return
       end
 c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 28/03/2016                                    *
+c * Data de modificaco :                                               * 
+c * ------------------------------------------------------------------ *
+c * MK_INITIAL_QUAD:gera os valores iniciais nos pontos intermediarios *
+c * ------------------------------------------------------------------ *
+c * Parâmetros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * f(ndf,*)   - valor das cargas nos vertices                         *
+c * el(nen+1,*)- conectividade nodal                                   *
+c * numel      - numero de elementos                                   *
+c * ndf        - grau de liberdade                                     *
+c * nen        - numero de nos elementos quadraticos                   *
+c * ------------------------------------------------------------------ *
+c * Parâmetros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * f(ndf,*)   - valor das cargas atualizadas                          *
+c * ------------------------------------------------------------------ * 
+c *  OBS:                                                              *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine mk_initial_quad(f,el,numel,ndf,nen)
+      implicit none
+      integer maxEdge
+      parameter (maxEdge = 12) 
+c ...
+      integer i,j,k
+      integer el(nen+1,*)
+      integer iEdge(3,maxEdge)
+      integer numel,ndf,nedge,no1,no2,no3,nen
+      real*8  f(ndf,*)
+c ...
+      nedge = 0  
+c ... tetraedros de 10 nos 
+      if( nen .eq. 10 ) then
+        nedge =  6
+        call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+      else if( nen .eq. 20 ) then
+        nedge = 12
+        call hexa20edgeNod(iEdge) 
+      endif
+c ...
+      do i = 1, numel
+        do j = 1, nedge
+c ... no vertices
+          no1     = el(iEdge(1,j),i)
+          no2     = el(iEdge(2,j),i)
+c ... no central
+          no3     = el(iEdge(3,j),i)
+          do k = 1, ndf
+            f(k,no3) = 0.5d0*(f(k,no1) +  f(k,no2))
+          enddo
+        enddo
+      enddo
+c .....................................................................
+c
+c ...
+c     do i = 1, 70
+c       print*,i,f(1:4,i)
+c     enddo
+c .....................................................................  
+      return
+      end
+c **********************************************************************
 c
 c **********************************************************************
 c *                                                                    *
@@ -1675,7 +1768,7 @@ c *********************************************************************
       integer n,j,nmacro
       integer nin
       data nmacro /7/
-      data macro/'memoria        ','omp_elmt       ','omp_solver     ',
+      data macro/'memory         ','omp_elmt       ','omp_solver     ',
      .           'nth_elmt       ','nth_solver     ','reord          ',
      .           'bvtk           '/
 c .....................................................................

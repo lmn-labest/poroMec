@@ -1,7 +1,8 @@
-      subroutine elmt6_pm(e,iq,x,u,dp,p,s,dt,ndm,nst,nel,isw,block_pu)
+      subroutine elmt6_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
+     .                   ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco :                                               * 
+c * Data de modificaco : 28/03/2016                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT06_pm: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -21,36 +22,37 @@ c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
 c * p(nst)     - nao definido                                          *
 c * s(nst,nst) - nao definido                                          *
+c * txn(6,nen) - tensoes nodais                                        *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento (3*10 + 1*4)       *
 c * nel - numero do elemento                                           *
 c * isw - codigo de instrucao                                          *
-c *           1 = delta t critico                                      *
-c *           2 = matriz K e forcas internas Ku                        *
-c *           3 = tesnsoes e fluxos                                    *
-c *           4 = forcas de volume, superficies e integrais do passo   *
-c *             de tempo anterior                                      *
-c *           5 =                                                      *
-c *           6 =                                                      *
-c *           7 =                                                      *
+c *  1 = delta t critico                                               *
+c *  2 = matriz K e forcas internas Ku                                 *
+c *  3 = tesnsoes e fluxos                                             *
+c *  4 = forcas de volume, superficies e integrais do passo            *
+c *    de tempo anterior                                               *
+c *  5 = Tensoes iniciais                                              *
+c *  6 =                                                               *
+c *  7 =                                                               *
 c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
 c *            false- aramzenamento em unico bloco                     *      
 c * ------------------------------------------------------------------ * 
-c *   Parametros de saida:                                             *
+c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
-c *     e - constantes fisicas                                         *
-c *     s - matriz de elemento                                         *
-c *     p - isw = 2  residuo                                           *
-c *         isw = 3  tensao e fluxo                                    *
-c *         isw = 4  cargas de superfice, volume e integras do passo   *
+c * e - constantes fisicas                                             *
+c * s - matriz de elemento                                             *
+c * p - isw = 2  residuo                                               *
+c *     isw = 3  tensao e fluxo                                        *
+c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *         de tempo anterior                                          *
 c * ------------------------------------------------------------------ * 
-c *   OBS:                                                             *
+c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
-c *   u(1:30) - isw = 2 diferenca de deslocamentos                     *
-c *   u(1:30) - isw = 3 e isw = 4 deslocamentos                        *
-c *   u(31:34)- isw = 2 diferenca de pressao                           *
-c *   u(31:34)- isw = 3 e isw = 4 pressao                              *
+c * u(1:30) - isw = 2 diferenca de deslocamentos                       *
+c * u(1:30) - isw = 3 e isw = 4 deslocamentos                          *
+c * u(31:34)- isw = 2 diferenca de pressao                             *
+c * u(31:34)- isw = 3 e isw = 4 pressao                                *
 c **********************************************************************
       implicit none
       include 'poro_mec_prop.fi'
@@ -76,7 +78,7 @@ c ...
       real*8 xj(3,3),xji(3,3),xj2D(2,2),xji2D(2,2),r(3,3)
       real*8 ri,si,ti,w,wt1,wt2,wt3,det
       real*8 rn(10),sn(10),tn(10)
-      real*8 pi,epsi(6),txi(6),dpm,pm
+      real*8 pi,epsi(6),txi(6),txn(6,*),dpm,pm
 c ... integracao numerica de tetraedros     
       real*8 pri4(5,3),psi4(5,3),pti4(5,3),wf4(5,3)
       real*8  pri(12,5),psi(12,5),wf(12,5)
@@ -445,7 +447,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ...
-      pm_d      = e(6)             
+      pm_d      = e(6)*1.0d-06           
       fluid_d   = e(7)*1.0d-06
 
 c ... fluid specific weight
@@ -536,7 +538,7 @@ c
      .    + wt1*(hux(i)*txi(6) + huy(i)*txi(5) + huz(i)*txi(3))
 c .....................................................................
 c
-c ... Fp = int(dt*perm*fuild_d*(B~T)*ge*dv)  
+c ... Fu = int(pm_d*(N~T)*ge*dv)  
           wt3   = hu(i)*wt2  
           p(l1) = p(l1) - wt3*gl(1)
           p(l2) = p(l2) - wt3*gl(2)
@@ -658,11 +660,67 @@ c .....................................................................
       return
 c ======================================================================
 c
-c ...                   
+c ... Tensoes iniciais:                  
 c
 c ......................................................................
   500 continue
-      stop
+c ...     
+      igrau = igrau_vol 
+      nint  = npint4(igrau) 
+      do lx = 1, nint
+c ...
+        ti = pti4(lx,igrau)
+        si = psi4(lx,igrau)
+        ri = pri4(lx,igrau)
+c ...                                               
+        call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.false.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel,.true.)
+c .....................................................................
+c
+c ...
+        w   = wf4(lx,igrau)*det
+        wt1 = w*div6
+c .....................................................................
+c
+c ...
+       call sftetra10(hu,hux,huy,huz,ri,si,ti,.true.,.true.)
+       call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
+c .....................................................................
+c  
+c ...
+        txi(1:6)= 0.d0
+        do j = 1,  10 
+          txi(1) = txi(1) + hu(j)*txn(1,j)
+          txi(2) = txi(2) + hu(j)*txn(2,j) 
+          txi(3) = txi(3) + hu(j)*txn(3,j) 
+          txi(4) = txi(4) + hu(j)*txn(4,j) 
+          txi(5) = txi(5) + hu(j)*txn(5,j)
+          txi(6) = txi(6) + hu(j)*txn(6,j) 
+        enddo
+c .....................................................................
+c        
+c ...
+c ...
+        do i = 1, 10
+c         l1  = (i-1)*3+1
+          l1  = 3*i-2
+          l2  = l1 + 1
+          l3  = l2 + 1
+c ... Fu = int(BeT*sigma*dv)
+          p(l1) = p(l1) 
+     .    + wt1*(hux(i)*txi(1) + huy(i)*txi(4) + huz(i)*txi(6))
+c         
+          p(l2) = p(l2) 
+     .    + wt1*(hux(i)*txi(4) + huy(i)*txi(2) + huz(i)*txi(5))
+c          
+          p(l3) = p(l3) 
+     .    + wt1*(hux(i)*txi(6) + huy(i)*txi(5) + huz(i)*txi(3))
+c .....................................................................
+        enddo   
+c .....................................................................
+      enddo
+c .....................................................................
+      return
 c ======================================================================
 c
 c ... Matriz geometrica:
