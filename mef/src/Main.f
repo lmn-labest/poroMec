@@ -198,8 +198,8 @@ c     block_pu= .true.
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
 c ... campo gravitacional (Padrao)
-      gravity(1) =  0.0d0
-      gravity(2) =  0.0d0
+      gravity(1) =   0.0d0
+      gravity(2) =   0.0d0
       gravity(3) = -9.81d0
 c ...
       flag_macro_mesh = .false.

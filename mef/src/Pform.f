@@ -537,8 +537,9 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el,iq(1,nel),xl,ddum,ddum,dtc,ddum,ddum,dt,ndm
-     .                ,nst,nel,iel,isw,ma,idum,ilib,ldum)
+        call elmlib_pm(el,iq(1,nel),xl,ddum,ddum,dtc,ddum,ddum
+     .                ,dt,ndm      ,nst    ,nel ,iel,isw
+     .                ,ma,idum     ,ilib   ,ldum)
 c ......................................................................
 c 
 c ...
