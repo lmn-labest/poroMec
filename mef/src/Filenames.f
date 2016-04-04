@@ -1,44 +1,43 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-10-28 14:58:18 -0200 (Fri, 28 Oct 2011) $                 
-c*$Rev: 956 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************      
       character*80 function name(NomeArqDados,NumArq,code)
-c **********************************************************************
-c *                                                                    *
-c *   NAME: nomes de aquivos                                           *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    NumArq       - numero do arquivo                                *
-c *    code         - codigo de instrucao                              *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    NomeArqDados - nome do arquivo                                  *
-c * 
-c *    code:                                                           *
-c *    0 -> geometria vtk                                              *
-c *    1 -> geometrica vtu                                             *
-c *    2 -> resultado vtk                                              *
-c *    3 -> resultado vtu                                              *
-c *    4 ->                                                            *
-c *    5 ->                                                            *
-c *    6 ->                                                            *
-c *    7 ->                                                            *
-c *    8 ->                                                            *
-c *    9 ->                                                            *
-c *   10 ->                                                            *
-c *   12 ->                                                            *
-c *   13 ->                                                            *
-c *   14 -> arquivo de tempos                                          *
-c *   15 -> arquivo do log do solver                                   *
-c *   30 -> arquivos de resultados por nos                             *
-c *   31 -> arquivos de tensoes total por nos                          *
-c *   32 -> arquivos de tensoes efetivas de terzaghi por nos           *
-c *   33 -> arquivos de tensoes efetivas de biot por nos               *
-c *   34 -> arquivos de fluxo de darcy por nos                         *
-c **********************************************************************
+c *********************************************************************
+c * Data de criacao    : 12/12/2015                                   *
+c * Data de modificaco : 03/04/2016                                   * 
+c * ----------------------------------------------------------------- *
+c * NAME: nomes de aquivos                                            *
+c * ----------------------------------------------------------------- *
+c * Parametros de entrada:                                            *
+c * ------------------------------------------------------------------*
+c * NumArq       - numero do arquivo                                  *
+c * code         - codigo de instrucao                                *
+c * ----------------------------------------------------------------- *    
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * NomeArqDados - nome do arquivo                                    *
+c * ----------------------------------------------------------------- * 
+c * OBS:                                                              *
+c * ----------------------------------------------------------------- *  
+c *  code:                                                            *
+c *  0 -> geometria vtk                                               *
+c *  1 -> geometrica vtu                                              *
+c *  2 -> resultado vtk                                               *
+c *  3 -> resultado vtu                                               *
+c *  4 ->                                                             *
+c *  5 -> condicao de contorno .vtk                                   *
+c *  6 -> condicao de contorno .vtu                                   *
+c *  7 ->                                                             *
+c *  8 ->                                                             *
+c *  9 ->                                                             *
+c * 10 ->                                                             * 
+c * 12 ->                                                             * 
+c * 13 ->                                                             *
+c * 14 -> arquivo de tempos                                           *
+c * 15 -> arquivo do log do solver                                    *
+c * 30 -> arquivos de resultados por nos                              *
+c * 31 -> arquivos de tensoes total por nos                           *
+c * 32 -> arquivos de tensoes efetivas de terzaghi por nos            *
+c * 33 -> arquivos de tensoes efetivas de biot por nos                *
+c * 34 -> arquivos de fluxo de darcy por nos                          *
+c *********************************************************************
       implicit none      
       include 'parallel.fi'
       character*80 NomeArqDados,NomeArqGerado
@@ -47,24 +46,36 @@ c **********************************************************************
 c ......................................................................
 c
 c ... geom .vtk
-      if    (code .eq. 0) then
+      if(code .eq. 0) then
         StrExtensao='_geo.vtk'
 c ... geom .vtu
-      else if    (code .eq. 1) then
+      elseif(code .eq. 1) then
         StrExtensao='_geo.vtu'
 c ... res .vtk
-      else if    (code .eq. 2) then
+      elseif(code .eq. 2) then
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)  
         StrExtensao='_istep_'//trim(StrExtensao)//'.vtk'
 c ... res .vtu
-      else if    (code .eq. 3) then
+      elseif(code .eq. 3) then
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)  
         StrExtensao='_istep_'//trim(StrExtensao)//'.vtu'
 c ... _tetra.dat
-      else if    (code .eq. 4) then
+      elseif(code .eq. 4) then
         StrExtensao='_tetra.dat'
+c ... geom .vtk
+      else if(code .eq. 5) then
+        StrExtensao='_bc.vtk'
+c ... geom .vtu
+      else if(code .eq. 6) then
+        StrExtensao='_bc.vtu'
+c ... geom .vtk
+      else if(code .eq. 7) then
+        StrExtensao='_face_bc.vtk'
+c ... geom .vtu
+      else if(code .eq. 8) then
+        StrExtensao='_face_bc.vtu'
 c ... log de tempos
       elseif(code .eq. 14) then
         write(StrExtensao,'( I6 )') NumArq

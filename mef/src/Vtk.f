@@ -201,7 +201,7 @@ c **********************************************************************
       lf =char(10)
 c ======================================================================
 c
-c ... Calculo do numero de tipo de cada elemento 
+c ... Calculo do numero de tipo de cada elemento
       nb2  = nbar2(1)
       nt3  = ntria3(1) 
       nq4  = nquad4(1) 
@@ -209,7 +209,8 @@ c ... Calculo do numero de tipo de cada elemento
       nh8  = nhexa8(1)
       nt10 = ntetra10(1)
       nh20 = nhexa20(1)
-      numet = 3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10 +21*nh20
+      numet =3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10
+     .      +21*nh20
 c ... elemento em overllaping 
       nt3  = ntria3(3) 
       nq4  = nquad4(3) 
@@ -230,18 +231,18 @@ c ... total de elemntos e tamnhanho dos dados totais
 c ... escrevendo a malha
 c     
 c ... nos dos elementos
-c
+c      
 c ......................................................................
       if (nbar2(1) .gt. 0) then
         nnoel = 2 
-         do i = nbar2(2), nbar2(2) + nbar2(1)-1
-           if(bvtk)then
-              write(nfile) nnoel,(nos(j,i)-1,j=1,2)
-           else
-              write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,2)
-           endif  
-         enddo
-       endif
+        do i = nbar2(2), nbar2(2) + nbar2(1)-1
+          if(bvtk)then
+             write(nfile) nnoel,(nos(j,i)-1,j=1,2)
+          else
+             write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,2)
+          endif  
+        enddo
+      endif
 c ......................................................................
 c
 c ......................................................................
@@ -383,7 +384,8 @@ c
         write(nfile) trim(buffer)
       else
         write(nfile,'(a,i10)') 'CELL_TYPES ',numel
-      endif  
+      endif
+c .......................................................................      
 c
 c ...     
       if (nbar2(1) .gt. 0) then
@@ -812,12 +814,12 @@ c * -------------------------------------------------------------------*
 c * Parmetros de saida:                                                *
 c * -------------------------------------------------------------------*
 c **********************************************************************
-      subroutine pont_prop_vtk(iprop,fprop,dprop,nnode,cname,ndm,gdl
+      subroutine point_prop_vtk(iprop,fprop,dprop,nnode,cname,ndm,gdl
      .                        ,cod1 
      .                        ,cod2,bvtk,nfile)
       implicit none
       integer nnode,ndm,gdl,cod1,cod2,nfile
-      integer  i
+      integer  i,j
       integer iprop(gdl,*)
       Real*4 fprop(gdl,*)
       Real*8 dprop(gdl,*)
@@ -921,24 +923,27 @@ c ... campo escalar ASCII
         if(cod1.eq.1) then
 c .. escalar int ASCII 
           if(cod2.eq.1)then
-            write(nfile,'(a,15a,a)')'SCALARS ',cname, ' int'
-            write(nfile,'(a,a)')'LOOKUP_TABLE ','DEFAULT '
-            do i=1,nnode
-              write(nfile,'(i10)') iprop(1,i)
+            write(nfile,'(a,1x,a15,1x,a8,1x,i3)')'SCALARS'
+     .           ,cname,'int    ',gdl
+            write(nfile,'(a)')'LOOKUP_TABLE default'
+            do i = 1, nnode
+              write(nfile,'(99i10)')(iprop(j,i),j=1,gdl) 
             enddo
 c .. escalar float ASCII 
           elseif(cod2.eq.2)then  
-            write(nfile,'(a,15a,a)')'SCALARS ',cname,' float'
-            write(nfile,'(a,a)')'LOOKUP_TABLE ','default '
-            do i=1,nnode
-              write(nfile,'(7e15.5e3)') fprop(1,i)
+           write(nfile,'(a,1x,a15,1x,a8,1x,i3)')'SCALARS'
+     .           ,cname,'float  ',gdl
+            write(nfile,'(a)')'LOOKUP_TABLE default'
+            do i = 1, nnode
+               write(nfile,'(99e15.5e3)')(fprop(j,i),j=1,gdl) 
             enddo
 c .. escalar double ASCII 
           elseif(cod2.eq.3)then  
-            write(nfile,'(a,15a,a)')'SCALARS ',cname,' double'
-            write(nfile,'(a,a)')'LOOKUP_TABLE ','default '
-            do i=1,nnode
-              write(nfile,'(7e15.5e3)') dprop(1,i)
+            write(nfile,'(a,1x,a15,1x,a8,1x,i3)')'SCALARS'
+     .           ,cname,'double ',gdl
+            write(nfile,'(a)')'LOOKUP_TABLE default'
+            do i = 1, nnode
+               write(nfile,'(99e15.5e3)')(dprop(j,i),j=1,gdl) 
             enddo
           endif  
 c ......................................................................
@@ -1039,7 +1044,7 @@ c * -------------------------------------------------------------------*
 c * Parmetros de saida:                                                *
 c * -------------------------------------------------------------------*
 c **********************************************************************
-      subroutine pont_prop_vtu(iprop,fprop,dprop,nnode,cname,ndm,gdl
+      subroutine point_prop_vtu(iprop,fprop,dprop,nnode,cname,ndm,gdl
      .                        ,cod1,cod2,bvtk,nfile)
       implicit none
       integer nnode,ndm,gdl,cod1,cod2,nfile
@@ -1234,21 +1239,21 @@ c ... int
 c          write(nfile,'(a,2x,15a,3a,i)')'SCALARS',cname,'int ',gdl
           write(nfile,'(a)')'LOOKUP_TABLE default'
           do i = 1, numel
-            write(nfile,'(i10)')(iprop(j,i),j=1,gdl)
+            write(nfile,'(7i10)')(iprop(j,i),j=1,gdl)
           enddo
 c ... float          
         else if(cod .eq. 2)then  
           write(nfile,'(a,1x,15a,a,1x,i4)')'SCALARS',cname,'float',gdl
           write(nfile,'(a)')'LOOKUP_TABLE default'
           do i = 1, numel
-            write(nfile,'(f10.5)')(fprop(j,i),j=1,gdl)
+            write(nfile,'(7f10.5)')(fprop(j,i),j=1,gdl)
           enddo
 c ... double         
         else if(cod .eq. 3)then  
           write(nfile,'(a,1x,15a,a,1x,i4)')'SCALARS',cname,'double',gdl
           write(nfile,'(a)')'LOOKUP_TABLE default'
           do i = 1, numel
-            write(nfile,'(f10.5)')(dprop(j,i),j=1,gdl)
+            write(nfile,'(7f10.5)')(dprop(j,i),j=1,gdl)
           enddo
         endif
       endif  
@@ -1645,8 +1650,9 @@ c ...
       end
 c **********************************************************************
 c
+      
 c **********************************************************************
-c * ELM_VTK: escreve faces no formato vtk com as suas respectivos      *
+c * FACE_VTK:escreve faces no formato vtk com as suas respectivos      *
 c * cargas                                                             *
 c * -------------------------------------------------------------------*
 c * Parametros de entrada:                                             *
@@ -1667,21 +1673,21 @@ c * Os prametors nbar2,ntria3,nquad4,ntetra4 e nhexa8 foram herdados do*
 c *   mefpar                                                           *
 c *--------------------------------------------------------------------*
 c **********************************************************************
-      subroutine face_vtk(face     ,carga   ,tipoface
-     .                   ,maxnoface,lineface,triaface
-     .                   ,quadface ,bvtk    ,nfile)
+      subroutine face_vtk(face       ,tipo_face,max_no_face
+     .                   ,line_face  ,tria_face,quad_face
+     .                   ,bvtk       ,nfile)
       implicit none
 c ...
       integer numet,nface,nnoel
-      integer lineface,triaface,quadface,maxnoface
+      integer line_face,tria_face,quad_face,max_no_face
       integer nfile
-      integer face(maxnoface,*),tipoface(*),carga(*)
+      integer face(max_no_face,*),tipo_face(*)
       character buffer*1024,lf*1,str1*15,str2*15
       logical bvtk
       integer i,j  
-      integer nnoface(3),tipofacevtk(3)
-      data nnoface /2,3,4/
-      data tipofacevtk /3,5,9/
+      integer nno_face(3),tipo_face_vtk(3)
+      data nno_face /2,3,4/
+      data tipo_face_vtk /3,5,9/
 c ......................................................................
 c
 c ...
@@ -1689,8 +1695,8 @@ c ...
 c ......................................................................
 c
 c ... Calculo do numero de tipo de cada elemento 
-      numet = 3*lineface + 4*triaface + 5*quadface 
-      nface = lineface + triaface+ quadface
+      numet = 3*line_face + 4*tria_face + 5*quad_face 
+      nface = line_face + tria_face+ quad_face
 c
 c ... total de elemntos e tamnhanho dos dados totais
       if(bvtk)then
@@ -1705,7 +1711,7 @@ c ... escrevendo a malha
 c     
 c ... nos dos elementos
       do i = 1, nface
-        nnoel = nnoface(tipoface(i))
+        nnoel = nno_face(tipo_face(i))
         if(bvtk)then
           write(nfile) nnoel,(face(j,i)-1,j=1,nnoel)
         else
@@ -1724,7 +1730,7 @@ c ... tipo do face
       endif
 c ...  
       do i = 1, nface
-        nnoel = tipofacevtk(tipoface(i))
+        nnoel = tipo_face_vtk(tipo_face(i))
         if(bvtk)then
           write(nfile)nnoel
         else  

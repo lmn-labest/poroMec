@@ -30,7 +30,8 @@ c ... Variaveis para controle de arquivos:
 c
       character*80 prename,fname,name,filein
       character*80 pnodename
-      integer nin,nplot,ngid,nout,logsolv,fconf,logsolvd
+      integer nin,nplot,nout,nout_face
+      integer logsolv,fconf,logsolvd
       integer totfiles,openflag
       integer*8 i_no,i_nfile
       integer num_pnode
@@ -135,8 +136,8 @@ c ......................................................................
 c
 c ... Arquivos de entrada e saida:
 c
-      data nin /1/, nplot /3/, ngid /4/, logsolv /10/, nout /15/,
-     .     logsolvd /16/ 
+      data nin /1/, nplot /3/, logsolv /10/, nout /15/,
+     .     logsolvd /16/, nout_face /17/ 
       data fconf /5/
       data flag_pnd /.false./ 
 c     arquivo de impressao de nos associados aos seguintes inteiros
@@ -701,23 +702,20 @@ c ... Macro-comando: PGEO
 c
 c ......................................................................
   600 continue
-      call global_ix(nenv+1,numel_nov,i_ix,i_g,'ixg     ')
-      call global_v(ndm,nno_pload,i_x,i_g2,'xg      ')
-      if (my_id .eq. 0) then
-         print*, 'Macro PGEO'
-c ...    Geometria: 
-         writetime = writetime + MPI_Wtime()-timei
-         call writeMeshGeo(ia(i_g),ia(i_g2),nnodev ,numel
-     .                    ,nen    ,ndm    ,prename,.false.
-     .                    ,.true. ,nplot)
-         writetime = writetime + MPI_Wtime()-timei
-c ......................................................................         
-      endif
-      if (nprcs .gt. 1) then
-         i_g2 = dealloc('xg      ')
-         i_g  = dealloc('ixg     ')
-      endif
-      call MPI_barrier(MPI_COMM_WORLD,ierr)
+c ...
+       print*, 'Macro PGEO'
+       ntn   = 6
+c ... Geometria:
+      writetime = writetime + MPI_Wtime()-timei 
+      call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
+     .                      ,ia(i_id)   ,ia(i_f)    ,ia(i_u) 
+     .                      ,ia(i_tx0)  ,ia(i_nload),ia(i_eload)
+     .                      ,nnodev     ,numel      ,ndf     ,ntn
+     .                      ,nen        ,ndm        ,prename
+     .                      ,bvtk       ,macros     ,.true.
+     .                      ,nplot      ,nout_face)
+      writetime = writetime + MPI_Wtime()-timei
+c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -736,7 +734,7 @@ c ... tetraedros de 10 nos
      .                   ,nnode   ,nnodev  ,ndm)   
           ntetra10(1:4) = ntetra4(1:4)   
           ntetra4(1:4)  = 0 
-          call writeMeshGeo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
+          call write_mesh_geo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
      .                     ,nen    ,ndm     ,prename,.false.
      .                     ,.true. ,nplot)
           ntetra4(1:4)  = ntetra10(1:4)
@@ -751,7 +749,7 @@ c ... hexaedros de 20 nos
      .                   ,nnode   ,nnodev  ,ndm)   
           nhexa20(1:4) = nhexa8(1:4)   
           nhexa8(1:4)  = 0 
-          call writeMeshGeo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
+          call write_mesh_geo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
      .                     ,nen    ,ndm     ,prename,.false.
      .                     ,.true. ,nplot)
           nhexa8(1:4)  = nhexa20(1:4)

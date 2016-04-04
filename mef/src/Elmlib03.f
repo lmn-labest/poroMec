@@ -4,7 +4,7 @@ c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
 c * Data de modificaco : 28/03/2016                                    * 
 c * ------------------------------------------------------------------ *      
-c * ELMT06_pm: Elemento tetraedrico de 10 nos para problemas           *  
+c * ELMT06_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -702,8 +702,8 @@ c ...
 c .....................................................................
 c
 c ...
-       call sftetra10(hu,hux,huy,huz,ri,si,ti,.false.,.true.)
-       call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
+        call sftetra10(hu,hux,huy,huz,ri,si,ti,.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel,.false.)
 c .....................................................................
 c  
 c ...
@@ -755,7 +755,7 @@ c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
 c * Data de modificaco : 02/04/2016                                    * 
 c * ------------------------------------------------------------------ *       
-c * ELMT06_pm: Elemento hexaedricos de 20 nos para problemas           *  
+c * ELMT07_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
