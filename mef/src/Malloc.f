@@ -94,14 +94,20 @@ c **********************************************************************
       parameter (maxnpts = 200)
 c ... valores do ponteiros     
       integer*8 ip(maxnpts)
-      integer*8 ipi,n,aloc4,locate
+      integer*8 ipi,n,aloc4,locate,nl8,nc8
 c ......................................................................
       character*8 arname(maxnpts),name
       integer nc,nalp
       integer nl
       common /malloc_info/ arname,ip,nalp
 c ......................................................................
-      n = nl*nc
+c
+c ...
+      nl8 = nl
+      nc8 = nc
+      n = nl8*nc8
+c ......................................................................
+      n = nl8*nc8
 c     if (n .le. 0) then
 c        aloc4 = ip(nalp+1)
 c        return
@@ -158,13 +164,18 @@ c **********************************************************************
       parameter  (maxnpts = 200)
 c ... valores do ponteiros     
       integer*8 ip(maxnpts)
-      integer*8 locate,ipi,n,aloc8
+      integer*8 locate,ipi,n,aloc8,nl8,nc8
 c ......................................................................
       character*8 arname(maxnpts),name
       integer nl,nc,nalp
       common /malloc_info/ arname,ip,nalp
 c ......................................................................
-      n = nl*nc
+c
+c ...
+      nl8 = nl
+      nc8 = nc
+      n   = nl8*nc8
+c ......................................................................
 c     if (n .le. 0) then
 c        aloc8 = ip(nalp+1)
 c        return
