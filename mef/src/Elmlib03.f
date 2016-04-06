@@ -154,7 +154,7 @@ c ...
       volum = tetra_vol(x)
       l_c   = volum**(1.0d0/3.d0)
 c ...
-      dt_c  = ((l_c)/perm) 
+      dt_c  = ((l_c*l_c)/perm) 
      .      * ( imod_biot+( coef_biot*coef_biot*a3*a2 )/( ym*a1 ) )
       p(1)  = dt_c
 c .....................................................................
@@ -904,8 +904,9 @@ c
 c ...
       volum = hexa_vol(x)
       l_c   = volum**(1.0d0/3.d0)
+      l_c   = 1.0 
 c ...
-      dt_c  = ((l_c)/perm) 
+      dt_c  = ((l_c*l_c)/perm) 
      .      * ( imod_biot+( coef_biot*coef_biot*a3*a2 )/( ym*a1 ) )
       p(1)  = dt_c
 c .....................................................................
@@ -1306,7 +1307,7 @@ c ... Fu = int(BeT*sigma*dv)
      .        + wt1*(hux(i)*txi(6) + huy(i)*txi(5) + huz(i)*txi(3))
 c .....................................................................
 c
-c ... Fp = int(dt*perm*fuild_d*(B~T)*ge*dv)  
+c ... Fu = int(pm_d*(N~T)*ge*dv)
               wt3   = hu(i)*wt2  
               p(l1) = p(l1) - wt3*gl(1)
               p(l2) = p(l2) - wt3*gl(2)
