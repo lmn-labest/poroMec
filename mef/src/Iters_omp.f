@@ -1,3 +1,19 @@
+c *********************************************************************
+c * Metodos iterativos para solucao de sistemas lineares (OpenMP)     *
+c * ----------------------------------------------------------------- *
+c * simetricos:                                                       *
+c * ----------------------------------------------------------------- *
+c * PCG - gradiente conjugados com precondicionador diagonal          *
+c * ----------------------------------------------------------------- *
+c * nao-simetricos:                                                   *
+c * ----------------------------------------------------------------- *                                                       *
+c * pbicgstab - gradiente bi-conjugados estabilizados  com            * 
+c * precondicionador diagonal                                         *
+c *                                                                   *
+c * gmres(m) - GMRES com precondicionador diagonal                    *
+c *                                                                   *
+c * ----------------------------------------------------------------- *
+c ********************************************************************* 
       subroutine pcg_omp(neq   ,nequ,nad,ia ,ja
      .                  ,ad    ,au  ,al ,m  ,b
      .                  ,x     ,z   ,r  ,tol,maxit
@@ -5,42 +21,51 @@
      .                  ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
      .                  ,i_xfi ,i_rcvsi,i_dspli,thread_y,flog)
 c **********************************************************************
-c *                                                                    *
-c *   Subroutine PCG                                                   *
-c *                                                                    *
-c *   Solucao de sistemas de equacoes pelo metodo dos gradientes       *
-c *   conjugados com precondicionador diagonal para matrizes           *
-c *   simetricas.                                                      *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq    - numero de equacoes                                      *
-c *   nequ   - numero de equacoes no bloco Kuu                         *
-c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
-c *   ia(*)  - ponteiro do formato CSR                                 *
-c *   ja(*)  - ponteiro das colunas no formato CSR                     *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   au(*)  - parte triangular superior de A                          *
-c *   al(*)  - parte triangular inferior de A                          *
-c *   m(*)   - precondicionador diagonal                               *
-c *   b(neq) - vetor de forcas                                         *
-c *   x(neq) - chute inicial                                           *
-c *   z(neq) - arranjo local de trabalho                               *
-c *   r(neq) - arranjo local de trabalho                               *
-c *   tol    - tolerancia de convergencia                              *
-c *   maxit  - numero maximo de iteracoes                              *
-c *   matvec - nome da funcao externa para o produto matrix-vetor      *
-c *   dot    - nome da funcao externa para o produto escalar           *
-c *   flog   - log do arquivo de saida                                 *
-c *   thread_y - buffer de equacoes para o vetor y (openmp)            *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *   x(neq) - vetor solucao                                           *
-c *   b(neq) - modificado                                              *
-c *   ad(*),al(*),au(*) - inalterados                                  *
-c *                                                                    *
-c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 12/12/2015                                    * 
+c * ------------------------------------------------------------------ *   
+c * PCG_OMP : Solucao de sistemas de equacoes pelo metodo dos          *
+c * gradientes conjugados com precondicionador diagonal para matrizes  *
+c * simetricas                                                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador diagonal                               *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * z(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * thread_y - buffer de equacoes para o vetor y (openmp)              *
+c * flog     - log do arquivo de saida                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
       implicit none
       include 'mpif.h'
       include 'omp_lib.h'
@@ -177,46 +202,58 @@ c **********************************************************************
      .                    ,my_id  ,neqf1i,neqf2i,neq_doti,i_fmapi
      .                    ,i_xfi  ,i_rcvsi,i_dspli,thread_y,flog)
 c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 12/12/2015                                    * 
+c * ------------------------------------------------------------------ *   
+c * GMRES_OMP:Solucao iterativa de sistemas simetricos e nao-simetricos*
+c * pelo metodo GMRES com precondicionador diagonal.                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador diagonal                               *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * k        - base de Krylov                                          *
+c * z(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * thread_y - buffer de equacoes para o vetor y (openmp)              *
+c * flog     - log do arquivo de saida                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq),ad(*),al(*),au(*) - modificados                             *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Arranjos locais de trabalho:                                       *
 c *                                                                    *
-c *   GMRES: Solucao iterativa de sistemas simetricos e nao-simetricos *
-c *          pelo metodo GMRES com precondicionador diagonal.          *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq    - numero de equacoes                                      *
-c *   nequ   - numero de equacoes no bloco Kuu                         *
-c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
-c *   ia(*)  - ponteiro do formato CSR                                 *
-c *   ja(*)  - ponteiro das colunas no formato CSR                     *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   au(*)  - parte triangular superior de A                          *
-c *   al(*)  - parte triangular inferior de A                          *
-c *   m(*)   - precondicionador diagonal                               *
-c *   b(neq) - vetor de forcas                                         *
-c *   x(neq) - chute inicial                                           *
-c *   z(neq) - arranjo local de trabalho                               *
-c *   r(neq) - arranjo local de trabalho                               *
-c *   tol    - tolerancia de convergencia                              *
-c *   maxit  - numero maximo de iteracoes                              *
-c *   matvec - nome da funcao externa para o produto matrix-vetor      *
-c *   dot    - nome da funcao externa para o produto escalar           *
-c *   flog   - log do arquivo de saida                                 *
-c *   thread_y - buffer de equacoes para o vetor y (openmp)            *
-c *                                                                    *
-c *   Arranjos locais de trabalho:                                     *
-c *                                                                    *
-c *      g(neq+1,k+1)                                                  *
-c *      h(k+1,k)                                                      *
-c *      y(k)                                                          *
-c *      c(k)                                                          *
-c *      s(k)                                                          *
-c *      e(k+1)                                                        *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *   x(neq) - vetor solucao                                           *
-c *   b(neq),ad(*),al(*),au(*) - modificados                           *
-c *                                                                    *
+c * g(neq+1,k+1)                                                       *
+c * h(k+1,k)                                                           *
+c * y(k)                                                               *
+c * c(k)                                                               *
+c * s(k)                                                               *
+c * e(k+1)                                                             *
 c **********************************************************************
       implicit none
       include 'mpif.h'
@@ -473,44 +510,53 @@ c **********************************************************************
      .                        ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .                        ,i_xfi ,i_rcvsi,i_dspli,thread_y,flog)
 c **********************************************************************
-c *                                                                    *
-c *   Subroutine PBICGSTAB_OMP                                         *
-c *                                                                    *
-c *   Solucao de sistemas de equacoes pelo metodo dos gradientes       *
-c *   biconjugados com precondicionador diagonal para matrizes         *
-c *   naosimetricas.                                                   *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq    - numero de equacoes                                      *
-c *   nequ   - numero de equacoes no bloco Kuu                         *
-c *   nad    - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
-c *   ia(*)  - ponteiro do formato CSR                                 *
-c *   ja(*)  - ponteiro das colunas no formato CSR                     *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   au(*)  - parte triangular superior de A                          *
-c *   al(*)  - parte triangular inferior de A                          *
-c *   m(*)   - precondicionador diagonal                               *
-c *   b(neq) - vetor de forcas                                         *
-c *   x(neq) - chute inicial                                           *
-c *   t(neq) - arranjo local de trabalho                               *
-c *   v(neq) - arranjo local de trabalho                               *
-c *   r(neq) - arranjo local de trabalho                               *
-c *   p(neq) - arranjo local de trabalho                               *
-c *   z(neq) - arranjo local de trabalho                               *
-c *   tol    - tolerancia de convergencia                              *
-c *   maxit  - numero maximo de iteracoes                              *
-c *   matvec - nome da funcao externa para o produto matrix-vetor      *
-c *   dot    - nome da funcao externa para o produto escalar           *
-c *   flog   - log do arquivo de saida                                 *
-c *   thread_y - buffer de equacoes para o vetor y (openmp)            *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *   x(neq) - vetor solucao                                           *
-c *   b(neq) - modificado                                              *
-c *   ad(*),al(*),au(*) - inalterados                                  *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 12/12/2015                                    * 
+c * ------------------------------------------------------------------ *   
+c * PBICGSTAB_OMP : Solucao de sistemas de equacoes pelo metodo dos    * 
+c * gradientes biconjugados com precondicionador diagonal para         *
+c * matrizes nao-simetricas.                                           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *                                                                   *
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador diagonal                               *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * t(neq)   - arranjo local de trabalho                               *
+c * v(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * p(neq)   - arranjo local de trabalho                               *
+c * z(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * flog     - log do arquivo de saida                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *   
 c **********************************************************************
       implicit none
       include 'mpif.h'

@@ -1,4 +1,3 @@
-c
 c **********************************************************************
 c *                                                                    *
 c *   SOLV_PM.F                                            06/12/2015  *
@@ -50,7 +49,7 @@ c ... numero total de equacoes na particao overlapping:
 c    (neqovlp = neq, no sequencial e no non-overlapping)
       neqovlp = neq+neq3i+neq4i
       if (omp_solv) then
-c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
+c ... matriz aramazenada em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
            pmatrixtime = Mpi_Wtime() - pmatrixtime 
            i_threads_y = alloc_8('buffer_y',nth_solv,neq)
@@ -343,28 +342,32 @@ c ...
          else                           
            m(1:neq) = 1.d0  
          endif           
-c ...
-         i_z  = alloc_8('zsolver ',1,nequ)
-         i_r  = alloc_8('rsolver ',1,nequ)
-         i_s  = alloc_8('ssolver ',1,nequ)
-         i_c  = alloc_8('csolver ',1,neqp)
-         i_h  = alloc_8('hsolver ',1,nequ)
-         i_g  = alloc_8('gsolver ',1,neqp)
-         i_y  = alloc_8('ysolver ',1,nequ)
-         i_a  = alloc_8('asolver ',1,neqp)
 c ......................................................................
 c
 c ... 
          if(block_pu) then
             if(n_blocks_up .eq. 1 ) then
-              print*,"PCG_BLOCK não disponivel para a matriz",
+              print*,"PCG_BLOCK indisponivel para a matriz",
      .               " blocada [Kuu Kpp]."
               stop   
             else if( n_blocks_up .eq. 2 ) then
-              print*,"PCG_BLOCK não disponivel para a matriz",
+              print*,"PCG_BLOCK indisponivel para a matriz",
      .               " blocada [Kuu Kpp] [Kpu]."
               stop   
             endif
+c ......................................................................
+c
+c ...
+           i_z  = alloc_8('zsolver ',1,nequ)
+           i_r  = alloc_8('rsolver ',1,nequ)
+           i_s  = alloc_8('ssolver ',1,nequ)
+           i_c  = alloc_8('csolver ',1,neqp)
+           i_h  = alloc_8('hsolver ',1,nequ)
+           i_g  = alloc_8('gsolver ',1,neqp)
+           i_y  = alloc_8('ysolver ',1,nequ)
+           i_a  = alloc_8('asolver ',1,neqp)
+c ......................................................................
+c
 c ...
             call pcg_block_it(neq    ,nequ       ,neqp  
      .                    ,nad       ,naduu      ,nadpp

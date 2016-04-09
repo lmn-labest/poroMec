@@ -87,38 +87,11 @@ c ......................................................................
 c      
 c ... csrc(uu+pp) + csr(up)
       if(dualCsr) then
-c ... [Kuu] [Kpp]
+c ... [Kuu] e [Kpp] apenas. Bloco Kpu a nivel de elemento
         if( n_blocks_up .eq. 1) then
-c ... Montagem do arranjo ia(nequ +1 + neqp +1):
-c
-c ... ia(i2)=>ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro
-c                               coeficiente nao-nulo da equacao i dos 
-c                               blocos Kuu e Kpp
-          n = (neq + 1) + (neqp + 1) 
-          i2 = alloc_4(ija,1,n)
-c ... blocos [Kuu] [Kpp]
-          call csriaup(id,num,ia(i0),ia(i1),ia(i2),ia(i2+neq+1) 
-     .                ,nnode,ndf,neq 
-     .                ,nequ,neqp,nad,nadpu,nad1,lower,diag,upper 
-     .                ,right)
-c ......................................................................     
-c
-c ... Montagem do arranjo ja(nad):
-c
-c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
-c                       a posicao k no vetor a do bloco Kuu e Kpp
-c
-          i3 = alloc_4(ja,1,nad)
-          call csrjaup(id,num,ia(i0),ia(i1),ia(i3),ia(i3+nad)
-     .                ,nnode,nnodev,ndf,neq
-     .                ,nequ,nad,nadpu,lower,diag,upper,right)
-          call sortgraph(ia(i2),ia(i3),neq)
-c ......................................................................
-c
-c ...
-c         call printIaJa(ia(i2),ia(i3),ia(i2+neq+1),ia(i3+nad),neq,neqp,
-c    .                   nad,nadpu)
-c ......................................................................      
+          print*,'CSRSTRUCT: Nao implementado n_blocks 1 !!' 
+          stop
+c ...................................................................... 
 c      
 c ... | Kuu   0  |
 c     |  0   Kpp | e [kpu]
@@ -493,36 +466,40 @@ c **********************************************************************
       subroutine csriaup(id,num,ip,ips,ia,iaup,nnode,ndf,neq,nequ,
      .                   neqp,nad,nadup,nad1,lower,diag,upper,right)
 c **********************************************************************
-c *                                                                    *
-c *   CSRIA: monta o arranjo ia do formato CSRC para os blocos (uu pp) *
-c *   e csr para o bloco up                                            *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)- numeracao global das equacoes                    *
-c *    num(nnode)   - renumeracao nodal                                *
-c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no     *
-c *                   conectado ao no i                                *
-c *    ips(ipos)    - contem as conetividades nodais de cada no        *
-c *    nnode - numero de nos                                           *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - numero de equacoes                                      *
-c *    nequ  - numero de equacoes de deslocamentos                     *
-c *    neqp  - numero de equacoes de  pressao                          *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro      *
-c *                      coeficiente nao-nulo da equacao i             *
-c *    iaup(neqp+1) - ia(i) informa a posicao no vetor a do primeiro   *
-c *                      coeficiente nao-nulo da equacao i             *
-c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
-c *    nadup - numero de coeficientes nao nulos do bloco up            *
-c *                                                                    *
-c *    OBS: Kuu e Kpp juntos e Kpu separado                            *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 12/12/2015                                    * 
+c * ------------------------------------------------------------------ *  
+c * CSRIAUP: monta o arranjo ia do formato CSRC para os blocos (uu pp) *
+c * e csr para o bloco up                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no        *
+c *                conectado ao no i                                   *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes de deslocamentos                        *
+c * neqp  - numero de equacoes de  pressao                             *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro         *
+c *                   coeficiente nao-nulo da equacao i                *
+c * iaup(neqp+1) - ia(i) informa a posicao no vetor a do primeiro      *
+c *                   coeficiente nao-nulo da equacao i                *
+c * nad   - numero de coeficientes nao nulos dos blocos uu e pp        *
+c * nadup - numero de coeficientes nao nulos do bloco up               *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Kuu e Kpp juntos e Kpu separado                                    *
 c **********************************************************************
       implicit none
       integer nnode,ndf,neq,nequ,neqp,nad,nadup,nad1
@@ -703,35 +680,38 @@ c **********************************************************************
      .                   neq,nequ,
      .                   nad,nadup,lower,diag,upper,right)
 c **********************************************************************
-c *                                                                    *
-c *   CSRJAUP: monta o arranjo ja do formato CSRC para os blocos       *
-c *   uu e pp e csr para o bloco up                                    * 
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)- numeracao global das equacoes                    *
-c *    num(nnode)   - renumeracao nodal                                *
-c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro        *
-c *    ips(ipos)    - contem as conetividades nodais de cada no        *
-c *    nnode - numero de nos                                           *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - numero de equacoes                                      *
-c *    nequ  - numero de equacoes de deslocamentos                     *
-c *    nad   - numero de coeficientes nao nulos                        *
-c *    nadup - numero de coeficientes nao nulos do bloco up            *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    ja(nad) - ja(k) informa a coluna do coeficiente que ocupa       *
-c *              a posicao k no vetor a                                *
-c *    jaup(nadup) - ja(k) informa a coluna do coeficiente que ocupa   *
-c *              a posicao k no vetor a                                *
-c *                                                                    *
-c *    OBS: Kuu e Kpp juntos e Kpu separado                            *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 12/12/2015                                    * 
+c * ------------------------------------------------------------------ * 
+c * CSRJAUP: monta o arranjo ja do formato CSRC para os blocos         *
+c * uu e pp e csr para o bloco up                                      * 
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro           *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes de deslocamentos                        *
+c * nad   - numero de coeficientes nao nulos                           *
+c * nadup - numero de coeficientes nao nulos do bloco up               *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *                                                                   *
+c * ja(nad) - ja(k) informa a coluna do coeficiente que ocupa          *
+c *           a posicao k no vetor a                                   *
+c * jaup(nadup) - ja(k) informa a coluna do coeficiente que ocupa      *
+c *           a posicao k no vetor a                                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Kuu e Kpp juntos e Kpu separado                                    *
 c **********************************************************************
       implicit none
       integer nnode,nnodev,ndf,neq,nequ,nad,nadup
@@ -915,46 +895,49 @@ c **********************************************************************
      .                   ,nad  ,naduu,nadpp,nadup
      .                   ,lower,diag ,upper)
 c **********************************************************************
-c *                                                                    *
-c *   CSRIAUP2: monta o arranjo ia do formato CSRC para os blocos      *
-c *   uu e pp                                                          *
-c *   e csr para o bloco up separados                                  *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)- numeracao global das equacoes                    *
-c *    num(nnode)   - renumeracao nodal                                *
-c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no     *
-c *                   conectado ao no i                                *
-c *    ips(ipos)    - contem as conetividades nodais de cada no        *
-c *    nnode - numero de nos                                           *
-c *    iau(nequ+1) - nao definido                                      *
-c *    iap(neqp+1) - nao definido                                      *
-c *    iaup(neq+1) - nao definido                                      *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - numero de equacoes                                      *
-c *    nequ  - numero de equacoes de deslocamentos                     *
-c *    neqp  - numero de equacoes de  pressao                          *
-c *    ja(nad) - ja(k) informa a coluna do coeficiente que ocupa       *
-c *              a posicao k no vetor a do bloco Kuu                   *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    iau(nequ+1) - ia(i) informa a posicao no vetor a do primeiro    *
-c *                  coeficiente nao-nulo da equacao i do bloco Kuu    *
-c *    iap(neqp+1) - ia(i) informa a posicao no vetor a do primeiro    *
-c *                  coeficiente nao-nulo da equacao i do bloco Kpp    *
-c *    iaup(neq+1) - ia(i) informa a posicao no vetor a do primeiro    *
-c *                  coeficiente nao-nulo da equacao i  do bloco Kup   *
-c *    nad   - numero de coeficientes nao nulos dos blocos Kuu e Kpp   *
-c *    naduu - numero de coeficientes nao nulos do bloco Kuu           *
-c *    nadpp - numero de coeficientes nao nulos do bloco Kpp           *
-c *    nadup - numero de coeficientes nao nulos do bloco Kup           *
-c *                                                                    *
-c *    OBS: Kuu ,Kpp e Kpu separados                                   *
-c *                                                                    *
+c * Data de criacao    : 01/01/2015                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *                                                                   *
+c * CSRIAUP2: monta o arranjo ia do formato CSRC para os blocos        *
+c * uu e pp e csr para o bloco up separados                            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no        *
+c *                conectado ao no i                                   *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * iau(nequ+1) - nao definido                                         *
+c * iap(neqp+1) - nao definido                                         *
+c * iaup(neq+1) - nao definido                                         *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes de deslocamentos                        *
+c * neqp  - numero de equacoes de  pressao                             *
+c * ja(nad) - ja(k) informa a coluna do coeficiente que ocupa          *
+c *           a posicao k no vetor a do bloco Kuu                      *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * iau(nequ+1) - ia(i) informa a posicao no vetor a do primeiro       *
+c *               coeficiente nao-nulo da equacao i do bloco Kuu       *
+c * iap(neqp+1) - ia(i) informa a posicao no vetor a do primeiro       *
+c *               coeficiente nao-nulo da equacao i do bloco Kpp       *
+c * iaup(neq+1) - ia(i) informa a posicao no vetor a do primeiro       *
+c *               coeficiente nao-nulo da equacao i  do bloco Kup      *
+c * nad   - numero de coeficientes nao nulos dos blocos Kuu e Kpp      *
+c * naduu - numero de coeficientes nao nulos do bloco Kuu              *
+c * nadpp - numero de coeficientes nao nulos do bloco Kpp              *
+c * nadup - numero de coeficientes nao nulos do bloco Kup              *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Kuu ,Kpp e Kpu separados                                           *
 c **********************************************************************
       implicit none
       integer nnode,ndf,neq,nequ,neqp,nad,naduu,nadpp,nadup
@@ -1140,38 +1123,41 @@ c **********************************************************************
      .                   ,neq   ,nequ
      .                   ,lower ,diag,upper,right)
 c **********************************************************************
-c *                                                                    *
-c *   CSRJAUP2: monta o arranjo ja do formato CSRC para os blocos      *
-c *   uu e pp e csr para o bloco up                                    * 
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)- numeracao global das equacoes                    *
-c *    num(nnode)   - renumeracao nodal                                *
-c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro        *
-c *    ips(ipos)    - contem as conetividades nodais de cada no        *
-c *    jau          - nao definido                                     *
-c *    jap          - nao definido                                     *
-c *    japu         - nao definido                                     *
-c *    nnode        - numero de nos                                    *
-c *    ndf          - numero max. de graus de liberdade por no         *
-c *    neq          - numero de equacoes                               *
-c *    nequ         - numero de equacoes de deslocamentos              *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    jau(nadu) - ja(k) informa a coluna do coeficiente que ocupa     *
-c *              a posicao k no vetor a do bloco Kuu                   *
-c *    jap(nadp) - ja(k) informa a coluna do coeficiente que ocupa     *
-c *              a posicao k no vetor a do bloco Kpp                   *
-c *    jaup(nadup) - ja(k) informa a coluna do coeficiente que ocupa   *
-c *              a posicao k no vetor a do bloco Kpu                   *
-c *                                                                    *
-c *    OBS: Kuu ,Kpp e Kpu separados                                   *
-c *                                                                    *
+c * Data de criacao    : 01/01/2015                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *                                                                      *
+c * CSRJAUP2: monta o arranjo ja do formato CSRC para os blocos        *
+c * uu e pp e csr para o bloco up                                      * 
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro           *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * jau          - nao definido                                        *
+c * jap          - nao definido                                        *
+c * japu         - nao definido                                        *
+c * nnode        - numero de nos                                       *
+c * ndf          - numero max. de graus de liberdade por no            *
+c * neq          - numero de equacoes                                  *
+c * nequ         - numero de equacoes de deslocamentos                 *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * jau(nadu) - ja(k) informa a coluna do coeficiente que ocupa        *
+c *           a posicao k no vetor a do bloco Kuu                      *
+c * jap(nadp) - ja(k) informa a coluna do coeficiente que ocupa        *
+c *           a posicao k no vetor a do bloco Kpp                      *
+c * jaup(nadup) - ja(k) informa a coluna do coeficiente que ocupa      *
+c *           a posicao k no vetor a do bloco Kpu                      *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Kuu ,Kpp e Kpu separados                                           *
 c **********************************************************************
       implicit none
       integer nnode,nnodev,ndf,neq,nequ
