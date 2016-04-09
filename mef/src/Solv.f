@@ -116,7 +116,7 @@ c ... matvec comum:
      .               ,matvec_csrc_sym_pm,dot_par 
      .               ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .               ,i_xfi ,i_rcvsi,i_dspli
-     .               ,.true.)
+     .               ,.true.,.true.)
            endif      
 c .....................................................................
          endif

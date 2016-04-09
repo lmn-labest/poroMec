@@ -1428,8 +1428,8 @@ c **********************************************************************
 c ... ponteiros      
       logical flag
 c ......................................................................
-      time0 = MPI_Wtime()
-c ... loop nas linha Kpu
+c
+c ... loop nas linha Kup
       if(flag) then
         y(1:neqj) = 0.d0
         do i = 1, neqi
@@ -1443,7 +1443,7 @@ c ... Kup
         enddo   
 c ......................................................................
 c
-c ... loop nas linha Kup
+c ... loop nas linha Kpu
       else 
         do i = 1, neqi
           y(i) = 0.0d0
@@ -1458,8 +1458,6 @@ c ... Kpu
         enddo
       endif
 c .....................................................................
-      matvectime = matvectime + MPI_Wtime() - time0
-c ......................................................................
       return
       end
       subroutine saxpb(a,b,x,n,c)

@@ -23,7 +23,7 @@ c *********************************************************************
      .              ,matvec,dot
      .              ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .              ,i_xfi ,i_rcvsi,i_dspli
-     .              ,flog)
+     .              ,fprint,flog)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 12/12/2015                                    * 
@@ -59,6 +59,7 @@ c * i_fmap   -                                                         *
 c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
@@ -83,7 +84,7 @@ c .....................................................................
       real*8  dot,ddot,tol,conv,energy,d,alpha,beta
       real*8  time0,time
       real*8 dum1
-      logical flog
+      logical flog,fprint
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
@@ -147,7 +148,9 @@ c ......................................................................
       time = MPI_Wtime()
       time = time-time0
 c ----------------------------------------------------------------------
-      if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
+      if(my_id .eq.0 .and. fprint )then
+        write(*,1100)tol,neq,nad,j,energy,time
+      endif
 c ......................................................................
 c     Controle de flops
       if(flog) then
@@ -165,7 +168,7 @@ c ======================================================================
      . 5x,'Number of equations  = ',i20/
      . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
-     . 5x,'Energy norm          = ',d20.10/
+     . 5x,'x * Kx               = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
@@ -425,7 +428,7 @@ c ----------------------------------------------------------------------
      . 5x,'Number of cycles     = ',i20/
      . 5x,'Number of iterations = ',i20/
      . 5x,'Norm                 = ',d20.10/
-     . 5x,'Energy norm          = ',d20.10/
+     . 5x,'x * Kx               = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  2100 format(' *** WARNING: no convergence reached for '
      .      ,i9,' cycles !',5x,i7,' nKylov',5x,' It ',i7/)
@@ -740,7 +743,7 @@ c ======================================================================
      . 5x,'Number of equations  = ',i20/
      . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
-     . 5x,'Energy norm          = ',d20.10/
+     . 5x,'x * Kx               = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
@@ -837,7 +840,7 @@ c .....................................................................
       real*8 adu(*),adp(*),alu(*),alp(*),alpu(*)
       real*8 mu(*),mp(*),x(*),r(*),z(*),b(*)
       real*8 bp(*),bu(*),bp0(*),bu0(*)
-      real*8 u(*),p(*)
+      real*8 u(*),p(*),xkx
       real*8 dot,tol,ctol,energy,d,alpha,beta
       real*8 resid_u,resid_p,p_conv,u_conv,alfap,alfau
       real*8 time0,time,time_csr
@@ -891,40 +894,41 @@ c.......................................................................
 c
 c ... 
 c     print*,ctol,cmaxit,maxit,tol
+      jj = 0
       do i = 1, cmaxit
 c
-c ...  r = Fp-kpu*U
+c ...  rp= Fp-kpu*U
         time_csr = MPI_Wtime() - time_csr
         call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,u,r,.false.)
         call aminusb(bp0,r,bp,neqp) 
         time_csr = MPI_Wtime() - time_csr
 c ......................................................................
 c
-c ... P = inv(Kpp)*(Fp - kpu*U)
+c ... P = inv(Kpp)*(Fp - kpu*U)= inv(Kpp)*rp
         call pcg(neqp      ,neqp       ,nadpp
      .          ,iap       ,jap
      .          ,adp       ,alp        ,alp            
-     .          ,mp        ,bp         ,x               
+     .          ,mp        ,bp         ,x(nequ+1)      
      .          ,z         ,r          ,tol,maxit
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neqp    ,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli,.false.)
+     .          ,i_xfi ,i_rcvsi,i_dspli,.false.,.false.)
 c ......................................................................
 c
 c ... x - > p
        do j = 1, neqp
-         p(j) = (1.d0-alfap)*p(j) + alfap*x(j)
+         p(j) = (1.d0-alfap)*p(j) + alfap*x(nequ+j)
        enddo
 c ......................................................................
 c
-c ...  r = Fu-kup*P
+c ...  ru= Fu-kup*P
         time_csr = MPI_Wtime() - time_csr
         call matvec_csr_pm(neqp,nequ,iapu,japu,alpu,p,r,.true.)
         call aminusb(bu0,r,bu,nequ)
         time_csr = MPI_Wtime() - time_csr
 c ......................................................................
 c
-c ... U = inv(Kuu)*(Fu - kup*P)
+c ... U = inv(Kuu)*(Fu - kup*P)=inv(Kuu)*ru
         call pcg(nequ   ,nequ   ,naduu
      .          ,iau    ,jau
      .          ,adu    ,alu    ,alu
@@ -933,7 +937,7 @@ c ... U = inv(Kuu)*(Fu - kup*P)
      .          ,tol    ,maxit
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,nequ    ,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli,.true.)
+     .          ,i_xfi ,i_rcvsi,i_dspli,.false.,.true.)
 c ......................................................................
 c
 c ... x - > u
@@ -941,7 +945,7 @@ c ... x - > u
          u(j) = (1.d0-alfau)*u(j) + alfau*x(j) 
        enddo
 c ......................................................................
-c            
+c           
 c ... Kpp*P
         time_csr = MPI_Wtime() - time_csr
         call matvec_csrc_sym_pm(neqp      ,neqp
@@ -976,8 +980,8 @@ c ...
         resid_u = dsqrt(dot(bu,bu,nequ))
 c ... 
         if( i .eq. 1) then
-          u_conv = dsqrt(dot(b,b,neq))*ctol
-          p_conv = dsqrt(dot(b,b,neq))*ctol
+          u_conv = dsqrt(dot(bu,bu,nequ))*ctol
+          p_conv = dsqrt(dot(bp,bp,neqp))*ctol
 c ......................................................................
 c 
 c ... 
@@ -986,7 +990,11 @@ c ...
           if( resid_p .lt. p_conv ) l_p_conv = .true.
         endif
 c ......................................................................
-        print*,'it',i,'t',resid_p ,p_conv,resid_u,u_conv
+        jj = jj + 1
+        if( jj . eq. 50 ) then
+          write(*,200),i,resid_p ,p_conv,resid_u,u_conv
+          jj = 0
+        endif
         if( l_u_conv .and. l_p_conv ) goto 100
         if( i .eq. 500) then
           print*, 'MAXIT'
@@ -998,6 +1006,17 @@ c ......................................................................
       time = MPI_Wtime()
 c ......................................................................
       write(16,*) istep,i,time-time0,time_csr
+c ... calculo de x*(kx)
+c
+c ... u*ku
+      xkx = dot(u,bu0,nequ) + dot(p,bp0,neqp)
+      write(*,300)ctol,neq,i,xkx,time-time0
+c ......................................................................
+c
+c ...
+      write(16,*) istep,i,time-time0,time_csr
+c ......................................................................
+c
 c ...
       do j = 1, nequ 
         x(j) = u(j) 
@@ -1007,6 +1026,13 @@ c ...
       enddo
 c ......................................................................
       return
+ 200  format (1x,'It',1x,i4,1x,'rp',1x,2d10.2,1x,'ru',1x,2d10.2)
+ 300  format(' (BLOCKPCG) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'Number of equations  = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
       end
 c **********************************************************************
 c
