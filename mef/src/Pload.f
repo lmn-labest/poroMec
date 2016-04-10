@@ -1,24 +1,28 @@
       subroutine pload_pm(id,f,u,b,nload,nnode,nnodev,ndf)
 c **********************************************************************
-c *                                                                    *
-c *   PLOADPM: Monta o vetor de forcas poro mecanico                   *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)   - numeracao das equacoes                        *
-c *    f(ndf,nnode)    - cargas concentradas e incognitas prescritas   *
-c *    u(ndf,nnode)    - graus de liberdade                            *
-c *    b(neq) - nao definido                                           *
-c *    nload(ndf,nnode) - numero da carga nodal                        *
-c *    nnode  - numero de nos acessados na particao                    *
-c *    nnodev - numero de nos de vertices acessados na particao        *
-c *    ndf    - numero de graus de liberdade por no                    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    b - vetor de forcas atualizados                                 *
-c *    u - atualizado com valores prestritos                           *
-c *                                                                    *
+c * Data de criacao    : 12/12/2015                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *      
+c * PLOADPM: Monta o vetor de forcas poro mecanico                     *
+c * ------------------------------------------------------------------ *      
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *      
+c * id(ndf,nnode)   - numeracao das equacoes                           *
+c * f(ndf,nnode)    - cargas concentradas e incognitas prescritas      *
+c * u(ndf,nnode)    - graus de liberdade                               *
+c * b(neq) - nao definido                                              *
+c * nload(ndf,nnode) - numero da carga nodal                           *
+c * nnode  - numero de nos acessados na particao                       *
+c * nnodev - numero de nos de vertices acessados na particao           *
+c * ndf    - numero de graus de liberdade por no                       *
+c * ------------------------------------------------------------------ *      
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *      
+c * b - vetor de forcas atualizados                                    *
+c * u - atualizado com valores prestritos                              *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       include 'transiente.fi'
@@ -76,7 +80,65 @@ c.......................................................................
       return
       end
 c **********************************************************************
-c                                                                        
+c 
+c **********************************************************************
+      subroutine pload_mec(id,f,u,b,nload,nnode,ndf)
+c **********************************************************************
+c * Data de criacao    : 09/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * PLOAD: Monta o vetor de forcas do problema mecanico estatico       *
+c * ------------------------------------------------------------------ *   
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *   
+c * id(ndf,nnode)    - numeracao das equacoes                          *
+c * f(ndf,nnode)     - cargas concentradas e incognitas prescritas     *
+c * u(ndf,nnode)     - graus de liberdade                              *
+c * b(neq)           - nao definido                                    *
+c * nload(ndf,nnode) - numero da carga nodal                           *
+c * nnode            - numero de nos acessados na particao             *
+c * ndf              - numero de graus de liberdade por no             *
+c * ------------------------------------------------------------------ *      
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *      
+c * b - vetor de forcas                                                *
+c **********************************************************************
+      implicit none
+      include 'transiente.fi'
+      integer id(ndf,*),nload(ndf,*),nnode,ndf,i,j,k,nc
+      real*8  f(ndf,*),u(ndf,*),b(*),c,vc(3),a
+c.......................................................................
+c
+c ... Cargas nodais e desloc. prescritos variaveis no tempo:
+c
+      do 110 i = 1, nnode
+        do 100 j = 1, ndf
+          nc = nload(j,i)
+          if(nc .gt. 0) then
+            call tload(nc,t,u(j,i),c,vc)
+            f(j,i) = c
+          endif
+  100   continue
+  110 continue
+c.......................................................................  
+c
+c ... Cargas nodais e deslocamentos prescritos no tempo t:
+c
+      a = alfa*dt
+      do 200 i = 1, nnode
+        do 200 j = 1, ndf
+         k = id(j,i)
+         if (k .gt. 0) then
+            b(k) = f(j,i)
+         else
+            u(j,i) =  f(j,i)
+         endif
+  200 continue
+c.......................................................................  
+      return
+      end
+c **********************************************************************
+c                                                                       
 c **********************************************************************
       subroutine pload(x,id,f,u,v,b,nload,nnode,ndf)
 c **********************************************************************

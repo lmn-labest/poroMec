@@ -116,6 +116,123 @@ c ......................................................................
      .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i6,' !')
        end
 c **********************************************************************
+      subroutine elmlib_mec(e ,iq  ,x   ,u      ,p  ,s,txn
+     .                     ,dt,ndm ,nst ,nel    ,iel,isw
+     .                     ,ma,nlit,ilib)
+c **********************************************************************
+c *                                                                    *
+c *   ELMLIB: biblioteca de elementos.                                 *
+c *   ------                                                           *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     e(10) - constantes fisicas                                     *
+c *     iq(7) - cargas nos elementos                                   *
+c *     x(ndm,nen)- coordenadas nodais locais                          *
+c *     u(nst)     - solucao anterior                                  *
+c *     p(nst)     - nao definido                                      *
+c *     s(nst,nst)   - nao definido                                    *
+c *     txn(6,nen) - tensoes nodais                                    *
+c *     ndm - dimensao                                                 *
+c *     nst - numero de graus de liberdade por elemento                *
+c *     nel - numero do elemento                                       *
+c *     iel - tipo   do elemento                                       *
+c *     isw - codigo de instrucao                                      *
+c *     ma   -  numero de material do elemento                         *
+c *     nlit -  numero da iteracao nao linear                          *
+c *     ilib -  codigo da biblioteca                                   *
+c *     block_pu   - true - armazenamento em blocos Kuu,Kpp e kpu      *
+c *                  false- aramzenamento em unico bloco               *      
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     e - constantes fisicas                                         *
+c *     s - matriz de elemento                                         *
+c *     p - isw = 2  residuo                                           *
+c *         isw = 3  tensao e fluxo                                    *
+c *         isw = 4  cargas de superfice, volume e integras do passo   *
+c *         de tempo anterior                                          *
+c **********************************************************************
+      implicit none
+      integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
+      real*8 e(*),x(*),u(*),p(*),s(nst,*),txn(6,*)
+      real*8 dt
+      logical block_pu
+c ......................................................................
+      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200) iel
+   10 write(*,2000) iel,nel
+      stop
+c ......................................................................
+  100 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return
+c ......................................................................            
+  200 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return
+c ......................................................................
+  300 continue
+c     if (ilib .eq. 1) then
+c     endif  
+      return
+c ......................................................................
+  400 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return
+c ......................................................................
+  500 continue
+c     if (ilib .eq. 1) then
+c     endif  
+      return
+c ......................................................................
+  600 continue
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (mec-elastico)
+         call elmt6_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif
+      return
+c ......................................................................
+  700 continue
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 20 nos (mec-elastico)
+         call elmt7_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif
+      return
+c ......................................................................
+  800 continue
+c      if (ilib .eq. 1) then
+c      endif    
+      return
+c ......................................................................            
+  900 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return 
+c ......................................................................
+ 1000 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return 
+c ......................................................................
+ 1100 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return       
+c ......................................................................
+ 1200 continue
+c     if (ilib .eq. 1) then
+c     endif 
+      return       
+c ......................................................................        
+ 2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
+     .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i6,' !')
+       end
+c **********************************************************************
 c
 c **********************************************************************
       subroutine uhx(hx,hy,vx,vy,hxu,nen)

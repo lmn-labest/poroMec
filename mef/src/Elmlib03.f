@@ -8,6 +8,7 @@ c * elastico                                                          *
 c *                                                                   *
 c * ELMT7_PM - hexaedros de 20 nos para o problema poro mecanico      *
 c * elastico                                                          *
+c *                                                                   *
 c * ----------------------------------------------------------------- *
 c * Plastico:                                                         *
 c * ----------------------------------------------------------------- *
@@ -480,7 +481,6 @@ c ...
 c ...
       pm_d      = e(6)*1.0d-06           
       fluid_d   = e(7)*1.0d-06
-
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ...      

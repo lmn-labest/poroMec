@@ -10,6 +10,8 @@ c *   csria                                                            *
 c *   csrja                                                            *
 c *   csriaup                                                          *
 c *   csrjaup                                                          *
+c *   csriaup2                                                         *
+c *   csrjaup2                                                         *
 c *                                                                    *
 c **********************************************************************
       subroutine csrstruct(id,ix,num,nnode,nnodev,numel,nen,ndf
@@ -186,7 +188,7 @@ c ......................................................................
       endif
 c ......................................................................
 c
-c ... csrc(uu+pp+up)
+c ... csrc(uu+pp+up) ou csrc para problema desacoplados  
 c     | Kuu Kpu |
 c     | kpu Kpp |
       else

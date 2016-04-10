@@ -1,11 +1,11 @@
-      subroutine rdat_pm(nnode  ,nnodev ,numel  ,numat   
-     .                  ,nen    ,nenv
-     .                  ,ndf    ,ndm    ,nst    ,i_ix 
-     .                  ,i_ie   ,i_inum ,i_e    ,i_x 
-     .                  ,i_id   ,i_nload,i_eload,i_f
-     .                  ,i_u    ,i_u0   ,i_tx0  ,i_dp
-     .                 ,fstress0  
-     .                 ,nin     )
+      subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat   
+     .                  ,nen     ,nenv
+     .                  ,ndf     ,ndm       ,nst    ,i_ix 
+     .                  ,i_ie    ,i_inum    ,i_e    ,i_x 
+     .                  ,i_id    ,i_nload   ,i_eload,i_f
+     .                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
+     .                  ,fstress0,fporomec  ,fmec  
+     .                  ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
 c * Data de modificaco : 30/03/2016                                    *
@@ -76,19 +76,19 @@ c ... ponteiros
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid
 c ......................................................................      
       integer nin
-      integer j,nmc,totnel,nmacros
+      integer j,nmc,totnel,nmacros,itmp
       character*15 macro(30),rc
       character*80 fname
       integer naux
       integer nincl /7/
-      logical fstress0
+      logical fstress0,fporomec,fmec
       logical f_read_el /.false./
       logical el_quad  /.false./
 c ......................................................................
       data macro/'materials      ','bar2           ','tria3          ',
      .           'quad4          ','tetra4         ','hexa8          ',
      .           'hexa20         ','               ','               ',
-     .           'coordinates    ','constrainpmec  ','               ',
+     .           'coordinates    ','constrainpmec  ','constraindisp  ',
      .           'nodalforces    ','elmtloads      ','nodalloads     ',
      .           '               ','               ','               ',
      .           'loads          ','               ','               ',
@@ -103,6 +103,19 @@ c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
       call parameters(nnodev,numel,numat,nen,ndf,ndm,nin)
       print*,'load.'
       nnode  = nnodev
+      nst    = 0
+c ......................................................................
+c
+c ... tipo do problema
+      fmec     = .false.
+      fporomec = .false.
+c ... mecancico 
+      if( ndf .eq. 3 ) then
+        fmec = .true.
+c ... poro mecanico
+      else if(ndf .eq. 4 ) then
+        fporomec = .true.
+      endif
 c ......................................................................
 c
 c ... numero do tensor de tensoes
@@ -111,23 +124,44 @@ c ... numero do tensor de tensoes
       endif
 c ......................................................................
 c   
-c     Alocacao de arranjos na memoria:
+c     Alocacao de arranjos na memoria: mecancio
 c     ---------------------------------------------------------------
-c     | ix | ie | eload | 
+c     | ix | ie | e | x | eload |
 c     ---------------------------------------------------------------
 c
-      i_ix    = alloc_4('ix      ',nen+1,numel)
-      i_ie    = alloc_4('ie      ',    1,numat)
-      i_e     = alloc_8('e       ', prop,numat)
-      i_x     = alloc_8('x       ',  ndm,nnodev)
-      i_dp    = alloc_8('dpres   ',    1,nnodev)
-      i_eload = alloc_4('eload   ',    7,numel)
-      call mzero(ia(i_ix),numel*(nen+1))
-      call mzero(ia(i_ie),numat) 
-      call azero(ia(i_e),numat*10)
-      call azero(ia(i_x),nnodev*ndm)
-      call azero(ia(i_dp)   ,nnodev)
-      call mzero(ia(i_eload),numel*7) 
+      if(fmec) then
+        i_ix    = alloc_4('ix      ',nen+1,numel)
+        i_ie    = alloc_4('ie      ',    1,numat)
+        i_e     = alloc_8('e       ', prop,numat)
+        i_x     = alloc_8('x       ',  ndm,nnodev)
+        i_eload = alloc_4('eload   ',    7,numel)
+        call mzero(ia(i_ix),numel*(nen+1))
+        call mzero(ia(i_ie),numat) 
+        call azero(ia(i_e),numat*10)
+        call azero(ia(i_x),nnodev*ndm)
+        call mzero(ia(i_eload),numel*7)
+      endif 
+c ......................................................................
+c   
+c     Alocacao de arranjos na memoria: poromecanico
+c     ---------------------------------------------------------------
+c     | ix | ie | e | x | dp | eload |
+c     ---------------------------------------------------------------
+c
+      if( fporomec) then
+        i_ix    = alloc_4('ix      ',nen+1,numel)
+        i_ie    = alloc_4('ie      ',    1,numat)
+        i_e     = alloc_8('e       ', prop,numat)
+        i_x     = alloc_8('x       ',  ndm,nnodev)
+        i_dp    = alloc_8('dpres   ',    1,nnodev)
+        i_eload = alloc_4('eload   ',    7,numel)
+        call mzero(ia(i_ix),numel*(nen+1))
+        call mzero(ia(i_ie),numat) 
+        call azero(ia(i_e),numat*10)
+        call azero(ia(i_x),nnodev*ndm)
+        call azero(ia(i_dp)   ,nnodev)
+        call mzero(ia(i_eload),numel*7)
+      endif 
 c ......................................................................
       totnel  = 0            
       nmacros = 0
@@ -150,7 +184,7 @@ c ......................................................................
       go to (400, 450, 500,    ! materials ,bar2         ,tria3
      .       550, 600, 650,    !quad4      ,tetra4       ,hexa8
      .       700, 750, 800,    !hexa20     ,             ,
-     .       850, 900, 950,    !coordinates,constrainpmec,
+     .       850, 900, 950,    !coordinates,constrainpmec,constraindisp
      .      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
      .      1150,1200,1250,    !           ,             ,
      .      1300,1350,1400,    !loads      ,             ,
@@ -208,7 +242,12 @@ c
       totnel    = totnel + ntetra4(1)
 c ... transforma os elementos lineares em quadraticos (10 nos)
       if( nen .eq. 10) then
-        nst       = nen*(ndf-1) + nenv  
+        if(fmec) then
+          itmp =  nen*ndf 
+        else if(fporomec) then
+          itmp = nen*(ndf-1) + nenv   
+        endif
+        nst   = max(nst,itmp)
         el_quad   = .true.
 c .....................................................................
 c       i_nelcon  = alloc_4('nelcon  ',  4,numel)
@@ -293,7 +332,12 @@ c
       totnel    = totnel + nhexa8(1)
 c ... transforma os elementos lineares em quadraticos (20 nos)
       if(nen .eq. 20) then
-        nst       = nen*(ndf-1) + nenv  
+        if(fmec) then
+          itmp =  nen*ndf 
+        else if(fporomec) then
+          itmp = nen*(ndf-1) + nenv   
+        endif
+        nst   = max(nst,itmp) 
         el_quad   = .true.
 c .....................................................................
 c       i_nelcon  = alloc_4('nelcon  ',  6,numel)
@@ -401,20 +445,32 @@ c
         call bound(ia(i_id),nnodev,ndf,nin,1)
 c ...
         if(el_quad) then
-          call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf,nen)
+          call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf-1,ndf,nen)
         endif
 c ......................................................................
       else
-        print*,'MACRO: constrain !! elementos nao lidos'
+        print*,'MACRO: constrainpmec !! elementos nao lidos'
       endif
       print*,'load.'
       go to 100
 c ......................................................................      
 c
-c ...                                                                                     
+c ... constraindisp - restricoes nodais (deslocamentos)
 c
   950 continue
-      go to 100      
+      print*,'load constraindisp ...'
+      if(f_read_el) then
+        call bound(ia(i_id),nnodev,ndf,nin,1)
+c ...
+        if(el_quad) then
+          call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf,ndf,nen)
+        endif
+c ......................................................................
+      else
+        print*,'MACRO: constraindisp !! elementos nao lidos'
+      endif
+      print*,'load.'
+      go to 100
 c ......................................................................      
 c
 c ... nodalforces - forcas nodais:
@@ -593,7 +649,6 @@ c ... Inicializa as condicoes de contorno no vetor u:
 c
       if(ndf .gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
       call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
-c     call get_pres(ia(i_u),ia(i_pres0),nnodev,ndf)
       return
 c ......................................................................      
       end
@@ -1504,7 +1559,7 @@ c *********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/03/2016                                    *
-c * Data de modificaco :                                               * 
+c * Data de modificaco : 09/04/2016                                    * 
 c * ------------------------------------------------------------------ *
 c * MK_BOUND_QUAD: gera as restricoes nos deslocamente nos pontos      *  
 c *              intermediarios                                        *
@@ -1513,17 +1568,20 @@ c * Parâmetros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * id(ndf,*)  - restricoes nos vertices                               *
 c * numel      - numero de elementos                                   *
-c * ndf        - grau de liberdade                                     *
+c * ndf1       - grau de liberdade liberdade de deslocamento           *
+c * ndf2       - grau de liberdade liberdade total do problema         *
 c * nen        - numero de nos elementos quadraticos                   *
 c * ------------------------------------------------------------------ *
 c * Parâmetros de saida:                                               *
 c * ------------------------------------------------------------------ *
-c * id(ndf,*)  - restricoes atualizadas                                *
+c * id(ndf1,*)  - restricoes atualizadas                               *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
-c * ------------------------------------------------------------------ *     
+c * ------------------------------------------------------------------ *
+c * mecanico     : ndf1 = x, y e z  |  ndf2 = x, y e z                 *  
+c * poromecanico : ndf1 = x, y,e z  |  ndf2 = x, y, z e p              *
 c **********************************************************************
-      subroutine mk_bound_quad(id,el,numel,ndf,nen)
+      subroutine mk_bound_quad(id,el,numel,ndf1,ndf2,nen)
       implicit none
       integer maxEdge
       parameter (maxEdge = 12) 
@@ -1531,8 +1589,8 @@ c ...
       integer i,j,k
       integer el(nen+1,*)
       integer iEdge(3,maxEdge)
-      integer numel,ndf,nedge,no1,no2,no3,nen
-      integer id(ndf,*)
+      integer numel,ndf1,ndf2,nedge,no1,no2,no3,nen
+      integer id(ndf2,*)
 c ...
       nedge = 0 
 c ... tetraedros de 10 nos 
@@ -1552,7 +1610,7 @@ c ... no vertices
           no2     = el(iEdge(2,j),i)
 c ... no central
           no3     = el(iEdge(3,j),i)
-          do k = 1, ndf-1
+          do k = 1, ndf1
             if( id(k,no1) .eq. 1 .and. id(k,no2) .eq. 1) then
               id(k,no3) = 1
             endif

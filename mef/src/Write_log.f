@@ -40,12 +40,11 @@ c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine write_log_file(nnode   ,numel,numel_nov ,numel_ov,ndf 
-     .                         ,neq     ,nequ ,neqp ,neq1 ,neq2
-     .                         ,neq32   ,neq4 ,neq1a,neqf1,neqf2 
-     .                         ,nad     ,nadu ,nadp ,nadpu,nad1
-     .                         ,omp_elmt,nth_elmt
-     .                         ,omp_solv,nth_solv
-     .                         ,num_colors,prename
+     .                         ,neq     ,nequ ,neqp ,neq1   ,neq2
+     .                         ,neq32   ,neq4 ,neq1a,neqf1  ,neqf2 
+     .                         ,nad     ,nadu ,nadp ,nadpu  ,nad1
+     .                         ,omp_elmt,nth_elmt,omp_solv  ,nth_solv
+     .                         ,fporomec,fmec    ,num_colors,prename
      .                         ,my_id ,nprcs      ,nlog)
       use Malloc
       implicit none
@@ -56,7 +55,9 @@ c ... malha
 c ... informacoes do sistema      
       integer neq,nequ,neqp,neq1,neq2,neq32,neq4,neq1a,neqf1,neqf2
       integer nad,nadu,nadp,nadpu,nad1
+c ...
       integer ndf
+      logical fporomec,fmec
 c ... mpi      
       integer mcw,mi,mdp,ierr
       integer my_id,nprcs
@@ -184,15 +185,25 @@ c ...
 c
       if(my_id.eq.0) write(nlog,'(a)')"Malha e sistema linear:"
       if(nprcs.eq.1)then
-        if(ndf .gt. 0)then
-         call itwrite('neq   ',neq  ,nprcs,nlog)
-         call itwrite('nequ  ',nequ ,nprcs,nlog)
-         call itwrite('neqp  ',neqp ,nprcs,nlog)
-         call itwrite('nad   ',nad  ,nprcs,nlog)
-         call itwrite('nadu  ',nadu ,nprcs,nlog)
-         call itwrite('nadp  ',nadp ,nprcs,nlog)
-         call itwrite('nadpu ',nadpu,nprcs,nlog)
+c ... mecancio
+        if(fmec)then
+          write(nlog,'(a)')"Mecanico:"
+          call itwrite('neq   ',neq  ,nprcs,nlog)
+          call itwrite('nad   ',nad  ,nprcs,nlog)
+c .....................................................................
+c
+c ... poromecanico
+        else if(fporomec)then
+          write(nlog,'(a)')"Poromecanico:"
+          call itwrite('neq   ',neq  ,nprcs,nlog)
+          call itwrite('nequ  ',nequ ,nprcs,nlog)
+          call itwrite('neqp  ',neqp ,nprcs,nlog)
+          call itwrite('nad   ',nad  ,nprcs,nlog)
+          call itwrite('nadu  ',nadu ,nprcs,nlog)
+          call itwrite('nadp  ',nadp ,nprcs,nlog)
+          call itwrite('nadpu ',nadpu,nprcs,nlog)
         endif
+c .....................................................................
         call itwrite('nnode ',nnode,nprcs,nlog)
         call itwrite('numel ',numel,nprcs,nlog)
       else

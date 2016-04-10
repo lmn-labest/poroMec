@@ -117,7 +117,7 @@ c *********************************************************************
       subroutine predict_pm(nnode,nnodev,ndf,u,u0)
 c **********************************************************************
 c *                                                                    *
-c *   PREDICT                                                          *
+c *   PREDICT _PM                                                      *
 c *                                                                    *
 c **********************************************************************
       implicit none
@@ -146,7 +146,7 @@ c *********************************************************************
       subroutine update_pm(nnode,nnodev,ndf,id,u,x)
 c **********************************************************************
 c *                                                                    *
-c *   UPDATEPM : autilazao do graus de liberdade do poro mecanico      *
+c *   UPDATEPM :  atualizacao do graus de liberdade do poro mecanico   *
 c *                                                                    *
 c **********************************************************************
       integer nnode,nnodev,ndf,k
@@ -179,3 +179,31 @@ c ...
       end
 c *********************************************************************
 c
+c *********************************************************************
+      subroutine update_mec(nnode,ndf,id,u,x)
+c **********************************************************************
+c *                                                                    *
+c *   UPDATE_MEC : atualizacao dos graus de liberdade do mecanico      *
+c *   estatico                                                         *
+c *                                                                    *
+c **********************************************************************
+      integer nnode,nnodev,ndf,k
+      integer id(ndf,*)
+      real*8  u(ndf,*),x(*)
+c ......................................................................
+c
+c ... atualizacao dos incrementos dos deslocamentos
+      do 110 i = 1, nnode
+        do 100 j = 1, ndf
+          k = id(j,i)
+          if (k .gt. 0) then
+            u(j,i) = x(k)
+          endif
+  100   continue
+  110 continue
+c ......................................................................
+c
+c ...
+      return
+      end
+c *********************************************************************

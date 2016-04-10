@@ -271,6 +271,8 @@ c ...
       return
       end
 c **********************************************************************
+c
+c **********************************************************************
       subroutine tform_pm(ix    ,x    ,e   ,ie
      .                   ,ic    ,xl   ,ul  ,dpl
      .                   ,pl    ,u    ,dp  ,tx0
@@ -280,7 +282,7 @@ c **********************************************************************
      .                   ,isw   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 30/03/2016                                    * 
+c * Data de modificaco : 09/04/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
 c * ------------------------------------------------------------------ * 
@@ -378,13 +380,18 @@ c
 c ... Loop nos elementos:
       do 900 nel = 1, numel
         kk = 0
+c ...
+        do 300 i = 1, nenv*(2*ntn+ndm)
+          pl(i) = 0.d0
+  300   continue
+c .......................................................................
+c
 c ... loop nos arranjos locais ( apenas nos de vertices)
         do 400 i = 1, nen
           no = ix(i,nel)
 c ... loop nos deslocamentos
           do 410 j = 1, ndf - 1
             kk     = kk + 1
-            pl(kk) = 0.d0
             ul(kk) = u(j,no)
   410     continue
 c ......................................................................
@@ -395,7 +402,6 @@ c ... loop nas pressoes
         do 510 i = 1, nenv
           no     = ix(i,nel)
           kk     = kk + 1
-          pl(kk) = 0.d0
           ul(kk) = u(ndf,no)
           dpl(i) = dp(no)
           do 500 j = 1, ndm
@@ -556,6 +562,425 @@ c ...
 c ......................................................................
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine pform_mec(ix      ,iq         ,ie       ,e
+     .                    ,x       ,id         ,ia       ,ja
+     .                    ,au      ,al         ,ad       ,b
+     .                    ,u       ,tx0
+     .                    ,xl      ,ul         ,pl   
+     .                    ,sl      ,ld         ,txnl
+     .                    ,numel   ,nen        ,nenv     ,ndf 
+     .                    ,ndm     ,nst        ,neq      ,nad 
+     .                    ,lhs     ,rhs        ,unsym 
+     .                    ,stge    ,isw        ,ilib     ,nlit
+     .                    ,i_colorg,i_elcolor  ,numcolors,fstress0)
+c **********************************************************************
+c * Data de criacao    : 09/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * PFORM_MEC:                                                         *
+c * ------------------------------------------------------------------ *      
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *                                                                  *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * iq(7,numel)     - cargas nos elementos                             *
+c * ie(numat)       - tipo de elemento                                 *
+c * e(10,numat)     - constantes fisicas dos materiais                 *
+c * x(ndm,nnode)    - coordenadas nodais                               *
+c * id(ndf,nnode)   - numeracao global das equacoes                    *
+c * ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro         *
+c *             coeficiente nao-nulo da equacao i, no formato CSR      *
+c * ja(nad)   - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor a, no formato CSR (stge = 1)      *
+c *           - ponteiro da diagonal do skyline (stge = 4)             *
+c * ad(neq)   - nao definido                                           *
+c * au(nad)   - nao definido                                           *
+c * al(nad)   - nao definido                                           *
+c * b(neq)    - vetor de forcas nodais equivalentes                    *
+c * u(ndf,nnode) - solucao (com valores prescritos)                    *
+c * dp(nnodev)   - delta p ( p(n  ,0  ) - p(0) )                       *
+c * xl(ndm,nen)  - nao definido                                        *
+c * ul(nst)      - nao definido                                        *
+c * pl(nst)      - nao definido                                        *
+c * sl(nst,nst)  - nao definido                                        *
+c * ld(nst)      - nao definido                                        *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * nenv  - numero de nos de vertice por elemento                      *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * ndm   - dimensao                                                   *
+c * nst   - nen*ndf                                                    *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes em kuu                                  *
+c * nad   - numero de posicoes no CSR (storage = 1)                    *
+c * nadu  - numero de posicoes no CSR (storage = 1)                    *
+c * nadp  - numero de posicoes no CSR (storage = 1)                    *
+c * nadpu - numero de posicoes no CSR (storage = 1,block_pu = true)    *   
+c * lhs   - flag para montagem de ad (letf hand side)                  *
+c * rhs   - flag para correcao de b  (right hand side)                 *
+c * unsym - flag para matrizes nao simetricas                          *
+c * stge  - = 1, armazenamento CSR                                     *
+c *         = 2, armazenamento por arestas                             *
+c *         = 3, armazenamento EBE                                     *
+c *         = 4, armazenamento SKYLINE                                 *
+c *         = 0, nao monta matriz                                      *
+c * isw   - codigo de instrucao para as rotinas de elemento            *
+c * ilib  - determina a biblioteca do elemento                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c *     b(neq) - vetor de forcas corrigido     (rhs = true)            *
+c *    ad(neq) - coeficientes da diagonal      (lhs = true)            *
+c *    au(nad) - parte triangular sup. de A (lhs = true)               *
+c *    al(nad) - parte triangular inf. de A (lhs = true, unsym = true) *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'openmp.fi'
+      include 'omp_lib.h'
+      include 'transiente.fi'
+      include 'termprop.fi'
+      integer numel,nen,nenv,ndf,ndm,nst,nad,nadu,nadp,nadpu
+      integer stge,isw,numat,nlit
+      integer neq,nequ,neqp,n_blocks_pu
+      integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
+      integer ia(*),ja(*)
+      integer iel,ma,nel,no,i,j,k,kk,nad1,ilib
+      integer i_colorg(2,*),i_elcolor(*),numcolors
+      integer ic,jc
+      real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
+      real*8  u(ndf,*),tx0(6,*)
+      real*8  xl(ndm,nenv),ul(nst),el(prop)
+      real*8  pl(nst),sl(nst,nst),txnl(6,nen)
+      logical lhs,rhs,unsym,fstress0
+c .....................................................................
+c
+c ... Zera a matriz de coeficientes:
+c
+      if(lhs) then
+        call azero(au,nad)
+        call azero(al,nad)
+        call azero(ad,neq)      
+      endif
+c ..................................................................... 
+c
+c ... openmp
+      if(omp_elmt)then
+c ... loop nos cores
+c$omp parallel num_threads(nth_elmt)
+c$omp.default(none)
+c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,el,sl,txnl)
+c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
+c$omp.shared(id,u,ix,tx0,ie,e)
+c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,isw,nst,dt)
+c$omp.shared(neq,nad,fstress0)
+        do ic = 1, numcolors
+c$omp do
+c ... Loop nos elementos:
+c     ------------------
+          do jc = i_colorg(1,ic), i_colorg(2,ic)
+            nel = i_elcolor(jc)
+c           print*,omp_get_thread_num(),jc,nel,ic
+            kk = 0
+c ... loop nos nos de deslocamentos
+            do i = 1, nen
+              no = ix(i,nel)
+              do j = 1, ndf
+                kk     = kk + 1
+                ld(kk) = id(j,no)
+                ul(kk) = u(j,no)
+                pl(kk) = 0.d0
+              enddo
+c ......................................................................              
+           enddo   
+c ......................................................................               
+c
+c ... loop nos nos vertices
+            do i = 1, nenv
+              no       = ix(i,nel)
+              do j = 1, ndm
+                xl(j,i) = x(j,no)
+              enddo   
+            enddo    
+c ......................................................................
+c            
+c ... tensao inicial
+          if(fstress0) then
+            do i = 1, nen  
+              no        = ix(i,nel)  
+              txnl(1,i) = tx0(1,no)
+              txnl(2,i) = tx0(2,no) 
+              txnl(3,i) = tx0(3,no) 
+              txnl(4,i) = tx0(4,no) 
+              txnl(5,i) = tx0(5,no) 
+              txnl(6,i) = tx0(6,no)
+            enddo  
+          endif  
+c ......................................................................                 
+c
+c ...... Arranjos de elemento:
+           ma  = ix(nen+1,nel)
+           iel = ie(ma)
+           do i = 1, prop
+             el(i) = e(i,ma)
+           enddo   
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+           call elmlib_mec(el,iq(1,nel),xl ,ul,pl ,sl ,txnl
+     .                    ,dt,ndm     ,nst ,nel     ,iel,isw
+     .                    ,ma,nlit    ,ilib)
+c ......................................................................
+c
+c ...... Monta arrranjos locais em arranjos globais:
+           call assbly(sl      ,pl         ,ld
+     .                ,ia      ,ja         ,au
+     .                ,al      ,ad         ,b    ,nst
+     .                ,neq     ,0          ,0   
+     .                ,nad     ,0          ,0    ,0    
+     .                ,lhs     ,rhs        ,unsym,stge
+     .                ,.false. ,0)           
+          enddo   
+c$omp end do
+c .....................................................................
+        enddo
+c$omp end parallel
+c .....................................................................
+c
+c ... sequencial
+      else  
+c ... Loop nos elementos:
+c     ------------------
+        do nel = 1, numel
+          kk = 0
+c ... loop em todos os nos
+          do i = 1, nen
+            no = ix(i,nel)
+            do j = 1, ndf
+              kk     = kk + 1
+              ld(kk) = id(j,no)
+              pl(kk) = 0.d0
+              ul(kk) = u(j,no)
+            enddo
+c ......................................................................
+         enddo
+c ......................................................................      
+c
+c ... loop nos nos vertices
+          do i = 1, nenv
+            no       = ix(i,nel)
+            do j = 1, ndm
+              xl(j,i) = x(j,no)
+            enddo   
+          enddo
+c .....................................................................
+c            
+c ... tensao inicial
+          if(fstress0) then
+            do i = 1, nen  
+              no        = ix(i,nel)  
+              txnl(1,i) = tx0(1,no)
+              txnl(2,i) = tx0(2,no) 
+              txnl(3,i) = tx0(3,no) 
+              txnl(4,i) = tx0(4,no) 
+              txnl(5,i) = tx0(5,no) 
+              txnl(6,i) = tx0(6,no)
+            enddo  
+          endif  
+c ......................................................................      
+c
+c ...... Arranjos de elemento:
+          ma  = ix(nen+1,nel)
+          iel = ie(ma)
+          do i = 1, prop
+            el(i) = e(i,ma)
+          enddo   
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+          call elmlib_mec(el,iq(1,nel),xl ,ul  ,pl ,sl ,txnl
+     .                   ,dt,ndm     ,nst ,nel ,iel,isw
+     .                   ,ma,nlit    ,ilib)
+c ......................................................................
+c
+c ...... Monta arrranjos locais em arranjos globais:
+          call assbly(sl      ,pl         ,ld
+     .               ,ia      ,ja         ,au
+     .               ,al      ,ad         ,b    ,nst
+     .               ,neq     ,0          ,0   
+     .               ,nad     ,0          ,0    ,0    
+     .               ,lhs     ,rhs        ,unsym,stge
+     .               ,.false. ,0)
+        enddo 
+c ......................................................................
+      endif
+c ......................................................................
+c
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine tform_mec(ix    ,x    ,e   ,ie
+     .                    ,ic    ,xl   ,ul  
+     .                    ,pl    ,u    ,tx0 ,t   
+     .                    ,nnodev,numel,nen ,nenv
+     .                    ,ndm   ,ndf  ,nst ,ntn  
+     .                    ,isw   ,ilib)
+c **********************************************************************
+c * Data de criacao    : 09/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel)  - conetividades nodais                            *
+c * x(ndm,nnode)     - coordenadas nodais                              *
+c * e(10,numat)      - constantes fisicas dos materiais                *
+c * ie(numat)        - tipo de elemento                                *
+c * ic(nnode)        - nao definido                                    *
+c * xl(ndm,nen)      - nao definido                                    *
+c * ul(ndf,nen)      - nao definido                                    *
+c * pl(ntn*nen)      - nao definido                                    *
+c * u(ndf,nnode)     - solucao corrente                                *
+c * tx0(ntn,nnodev)  - tensao inicial                                  *
+c * t(ntn,nnodev)    - nao definido                                    *
+c * nnodev           - numero de nos de vertices                       *
+c * numel            - numero de elementos                             *
+c * nen              - numero max. de nos por elemento                 *
+c * nenv             - numero de nos de vertice por elemento           *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * nst              - nst = nen*ndf                                   *
+c * ndm              - dimensao                                        *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * ntn              - numero max. de derivadas por no                 *
+c * ovlp             - chave indicativa de overlapping                 *
+c * nprcs            - numero de processos                             *
+c * isw              - codigo de instrucao para as rotinas             *
+c *                    de elemento                                     *
+c * ilib             - determina a biblioteca do elemento              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * t(ntn   ,nnodev) - tensoes medias nodais                           *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Calcula as tensoes apenas nos vertices                             *     
+c **********************************************************************
+      use Malloc
+      implicit none
+c     include 'mpif.h'
+      include 'parallel.fi'
+      include 'termprop.fi'
+      integer nnodev,numel,nen,nenv,ndf,nst,ndm,ntn
+c ......................................................................      
+      integer ix(nen+1,*),ie(*),ic(nnodev)
+      integer nel,ma,iel,i,j,k,k1,no,kk
+      integer ilib,isw
+      real*8  xl(ndm,nenv),ul(nst),pl(nenv*ntn)
+      real*8  x(ndm,*),e(prop,*)
+      real*8  u(ndf,*),el(prop),tx0(ntn,*)
+      real*8  t(ntn,*)
+c ...
+      logical ldum
+      integer idum
+      real*8 ddum
+c ......................................................................
+c
+c ... deslocamentos do vetor local p
+c ......................................................................
+c
+c ...
+      do 30 i = 1, nnodev
+        ic(i) = 0
+c ... tensao
+        do 10 j = 1, ntn
+           t(j,i) = 0.d0
+   10   continue 
+c ......................................................................
+c
+   30 continue 
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 900 nel = 1, numel
+        kk = 0
+c ...
+        do 300 i = 1, nenv*ntn
+          pl(i) = 0.d0
+  300   continue
+c .......................................................................
+c
+c ... loop em todos os nos
+        do 400 i = 1, nen
+          no = ix(i,nel)
+c ... loop nos deslocamentos
+          do 410 j = 1, ndf
+            kk     = kk + 1
+            ul(kk) = u(j,no)
+  410     continue
+c ......................................................................
+  400   continue
+c ......................................................................
+c
+c ... loop nos nos vertices
+        do 510 i = 1, nenv
+          no     = ix(i,nel)
+          kk     = kk + 1
+          do 500 j = 1, ndm
+            xl(j,i) = x(j,no)
+  500     continue
+  510   continue
+c ......................................................................
+c
+c ...... form element array
+        ma  = ix(nen+1,nel)
+        iel = ie(ma)      
+        do 610 i = 1, prop
+          el(i) = e(i,ma)
+  610   continue
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+        call elmlib_mec(el,idum,xl,ul,pl,ddum,ddum,ddum,ndm,nst,nel
+     .                 ,iel,isw,ma,idum,ilib)
+c ...... media do vetor global
+        do 800 i = 1, nenv
+           no = ix(i,nel)
+           if (no .le. 0) go to 800
+           ic(no) = ic(no) + 1  
+           do 700 j = 1, ntn
+c ... tensao total
+              k       = (i-1)*ntn + j
+              t(j,no) = t(j,no)  + pl(k)
+  700      continue
+  800   continue
+  900 continue
+c .......................................................................
+c
+c ... Comunica vetor de contagem de elementos por no'
+c     if (novlp) call allgatheri(ic,i_xfi)
+c .......................................................................
+      do 1000 i = 1, nnodev
+c ... tensao
+        do 1010 j = 1, ntn
+c ... tensao total            
+         t(j,i)  = t(j,i)/ic(i)  + tx0(j,i)
+ 1010   continue 
+c ......................................................................
+ 1000 continue
+c ......................................................................
+c
+c ......................................................................
+      return
+      end      
 c **********************************************************************
 c
 c **********************************************************************

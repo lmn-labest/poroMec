@@ -420,19 +420,19 @@ c ...
 c ************************************************************************
 c
 c ************************************************************************
-c *                                                                    *
-c *   PRE_DIAG: precondicionador diagonal                              *
-c *   --------                                                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *   m   - indefinido                                                 *
-c *   ad  - coeficientes da diagonal principal                         *
-c *   neq - numero de equacoes                                         *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *   m   - precondicionador diagonal ( M-1)                           *
-c *                                                                    *
+c *                                                                      *
+c *   PRE_DIAG: precondicionador diagonal                                *
+c *   --------                                                           *
+c *                                                                      *
+c *   Parametros de entrada:                                             *
+c *   ---------------------                                              *
+c *   m   - indefinido                                                   *
+c *   ad  - coeficientes da diagonal principal                           *
+c *   neq - numero de equacoes                                           *
+c *   Parametros de saida:                                               *
+c *   -------------------                                                *
+c *   m   - precondicionador diagonal ( M-1)                             *
+c *                                                                      *
 c *************************************************************************
       subroutine pre_diag(m,ad,neq)
       implicit none

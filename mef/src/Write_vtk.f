@@ -175,7 +175,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 03/04/2016                                   *
-c * Data de modificaco :                                              * 
+c * Data de modificaco : 09/04/2016                                   * 
 c * ------------------------------------------------------------------* 
 c * WRITE_MESH_GEO_PM: escreve a malha global com carregamento        *
 c * no formato vtk.                                                   *
@@ -189,19 +189,19 @@ c * id(ndf,*)    - restricoes mecanico                                *
 c * f(ndf,*)     - carregamento mecanicos                             *
 c * u0(ndf,*)    - valores iniciais                                   *
 c * nload(ndf,*) - cargas nos nos                                     *
-c * eload(7,*) - cargas nos elementos                                 *
-c * nnode      - numero de nos de vertices                            *
-c * numel      - numero de elementos                                  *
-c * ndf        - graus de liberdade mecanicas                         *
-c * ntn        - numero de termos no tensor de tensoes                *
-c * nen        - numero de nos por elementos                          *
-c * ndm        - numero de dimensoes                                  *
-c * filein     - prefix do arquivo de saida                           *
-c * bvtk       - true BINARY vtk false ASCII vtk                      *
-c * macros     - macros lidas pela rdata                              *
-c * legacy     - true (formato padrão .vtk) false (formato xlm .vtu)  *
-c * nout       - arquivo de saida principal                           *
-c * nelemtload - arquivo de saida para face com cargas(elloads)       *
+c * eload(7,*)   - cargas nos elementos                               *
+c * nnode        - numero de nos de vertices                          *
+c * numel        - numero de elementos                                *
+c * ndf          - graus de liberdade mecanicas                       *
+c * ntn          - numero de termos no tensor de tensoes              *
+c * nen          - numero de nos por elementos                        *
+c * ndm          - numero de dimensoes                                *
+c * filein       - prefix do arquivo de saida                         *
+c * bvtk         - true BINARY vtk false ASCII vtk                    *
+c * macros       - macros lidas pela rdata                            *
+c * legacy       - true (formato padrão .vtk) false (formato xlm .vtu)*
+c * nout         - arquivo de saida principal                         *
+c * nelemtload   - arquivo de saida para face com cargas(elloads)     *
 c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *
@@ -253,7 +253,7 @@ c ... auxiliares
       character*15 macro1(18),macro2(18),rc
 c ......................................................................
       data macro1/'constrainpmec ','nodalforces    ','nodalloads     ',
-     .            '              ','               ','               ',
+     .            'constraindisp ','               ','               ',
      .            '              ','               ','               ',
      .            '              ','               ','               ',
      .            '              ','               ','               ',
@@ -286,7 +286,7 @@ c
 c === cabecalho
       if(legacy) then
         write(aux,'(30a)')"Geometria lida" 
-        call head_vtk(aux,bvtk,nout)
+        call head_vtk(aux,bvtk,ddum,idum,.false.,nout)
       else
         call head_vtu(nnode,numel,bvtk,nout)
       endif
@@ -347,15 +347,16 @@ c ...
       goto 100
 c .....................................................................
   300 continue
-      goto( 400, 450, 500
-     .    , 550, 600, 650
-     .    , 700, 750, 800
-     .    , 850, 900, 950  
-     .    ,1000,1050,1100  
-     .    ,1150,1200,1250)j
 c .....................................................................
+      goto( 400, 450, 500   !constrainpmec,nodalforces  ,nodalloads
+     .    , 550, 600, 650   !constraindisp,             ,hexa8
+     .    , 700, 750, 800   !             ,             ,
+     .    , 850, 900, 950   !             ,             ,             
+     .    ,1000,1050,1100   !             ,             ,          
+     .    ,1150,1200,1250)j !initialpres  ,initialstress,end
+c ......................................................................
 c
-c ... constriandisp
+c ... constrianpmec
   400 continue
 c ... gdb graus de liberdade
 c     cod  1 scalar      
@@ -421,9 +422,39 @@ c     cod2 1 interio(4bytes)
      .                    ,bvtk,nout)
       endif
       goto 100
-c .....................................................................      
-c ......................................................................  
+c ......................................................................
+c
+c ... constriandisp  
   550 continue
+c ... gdb graus de liberdade
+c     cod  1 scalar      
+c     cod2 1 int(4bytes)
+      malloc_name ='id_bc'
+      i_p = alloc_4(malloc_name,ndf,nnode)
+      call mzero(ia(i_p),nnode*ndf)
+c ... identifica os nos prescritos   
+      call mk_dot_bc(id,ia(i_p),nnode,ndf)
+c .....................................................................      
+      write(aux1,'(15a)')"constraindisp"
+      gdl =  ndf 
+      cod =  1
+      cod2 = 1
+      if(legacy) then
+        call point_prop_vtk(ia(i_p),fdum,ddum,nnode,aux1,ndf,gdl,cod
+     .                     ,cod2   ,bvtk,nout)
+      else
+        call point_prop_vtu(ia(i_p),fdum,ddum,nnode,aux1,ndf,gdl,cod
+     .                     ,cod2   ,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ... dealloc      
+      i_p = dealloc(malloc_name)
+c .....................................................................
+      goto 100
+c ......................................................................
+c
+c ... 
   600 continue
   650 continue
   700 continue
@@ -618,7 +649,7 @@ c ... cabecalho
       nface = line_face + tria_face + quad_face 
       write(aux,'(30a)')'face com carregamento'
       if(legacy) then
-        call head_vtk(aux,bvtk,nelemtload)
+        call head_vtk(aux,bvtk,ddum,idum,.false.,nelemtload)
       else
         call head_vtu(nnode,nface,bvtk,nelemtload)
       endif
@@ -734,7 +765,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco :                                              * 
+c * Data de modificaco : 09/04/2016                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
 c * poromecanico no formato vtk                                       *
@@ -751,6 +782,8 @@ c * txe(6,*)    - tensao evetiva de Terzaghi nodal                    *
 c * flux(ndm,*) - fluxo de darcy nodal                                *              
 c * nnode       - numero de nos de vertices                           *
 c * numel       - numero de elementos                                 *
+c * istep       - passo de tempo                                      *
+c * t           - tempo da simulacao                                  *
 c * nen         - numero de nos por elementos                         *
 c * ndm         - numero de dimensoes                                 *
 c * filein      - prefix do arquivo de saida                          *
@@ -769,7 +802,7 @@ c * 3-  pressao do no i     - u(4,i)                                  *
 c ********************************************************************* 
        subroutine write_mesh_res_pm(el     ,x     ,u     ,dp   
      .                             ,tx     ,txb   ,txe   ,flux    
-     .                             ,nnode  ,numel  
+     .                             ,nnode  ,numel ,istep ,t 
      .                             ,nen    ,ndm   ,ndf   ,ntn  
      .                             ,fileout,bvtk  ,legacy,nout)
 c ===
@@ -781,6 +814,9 @@ c ... variaveis da malha
       real*8  x(ndm,*),u(ndf,*),dp(*)
       real*8 tx(ntn,*),txb(ntn,*),txe(ntn,*),flux(ndm,*)
       integer nel,nno
+c ... tempo
+      integer istep
+      real*8 t
 c ... locais     
       integer*8 i_p,i_uv,i_tensor
       data i_p/1/,i_uv/1/
@@ -810,7 +846,7 @@ c
 c === cabecalho
       if(legacy) then
         write(aux,'(30a)')'Malha poro mec' 
-        call head_vtk(aux,bvtk,nout) 
+        call head_vtk(aux,bvtk,t,istep,.true.,nout) 
       else  
         call head_vtu(nnode,numel,bvtk,nout) 
       endif  
@@ -1062,6 +1098,232 @@ c     cod2 3 real(8bytes)
       else
         call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ...
+      i_tensor = dealloc('tensor  ')
+c .....................................................................
+c    
+c ...      
+      if(legacy .eqv. .false.) then
+        call point_data_finalize_vtu(bvtk,nout)
+        call finalize_vtu(bvtk,nout)
+      endif
+c .....................................................................
+c =====================================================================
+      close(nout)
+      return
+      end
+c =====================================================================
+c *********************************************************************
+c
+c *********************************************************************
+c * Data de criacao    : 09/04/2016                                   *
+c * Data de modificaco :                                              * 
+c * ------------------------------------------------------------------*    
+c * WRITE_MESH_RES_MEC: escreve a malha com os resultdados do problema*
+c * mecanico no formato vtk                                           *
+c * ------------------------------------------------------------------*
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * el(nen+1,*) - conectividade com material                          *
+c *  x(ndm,*)   - coordenadas                                         *
+c *  u(ndf,*)   - deslocamento                                        *
+c * tx(6,*)     - tensao total nodal                                  *
+c * nnode       - numero de nos de vertices                           *
+c * numel       - numero de elementos                                 *
+c * nen         - numero de nos por elementos                         *
+c * ndm         - numero de dimensoes                                 *
+c * filein      - prefix do arquivo de saida                          *
+c * bvtk        - true BINARY vtk false ASCII vtk                     *
+c * legacy      - true (formato padrão .vtk) false (formato xlm .vtu) *
+c * nout        - arquivo de saida                                    *
+c * ----------------------------------------------------------------- *    
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- * 
+c * OBS:                                                              *
+c * ----------------------------------------------------------------- *
+c ********************************************************************* 
+       subroutine write_mesh_res_mec(el     ,x     ,u     ,tx    
+     .                             ,nnode  ,numel  
+     .                             ,nen    ,ndm   ,ndf   ,ntn  
+     .                             ,fileout,bvtk  ,legacy,nout)
+c ===
+      use Malloc 
+      implicit none
+c ... variaveis da malha      
+      integer nnode,numel,nen,ndm,ndf,ntn,ntn1
+      integer el(nen+1,numel)
+      real*8  x(ndm,*),u(ndf,*)
+      real*8 tx(ntn,*)
+      integer nel,nno
+c ... locais     
+      integer*8 i_p,i_tensor
+      data i_p/1/,i_tensor/1/
+      character*15 aux1
+      character*30 aux
+c ... variaveis dums
+      real*8 ddum
+      real*4 fdum
+      integer idum 
+c ... arquivo      
+      integer nout
+      character*80 fileout,name,filein
+      logical bvtk,legacy
+      integer cod,cod2,gdl
+c =====================================================================
+c
+c ===
+      if(bvtk)then
+        open(unit=nout,file=fileout,access='stream'
+     .      ,form='unformatted',convert='big_endian')
+      else
+        open(unit=nout,file=fileout)
+      endif  
+c     print*,fileout,nout
+c =====================================================================
+c
+c === cabecalho
+      if(legacy) then
+        write(aux,'(30a)')'Malha poro mec' 
+        call head_vtk(aux,bvtk,ddum,idum,.false.,nout) 
+      else  
+        call head_vtu(nnode,numel,bvtk,nout) 
+      endif  
+c =====================================================================
+c
+c === Coordenadas
+      if(legacy) then
+        call coor_vtk(x,nnode,ndm,bvtk,nout)
+      else  
+        call coor_vtu(x,nnode,ndm,bvtk,nout)
+      endif
+c =====================================================================
+c
+c === Elementos
+      if(legacy) then
+        call elm_vtk(el,numel,nen,bvtk,nout)
+      else  
+        call elm_vtu(el,numel,nen,bvtk,nout)
+      endif  
+c =====================================================================
+c
+c === cell 
+      if(legacy) then
+        call cell_data_vtk(numel,bvtk,nout)
+      else  
+        call cell_data_vtu(bvtk,nout)
+      endif  
+c ... materiais      
+      i_p = alloc_4('p       ', 1,numel)
+      do nel = 1, numel
+        ia(i_p+nel-1) = el(nen+1,nel)
+      enddo
+      write(aux1,'(15a)')'mat' 
+c ... cod = 1 variaveis interias
+      cod = 1
+      gdl = 1
+      if(legacy) then
+        call cell_prop_vtk(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif 
+      i_p = dealloc('p       ')
+c .....................................................................
+c
+c ... elIdG
+      i_p = alloc_4('p       ', 1,numel)
+      do nel = 1, numel
+        ia(i_p+nel-1) = nel
+      enddo
+      write(aux1,'(15a)')'elIdG' 
+c ... cod = 1 variaveis interias
+      cod = 1
+      gdl = 1
+      if(legacy) then
+        call cell_prop_vtk(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif 
+      i_p = dealloc('p       ')
+c .....................................................................
+c =====================================================================
+c
+c === nos  
+c ...       
+      if(legacy) then
+        call point_data_vtk(nnode,bvtk,nout)
+      else  
+        call point_data_vtu(bvtk,nout)
+      endif  
+      i_p = alloc_4('p       ', 1,nnode)
+      do nno = 1, nnode
+        ia(i_p+nno-1) = nno    
+      enddo
+      write(aux1,'(15a)')'noIdG'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 1 int(4bytes) 
+      gdl =  1
+      cod =  1
+      cod2 = 1
+      if(legacy) then
+        call point_prop_vtk(ia(i_p),fdum,ddum,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2   ,bvtk,nout)
+      else
+        call point_prop_vtu(ia(i_p),fdum,ddum,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2   ,bvtk,nout)
+      endif
+      i_p = dealloc('p       ')
+c .....................................................................
+c
+c ... desloc     
+      write(aux1,'(15a)')'desloc'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 3 real(8bytes) 
+      gdl =  ndf
+      cod =  2
+      cod2 = 3
+      if(legacy) then
+        call point_prop_vtk(idum,fdum,u,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      else
+        call point_prop_vtu(idum,fdum,u,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2,bvtk,nout)
+      endif
+c .....................................................................
+c
+c ...
+c
+c ... gerando o tensor completo 
+      if( ntn .eq. 6 ) then
+        i_tensor = alloc_8('tensor  ',9 ,nnode)
+        ntn1     = 9
+        call make_full_tensor(tx,ia(i_tensor),nnode,6, ntn1 )
+      endif
+c .....................................................................
+c    
+c ...
+      write(aux1,'(15a)')'stress'           
+c ... gdb graus de liberdade
+c     cod  3 tensor     
+c     cod2 3 real(8bytes) 
+      gdl  =  ntn1            
+      cod  =  3
+      cod2 =  3
+      if(legacy) then
+        call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                    ,cod ,cod2,bvtk,nout)
+      else
+        call point_prop_vtu(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                     ,cod ,cod2,bvtk,nout)
       endif
 c .....................................................................
 c
