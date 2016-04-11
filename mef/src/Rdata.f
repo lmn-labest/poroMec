@@ -1821,7 +1821,8 @@ c *********************************************************************
       implicit none
       include 'string.fi'
       character*15 string,macro(7)
-      integer maxmem,nth_elmt,nth_solver
+      integer*8 maxmem
+      integer nth_elmt,nth_solver
       logical omp_elmt,omp_solver,r(7),reord,bvtk
       integer n,j,nmacro
       integer nin
@@ -1840,7 +1841,7 @@ c .....................................................................
             write(string,'(15a)') (word(j),j=1,15)            
             read(string,*,err = 100,end = 100) maxmem
 c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
-            maxmem = maxmem*1024*1024/4
+            maxmem = (maxmem*1024*1024)/4
             n = n + 1
             r(1) = .true.
          elseif (string .eq. macro(2)) then

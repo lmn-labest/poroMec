@@ -65,6 +65,10 @@ c ... Variaveis do sistema de equacoes:
       logical block_pu
 c .......................................................................
 c
+c ... precondicionador
+      integer precond  
+c .......................................................................
+c
 c ... Variaveis da interface de linha de comando
       integer nargs
       character arg*80
@@ -108,7 +112,9 @@ c ... forcas e graus de liberdade
       integer*8 i_u,i_u0,i_tx0,i_dp
       integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
-      integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_m,i_b,i_b0,i_x0,i_bst0
+      integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
+c ... precondicionador
+      integer*8 i_m,i_jat,i_iat,i_kat
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2
 c ... coo
@@ -187,11 +193,13 @@ c ... solvtol =  tolerancia para o solver iterativo
 c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
+c ... precond =  1 - NONE, 2 - diag, 3 - iLDLt(0), 4 - iC(0)
       maxit   =  8000
       solvtol =  1.d-11
       maxnlit =  2 
       tol     =  1.d-04
       ngram   =  50
+      precond =  3
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -395,21 +403,23 @@ c ......................................................................
 c
 c.... Controle de tempos:
 c
-      soltime    = 0.d0
-      elmtime    = 0.d0
-      tformtime  = 0.d0
-      vectime    = 0.d0
-      ovhtime    = 0.d0
-      dottime    = 0.d0
-      gvtime     = 0.d0
-      allgtime   = 0.d0
-      allrtime   = 0.d0
-      sendtime   = 0.d0
-      matvectime = 0.d0
-      colortime  = 0.d0
-      pmatrixtime= 0.d0
-      writetime  = 0.d0
-      totaltime  = MPI_Wtime()
+      soltime      = 0.d0
+      elmtime      = 0.d0
+      tformtime    = 0.d0
+      vectime      = 0.d0
+      ovhtime      = 0.d0
+      dottime      = 0.d0
+      gvtime       = 0.d0
+      allgtime     = 0.d0
+      allrtime     = 0.d0
+      sendtime     = 0.d0
+      matvectime   = 0.d0
+      colortime    = 0.d0
+      pmatrixtime  = 0.d0
+      writetime    = 0.d0
+      precondtime  = 0.d0
+      ifatsolvtime = 0.d0
+      totaltime    = MPI_Wtime()
 c ......................................................................      
 c
 c.... Otimizacao da largura de banda:
@@ -550,9 +560,32 @@ c ......................................................................
          call azero(ia(i_bst0),neq+neq3+neq4) 
          call azero(ia(i_b0)  ,neq+neq3+neq4)      
          call azero(ia(i_b )  ,neq+neq3+neq4)
-c ...    Memoria para o precondicionador diagonal:
-         i_m   = alloc_8('m       ',    1,neq)
-         call azero(ia(i_m),neq)      
+c ...
+         i_m   = 1
+         i_jat = 1
+         i_iat = 1
+         i_kat = 1
+c ...  Memoria para o precondicionador diagonal:
+         if(precond .eq. 2 ) then 
+           i_m   = alloc_8('m       ',    1,neq)
+           call azero(ia(i_m),neq)
+c ......................................................................
+c
+c ...  Memoria para o precondicionador iLDLt
+         else if( precond .eq. 3) then
+           i_m   = alloc_8('m       ',    1,neq+nad)
+           call azero(ia(i_m),neq+nad)
+c ... arranjo auxiliares
+           i_jat  = alloc_4('m_jat   ',1,neq+1)
+           i_iat  = alloc_4('m_iat   ',1,nad)
+           i_kat  = alloc_4('m_at    ',1,nad)
+c ... arranjos axiliares para o solv ildlt
+           precondtime = Mpi_Wtime() 
+           call ildlt_csrc_aux(neq,ia(i_ia),ia(i_ja)
+     .                        ,ia(i_jat),ia(i_iat),ia(i_kat))
+           precondtime  = Mpi_Wtime() - precondtime
+c ..................................................................... 
+         endif       
       endif
 c ......................................................................
       goto 50
@@ -683,12 +716,13 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
       call get_res(ia(i_u),ia(i_x0),ia(i_id),nnode,nnodev,ndf)
       call solv_pm(neq  ,nequ    ,neqp  
      .         ,nad     ,naduu   ,nadpp      
-     .         ,ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al)
-     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit
-     .         ,ngram,block_pu,n_blocks_up,solver,istep
-     .         ,cmaxit,ctol,alfap,alfau
-     .         ,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap
-     .         ,i_xf,i_rcvs,i_dspl)
+     .         ,ia(i_ia),ia(i_ja),ia(i_jat),ia(i_iat),ia(i_kat)
+     .         ,ia(i_ad),ia(i_al)
+     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)      ,solvtol,maxit
+     .         ,ngram   ,block_pu,n_blocks_up   ,solver,istep
+     .         ,cmaxit  ,ctol    ,alfap         ,alfau ,precond
+     .         ,neqf1   ,neqf2   ,neq3          ,neq4  ,neq_dot
+     .         ,i_fmap  ,i_xf    ,i_rcvs        ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -1083,10 +1117,30 @@ c ... tolerancia
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =1503,end =1503) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
       if(my_id.eq.0) then
         write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
+      endif     
+      call readmacro(nin,.false.) 
+c ......................................................................
+c
+c ... precondicionador
+      write(string,'(6a)') (word(i),i=1,6)
+      if( string .eq. 'none') then
+        precond = 1
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,e10.3)')'precond: none'  
+        endif
+      elseif( string .eq. 'diag  ') then
+        precond = 2
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,e10.3)')'precond: diag'  
+        endif
+      elseif( string .eq. 'ildlt ') then
+        precond = 3
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,e10.3)')'precond: ildlt'  
+        endif
+      endif  
 c ......................................................................
       goto 50
  1502 continue
@@ -1336,12 +1390,13 @@ c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
       timei = MPI_Wtime()
       call solv_pm(neq     ,nequ    ,neqp  
      .            ,nad     ,naduu   ,nadpp      
-     .            ,ia(i_ia),ia(i_ja),ia(i_ad),ia(i_al)
-     .            ,ia(i_m) ,ia(i_b) ,ia(i_x0),solvtol,maxit
-     .            ,ngram,block_pu,n_blocks_up,solver,istep
-     .            ,cmaxit,ctol,alfap,alfau
-     .            ,neqf1,neqf2,neq3,neq4,neq_dot,i_fmap
-     .            ,i_xf,i_rcvs,i_dspl)
+     .            ,ia(i_ia),ia(i_ja),ia(i_jat)   ,ia(i_iat),ia(i_kat) 
+     .            ,ia(i_ad),ia(i_al)
+     .            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
+     .            ,ngram   ,block_pu,n_blocks_up ,solver ,istep
+     .            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
+     .            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
+     .            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
 c .....................................................................
 c

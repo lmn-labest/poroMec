@@ -17,6 +17,162 @@ c * matriz blocada | Kuu Kup | onde kup = -kpu                        *
 c *                | kpu Kpp |                                        *
 c * ----------------------------------------------------------------- *
 c *********************************************************************  
+      subroutine cg(neq   ,nequ  ,nad   ,ia      ,ja
+     .             ,ad    ,au    ,al    ,b      
+     .             ,x     ,z     ,r     ,tol      ,maxit
+     .             ,matvec,dot
+     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .             ,i_xfi ,i_rcvsi,i_dspli
+     .             ,fprint,flog)
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 11/04/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * Subroutine CG : Solucao de sistemas de equacoes pelo metodo dos    *    
+c * gradientes conjugados                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * z(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      integer neqf1i,neqf2i,neq_doti
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi
+      integer*8 i_rcvsi,i_dspli
+c .....................................................................      
+      integer neq,nequ,nad,maxit,i,j,jj
+      integer ia(*),ja(*),my_id
+      real*8  ad(*),au(*),al(*),x(*),r(*),z(*),b(*)
+      real*8  dot,ddot,tol,conv,energy,d,alpha,beta
+      real*8  time0,time
+      real*8 dum1
+      logical flog,fprint
+      external matvec,dot
+c ======================================================================
+      time0 = MPI_Wtime()
+c ......................................................................
+c
+c ... Chute inicial:
+c
+      do 10 i = 1, neq
+         x(i) = 0.d0
+   10 continue
+c ----------------------------------------------------------------------
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1), 
+     .            x,z,
+     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      do 100 i = 1, neq
+         r(i) = b(i) - z(i)
+         b(i) = r(i)
+  100 continue
+      d    = dot(r,r,neq_doti)
+      conv = tol*dsqrt(dabs(d))
+c ----------------------------------------------------------------------
+      jj = 1
+      do 230 j = 1, maxit
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .               b,z,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
+     .               dum1)
+         alpha = d / dot(b,z,neq_doti)
+         do 210 i = 1, neq
+            x(i) = x(i) + alpha * b(i)
+            r(i) = r(i) - alpha * z(i)
+  210    continue
+         beta = dot(r,r,neq_doti) / d
+         do 220 i = 1, neq
+            b(i) = r(i) + beta * b(i)
+  220    continue
+         d = beta * d
+         if (dsqrt(dabs(d)) .lt. conv) goto 300
+c ......................................................................
+         if( jj .eq.500) then
+           jj = 0
+           write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c ......................................................................
+  230 continue
+c ----------------------------------------------------------------------
+      write(*,1200) maxit
+      if(flog) write(10,1200) maxit
+      call stop_mef()
+  300 continue
+c
+c ... Energy norm:
+c
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .           x,z,
+     .           neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      energy = dot(x,z,neq_doti)
+c ......................................................................
+      time = MPI_Wtime()
+      time = time-time0
+c ----------------------------------------------------------------------
+      if(my_id .eq.0 .and. fprint )then
+        write(*,1100)tol,neq,nad,j,energy,time
+      endif
+c ......................................................................
+c     Controle de flops
+      if(flog) then
+        if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
+     .             "CG: "," it ",j, " energy norm ",energy," tol ",tol,
+     .             " time ",time
+      endif
+c ......................................................................
+      return
+c ======================================================================
+ 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal nulo
+     .ou negativo - equacao ',i7)
+ 1100 format(' (CG) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1200 format (' *** WARNING: No convergence reached after ',i9,
+     .        ' iterations !',/)
+ 1300 format (' CG:',5x,'It',i7,5x,2d20.10)
+      end
+c *********************************************************************  
+c
+c *********************************************************************  
       subroutine pcg(neq   ,nequ  ,nad   ,ia      ,ja
      .              ,ad    ,au    ,al    ,m        ,b      
      .              ,x     ,z     ,r     ,tol      ,maxit
@@ -174,6 +330,9 @@ c ======================================================================
      .        ' iterations !',/)
  1300 format (' PCG:',5x,'It',i7,5x,2d20.10)
       end
+c *********************************************************************  
+c
+c *********************************************************************  
       subroutine gmres(neq,nequ,nad,ia,ja,ad,au,al,m,b,x,k,g,h,y,c,s,e,
      .              tol,maxit,matvec,dot,neqovlp,my_id,neqf1i,neqf2i,
      .              neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli,flog)
@@ -1036,6 +1195,190 @@ c ......................................................................
       end
 c **********************************************************************
 c
+c *********************************************************************
+      subroutine icg(neq   ,nequ  ,nad   ,ia      ,ja
+     .              ,ad    ,au    ,al    ,m        
+     .              ,jat   ,iat   ,akt     
+     .              ,b     ,x    
+     .              ,z     ,r     ,tol      ,maxit
+     .              ,matvec,dot
+     .              ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .              ,i_xfi ,i_rcvsi,i_dspli
+     .              ,flog)
+c **********************************************************************
+c * Data de criacao    : 10/04/2016                                    *
+c * Data de modificaco : 11/04/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * ICG : Solucao de sistemas de equacoes pelo metodo dos gradientes   *
+c * conjugados com precondicionador incompleto                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador diagonal                               *
+c * jat(*)   - arranjo auxiliar para precondicionador iLDLt            *
+c * iat(*)   - arranjo auxiliar para precondicionador iLDLt            *
+c * kat(*)   - arranjo auxiliar para precondicionador iLDLt            *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * z(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Arranjos jat,iat e kat são utilizados na retrosubstituizao do      *
+c * solver iLDLt                                                       * 
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      integer neqf1i,neqf2i,neq_doti
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi
+      integer*8 i_rcvsi,i_dspli
+c .....................................................................      
+      integer neq,nequ,nad,maxit,i,j,jj
+      integer ia(*),ja(*),my_id
+      real*8  ad(*),au(*),al(*),x(*),r(*),z(*),b(*)
+      real*8  m(*)
+      integer jat(*),iat(*),akt(*)
+      real*8  dot,ddot,tol,conv,energy,d,alpha,beta
+      real*8  time0,time
+      real*8 dum1
+      logical flog
+      external matvec,dot
+c ======================================================================
+      time0 = MPI_Wtime()
+c ......................................................................
+c
+c ... Chute inicial:
+c
+      do 10 i = 1, neq
+         x(i) = 0.d0
+   10 continue
+c ----------------------------------------------------------------------
+c 
+c ...
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1), 
+     .            x,z,
+     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................      
+c
+      do 100 i = 1, neq
+         r(i) = b(i) - z(i)
+  100 continue
+c .......................................................................      
+c
+c ... Mz=r  
+      call ildlt_solv(neq,ia,ja,jat,iat,akt,m,m(neq+1),r,z)
+c .......................................................................      
+c
+c ...
+      do 105 i = 1, neq
+         b(i) = z(i)
+  105 continue
+c .......................................................................      
+c
+c ...
+      d    = dot(r,z,neq_doti)
+      conv = tol*dsqrt(dabs(d))
+c ----------------------------------------------------------------------
+      jj = 1
+      do 230 j = 1, maxit
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .               b,z,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,
+     .               dum1)
+         alpha = d / dot(b,z,neq_doti)
+         do 210 i = 1, neq
+            x(i) = x(i) + alpha * b(i)
+            r(i) = r(i) - alpha * z(i)
+  210    continue
+c ......................................................................
+c
+c ... Mz=r  
+         call ildlt_solv(neq,ia,ja,jat,iat,akt,m,m(neq+1),r,z)
+c .......................................................................
+         
+         beta = dot(r,z,neq_doti) / d
+         do 220 i = 1, neq
+            b(i) = z(i) + beta * b(i)
+  220    continue
+         d = beta * d
+         if (dsqrt(dabs(d)) .lt. conv) goto 300
+c ......................................................................
+         if( jj .eq.500) then
+           jj = 0
+           write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c ......................................................................
+  230 continue
+c ----------------------------------------------------------------------
+      write(*,1200) maxit
+      if(flog) write(10,1200) maxit
+      call stop_mef()
+  300 continue
+c
+c ... Energy norm:
+c
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .           x,z,
+     .           neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      energy = dot(x,z,neq_doti)
+c ......................................................................
+      time = MPI_Wtime()
+      time = time-time0
+c ----------------------------------------------------------------------
+      if(my_id.eq.0)write(*,1100)tol,neq,nad,j,energy,time
+c ......................................................................
+c     Controle de flops
+      if(flog) then
+        if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
+     .  'ICG: ',' it ',j, ' energy norm ',energy,' tol ',tol,
+     .  ' time ',time
+      endif
+c ......................................................................
+      return
+c ======================================================================
+ 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal nulo
+     .ou negativo - equacao ',i7)
+ 1100 format(' (ICG) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1200 format (' *** WARNING: No convergence reached after ',i9,
+     .        ' iterations !',/)
+ 1300 format ( 'ICG: ',5x,'It',i7,5x,2d20.10)
+      end
 c **********************************************************************
       real*8 function smachn()
 c **********************************************************************

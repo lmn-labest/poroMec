@@ -1381,3 +1381,54 @@ c ...
       close(15)
       return
       end
+c *********************************************************************
+c
+c *********************************************************************
+      subroutine csrc_to_full(ia,ja,al,ad,a,neq)
+      implicit none
+      integer ia(*),ja(*)
+      real*8 ad(*),al(*),a(neq,*)
+      integer neq,i,j,jak,kk
+c ...
+      do j = 1, neq
+        do i = 1, neq
+          a(i,j) = 0.d0
+        enddo
+      enddo
+c .....................................................................
+c
+c ...
+      do i = 1, neq
+        a(i,i) = ad(i)
+      enddo
+c .....................................................................
+c
+c ...
+      do i = 1, neq
+        do j = ia(i), ia(i+1) - 1
+          jak      = ja(j)
+c ... caso onde o csr tem termos nulos 
+          if( al(j) .eq. 0.d0) then
+            a(i,jak) = ad(i)*1.d-16
+          else 
+            a(i,jak) = al(j)
+          endif
+        enddo  
+      enddo
+c .....................................................................
+c
+c ...
+      do j = 1, neq
+        do i = j+1 , neq
+          a(j,i) = a(i,j)
+        enddo
+      enddo
+c .....................................................................
+      open(15,file='afull.matrix')
+c     do i = 1, neq
+c       write(15,'(100d15.2)')(a(i,j),j=1,i)
+c     enddo 
+      close(15)
+      return
+      end
+c *********************************************************************
