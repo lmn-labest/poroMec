@@ -2,8 +2,7 @@ c **********************************************************************
 c * Data de criacao    : 10/04/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *
-c *   PRE_DIAG: precondicionador diagonal                              *
-c *   --------                                                         *
+c * PRE_DIAG: precondicionador diagonal                                *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
@@ -14,7 +13,9 @@ c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
 c * m   - precondicionador diagonal ( M-1)                             *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       subroutine pre_diag(m,ad,neq)
       implicit none
@@ -266,14 +267,17 @@ c ... loop nas linhas abaixo da diagonal
         do nl = nc + 1, neq
 c ...
           do k = ia(nl), ia(nl+1) - 1
+           
             if( nc .eq. ja(k)) then
               jat(nc)  = jat(nc) + 1 
               nnc      = nnc     + 1
               iat(nnc) = nl
               at(nnc)  = k
+              go to 10
             endif
           enddo
 c ....................................................................
+  10      continue
         enddo
 c ....................................................................
       enddo
@@ -422,3 +426,52 @@ c ...
       return
       end
 c **********************************************************************
+c
+c **********************************************************************
+      subroutine set_precond(macro,precond,nin,my_id)
+      implicit none
+      include 'string.fi'
+      character macro(maxstrl)
+      character*6 macros(6),string
+      integer precond,nin,my_id
+      integer i,nmc 
+      data macros/'none  ','diag  ','ildlt '
+     .           ,'      ','      ','      '/
+      data nmc /6/
+c ...
+      write(string,'(6a)') (word(i),i=1,6)
+c ... nenhum precondicionador
+      if( string .eq. macros(1)) then
+        precond = 1
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6)')'precond:',macros(1)  
+        endif
+c .....................................................................
+c
+c ... precondicionador diagonal
+      elseif( string .eq. macros(2)) then
+        precond = 2
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6)')'precond:',macros(2)
+        endif
+c .....................................................................
+c
+c ... precondicionador ILDLT
+       elseif( string .eq. macros(3)) then
+        precond = 3
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6)')'precond:',macros(3)
+        endif
+c .....................................................................
+c
+c ...                         
+      else
+        print*,'Erro na leitura da macro (BICGSTAB) precond !'
+        stop
+      endif 
+c .....................................................................
+c
+c ...
+      return
+      end
+c ********************************************************************** 

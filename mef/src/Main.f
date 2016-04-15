@@ -61,7 +61,7 @@ c ......................................................................
 c
 c ... Variaveis do sistema de equacoes:
       integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
-      integer n_blocks_up
+      integer n_blocks_pu
       logical block_pu
 c .......................................................................
 c
@@ -199,7 +199,7 @@ c ... precond =  1 - NONE, 2 - diag, 3 - iLDLt(0), 4 - iC(0)
       maxnlit =  2 
       tol     =  1.d-04
       ngram   =  50
-      precond =  3
+      precond =  2
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -211,8 +211,9 @@ c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline)
       solver  =  2
       stge    =  1
 c     block_pu= .true.
-      block_pu= .false.
-      resid0  =  0.d0
+      n_blocks_pu = 0 
+      block_pu    = .false.
+      resid0      =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
 c ... campo gravitacional (Padrao)
@@ -397,7 +398,7 @@ c
 c ... desabilita o csrc blocado em problemas mecanicos
       if(fmec) then
          block_pu    = .false. 
-         n_blocks_up = 0 
+         n_blocks_pu = 0 
       endif
 c ......................................................................   
 c
@@ -534,7 +535,7 @@ c
      .                  ,i_ia,i_ja,i_au,i_al,i_ad 
      .                  ,'ia      ','ja      '
      .                  ,'au      ','al      ' ,'ad      '
-     .                  ,ovlp      ,n_blocks_up,block_pu  )
+     .                  ,ovlp      ,n_blocks_pu,block_pu  )
       endif
       dstime = MPI_Wtime()-timei
 c
@@ -584,6 +585,7 @@ c ... arranjos axiliares para o solv ildlt
            call ildlt_csrc_aux(neq,ia(i_ia),ia(i_ja)
      .                        ,ia(i_jat),ia(i_iat),ia(i_kat))
            precondtime  = Mpi_Wtime() - precondtime
+c          print*,precondtime
 c ..................................................................... 
          endif       
       endif
@@ -635,7 +637,7 @@ c ... forcas internas devidos as tensoes inicias tensoes
      .                 ,.false.     ,.true.       ,unsym 
      .                 ,stge        ,5            ,ilib     ,i
      .                 ,ia(i_colorg),ia(i_elcolor),numcolors,.true.
-     .                 ,block_pu    ,n_blocks_up)
+     .                 ,block_pu    ,n_blocks_pu)
           elmtime = elmtime + MPI_Wtime()-timei
           fcstress0= .false.
       endif 
@@ -657,7 +659,7 @@ c     do passo t:
      .             ,.false.     ,.true.       ,unsym 
      .             ,stge,4      ,ilib         ,i
      .             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
-     .             ,block_pu    ,n_blocks_up)
+     .             ,block_pu    ,n_blocks_pu)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -700,7 +702,7 @@ c ... Residuo: b = F - K.du(n+1,i)
      .             ,.true.      ,.true.       ,unsym
      .             ,stge        ,2            ,ilib     ,i
      .             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
-     .             ,block_pu,n_blocks_up)
+     .             ,block_pu,n_blocks_pu)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -719,7 +721,7 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
      .         ,ia(i_ia),ia(i_ja),ia(i_jat),ia(i_iat),ia(i_kat)
      .         ,ia(i_ad),ia(i_al)
      .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)      ,solvtol,maxit
-     .         ,ngram   ,block_pu,n_blocks_up   ,solver,istep
+     .         ,ngram   ,block_pu,n_blocks_pu   ,solver,istep
      .         ,cmaxit  ,ctol    ,alfap         ,alfau ,precond
      .         ,neqf1   ,neqf2   ,neq3          ,neq4  ,neq_dot
      .         ,i_fmap  ,i_xf    ,i_rcvs        ,i_dspl)
@@ -847,13 +849,13 @@ c ......................................................................
         goto 5000
       endif
       block_pu = .true.
-c ... n_blocks_up
+c ... n_blocks_pu
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =801,end =801) n_blocks_up   
+      read(string,*,err =801,end =801) n_blocks_pu   
       goto 50
   801 continue
-      print*,'Erro na leitura da macro (BLOCK_PU) n_blocks_up   !'
+      print*,'Erro na leitura da macro (BLOCK_PU) n_blocks_pu   !'
       goto 5000
 c ......................................................................
 c
@@ -1087,6 +1089,12 @@ c ... tolerancia
         write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
       endif
 c ......................................................................
+c
+c ... precondicionador
+      call readmacro(nin,.false.)
+      write(string,'(6a)') (word(i),i=1,6)
+      call set_precond(word,precond,nin,my_id)  
+c ......................................................................
       goto 50
  1402 continue
       print*,'Erro na leitura da macro (BICGSTAB) maxit !'
@@ -1116,31 +1124,17 @@ c
 c ... tolerancia 
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1503,end =1503) solvtol   
+      read(string,*,err =1503,end =1503) solvtol  
+      if( solvtol .eq. 0.d0) solvtol = smachn() 
       if(my_id.eq.0) then
         write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
       endif     
-      call readmacro(nin,.false.) 
 c ......................................................................
 c
 c ... precondicionador
+      call readmacro(nin,.false.)
       write(string,'(6a)') (word(i),i=1,6)
-      if( string .eq. 'none') then
-        precond = 1
-        if(my_id.eq.0) then
-          write(*,'(1x,a25,1x,e10.3)')'precond: none'  
-        endif
-      elseif( string .eq. 'diag  ') then
-        precond = 2
-        if(my_id.eq.0) then
-          write(*,'(1x,a25,1x,e10.3)')'precond: diag'  
-        endif
-      elseif( string .eq. 'ildlt ') then
-        precond = 3
-        if(my_id.eq.0) then
-          write(*,'(1x,a25,1x,e10.3)')'precond: ildlt'  
-        endif
-      endif  
+      call set_precond(word,precond,nin,my_id)  
 c ......................................................................
       goto 50
  1502 continue
@@ -1393,7 +1387,7 @@ c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
      .            ,ia(i_ia),ia(i_ja),ia(i_jat)   ,ia(i_iat),ia(i_kat) 
      .            ,ia(i_ad),ia(i_al)
      .            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
-     .            ,ngram   ,block_pu,n_blocks_up ,solver ,istep
+     .            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
      .            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
      .            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
      .            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)

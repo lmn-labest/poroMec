@@ -1,9 +1,4 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-08-08 15:20:15 -0300 (Mon, 08 Aug 2011) $                 
-c*$Rev: 939 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************       
-      subroutine profil(ix,id,jd,nnode,numel,nen,ndf,neq,nad,ptr)
+       subroutine profil(ix,id,jd,nnode,numel,nen,ndf,neq,nad,ptr)
 c **********************************************************************
 c *                                                                    *
 c *   Subroutine PROFIL                                                *
