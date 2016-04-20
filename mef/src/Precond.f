@@ -29,12 +29,12 @@ c **********************************************************************
 c **********************************************************************
 c
 c **********************************************************************
-       subroutine ildlt(n,ia,ja,al,ad,ldlt,v,shift,fcheck)  
+       subroutine ildlt1(n,ia,ja,al,ad,ldlt,v,shift,fcheck)  
 c **********************************************************************
 c * Data de criacao    : 10/04/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *   
-c * ILDLT: fatora imcompleta LDLt com matriz simetrica A no formato    *
+c * ILDLT1:fatora imcompleta LDLt com matriz simetrica A no formato    *
 c * CSRC.                                                              *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -52,7 +52,7 @@ c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
 c * ldlt(n+1:n+nad) - fator L                                          *
-c * ldlt(1:n)       - diagonal fatorada                                *
+c * ldlt(1:n)       - inverso da diagonal fatorada                     *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -118,15 +118,10 @@ c .....................................................................
           t  = 0.d0
           do 300 i = ia(k), ia(k+1)-1
             kk = ja(i)
-            if (kk .lt. j) then
-              t = t + ldlt(i+n)*v(kk)
-            else if (kk .eq. j) then
-              kj = i + n
-            endif
+            if (kk .lt. j) t  = t + ldlt(i+n)*v(kk)
+            if (kk .eq. j) kj = i + n
   300     continue
-          if (kj .gt. 0 ) then 
-            ldlt(kj) = (ldlt(kj) - t)/v(j)
-          endif
+          if (kj .gt. 0 ) ldlt(kj) = (ldlt(kj) - t)/v(j)
   310   continue
 c .....................................................................
         v(j) = 0.d0  
@@ -155,11 +150,146 @@ c      close(15)
 c **********************************************************************
 c
 c **********************************************************************
-c **********************************************************************
-      subroutine ildlt_solv(n,ia,ja,jat,iat,kat,ad,a,b,x)
+       subroutine ildlt2(n,ia,ja,al,ad,ldlt,v,shift,fcheck)  
 c **********************************************************************
 c * Data de criacao    : 10/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 20/04/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * ILDLT: fatora imcompleta LDLt com matriz simetrica A no formato    *
+c * CSRC.                                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * n - numero de equacoes                                             *
+c * ia(1:n+1) - ponteiro das linhas, para o formato CSR                *
+c * ja(1:nad) - ponteiro das colunas no formato CSR                    *
+c * al(1:nad) - parte triangular inferior de A                         *
+c * ad(1:n)   - diagonal da matriz A                                   *
+c * ldlt(1:n+nad) - nao definido                                       *
+c * v(1:n)    - arranjo auxiliar (nao inicializado)                    *
+c * shift     - parametro de deslocamento para manter a fotaracao      * 
+c *             estavel ( shift >= 0)                                  *   
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ldlt(n+1:n+nad) - fator L                                          *
+c * ldlt(1:n)       - inverso da diagonal fatorada                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * LDLT: fatora a matriz simetrica A na forma LDL. Os coeficientes    *
+c * Aij (j<i) sao armazenados em a(1:nad), no formato CSR,             *
+c * e a diagonal eh armazenada em ad(1:n). Os fatores L e D sao        *
+c * armazenados em ldlt(n+1:n+1+nad) e ldlt(1:n), no mesmo formato CSR *
+c * e com a mesma estrututa ia, ja. Pela propria definicao do CSR,     *
+c * esta fatoracao eh incompleta. No entanto, pode tornar-se           *
+c * completa utilizando-se a tecnica de fill-in.                       *
+c * Esta implementacao eh uma adaptacao para o formato CSR do          *
+c * algoritmo 5.1.2 em Matriz Computations, p. 84, Golub e Van Loan.   *
+c **********************************************************************
+      implicit none      
+      integer n,ia(*),ja(*),i,j,k,kk,i1,i2,kj,nad
+      real*8 al(*),ad(*),ldlt(*),v(*),t
+      real*8 dmax,mod,shift
+      logical fcheck  
+      real*8 tol
+      parameter (tol=1.d-14)
+c ......................................................................
+      nad      = ia(n+1)-1
+      do i = 1, nad
+        ldlt(i+n) = al(i)
+      enddo
+c ... A = A + shift*diag(A)
+      ldlt(1:n)   = ad(1:n) + shift*ad(1:n)
+c ......................................................................
+      v(1:n)   = 0.d0
+c ......................................................................
+c
+c ...
+      dmax = 0.d0
+      do 50 i = 1, n
+        mod  = dabs(ad(i))
+        dmax = max(mod,dmax)
+  50  continue
+c ......................................................................
+c
+c ......................................................................      
+      do 1000 j = 1, n   
+        i1 = ia(j)
+        i2 = ia(j+1)-1
+        do 100 i = i1, i2
+          k    = ja(i)
+          v(k) = ldlt(i+n)*ldlt(k)
+  100   continue
+c ......................................................................                    
+        t = 0.d0
+        do 200 i = i1, i2
+          t = t + ldlt(i+n)*v(ja(i))
+  200   continue
+        v(j) = ldlt(j) - t
+c ... pivo negativo ou muito pequeno
+        if(v(j) .lt. tol*dmax .and. fcheck) then
+          print*,'Valor do Pivo invalido !!!',v(j)
+          stop
+        endif
+        ldlt(j) = v(j)
+c .....................................................................                  
+        do 310 k = j+1, n
+          kj = 0
+          t  = 0.d0
+c ... somatorio da da coluna 1 ate j - 1
+          do 300 i = ia(k), ia(k+1)-1
+            kk = ja(i)
+            if (kk .lt. j) then
+              t = t + ldlt(i+n)*v(kk)
+            else if (kk .eq. j) then
+              kj = i + n
+              go to 305
+            else if (kk .gt. j) then
+              go to 306
+            endif
+  300     continue
+c ......................................................................
+c
+c ...  
+  305     continue
+          if(kj .ne. 0) ldlt(kj) = (ldlt(kj) - t)/v(j)
+c ......................................................................
+c
+c ...
+  306     continue
+  310   continue
+c .....................................................................
+        v(j) = 0.d0  
+        do 400 i = i1, i2             
+          k    = ja(i) 
+          v(k) = 0.d0   
+  400   continue
+c .....................................................................  
+ 1000 continue
+c .....................................................................
+c
+c ...
+      ldlt(1:n)   = 1.d0/ldlt(1:n)
+c .....................................................................
+c     open(15,file='ildlt.csr')
+c     do i = 1, 1500
+c       write(15,'(i9,1d15.2)')i,ldlt(i)
+c     enddo 
+c     write(15,*)'l'
+c     do i = 1, nad
+c       write(15,'(i9,2d15.2)')i,al(i),ldlt(i+n)
+c     enddo 
+c      close(15)
+      return
+      end
+c **********************************************************************
+c 
+c **********************************************************************
+      subroutine ildlt_solv(n,ia,ja,ad,a,b,x)
+c **********************************************************************
+c * Data de criacao    : 10/04/2016                                    *
+c * Data de modificaco : 18/04/2016                                    *
 c * ------------------------------------------------------------------ *  
 c * ildlt_solv: resolve o sistema com a fatoracao imcompleta LDLt      *
 c * ------------------------------------------------------------------ * 
@@ -168,9 +298,6 @@ c * ------------------------------------------------------------------ *
 c * n - numero de equacoes                                             *
 c * ia(1:n+1)  - ponteiro das linhas, para o formato CSR               *
 c * ja(1:nad)  - ponteiro das colunas no formato CSR                   *
-c * jat(1:n+1) - ponteiro das colunas, para o formato CSC              *
-c * iat(1:nad) - ponteiro das linhas no formato CSC                    *
-c * kat(1:nad  - ponteiro que relaciona o CSC com a matriz a do CSR    * 
 c * ad(1:nad)  - fatores D da matriz A ( D: 1/D )                      *
 c * a(1:nad)   - fatores L da matriz A                                 *
 c * b(1:n)     - vetor independente                                    *
@@ -186,9 +313,9 @@ c **********************************************************************
       implicit none
       include 'mpif.h'
       include 'time.fi'
-      integer n,ia(*),ja(*),jat(*),iat(*),kat(*)
+      integer n,ia(*),ja(*)
       integer i,k,kk
-      real*8  a(*),ad(*),b(*),x(*),tmp
+      real*8  a(*),ad(*),b(*),x(*),t
 c ......................................................................
 c
 c ...
@@ -198,11 +325,11 @@ c ......................................................................
 c
 c ... Forward substitution:
        do 110 i = 2, n
-        tmp = x(i)
+        t = x(i)
         do 100 k = ia(i), ia(i+1) - 1
-           tmp = tmp - a(k)*x(ja(k))
+           t = t - a(k)*x(ja(k))
   100   continue
-        x(i) = tmp 
+        x(i) = t 
   110 continue
 c ......................................................................
 c
@@ -213,13 +340,12 @@ c ...
 c ......................................................................
 c
 c ... Backward substitution:
-      do 210 i = n-1, 1, -1
-        tmp = x(i)
-        do 200 k = jat(i), jat(i+1)-1
-           kk   = kat(k)
-           tmp  = tmp - a(kk)*x(iat(k))
+      do 210 i = n, 1, -1 
+        t = x(i)
+        do 200 k = ia(i), ia(i+1)-1
+           kk    = ja(k)
+           x(kk) = x(kk) - t*a(k)
   200   continue
-        x(i) = tmp 
   210 continue
 c ......................................................................
       ifatsolvtime = Mpi_Wtime() - ifatsolvtime    
@@ -428,6 +554,25 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
+c * Data de criacao    : 18/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * SET_PRECOND : escolhe o precondicionandor                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * macro   - precondicionador escolhido                               *
+c * precond - nao definido                                             *
+c * nin     - aqruivo de entrada                                       *
+c * my_id   - id do processo do mpi                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * precond - precondicionador escolhido                               * 
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c ********************************************************************** 
       subroutine set_precond(macro,precond,nin,my_id)
       implicit none
       include 'string.fi'
@@ -466,7 +611,7 @@ c .....................................................................
 c
 c ...                         
       else
-        print*,'Erro na leitura da macro (BICGSTAB) precond !'
+        print*,'Erro na leitura da macro precond !'
         stop
       endif 
 c .....................................................................

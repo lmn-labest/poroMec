@@ -114,7 +114,7 @@ c ... forcas e graus de liberdade
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
 c ... precondicionador
-      integer*8 i_m,i_jat,i_iat,i_kat
+      integer*8 i_m
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2
 c ... coo
@@ -217,9 +217,12 @@ c     block_pu= .true.
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
 c ... campo gravitacional (Padrao)
-      gravity(1) =   0.0d0
-      gravity(2) =   0.0d0
-      gravity(3) = -9.81d0
+      gravity(1)  =   0.0d0
+      gravity(2)  =   0.0d0
+      gravity(3)  = -9.81d0
+      gravity_mod = dsqrt(gravity(1)*gravity(1)
+     .                   +gravity(2)*gravity(2)
+     .                   +gravity(3)*gravity(3))
 c ...
       flag_macro_mesh = .false.
 c ... 
@@ -563,9 +566,6 @@ c ......................................................................
          call azero(ia(i_b )  ,neq+neq3+neq4)
 c ...
          i_m   = 1
-         i_jat = 1
-         i_iat = 1
-         i_kat = 1
 c ...  Memoria para o precondicionador diagonal:
          if(precond .eq. 2 ) then 
            i_m   = alloc_8('m       ',    1,neq)
@@ -576,16 +576,6 @@ c ...  Memoria para o precondicionador iLDLt
          else if( precond .eq. 3) then
            i_m   = alloc_8('m       ',    1,neq+nad)
            call azero(ia(i_m),neq+nad)
-c ... arranjo auxiliares
-           i_jat  = alloc_4('m_jat   ',1,neq+1)
-           i_iat  = alloc_4('m_iat   ',1,nad)
-           i_kat  = alloc_4('m_at    ',1,nad)
-c ... arranjos axiliares para o solv ildlt
-           precondtime = Mpi_Wtime() 
-           call ildlt_csrc_aux(neq,ia(i_ia),ia(i_ja)
-     .                        ,ia(i_jat),ia(i_iat),ia(i_kat))
-           precondtime  = Mpi_Wtime() - precondtime
-c          print*,precondtime
 c ..................................................................... 
          endif       
       endif
@@ -718,13 +708,12 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
       call get_res(ia(i_u),ia(i_x0),ia(i_id),nnode,nnodev,ndf)
       call solv_pm(neq  ,nequ    ,neqp  
      .         ,nad     ,naduu   ,nadpp      
-     .         ,ia(i_ia),ia(i_ja),ia(i_jat),ia(i_iat),ia(i_kat)
-     .         ,ia(i_ad),ia(i_al)
-     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)      ,solvtol,maxit
-     .         ,ngram   ,block_pu,n_blocks_pu   ,solver,istep
-     .         ,cmaxit  ,ctol    ,alfap         ,alfau ,precond
-     .         ,neqf1   ,neqf2   ,neq3          ,neq4  ,neq_dot
-     .         ,i_fmap  ,i_xf    ,i_rcvs        ,i_dspl)
+     .         ,ia(i_ia),ia(i_ja),ia(i_ad)   ,ia(i_al)
+     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
+     .         ,ngram   ,block_pu,n_blocks_pu,solver,istep
+     .         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
+     .         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
+     .         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -1384,8 +1373,7 @@ c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
       timei = MPI_Wtime()
       call solv_pm(neq     ,nequ    ,neqp  
      .            ,nad     ,naduu   ,nadpp      
-     .            ,ia(i_ia),ia(i_ja),ia(i_jat)   ,ia(i_iat),ia(i_kat) 
-     .            ,ia(i_ad),ia(i_al)
+     .            ,ia(i_ia),ia(i_ja),ia(i_ad)    ,ia(i_al)
      .            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
      .            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
      .            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
