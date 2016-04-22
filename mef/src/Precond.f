@@ -109,7 +109,7 @@ c ......................................................................
 c ... pivo negativo ou muito pequeno
         if(v(j) .lt. tol*dmax .and. fcheck) then
           print*,'Valor do Pivo invalido !!!',v(j)
-          stop
+          call stop_mef()
         endif
         ldlt(j) = v(j)
 c .....................................................................                  
@@ -230,7 +230,7 @@ c ......................................................................
 c ... pivo negativo ou muito pequeno
         if(v(j) .lt. tol*dmax .and. fcheck) then
           print*,'Valor do Pivo invalido !!!',v(j)
-          stop
+          call stop_mef()
         endif
         ldlt(j) = v(j)
 c .....................................................................                  

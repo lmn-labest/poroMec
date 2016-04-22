@@ -27,7 +27,7 @@ c **********************************************************************
       integer neqf1i,neqf2i
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
-      integer*8 i_z,i_r,i_s,i_c,i_h,i_g,i_y,i_a
+      integer*8 i_z,i_r,i_s,i_c,i_h,i_g,i_y,i_a,i_d
 c ......................................................................
       integer neq3i,neq4i,neq_doti
       integer ip(*),ja(*),neq,nequ,neqp,nad,naduu,nadpp
@@ -81,7 +81,9 @@ c ......................................................................
 c
 c ...    precondicionador diagonal:
          if(precond .eq. 2) then 
+           precondtime = Mpi_Wtime() - precondtime  
            call pre_diag(m,ad,neq)
+           precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
          else if(precond .eq. 3) then
 c ...
@@ -143,7 +145,9 @@ c ... Gmres com precondicionador diagonal:
          diag = .true.
 c ...    precondicionador diagonal:
          if(diag) then 
+           precondtime = Mpi_Wtime() - precondtime  
            call pre_diag(m,ad,neq)
+           precondtime = Mpi_Wtime() - precondtime  
 c ...    
          else                           
            m(1:neq) = 1.d0  
@@ -254,17 +258,20 @@ c ...
         endif
 c ......................................................................
 c
-c ... alocacao dos arronjos auxiliares (5neq)    
+c ... alocacao dos arronjos auxiliares (6neq)    
          i_c = alloc_8('tsolver ',1,neq)
          i_h = alloc_8('hsolver ',1,neq)
          i_r = alloc_8('rsolver ',1,neq)
          i_s = alloc_8('psolver ',1,neq)
          i_z = alloc_8('zsolver ',1,neq)
+         i_y = alloc_8('ysolver ',1,neq)
 c .....................................................................
 c
 c ...    precondicionador diagonal:
-         if(precond .eq. 2) then 
+         if(precond .eq. 2) then
+           precondtime = Mpi_Wtime() - precondtime    
            call pre_diag(m,ad,neq)
+           precondtime = Mpi_Wtime() - precondtime   
 c .....................................................................
          else if(precond .eq. 3) then
 c ...
@@ -296,14 +303,14 @@ c
 c ... sequencial
            else 
              call pbicgstab(neq   ,nequ   ,nad  ,ip     ,ja      
-     .                    ,ad     ,al     ,al   ,m      ,b      ,x  
-     .                    ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .                    ,tol    ,maxit 
+     .                ,ad     ,al     ,al   ,m      ,b      ,x  
+     .                ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),ia(i_y)
+     .                ,tol    ,maxit 
 c ... matvec comum:
-     .                    ,matvec_csrc_pm ,dot_par 
-     .                    ,my_id    ,neqf1i,neqf2i ,neq_doti 
-     .                    ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
-     .                    ,.true.)
+     .                ,matvec_csrc_pm ,dot_par 
+     .                ,my_id    ,neqf1i,neqf2i ,neq_doti 
+     .                ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
+     .                ,.true.  ,.true.,.true.)
            endif 
 c .....................................................................
 c
@@ -324,8 +331,8 @@ c .....................................................................
 c
 c ... squencial (bigstab, pbigstab e icbigstab)
            else
-             call call_bicgstab(neq      ,nequ   ,nad    ,ip     ,ja
-     .                    ,ad       ,al     ,m   ,b      ,x    
+             call call_bicgstab(neq      ,nequ   ,nad    ,ip,ja
+     .                    ,ad       ,al  ,m      ,b      ,x ,ia(i_y)
      .                    ,ia(i_c)  ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)   
      ,                    ,tol      ,maxit  ,precond
      .                    ,my_id    ,neqf1i ,neqf2i ,neq_doti,i_fmapi
@@ -336,6 +343,7 @@ c .....................................................................
 c .....................................................................
 c
 c ... 
+         i_y = dealloc('ysolver ')   
          i_z = dealloc('zsolver ')     
          i_s = dealloc('psolver ')
          i_r = dealloc('rsolver ')
@@ -348,8 +356,10 @@ c ...
          diag = .true.
 c ...    precondicionador diagonal:
          if(diag) then 
+           precondtime = Mpi_Wtime() - precondtime    
            call pre_diag(m        ,ad        ,nequ)
            call pre_diag(m(nequ+1),ad(nequ+1),neqp)
+           precondtime = Mpi_Wtime() - precondtime   
 c ...    
          else                           
            m(1:neq) = 1.d0  
@@ -373,6 +383,7 @@ c ...
            i_z  = alloc_8('zsolver ',1,nequ)
            i_r  = alloc_8('rsolver ',1,nequ)
            i_s  = alloc_8('ssolver ',1,nequ)
+           i_d  = alloc_8('dsolver ',1,nequ)
            i_c  = alloc_8('csolver ',1,neqp)
            i_h  = alloc_8('hsolver ',1,nequ)
            i_g  = alloc_8('gsolver ',1,neqp)
@@ -381,26 +392,27 @@ c ...
 c ......................................................................
 c
 c ...
-            call pcg_block_it(neq    ,nequ       ,neqp  
-     .                    ,nad       ,naduu      ,nadpp
+           call pcg_block_it(neq     ,nequ       ,neqp  
+     .                    ,nad       ,naduu     ,nadpp
      .                    ,ip        ,ja     
      .                    ,ip(nequ+2),ja(naduu+1)
      .                    ,ip(neq+3) ,ja(naduu+nadpp+1)         
      .                    ,ad        ,ad(nequ+1)
      .                    ,al        ,al(naduu+1),al(naduu+nadpp+1)  
      .                    ,m         ,m(nequ+1)  ,b               ,x
-     .                    ,ia(i_z),ia(i_r),ia(i_s)  ,ia(i_c)
-     .                    ,ia(i_h),ia(i_g),ia(i_y)  ,ia(i_a)
-     .                    ,tol    ,ctol   ,maxit    ,cmaxit
-     .                    ,alfap  ,alfau 
-     .                    ,.true.,istep
-     .                    ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                    ,i_xfi  ,i_rcvsi,i_dspli) 
+     .                    ,ia(i_z)   ,ia(i_r),ia(i_s) 
+     .                    ,ia(i_d)   ,ia(i_c),ia(i_h),ia(i_g)
+     .                    ,ia(i_y)   ,ia(i_a)
+     .                    ,tol       ,ctol   ,maxit    ,cmaxit
+     .                    ,alfap     ,alfau 
+     .                    ,.true.    ,istep
+     .                    ,my_id     ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .                    ,i_xfi     ,i_rcvsi,i_dspli) 
 c ......................................................................
 c
 c ... 
          else 
-           print*,"PCG_BLOCK não disponivel para a matriz nao blocada"
+           print*,"PCG_BLOCK indisponivel para a matriz nao blocada"
            stop   
          endif 
 c ......................................................................
@@ -410,7 +422,8 @@ c ...
          i_y  = dealloc('ysolver ')        
          i_g  = dealloc('gsolver ')        
          i_h  = dealloc('hsolver ')        
-         i_c  = dealloc('csolver ')        
+         i_c  = dealloc('csolver ') 
+         i_d  = dealloc('dsolver ')       
          i_s  = dealloc('ssolver ')         
          i_r  = dealloc('rsolver ')        
          i_z  = dealloc('zsolver ') 
@@ -524,7 +537,7 @@ c ... matvec comum:
      .         ,matvec_csrc_sym_pm,dot_par 
      .         ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .         ,i_xfi ,i_rcvsi,i_dspli
-     .         ,.true.,.true.)
+     .         ,.true.,.true. ,.true.)
 c .....................................................................
 c
 c ... pcg - cg com precondicionador diagonal
@@ -532,24 +545,26 @@ c ... pcg - cg com precondicionador diagonal
 c ...  
         call pcg(neq    ,nequ   ,nad,ia   ,ja
      .          ,ad     ,al     ,al ,m    ,b
-     .          ,x      ,z      ,r  ,tol  ,maxit
+     .          ,x      ,z      ,r  ,s
+     .          ,tol    ,maxit
 c ... matvec comum:
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.)
+     .          ,.true.,.true. ,.true.)
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LDLT(0) imcompleto
       elseif(precond .eq. 3 ) then
         call iccg(neq      ,nequ  ,nad   ,ia      ,ja
      .           ,ad       ,al    ,al    ,m       ,b    
-     .           ,x        ,z     ,r     ,tol     ,maxit
+     .           ,x        ,z     ,r     ,s   
+     .           ,tol      ,maxit
 c ... matvec comum:
      .           ,matvec_csrc_sym_pm,dot_par 
      .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
-     .           ,.true.)
+     .          ,.true.,.true. ,.true.)
       endif  
 c .....................................................................
       return
@@ -574,9 +589,12 @@ c * al(*)    - parte triangular inferior de A                          *
 c * b(neq)   - vetor de forcas                                         *
 c * m(*)     - precondicionador                                        *
 c * x(neq)   - chute inicial                                           *
-c * z(neq)   - arranjo local de trabalho                               *
+c * c(neq)   - arranjo local de trabalho                               *
+c * h(neq)   - arranjo local de trabalho                               *
 c * r(neq)   - arranjo local de trabalho                               *
 c * s(neq)   - arranjo local de trabalho                               *
+c * z(neq)   - arranjo local de trabalho                               *
+c * y(neq)   - arranjo local de trabalho                               *
 c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * precond  - precondicionador                                        *
@@ -608,8 +626,8 @@ c * Arranjos jat,iat e kat são utilizados na retrosubstituizao do      *
 c * solver iLDLt                                                       *
 c **********************************************************************  
       subroutine call_bicgstab(neq      ,nequ  ,nad   ,ia      ,ja
-     .                        ,ad       ,al    ,m     ,b        ,x    
-     .                        ,c        ,h     ,r     ,s        ,z   
+     .                        ,ad       ,al    ,m     ,b       ,x    
+     .                        ,c        ,h     ,r     ,s       ,z  ,y   
      ,                        ,tol      ,maxit ,precond
      .                        ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
      .                        ,i_xfi    ,i_rcvsi,i_dspli)
@@ -625,7 +643,7 @@ c .....................................................................
       integer ia(*),ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
-      real*8 z(*),r(*),s(*),c(*),h(*)
+      real*8 z(*),r(*),s(*),c(*),h(*),y(*)
 c ...
       real*8  tol
       integer maxit  
@@ -649,7 +667,7 @@ c ... matvec comum:
      .                ,matvec_csrc_sym_pm,dot_par 
      .                ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
      .                ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
-     .                ,.true.)
+     .                ,.true.       ,.true. ,.true.)
 c .....................................................................
 c
 c ... pcg - cg com precondicionador diagonal
@@ -657,26 +675,26 @@ c ... pcg - cg com precondicionador diagonal
 c ...  
         call pbicgstab(neq   ,nequ   ,nad    ,ia   ,ja      
      .                ,ad    ,al     ,al     ,m    ,b      ,x  
-     .                ,c     ,h      ,r      ,s    ,z
+     .                ,c     ,h      ,r      ,s    ,z      ,y
      .                ,tol   ,maxit 
 c ... matvec comum:
      .                ,matvec_csrc_sym_pm,dot_par 
      .                ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
      .                ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
-     .                ,.true.)
+     .                ,.true.       ,.true. ,.true.)
 c .....................................................................
 c
 c ...
       elseif(precond .eq. 3 ) then
         call icbicgstab(neq      ,nequ  ,nad   ,ia      ,ja
      .          ,ad       ,al    ,al    ,m     ,b       ,x    
-     .          ,c        ,h     ,r     ,s    ,z    
+     .          ,c        ,h     ,r     ,s     ,z       ,y
      .          ,tol      ,maxit
 c ... matvec comum:
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.)
+     .          ,.true.,.true. ,.true.)
       endif  
 c .....................................................................
       return

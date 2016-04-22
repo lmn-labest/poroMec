@@ -125,6 +125,16 @@ c
       call MPI_GATHER(tformtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
       if (my_id.eq.0) call twrite('TFORM ',ia(i_ts),nprcs,nlog)
 c
+c ... Tempo levado no precondicionador
+c
+      call MPI_GATHER(precondtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+      if (my_id.eq.0) call twrite('PCOND ',ia(i_ts),nprcs,nlog)
+c
+c ... Tempo levado no solver triagonal do solver fatorado
+c
+      call MPI_GATHER(ifatsolvtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+      if (my_id.eq.0) call twrite('IFSOLV',ia(i_ts),nprcs,nlog)
+c
 c ... Tempo levado no solver
 c
       call MPI_GATHER(soltime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
