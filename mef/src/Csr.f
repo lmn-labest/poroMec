@@ -1424,7 +1424,7 @@ c ...
         enddo
       enddo
 c .....................................................................
-      open(15,file='afull.matrix')
+c     open(15,file='afull.matrix')
 c     do i = 1, neq
 c       write(15,'(100d15.2)')(a(i,j),j=1,i)
 c     enddo 

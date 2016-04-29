@@ -286,6 +286,126 @@ c      close(15)
 c **********************************************************************
 c 
 c **********************************************************************
+       subroutine ichfat(n,ia,ja,al,ad,ich,v,shift,fcheck)  
+c **********************************************************************
+c * Data de criacao    : 22/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * ICHFAT : fatora imcompleta LLt (choleskyc) com matriz simetrica A  *
+c * no formato CSRC.                                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * n - numero de equacoes                                             *
+c * ia(1:n+1)    - ponteiro das linhas, para o formato CSR             *
+c * ja(1:nad)    - ponteiro das colunas no formato CSR                 *
+c * al(1:nad)    - parte triangular inferior de A                      *
+c * ad(1:n)      - diagonal da matriz A                                *
+c * ich(1:n+nad) - nao definido                                        *
+c * v(1:n)       - arranjo auxiliar (nao inicializado)                 *
+c * shift        - parametro de deslocamento para manter a fotaracao   * 
+c *                estavel ( shift >= 0)                               *   
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ich(n+1:n+nad) - fator L                                           *
+c * ich(1:n)       - inverso da diagonal fatorada                      *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none      
+      integer n,ia(*),ja(*),i,j,k,kk,i1,i2,kj,nad
+      real*8 al(*),ad(*),ich(*),v(*),t
+      real*8 shift
+      logical fcheck  
+      real*8 tol
+      parameter (tol=1.d-14)
+c ......................................................................
+      nad      = ia(n+1)-1
+      do i = 1, nad
+        ich(i+n) = al(i)
+      enddo
+c ... A = A + shift*diag(A)
+      ich(1:n)   = ad(1:n) + shift*ad(1:n)
+c ......................................................................
+      v(1:n)   = 0.d0
+c ......................................................................
+c
+c ......................................................................      
+      do 1000 j = 1, n   
+        i1 = ia(j)
+        i2 = ia(j+1)-1
+c ... somatorio ajp (j = linha;p = 1 ... j -1)
+        t = 0.d0
+        do 200 i = i1, i2
+          k    = ja(i)
+          v(k) = ich(i+n)
+          t    = t + ich(i+n)*ich(i+n)
+  200   continue
+c .....................................................................
+        v(j) = ich(j) - t
+c ... pivo negativo ou muito pequeno
+        if(v(j) .le. 0.d0 .and. fcheck) then
+          print*,'Valor do Pivo invalido !!!',v(j)
+          call stop_mef()
+        endif
+        ich(j) = dsqrt(v(j)) 
+c .....................................................................                  
+        do 310 k = j+1, n
+          kj = 0
+          t  = 0.d0
+c ... somatorio da da coluna 1 ate j - 1
+          do 300 i = ia(k), ia(k+1)-1
+            kk = ja(i)
+            if (kk .lt. j) then
+              t = t + ich(i+n)*v(kk)
+            else if (kk .eq. j) then
+              kj = i + n
+              go to 305
+            else if (kk .gt. j) then
+              go to 306
+            endif
+  300     continue
+c ......................................................................
+c
+c ...  
+  305     continue
+          if(kj .ne. 0) ich(kj) = (ich(kj) - t)/ich(j)
+c ......................................................................
+c
+c ...
+  306     continue
+  310   continue
+c .....................................................................
+        v(j) = 0.d0  
+        do 400 i = i1, i2             
+          k    = ja(i) 
+          v(k) = 0.d0
+  400   continue
+c .....................................................................  
+ 1000 continue
+c .....................................................................
+c
+c ...
+       ich(1:n)   = 1.0d0/ich(1:n)
+c .....................................................................
+c     open(15,file='ich.csr')
+c     write(15,*)'d'
+c     do i = 1, n
+c       write(15,'(d15.2)')ich(i)
+c     enddo 
+c     write(15,*)'l'
+c     do i = 1, nad 
+c      do i = 1, 1500
+c       write(15,'(d15.2)')ich(i+n)
+c     enddo 
+c     close(15)
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine ildlt_solv(n,ia,ja,ad,a,b,x)
 c **********************************************************************
 c * Data de criacao    : 10/04/2016                                    *
@@ -323,7 +443,7 @@ c ...
       x(1:n) = b(1:n)
 c ......................................................................
 c
-c ... Forward substitution:
+c ... Forward substitution: Ly = b 
        do 110 i = 2, n
         t = x(i)
         do 100 k = ia(i), ia(i+1) - 1
@@ -333,19 +453,85 @@ c ... Forward substitution:
   110 continue
 c ......................................................................
 c
-c ...
+c ... Dz = y
       do 115 i = 1, n
         x(i) = x(i) * ad(i)
   115 continue
 c ......................................................................
 c
-c ... Backward substitution:
+c ... Backward substitution: Ltx = z
       do 210 i = n, 1, -1 
         t = x(i)
         do 200 k = ia(i), ia(i+1)-1
            kk    = ja(k)
            x(kk) = x(kk) - t*a(k)
   200   continue
+  210 continue
+c ......................................................................
+      ifatsolvtime = Mpi_Wtime() - ifatsolvtime    
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine illt_solv(n,ia,ja,ad,a,b,x)
+c **********************************************************************
+c * Data de criacao    : 23/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *  
+c * illt_solv: resolve o sistema com a fatoracao imcompleta LLt        *
+c * (cholesky)                                                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * n - numero de equacoes                                             *
+c * ia(1:n+1)  - ponteiro das linhas, para o formato CSR               *
+c * ja(1:nad)  - ponteiro das colunas no formato CSR                   *
+c * ad(1:nad)  - fatores D da matriz A ( D: 1/D )                      *
+c * a(1:nad)   - fatores L da matriz A                                 *
+c * b(1:n)     - vetor independente                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * x(1:n) - vetor solucao.                                            *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Todas as informação da matriz são da parte inferior                * 
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'time.fi'
+      integer n,ia(*),ja(*)
+      integer i,k,kk
+      real*8  a(*),ad(*),b(*),x(*),t
+c ......................................................................
+c
+c ...
+      ifatsolvtime = Mpi_Wtime() - ifatsolvtime
+      x(1:n) = b(1:n)
+c ......................................................................
+c
+c ... Forward substitution: Ly = b 
+       x(1) = x(1)*ad(1)  
+       do 110 i = 2, n
+        t = x(i)
+        do 100 k = ia(i), ia(i+1) - 1
+           t = t - a(k)*x(ja(k))
+  100   continue
+        x(i) = t * ad(i)
+  110 continue
+c ......................................................................
+c
+c ... Backward substitution: Lt x = y
+      x(n) = x(n)*ad(n)
+      do 210 i = n, 2, -1 
+        t = x(i)
+        do 200 k = ia(i), ia(i+1)-1
+           kk    = ja(k)
+           x(kk) = x(kk) - t*a(k)
+  200   continue
+        x(i-1) = x(i-1)*ad(i-1)
   210 continue
 c ......................................................................
       ifatsolvtime = Mpi_Wtime() - ifatsolvtime    
@@ -452,7 +638,6 @@ c **********************************************************************
       real*8 a(n,*),v(*),w(*),dot
 c ......................................................................
       do j = 1, n
-         print*,'neq',j
          do i = 1, j-1
             v(i) = a(j,i)*a(i,i)
          enddo
@@ -511,7 +696,6 @@ c **********************************************************************
       real*8 a(n,*),v(*),w(*),dot
 c ......................................................................
       do j = 1, n   
-c       print*,'neq',j
         do i = 1, j-1
           v(i) = a(j,i)*a(i,i)
         enddo
@@ -554,6 +738,162 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
+      subroutine choleskyc(n,a)
+c **********************************************************************
+c * Data de criacao    : 10/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * CHOLESKYC : fatoracao CHOLESKY completa com matriz cheia           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * n      - numero de equacoes                                        *
+c * a(n,n) - matriz cheia                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * a(n,n) - matriz fatorada LDLt                                      *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * parte triangular superio inalterada                                *  
+c **********************************************************************      
+      implicit none
+      integer n,i,j,k
+      real*8 a(n,*),t
+c ......................................................................
+      do j = 1, n
+c ...
+         t = 0.0d0
+         do i = 1, j-1
+            t = t +  a(j,i)*a(j,i)
+         enddo
+c .....................................................................
+c
+c ...
+         t = a(j,j) - t
+         if (t .lt. 0.d0) then
+           print*, 'Subrotina CHOLESKYC: Pivot negativo !'
+           stop
+         endif 
+         a(j,j) = dsqrt(t)
+c .....................................................................
+c
+c ...
+         do k = j+1, n
+           t = 0.0d0
+           do i = 1, j-1
+             t = t +  a(k,i)*a(j,i)
+           enddo
+c .....................................................................
+c
+c ...
+           a(k,j) = (a(k,j) - t) / a(j,j)
+         enddo
+      enddo
+c ......................................................................
+      open(15,file='ch.matrix')
+c     do i = 1, n
+c       write(15,'(100d15.1)')(a(i,j),j=1,i)
+c     enddo 
+      write(15,'(a6)')'d'
+      do i = 1, n
+        write(15,'(d15.2)')a(i,i)
+      enddo
+      write(15,'(a6)')'d'
+      do i = 1, n
+        do j = 1, i - 1
+          write(15,'(d15.2)')a(i,j)
+         enddo 
+      enddo      
+      close(15)
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine icholeskyc_full_matrix(n,a)
+c **********************************************************************
+c * Data de criacao    : 10/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * CHOLESKYC : fatoracao CHOLESKY completa com matriz cheia           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * n      - numero de equacoes                                        *
+c * a(n,n) - matriz cheia                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * a(n,n) - matriz fatorada LDLt                                      *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * parte triangular superio inalterada                                *  
+c **********************************************************************      
+      implicit none
+      integer n,i,j,k
+      real*8 a(n,*),t
+c ......................................................................
+      do j = 1, 500
+c ...
+         t = 0.0d0
+         do i = 1, j-1
+            t = t +  a(j,i)*a(j,i)
+         enddo
+c .....................................................................
+c
+c ...
+         t = a(j,j) - t
+         if (t .lt. 0.d0) then
+           print*, 'Subrotina CHOLESKYC: Pivot negativo !'
+           stop
+         endif 
+         a(j,j) = dsqrt(t)
+c .....................................................................
+c
+c ...
+         do k = j+1, n
+           t = 0.0d0
+           do i = 1, j-1
+             t = t +  a(k,i)*a(j,i)
+           enddo
+c .....................................................................
+c
+c ...      
+           if( a(k,j) .ne. 0.d0 ) then 
+             a(k,j) = (a(k,j) - t) / a(j,j)
+           endif
+c ..................................................................... 
+         enddo
+c .....................................................................
+      enddo
+c ......................................................................
+      open(15,file='ich.matrix')
+c     do i = 1, n
+c       write(15,'(100d15.1)')(a(i,j),j=1,i)
+c     enddo 
+      write(15,*)'d'
+      do i = 1, 500
+        write(15,'(d15.2)')a(i,i)
+      enddo
+      write(15,*)'l'
+      do i = 1, 500
+        do j = 1, i - 1
+          if ( a(i,j) .ne. 0.d0 ) then
+            write(15,'(d15.2)')a(i,j)
+          endif
+        enddo 
+      enddo      
+      close(15)
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
 c * Data de criacao    : 18/04/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *  
@@ -581,7 +921,7 @@ c **********************************************************************
       integer precond,nin,my_id
       integer i,nmc 
       data macros/'none  ','diag  ','ildlt '
-     .           ,'      ','      ','      '/
+     .           ,'illt  ','      ','      '/
       data nmc /6/
 c ...
       write(string,'(6a)') (word(i),i=1,6)
@@ -606,6 +946,14 @@ c ... precondicionador ILDLT
         precond = 3
         if(my_id.eq.0) then
           write(*,'(1x,a25,1x,a6)')'precond:',macros(3)
+        endif
+c .....................................................................
+c
+c ... precondicionador ILLT ( Cholesky )
+       elseif( string .eq. macros(4)) then
+        precond = 4
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6)')'precond:',macros(4)
         endif
 c .....................................................................
 c

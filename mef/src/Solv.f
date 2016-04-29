@@ -79,16 +79,35 @@ c ...
          i_s = alloc_8('psolver ',1,neq)
 c ......................................................................
 c
-c ...    precondicionador diagonal:
+c ... precondicionador diagonal:
          if(precond .eq. 2) then 
            precondtime = Mpi_Wtime() - precondtime  
            call pre_diag(m,ad,neq)
            precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
+c
+c ... precondicionador LDLT incompleto
          else if(precond .eq. 3) then
 c ...
            precondtime = Mpi_Wtime() - precondtime 
            call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador Cholesky LLT incompleto
+         else if(precond .eq. 4) then
+c ...
+c          i_r = alloc_8('aa      ',neq,neq)
+c          call csrc_to_full(ip,ja,al,ad,ia(i_r),neq) 
+c          call choleskyc(neq,ia(i_r))
+c
+c          call csrc_to_full(ip,ja,al,ad,ia(i_r),neq) 
+c          call icholeskyc_full_matrix(neq,ia(i_r))
+c .....................................................................
+c
+c ...
+           precondtime = Mpi_Wtime() - precondtime 
+           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
            precondtime = Mpi_Wtime() - precondtime 
 c ...
          endif           
@@ -440,7 +459,7 @@ c ...
 c ......................................................................         
 c
 c ...   
-c     print*,precondtime,ifatsolvtime,time                            
+      print*,precondtime,ifatsolvtime,time                            
       return
       end
 c **********************************************************************
@@ -524,7 +543,8 @@ c ... precondicionador
       real*8 m(*)
 c ...
       external dot_par
-      external matvec_csrc_sym_pm        
+      external matvec_csrc_sym_pm  
+      external ildlt_solv,illt_solv      
 c ......................................................................
 
 c ... cg
@@ -561,7 +581,20 @@ c ... iccg - cg com precondicionador LDLT(0) imcompleto
      .           ,x        ,z     ,r     ,s   
      .           ,tol      ,maxit
 c ... matvec comum:
-     .           ,matvec_csrc_sym_pm,dot_par 
+     .           ,matvec_csrc_sym_pm,dot_par,ildlt_solv 
+     .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .           ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true. ,.true.)
+c .....................................................................
+c
+c ... iccg - cg com precondicionador LLT(0) imcompleto
+      elseif(precond .eq. 4 ) then
+        call iccg(neq      ,nequ  ,nad   ,ia      ,ja
+     .           ,ad       ,al    ,al    ,m       ,b    
+     .           ,x        ,z     ,r     ,s   
+     .           ,tol      ,maxit
+c ... matvec comum:
+     .           ,matvec_csrc_sym_pm,dot_par,illt_solv
      .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true. ,.true.)

@@ -572,8 +572,8 @@ c ...  Memoria para o precondicionador diagonal:
            call azero(ia(i_m),neq)
 c ......................................................................
 c
-c ...  Memoria para o precondicionador iLDLt
-         else if( precond .eq. 3) then
+c ...  Memoria para o precondicionador iLDLt e iLLT (cholesky)
+         else if( precond .eq. 3 .or.  precond .eq. 4) then
            i_m   = alloc_8('m       ',    1,neq+nad)
            call azero(ia(i_m),neq+nad)
 c ..................................................................... 

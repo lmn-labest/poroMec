@@ -234,8 +234,8 @@ c     Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (/,1x,'SUBROTINA CG:',/,1x,'Coeficiente da diagonal nulo '
-     .,i9)
+ 1000 format (//,5x,'SUBROTINA CG:',/,5x,'Coeficiente da diagonal ' 
+     . '- equacao ',i9)
  1100 format(' (CG) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * || b ||        = ',d20.6/
@@ -469,7 +469,8 @@ c ... Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal ',i9)
+ 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal ' 
+     . '- equacao ',i9)
  1100 format(' (PCG) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||m         = ',d20.6/
@@ -1899,12 +1900,12 @@ c ......................................................................
 c **********************************************************************
 c
 c *********************************************************************
-      subroutine iccg(neq   ,nequ  ,nad   ,ia      ,ja
-     .               ,ad    ,au    ,al    ,m       ,b       
-     .               ,x     ,z     ,r     ,p   
+      subroutine iccg(neq   ,nequ   ,nad     ,ia      ,ja
+     .               ,ad    ,au     ,al      ,m       ,b       
+     .               ,x     ,z      ,r       ,p   
      .               ,tol   ,maxit
-     .               ,matvec,dot
-     .               ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .               ,matvec,dot    ,triasolv
+     .               ,my_id ,neqf1i ,neqf2i  ,neq_doti,i_fmapi
      .               ,i_xfi ,i_rcvsi,i_dspli
      .               ,fprint,flog   ,fnew)
 c **********************************************************************
@@ -1934,6 +1935,7 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * matvec   - nome da funcao externa para o produto matrix-vetor      *
 c * dot      - nome da funcao externa para o produto escalar           *
+c * triasolv - nome da funcao externa para o o solver triangular       *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -1973,7 +1975,7 @@ c .....................................................................
       real*8  time0,time
       real*8 dum1
       logical flog,fnew,fprint
-      external matvec,dot
+      external matvec,dot,triasolv
 c ======================================================================
       time0 = MPI_Wtime()
 c ......................................................................
@@ -1997,7 +1999,7 @@ c
 c ......................................................................
 c
 c ... conv = tol * |(M-1)b|
-      call ildlt_solv(neq,ia,ja,m,m(neq+1),b,z)
+      call triasolv(neq,ia,ja,m,m(neq+1),b,z)
       d    = dot(z,z,neq_doti)
       conv = tol*dsqrt(dabs(d))
 c .......................................................................
@@ -2015,7 +2017,7 @@ c ... r0 = b - Ax0
 c .......................................................................      
 c
 c ... Mz=r  
-      call ildlt_solv(neq,ia,ja,m,m(neq+1),r,z)
+      call triasolv(neq,ia,ja,m,m(neq+1),r,z)
 c .......................................................................      
 c
 c ...
@@ -2026,7 +2028,7 @@ c ... p0 = r0
 c .......................................................................      
 c
 c ... ( r(0),z(0) ) = ( r(0), (M-1)r0 )
-      d    = dot(r,z,neq_doti)
+      d    = dot(r,z,neq_doti) 
 c .......................................................................
       jj = 1
       do 230 j = 1, maxit
@@ -2050,7 +2052,7 @@ c ... r(j+1) = r(j) - alpha*Ap
 c ......................................................................
 c
 c ... Mz=r  
-         call ildlt_solv(neq,ia,ja,m,m(neq+1),r,z)
+         call triasolv(neq,ia,ja,m,m(neq+1),r,z)
 c .......................................................................
 
 c ... ( r(j+1),(M-1)r(j+1) ) = ( r(j+1),z )
@@ -2100,8 +2102,8 @@ c ... r = b - Ax (calculo do residuo explicito)
   310 continue
       tmp  = dot(r,r,neq_doti)
       tmp = dsqrt(tmp)
-      if( tmp .gt. conv ) then
-        write(*,1400) tmp
+      if( tmp .gt. 3.16d0*conv ) then
+        write(*,1400) tmp,conv
       endif
 c ......................................................................
       time = MPI_Wtime()
@@ -2123,9 +2125,9 @@ c ... Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal nulo
-     .ou negativo - equacao ',i7)
- 1100 format(' (ICG) solver:'/
+ 1000 format (//,5x,'SUBROTINA ICCG:',/,5x,'Coeficiente da diagonal nulo
+     . - equacao ',i9)
+ 1100 format(' (ICCG) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||m         = ',d20.6/
      . 5x,'Number of equations  = ',i20/
@@ -2137,7 +2139,8 @@ c ======================================================================
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format ( 'ICCG: ',5x,'It',i7,5x,2d20.10)
- 1400 format (' ICCG:',1x,'Residuo exato > conv ',1x,d20.10)
+ 1400 format (' ICCG:',1x,'Residuo exato > 3.16*conv ',1x,d20.10
+     .       ,1x,d20.10)
       end
 c **********************************************************************
       real*8 function smachn()
