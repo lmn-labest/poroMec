@@ -2,41 +2,40 @@
      .                    ,dt,ndm ,nst ,nel    ,iel,isw
      .                    ,ma,nlit,ilib,block_pu)
 c **********************************************************************
-c *                                                                    *
-c *   ELMLIB: biblioteca de elementos.                                 *
-c *   ------                                                           *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     e(10) - constantes fisicas                                     *
-c *     iq(7) - cargas nos elementos                                   *
-c *     x(ndm,nen)- coordenadas nodais locais                          *
-c *     u(nst)     - solucao anterior                                  *
-c *     dp(*)      - delta p ( p(n  ,0  ) - p(0) )                     *
-c *     p(nst)     - nao definido                                      *
-c *     s(nst,nst)   - nao definido                                    *
-c *     txn(6,nen) - tensoes nodais                                    *
-c *     ndm - dimensao                                                 *
-c *     nst - numero de graus de liberdade por elemento                *
-c *     nel - numero do elemento                                       *
-c *     iel - tipo   do elemento                                       *
-c *     isw - codigo de instrucao                                      *
-c *     ma   -  numero de material do elemento                         *
-c *     nlit -  numero da iteracao nao linear                          *
-c *     ilib -  codigo da biblioteca                                   *
-c *     block_pu   - true - armazenamento em blocos Kuu,Kpp e kpu      *
-c *                  false- aramzenamento em unico bloco               *      
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     e - constantes fisicas                                         *
-c *     s - matriz de elemento                                         *
-c *     p - isw = 2  residuo                                           *
-c *         isw = 3  tensao e fluxo                                    *
-c *         isw = 4  cargas de superfice, volume e integras do passo   *
-c *         de tempo anterior                                          *
+c * Data de criacao    : 27/03/2016                                    *
+c * Data de modificaco : 30/04/2016                                    * 
+c * ------------------------------------------------------------------ *      
+c * ELMLIB_PM: biblioteca de elementos do poromecanico                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * e(10) - constantes fisicas                                         *
+c * iq(7) - cargas nos elementos                                       *
+c * x(ndm,nen)- coordenadas nodais locais                              *
+c * u(nst)     - solucao anterior                                      *
+c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
+c * p(nst)     - nao definido                                          *
+c * s(nst,nst)   - nao definido                                        *
+c * txn(6,nen) - tensoes nodais                                        *
+c * ndm - dimensao                                                     *
+c * nst - numero de graus de liberdade por elemento                    *
+c * nel - numero do elemento                                           *
+c * iel - tipo   do elemento                                           *
+c * isw - codigo de instrucao                                          *
+c * ma   -  numero de material do elemento                             *
+c * nlit -  numero da iteracao nao linear                              *
+c * ilib -  codigo da biblioteca                                       *
+c * block_pu   - true - armazenamento em blocos Kuu,Kpp e kpu          *
+c *              false- aramzenamento em unico bloco                   *      
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * e - constantes fisicas                                             *
+c * s - matriz de elemento                                             *
+c * p - isw = 2  residuo                                               *
+c *     isw = 3  tensao e fluxo                                        *
+c *     isw = 4  cargas de superfice, volume e integras do passo       *
+c *     de tempo anterior                                              *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
@@ -44,116 +43,106 @@ c **********************************************************************
       real*8 dt
       logical block_pu
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200) iel
+      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200,1300) iel
    10 write(*,2000) iel,nel
       stop
 c ......................................................................
   100 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return
 c ......................................................................            
   200 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return
 c ......................................................................
   300 continue
-c     if (ilib .eq. 1) then
-c     endif  
+      go to 10
       return
 c ......................................................................
   400 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return
 c ......................................................................
   500 continue
-c     if (ilib .eq. 1) then
-c     endif  
+      go to 10
       return
 c ......................................................................
   600 continue
-      if (ilib .eq. 1) then  
-c     Elemento tetraedro de 10 nos (poromec)
-        call elmt6_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
-      endif
+      go to 10
       return
 c ......................................................................
   700 continue
-      if (ilib .eq. 1) then  
-c     Elemento hexaedrico de 20 nos (poromec)
-        call elmt7_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
-      endif
+      go to 10
       return
 c ......................................................................
   800 continue
-c      if (ilib .eq. 1) then
-c      endif    
+      go to 10
       return
 c ......................................................................            
   900 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return 
 c ......................................................................
  1000 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return 
 c ......................................................................
  1100 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return       
 c ......................................................................
  1200 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (poromec)
+        call elmt12_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
+      endif 
       return       
+c ......................................................................
+ 1300 continue
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 20 nos (poromec)
+        call elmt13_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
+      endif
+      return
 c ......................................................................        
  2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
-     .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i6,' !')
+     .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i9,' !')
        end
 c **********************************************************************
       subroutine elmlib_mec(e ,iq  ,x   ,u      ,p  ,s,txn
      .                     ,dt,ndm ,nst ,nel    ,iel,isw
      .                     ,ma,nlit,ilib)
 c **********************************************************************
-c *                                                                    *
-c *   ELMLIB: biblioteca de elementos.                                 *
-c *   ------                                                           *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *     e(10) - constantes fisicas                                     *
-c *     iq(7) - cargas nos elementos                                   *
-c *     x(ndm,nen)- coordenadas nodais locais                          *
-c *     u(nst)     - solucao anterior                                  *
-c *     p(nst)     - nao definido                                      *
-c *     s(nst,nst)   - nao definido                                    *
-c *     txn(6,nen) - tensoes nodais                                    *
-c *     ndm - dimensao                                                 *
-c *     nst - numero de graus de liberdade por elemento                *
-c *     nel - numero do elemento                                       *
-c *     iel - tipo   do elemento                                       *
-c *     isw - codigo de instrucao                                      *
-c *     ma   -  numero de material do elemento                         *
-c *     nlit -  numero da iteracao nao linear                          *
-c *     ilib -  codigo da biblioteca                                   *
-c *     block_pu   - true - armazenamento em blocos Kuu,Kpp e kpu      *
-c *                  false- aramzenamento em unico bloco               *      
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *     e - constantes fisicas                                         *
-c *     s - matriz de elemento                                         *
-c *     p - isw = 2  residuo                                           *
-c *         isw = 3  tensao e fluxo                                    *
-c *         isw = 4  cargas de superfice, volume e integras do passo   *
-c *         de tempo anterior                                          *
+c * Data de criacao    : 27/03/2016                                    *
+c * Data de modificaco : 30/04/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * ELMLIB: biblioteca de elementos do mecanico                        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * e(10) - constantes fisicas                                         *
+c * iq(7) - cargas nos elementos                                       *
+c * x(ndm,nen)- coordenadas nodais locais                              *
+c * u(nst)     - solucao anterior                                      *
+c * p(nst)     - nao definido                                          *
+c * s(nst,nst)   - nao definido                                        *
+c * txn(6,nen) - tensoes nodais                                        *
+c * ndm - dimensao                                                     *
+c * nst - numero de graus de liberdade por elemento                    *
+c * nel - numero do elemento                                           *
+c * iel - tipo   do elemento                                           *
+c * isw - codigo de instrucao                                          *
+c * ma   -  numero de material do elemento                             *
+c * nlit -  numero da iteracao nao linear                              *
+c * ilib -  codigo da biblioteca                                       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * e - constantes fisicas                                             *
+c * s - matriz de elemento                                             *
+c * p - isw = 2  residuo                                               *
+c *     isw = 3  tensao e fluxo                                        *
+c *     isw = 4  cargas de superfice e volume                          *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
@@ -161,74 +150,68 @@ c **********************************************************************
       real*8 dt
       logical block_pu
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200) iel
+      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200,1300) iel
    10 write(*,2000) iel,nel
       stop
 c ......................................................................
   100 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return
 c ......................................................................            
   200 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return
 c ......................................................................
   300 continue
-c     if (ilib .eq. 1) then
-c     endif  
+      go to 10
       return
 c ......................................................................
   400 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return
 c ......................................................................
   500 continue
-c     if (ilib .eq. 1) then
-c     endif  
+      go to 10 
       return
 c ......................................................................
   600 continue
-      if (ilib .eq. 1) then  
-c     Elemento tetraedro de 10 nos (mec-elastico)
-         call elmt6_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
-      endif
+      go to 10
       return
 c ......................................................................
   700 continue
-      if (ilib .eq. 1) then  
-c     Elemento hexaedrico de 20 nos (mec-elastico)
-         call elmt7_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
-      endif
+      go to 10
       return
 c ......................................................................
   800 continue
-c      if (ilib .eq. 1) then
-c      endif    
+      go to 10
       return
 c ......................................................................            
   900 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return 
 c ......................................................................
  1000 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return 
 c ......................................................................
  1100 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      go to 10
       return       
 c ......................................................................
  1200 continue
-c     if (ilib .eq. 1) then
-c     endif 
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (mec-elastico)
+         call elmt12_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif 
       return       
-c ......................................................................        
+c ......................................................................
+ 1300 continue
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (mec-elastico)
+         call elmt13_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif 
+      return       
+c ......................................................................            
  2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
      .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i6,' !')
        end
@@ -2477,6 +2460,9 @@ c ......................................................................
       eps(3) = uy + vx
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine deform3d(hx,hy,hz,u,eps,nen)
 c **********************************************************************
 c *                                                                    *
@@ -2537,6 +2523,9 @@ c        j1 = (i-1)*3+1
       eps(6) = uz + wx
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine stress2d(d11,d12,d22,d33,eps,t)
 c **********************************************************************
 c *                                                                    *
@@ -2565,6 +2554,47 @@ c ......................................................................
       t(3) = d33*eps(3)
       return
       end
+      subroutine stress2d_m(d11,d12,d22,d33,ps,ept,eps,t)
+c **********************************************************************
+c * Data de criacao    : 25/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * STRESS2D: calcula tensoes 2D                                       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * d11,d12,d22,d33 - coeficientes da matriz constitutiva              *
+c * ps     - coeficiente de Poisson                                    *
+c * ept    - estado plano de deformacai                                *
+c * eps(3) - deformacoes                                               *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               * 
+c * ------------------------------------------------------------------ * 
+c * t(1) - sigmaxx                                                     *
+c * t(2) - sigmayy                                                     *
+c * t(3) - sigmazz                                                     *
+c * t(4) - sigmaxy                                                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      real*8 d11,d12,d22,d33,eps(*),t(*),ps
+      logical ept
+c ......................................................................
+      t(1) = d11*eps(1) + d12*eps(2)
+      t(2) = d12*eps(1) + d22*eps(2)
+      if(ept) then 
+        t(3) = ps*(t(1)+t(2)) 
+      else
+       t(3) = 0.0d0
+      endif 
+      t(4) = d33*eps(3)
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine stress3d(a,b,c,eps,t)
 c **********************************************************************
 c *                                                                    *
@@ -2599,6 +2629,220 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
+      subroutine jtria3(x,hx,hy,hz,det,afl,nel,ndm)
+c **********************************************************************
+c * Data de criacao    : 24/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *   
+c * JTRIA3 : Jacobiano de triangulo de 3 nos.                          *
+c * ------------------------------------------------------------------ *  
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * x(ndm,nen)- coordenadas nodais do elemento                         *
+c * nel       - numero do elemento                                     *
+c * afl       - .true. calcula das derivadas                           *
+c * ndm       - dimensao                                               *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * hx(3) - derivadas de h em relacao a x                              *
+c * hy(3) - derivadas de h em relacao a y                              *
+c * det   - determinante da matriz jacobiana                           *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      implicit none
+      logical afl
+      integer nel,ndm
+      real*8  x(ndm,*),hx(*),hy(*),hz(*),xj(3,3),det,deti,ZERO
+      parameter (ZERO = 1.d-14)
+c ......................................................................
+
+c ... Matriz Jacobiana:
+
+      xj(1,1) = x(1,1)-x(1,3)
+      xj(1,2) = x(2,1)-x(2,3)
+      xj(2,1) = x(1,2)-x(1,3)
+      xj(2,2) = x(2,2)-x(2,3)
+
+c ... Determinante da matriz Jacobiana:  
+      det  = xj(1,1)*xj(2,2)-xj(1,2)*xj(2,1)
+c ......................................................................
+      if (det .le. ZERO) then
+        print*,'*** Subrotina ELMT__: determinante <= 0 ',nel
+        stop
+      endif
+c ......................................................................
+c
+c ... Derivadas das funcoes de interpolacao:
+
+      if (afl) then
+        deti  = 1.0d0/det
+c           
+        hx(1) =  xj(2,2)*deti
+        hx(2) = -xj(1,2)*deti
+        hx(3) = (xj(1,2)-xj(2,2))*deti
+c
+        hy(1) = -xj(2,1)*deti
+        hy(2) =  xj(1,1)*deti
+        hy(3) = (xj(2,1)-xj(1,1))*deti
+      endif
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine jtetra4(x,hx,hy,hz,det,afl,nel)
+c **********************************************************************
+c *                                                                    *
+c *                                                    22/01/05        *
+c *                                                                    *
+c *   JTETRA4: Jacobiano de tetraedros de 4 nos.                       *
+c *   -------                                                          *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     x(ndm,nen)- coordenadas nodais do elemento                     *
+c *     nel       - numero do elemento                                 *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     hx(4) - derivadas de h em relacao a x                          *
+c *     hy(4) - derivadas de h em relacao a y                          *
+c *     hz(4) - derivadas de h em relacao a z                          *
+c *     det   - determinante da matriz jacobiana                       *
+c *                                                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      logical afl
+      integer nel
+      real*8  x(3,*),hx(*),hy(*),hz(*),xj(3,3),det,deti,ZERO
+      parameter (ZERO = 1.d-14)
+c ......................................................................
+
+c ... Matriz Jacobiana:
+
+      xj(1,1) = x(1,1)-x(1,4)
+      xj(1,2) = x(2,1)-x(2,4)
+      xj(1,3) = x(3,1)-x(3,4)
+      xj(2,1) = x(1,2)-x(1,4)
+      xj(2,2) = x(2,2)-x(2,4)
+      xj(2,3) = x(3,2)-x(3,4)
+      xj(3,1) = x(1,3)-x(1,4)
+      xj(3,2) = x(2,3)-x(2,4)
+      xj(3,3) = x(3,3)-x(3,4)
+
+c ... Determinante da matriz Jacobiana:  
+      
+      det  = xj(1,1)*xj(2,2)*xj(3,3) + xj(1,2)*xj(2,3)*xj(3,1) +
+     .       xj(1,3)*xj(2,1)*xj(3,2) - xj(3,1)*xj(2,2)*xj(1,3) -
+     .       xj(1,2)*xj(2,1)*xj(3,3) - xj(1,1)*xj(3,2)*xj(2,3)
+c ......................................................................
+      if (det .le. ZERO) then
+        print*,'*** Subrotina ELMT__: determinante <= 0 ',nel
+        stop
+      endif
+c ......................................................................
+
+c ... Derivadas das funcoes de interpolacao:
+
+      if (afl) then
+        deti  = 1.0d0/det
+c           
+        hx(1) = (xj(2,2)*xj(3,3)-xj(2,3)*xj(3,2))*deti
+        hx(2) = (xj(1,3)*xj(3,2)-xj(1,2)*xj(3,3))*deti
+        hx(3) = (xj(1,2)*xj(2,3)-xj(1,3)*xj(2,2))*deti
+c
+        hy(1) = (xj(2,3)*xj(3,1)-xj(2,1)*xj(3,3))*deti
+        hy(2) = (xj(1,1)*xj(3,3)-xj(1,3)*xj(3,1))*deti
+        hy(3) = (xj(1,3)*xj(2,1)-xj(1,1)*xj(2,3))*deti
+c
+        hz(1) = (xj(2,1)*xj(3,2)-xj(2,2)*xj(3,1))*deti
+        hz(2) = (xj(1,2)*xj(3,1)-xj(1,1)*xj(3,2))*deti
+        hz(3) = (xj(1,1)*xj(2,2)-xj(1,2)*xj(2,1))*deti
+c
+        hx(4) = -hx(1)-hx(2)-hx(3)
+        hy(4) = -hy(1)-hy(2)-hy(3)
+        hz(4) = -hz(1)-hz(2)-hz(3)
+      endif
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine invjtetra4(x,xji,det,nel)
+c **********************************************************************
+c *                                                                    *
+c *                                                    22/01/05        *
+c *                                                                    *
+c *   INVJTETRA4: inversa do Jacobiano de tetraedros de 4 nos.         *
+c *   ----------                                                       *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *     x(ndm,nen)- coordenadas nodais do elemento                     *
+c *     nel       - numero do elemento                                 *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *     det      - determinante da matriz jacobiana                    *
+c *     xji(3,3) - inversa da matriz jacobiana                         *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nel
+      real*8  xj(3,3),xji(3,3),x(3,*),det
+      real*8  ZERO
+      parameter (ZERO = 1.d-14)
+c ......................................................................
+c
+c ... Matriz Jacobiana:
+
+      xj(1,1) = x(1,1)-x(1,4)
+      xj(1,2) = x(2,1)-x(2,4)
+      xj(1,3) = x(3,1)-x(3,4)
+      xj(2,1) = x(1,2)-x(1,4)
+      xj(2,2) = x(2,2)-x(2,4)
+      xj(2,3) = x(3,2)-x(3,4)
+      xj(3,1) = x(1,3)-x(1,4)
+      xj(3,2) = x(2,3)-x(2,4)
+      xj(3,3) = x(3,3)-x(3,4)
+c
+c ... Determinante da matriz Jacobiana:  
+      
+      det  = xj(1,1)*xj(2,2)*xj(3,3) + xj(1,2)*xj(2,3)*xj(3,1) +
+     .       xj(1,3)*xj(2,1)*xj(3,2) - xj(3,1)*xj(2,2)*xj(1,3) -
+     .       xj(1,2)*xj(2,1)*xj(3,3) - xj(1,1)*xj(3,2)*xj(2,3)
+c ......................................................................
+      if (det .le. ZERO) then
+        print*,'*** Subrotina ELMT__: determinante <= 0 ',nel
+        stop
+      endif
+c ......................................................................
+c
+c ..  Inversa da matriz Jacobiana:
+
+      xji(1,1) = (xj(2,2)*xj(3,3)-xj(2,3)*xj(3,2))/det
+      xji(1,2) = (xj(1,3)*xj(3,2)-xj(1,2)*xj(3,3))/det
+      xji(1,3) = (xj(1,2)*xj(2,3)-xj(1,3)*xj(2,2))/det
+      xji(2,1) = (xj(2,3)*xj(3,1)-xj(2,1)*xj(3,3))/det
+      xji(2,2) = (xj(1,1)*xj(3,3)-xj(1,3)*xj(3,1))/det
+      xji(2,3) = (xj(1,3)*xj(2,1)-xj(1,1)*xj(2,3))/det
+      xji(3,1) = (xj(2,1)*xj(3,2)-xj(2,2)*xj(3,1))/det
+      xji(3,2) = (xj(1,2)*xj(3,1)-xj(1,1)*xj(3,2))/det
+      xji(3,3) = (xj(1,1)*xj(2,2)-xj(1,2)*xj(2,1))/det
+c ......................................................................
+      return
+      end   
+c **********************************************************************
+c
+c **********************************************************************
 c * Data de criacao    : 02/12/2015                                    *
 c * Data de modificaco :                                               * 
 c * ------------------------------------------------------------------ * 
@@ -2620,7 +2864,7 @@ c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *                                                                     *
 c * p(3) - fluxo de darcy( k( grad(P) + ro_fluid*g)                    *
 c * ------------------------------------------------------------------ *       
-c *   OBS:                                                             *
+c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c **********************************************************************
       subroutine darcy_flux(perm,gl,fluid_d,hx,hy,hz,u,nen,p) 

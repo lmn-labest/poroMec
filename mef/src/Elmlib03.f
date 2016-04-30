@@ -3,21 +3,21 @@ c * Biblioteca de elementos poro-mecanicos                            *
 c * ----------------------------------------------------------------- *
 c * Elastico:                                                         *
 c * ----------------------------------------------------------------- *
-c * ELMT6_PM - tetraedros de 10 nos para o problema poro mecanico     *
+c * ELMT12_PM - tetraedros de 10 nos para o problema poro mecanico    *
 c * elastico                                                          *
 c *                                                                   *
-c * ELMT7_PM - hexaedros de 20 nos para o problema poro mecanico      *
+c * ELMT13_PM - hexaedros de 20 nos para o problema poro mecanico     *
 c * elastico                                                          *
 c *                                                                   *
 c * ----------------------------------------------------------------- *
 c * Plastico:                                                         *
 c * ----------------------------------------------------------------- *
 c *********************************************************************  
-      subroutine elmt6_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
-     .                   ,block_pu)
+      subroutine elmt12_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
+     .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 28/03/2016                                    * 
+c * Data de modificaco : 30/04/2016                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT06_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -70,7 +70,7 @@ c * u(31:34)- isw = 2 diferenca de pressao                             *
 c * u(31:34)- isw = 3 e isw = 4 pressao                                *
 c **********************************************************************
       implicit none
-      include 'poro_mec_prop.fi'
+      include 'gravity.fi'
       include 'load.fi'
       common /pint4/ pri4,psi4,pti4,wf4,npint4
       common /pint / pri,psi,wf,npint
@@ -763,11 +763,11 @@ c ......................................................................
 c ....................................................................
       end
 c *********************************************************************
-      subroutine elmt7_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
-     .                   ,block_pu)
+      subroutine elmt13_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
+     .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 02/04/2016                                    * 
+c * Data de modificaco : 30/04/2016                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT07_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -820,7 +820,7 @@ c * u(61:68)- isw = 2 diferenca de pressao                             *
 c * u(61:68)- isw = 3 e isw = 4 pressao                                *
 c **********************************************************************
       implicit none
-      include 'poro_mec_prop.fi'
+      include 'gravity.fi'
       include 'load.fi'
       common /gauss/ pg, wg
       integer ndm,nst,nel,isw

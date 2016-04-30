@@ -1,0 +1,6 @@
+c *********************************************************************
+c propriedades fisicas do mecanico
+c g(3) - gravidade
+c *********************************************************************     
+      real*8 gravity(3),gravity_mod 
+      common /mecprop /  gravity,gravity_mod
