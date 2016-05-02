@@ -731,7 +731,7 @@ c           k = k + 1
 c         endif
 c       enddo
 c     enddo 
-      close(15)
+c     close(15)
 c ...
       return
       end
@@ -796,17 +796,17 @@ c ......................................................................
 c     do i = 1, n
 c       write(15,'(100d15.1)')(a(i,j),j=1,i)
 c     enddo 
-      write(15,'(a6)')'d'
-      do i = 1, n
-        write(15,'(d15.2)')a(i,i)
-      enddo
-      write(15,'(a6)')'d'
-      do i = 1, n
-        do j = 1, i - 1
-          write(15,'(d15.2)')a(i,j)
-         enddo 
-      enddo      
-      close(15)
+c     write(15,'(a6)')'d'
+c     do i = 1, n
+c       write(15,'(d15.2)')a(i,i)
+c     enddo
+c     write(15,'(a6)')'d'
+c     do i = 1, n
+c       do j = 1, i - 1
+c         write(15,'(d15.2)')a(i,j)
+c        enddo 
+c     enddo      
+c     close(15)
 c ...
       return
       end
@@ -871,23 +871,23 @@ c .....................................................................
 c .....................................................................
       enddo
 c ......................................................................
-      open(15,file='ich.matrix')
+c     open(15,file='ich.matrix')
 c     do i = 1, n
 c       write(15,'(100d15.1)')(a(i,j),j=1,i)
 c     enddo 
-      write(15,*)'d'
-      do i = 1, 500
-        write(15,'(d15.2)')a(i,i)
-      enddo
-      write(15,*)'l'
-      do i = 1, 500
-        do j = 1, i - 1
-          if ( a(i,j) .ne. 0.d0 ) then
-            write(15,'(d15.2)')a(i,j)
-          endif
-        enddo 
-      enddo      
-      close(15)
+c     write(15,*)'d'
+c     do i = 1, 500
+c       write(15,'(d15.2)')a(i,i)
+c     enddo
+c     write(15,*)'l' 
+c     do i = 1, 500
+c       do j = 1, i - 1
+c         if ( a(i,j) .ne. 0.d0 ) then
+c           write(15,'(d15.2)')a(i,j)
+c         endif
+c       enddo 
+c     enddo      
+c     close(15)
 c ...
       return
       end

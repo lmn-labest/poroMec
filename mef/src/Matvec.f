@@ -6,6 +6,7 @@ c *   Este arquivo contem subrotinas para produto matriz-vetor e       *
 c *   produto escalar de vetores                                       *
 c *                                                                    *
 c *   matvec_csr                                                       *
+c *   matvec_csr_sym_v3                                                *
 c *   matvec_csrsym                                                    *
 c *   matvec_csrsym1*         (loops aninhados)                        *
 c *   matvec_csrc                                                      *
@@ -31,6 +32,148 @@ c *                                                                    *
 c *   1 = loop interno desenrolado                                     *
 c *   2 = loops desenrolados                                           *
 c *                                                                    *
+c **********************************************************************
+      subroutine matvec_csr(neq,ia,ja,ad,a,al,x,y,neqf1i,neqf2i,
+     .                      i_fmapi,i_xfi,i_rcvsi,i_dspli,dum4)
+c **********************************************************************
+c *                                                                    *
+c *   MATVEC_CSR: produto matriz-vetor y = Ax  (A nao-simetrica),      *
+c *   ----------                      coef. de A no formato CSR        *
+c *                                    e grafo nao-simetrico.          *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   neq   - numero de equacoes                                       *
+c *   ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro       *
+c *                     coeficiente nao-nulo da equacao i              *
+c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
+c *               a posicao k no vetor a                               *
+c *   ad(neq) - diagonal da matriz A                                   *
+c *   a(nad)  - coef. de A, sem a diagonal                             *
+c *   al(*)   - nao utilizado                                          *
+c *   x(neq+1)- vetor a ser multiplicado                               *
+c *   y(neq+1)- nao definido                                           *
+c *   neqf1i - numero de equacoes no buffer de recebimento (MPI)       *
+c *   neqf2i - numero de equacoes no buffer de envio (MPI)             *
+c *   i_fmapi- ponteiro para o mapa de comunicacao  (MPI)              *
+c *   i_xfi  - ponteiro para o buffer de valores    (MPI)              *
+c *   i_rcvsi- ponteiro extrutura da comunicacao    (MPI)              *
+c *   i_dspli- ponteiro extrutura da comunicacao    (MPI)              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *   y(neq) - vetor contendo o resultado do produto y=Ax              *
+c *                                                                    *
+c **********************************************************************      
+      implicit none
+      integer neq,ia(*),ja(*),i,k
+      integer neqf1i,neqf2i
+c ... ponteiros        
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      real*8  ad(*),a(*),al(*),x(*),y(*),t
+      real*8 dum4
+c ......................................................................
+      do 110 i = 1, neq
+c
+c ...    Produto da diagonal de A por x:
+c
+         t = ad(i)*x(i)
+c
+c ...    Produto da linha i pelo vetor x:
+c
+         do 100 k = ia(i), ia(i+1)-1 
+            t = t + a(k)*x(ja(k))
+  100    continue
+c
+c ...    Armazena o resultado em y(i):
+c
+         y(i) = t
+  110 continue
+c ......................................................................
+      return
+      end                
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine matvec_csr_sym_v3(neq,ia  ,ja,a  ,x   ,y,flag)
+c **********************************************************************
+c * Data de criacao    : 01/05/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ * 
+c * MATVEC_CSR_SYM_V3 : produto matriz-vetor CSR padrao simetrico      *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * neq       - numero de equacoes                                     *
+c * ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro        *
+c *                   coeficiente nao-nulo da linha   i                *
+c * ja(*)     - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor au                                *
+c * a(*)   - coeficientes                                              *
+c * x(neq) - vetor a ser multiplicado                                  *
+c * y(neq) - nao definido                                              *
+c * flag   - .true.  triangular superior                               *
+c *        - .false. triangular inferior                               *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *                                                                    *
+c * ------------------------------------------------------------------ *
+c * y(neq) - vetor contendo o resultado do produto y = Ax              *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * CSR padrao com tem vetores (ia,ja,a)                               *
+c * ja em ordem crescente                                              *
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'parallel.fi'
+      include 'time.fi'
+      integer neq,ia(*),ja(*),i,k,kk,jak
+      real*8  a(*),x(*),y(*),xi,t,s
+      logical flag
+c ......................................................................
+c
+c ...
+      if(flag) then
+        y(1:neq) = 0.0d0
+        do i = 1, neq
+          kk   = ia(i)
+          xi   = x(i)
+          y(i) = y(i) + a(kk)*xi
+c ...
+          do k = kk+1, ia(i+1)-1
+            jak   = ja(k)
+            s     = a(k)
+c ... parte superior
+            y(i)   =  y(i)  + s*x(jak)
+c ... parte inferior
+            y(jak) = y(jak) + s*xi
+          enddo
+c .....................................................................
+        enddo
+c .....................................................................
+c
+c ...
+      else
+       do i = 1, neq
+          xi   = x(i)
+c ...
+          do k = ia(i), ia(i+1)-2
+            jak   = ja(k)
+            s     = a(k)
+c ... parte superior
+            t     =  t      + s*x(jak)
+c ... parte inferior
+            y(jak) = y(jak) + s*xi
+          enddo
+c .....................................................................
+          y(i) = t + a(k)*xi
+        enddo
+c .....................................................................
+      endif
+      return
+      end
+c **********************************************************************
+c
 c **********************************************************************
       subroutine matvec_csrcsym(neq,ia,ja,dum0,dum1,ad,al,dum2,dum3,x,y,
      .                          neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
@@ -378,65 +521,7 @@ c
 c ......................................................................
       matvectime = matvectime + MPI_Wtime() - time0
       return
-      end      
-      subroutine matvec_csr(neq,ia,ja,ad,a,al,x,y,neqf1i,neqf2i,
-     .                      i_fmapi,i_xfi,i_rcvsi,i_dspli,dum4)
-c **********************************************************************
-c *                                                                    *
-c *   MATVEC_CSR: produto matriz-vetor y = Ax  (A nao-simetrica),      *
-c *   ----------                      coef. de A no formato CSR        *
-c *                                    e grafo nao-simetrico.          *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq   - numero de equacoes                                       *
-c *   ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro       *
-c *                     coeficiente nao-nulo da equacao i              *
-c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
-c *               a posicao k no vetor a                               *
-c *   ad(neq) - diagonal da matriz A                                   *
-c *   a(nad)  - coef. de A, sem a diagonal                             *
-c *   al(*)   - nao utilizado                                          *
-c *   x(neq+1)- vetor a ser multiplicado                               *
-c *   y(neq+1)- nao definido                                           *
-c *   neqf1i - numero de equacoes no buffer de recebimento (MPI)       *
-c *   neqf2i - numero de equacoes no buffer de envio (MPI)             *
-c *   i_fmapi- ponteiro para o mapa de comunicacao  (MPI)              *
-c *   i_xfi  - ponteiro para o buffer de valores    (MPI)              *
-c *   i_rcvsi- ponteiro extrutura da comunicacao    (MPI)              *
-c *   i_dspli- ponteiro extrutura da comunicacao    (MPI)              *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *   y(neq) - vetor contendo o resultado do produto y=Ax              *
-c *                                                                    *
-c **********************************************************************      
-      implicit none
-      integer neq,ia(*),ja(*),i,k
-      integer neqf1i,neqf2i
-c ... ponteiros        
-      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
-      real*8  ad(*),a(*),al(*),x(*),y(*),t
-      real*8 dum4
-c ......................................................................
-      do 110 i = 1, neq
-c
-c ...    Produto da diagonal de A por x:
-c
-         t = ad(i)*x(i)
-c
-c ...    Produto da linha i pelo vetor x:
-c
-         do 100 k = ia(i), ia(i+1)-1 
-            t = t + a(k)*x(ja(k))
-  100    continue
-c
-c ...    Armazena o resultado em y(i):
-c
-         y(i) = t
-  110 continue
-c ......................................................................
-      return
-      end                              
+      end              
       subroutine matvec_csrc1(neq,ia,ja,dum0,dum1,ad,al,au,dum2,x,y,
      .                        neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
      .                        i_dspli,dum4)
@@ -1395,35 +1480,42 @@ c ......................................................................
       return
       end
 c **********************************************************************
-      subroutine matvec_csr_pm(neqi,neqj,ia  ,ja,al  ,x   ,y,flag)
+c
 c **********************************************************************
-c *                                                                    *
-c *   MATVEC_CSRCSYM_PM: produto matriz-vetor y = Ax  (A simetrica),   *
-c *                   coef. de A no formato CSRC.                      *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq       - numero de equacoes                                   *
-c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
-c *                     coeficiente nao-nulo da linha   i              *
-c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
-c *               a posicao k no vetor au                              *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   al(nad)- parte triangular inferior de A, no formato CSR, ou      *
-c *            parte triangular superior de A, no formato CSC          *
-c *   x(neq) - vetor a ser multiplicado                                *
-c *   y(neq) - nao definido                                            *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
-c *                                                                    *
+      subroutine matvec_csr_pm(ni,nj,ia  ,ja,al  ,x   ,y,flag)
+c **********************************************************************
+c * Data de criacao    : 27/03/2016                                    *
+c * Data de modificaco : 30/04/2016                                    *
+c * ------------------------------------------------------------------ * 
+c * MATVEC_CSR_PM: produto matriz-vetor retangular y = Ax              *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * neqi      - numero de linhas da matriz A                           *
+c * neqj      - numero de colunas da matriz A                          *
+c * ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro        *
+c *                   coeficiente nao-nulo da linha   i                *
+c * ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor au                                *
+c * al(nad)- coeficientes                                              *
+c * x(neq) - vetor a ser multiplicado                                  *
+c * y(neq) - nao definido                                              *
+c * flag   - protudo transposto                                        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *                                                                    *
+c * ------------------------------------------------------------------ *
+c * y(*)   - vetor contendo o resultado do produto                     * 
+c *        .true.  - y(nj) = (At)x                                     *
+c *        .false. - y(ni) = Ax                                        *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       include 'mpif.h'
       include 'parallel.fi'
       include 'time.fi'
-      integer neqi,neqj,ia(*),ja(*),i,k,jak
+      integer ni,nj,ia(*),ja(*),i,k,jak
       real*8  al(*),x(*),y(*),xi
 c ... ponteiros      
       logical flag
@@ -1431,12 +1523,11 @@ c ......................................................................
 c
 c ... loop nas linha Kup
       if(flag) then
-        y(1:neqj) = 0.d0
-        do i = 1, neqi
+        y(1:nj) = 0.d0
+        do i = 1, ni
           xi = x(i)
           do k = ia(i), ia(i+1)-1
             jak   = ja(k)
-c           print*,i,k,al(k),xi,jak
 c ... Kup
             y(jak) =  y(jak) - al(k)*xi
           enddo      
@@ -1445,13 +1536,12 @@ c ......................................................................
 c
 c ... loop nas linha Kpu
       else 
-        do i = 1, neqi
+        do i = 1, ni
           y(i) = 0.0d0
 c ......................................................................
 c
           do k = ia(i), ia(i+1)-1
             jak   = ja(k)
-c           print*,i,k,al(k),x(jak),jak
 c ... Kpu
             y(i)  =  y(i)  + al(k)*x(jak)
           enddo
@@ -1460,6 +1550,9 @@ c ... Kpu
 c .....................................................................
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine saxpb(a,b,x,n,c)
 c **********************************************************************
 c *                                                                    *

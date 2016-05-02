@@ -179,7 +179,7 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-           call assbly(sl      ,pl         ,ld
+           call assbly_pm(sl      ,pl         ,ld
      .                ,ia      ,ja         ,au
      .                ,al      ,ad         ,b    ,nst
      .                ,neq     ,nequ       ,neqp
@@ -255,7 +255,7 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-          call assbly(sl      ,pl         ,ld
+          call assbly_pm(sl      ,pl         ,ld
      .               ,ia      ,ja         ,au
      .               ,al      ,ad         ,b    ,nst
      .               ,neq     ,nequ       ,neqp
@@ -678,11 +678,11 @@ c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
 c$omp.shared(id,u,ix,tx0,ie,e)
 c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,isw,nst,dt)
 c$omp.shared(neq,nad,fstress0)
-        do ic = 1, numcolors
+        do 150 ic = 1, numcolors
 c$omp do
 c ... Loop nos elementos:
 c     ------------------
-          do jc = i_colorg(1,ic), i_colorg(2,ic)
+          do  100 jc = i_colorg(1,ic), i_colorg(2,ic)
             nel = i_elcolor(jc)
 c           print*,omp_get_thread_num(),jc,nel,ic
             kk = 0
@@ -737,17 +737,14 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-           call assbly(sl      ,pl         ,ld
-     .                ,ia      ,ja         ,au
-     .                ,al      ,ad         ,b    ,nst
-     .                ,neq     ,0          ,0   
-     .                ,nad     ,0          ,0    ,0    
-     .                ,lhs     ,rhs        ,unsym,stge
-     .                ,.false. ,0)           
-          enddo   
+           call assbly(sl ,pl   ,ld  ,ia ,ja ,au
+     .                ,al ,ad   ,b   ,nst,neq ,lhs
+     .                ,rhs,unsym,stge)
+c ......................................................................
+  100     continue   
 c$omp end do
 c .....................................................................
-        enddo
+  150   continue
 c$omp end parallel
 c .....................................................................
 c
@@ -755,7 +752,7 @@ c ... sequencial
       else  
 c ... Loop nos elementos:
 c     ------------------
-        do nel = 1, numel
+        do 250 nel = 1, numel
           kk = 0
 c ... loop em todos os nos
           do i = 1, nen
@@ -808,14 +805,11 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-          call assbly(sl      ,pl         ,ld
-     .               ,ia      ,ja         ,au
-     .               ,al      ,ad         ,b    ,nst
-     .               ,neq     ,0          ,0   
-     .               ,nad     ,0          ,0    ,0    
-     .               ,lhs     ,rhs        ,unsym,stge
-     .               ,.false. ,0)
-        enddo 
+          call assbly(sl ,pl   ,ld  ,ia ,ja ,au
+     .               ,al ,ad   ,b   ,nst,neq ,lhs
+     .               ,rhs,unsym,stge)
+c ......................................................................
+  250   continue 
 c ......................................................................
       endif
 c ......................................................................

@@ -7,7 +7,8 @@ c *                                                                    *
 c *   pcg                                                              *
 c *   gmres                                                            *
 c *   pbcgstab                                                         *
-c *   bi_pcg_it                                                        *
+c *   pcg_block_it                                                     *
+c *   pardiso mkl                                                      *
 c *                                                                    *
 c **********************************************************************
       subroutine solv_pm(neq    ,nequ    ,neqp
@@ -15,7 +16,8 @@ c **********************************************************************
      .                  ,ip     ,ja      ,ad         ,al 
      .                  ,m      ,b       ,x          ,tol    ,maxit
      .                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
-     .                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond 
+     .                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond
+     .                  ,fmec   ,fporomec  
      .                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
      .                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
@@ -37,7 +39,7 @@ c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
 c ......................................................................
-      logical block_pu
+      logical block_pu,fmec,fporomec
 c ... precondicionador
       logical diag
       integer precond
@@ -96,15 +98,6 @@ c .....................................................................
 c
 c ... precondicionador Cholesky LLT incompleto
          else if(precond .eq. 4) then
-c ...
-c          i_r = alloc_8('aa      ',neq,neq)
-c          call csrc_to_full(ip,ja,al,ad,ia(i_r),neq) 
-c          call choleskyc(neq,ia(i_r))
-c
-c          call csrc_to_full(ip,ja,al,ad,ia(i_r),neq) 
-c          call icholeskyc_full_matrix(neq,ia(i_r))
-c .....................................................................
-c
 c ...
            precondtime = Mpi_Wtime() - precondtime 
            call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
@@ -447,6 +440,16 @@ c ...
          i_r  = dealloc('rsolver ')        
          i_z  = dealloc('zsolver ') 
 c ......................................................................
+c
+c ... mkl_pardiso
+      else if(solver .eq. 9 ) then
+        i_z  = alloc_8('zsolver ',1,neq)
+        if(fmec) then
+          call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),2)
+        else if(fporomec) then
+          call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),-2)
+        endif
+        i_z  = dealloc('zsolver ') 
       endif
 c ......................................................................         
 c
@@ -459,7 +462,6 @@ c ...
 c ......................................................................         
 c
 c ...   
-      print*,precondtime,ifatsolvtime,time                            
       return
       end
 c **********************************************************************

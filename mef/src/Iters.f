@@ -996,8 +996,10 @@ c ... r = b - Ax (calculo do residuo explicito)
   310 continue
       tmp  = dot(r,r,neq_doti)
       tmp = dsqrt(tmp)
-      if( tmp .gt. conv ) then
-        write(*,1400) tmp
+      if( tmp .gt. 3.16d0*conv ) then
+         if(my_id .eq.0 )then
+           write(*,1400) tmp,conv
+         endif 
       endif
 c ......................................................................
 c
@@ -1037,7 +1039,8 @@ c ======================================================================
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' BICGSTAB:',5x,'It',i7,5x,2d20.10)
- 1400 format (' BICGSTAB:',1x,'Residuo exato > conv ',1x,d20.10)
+ 1400 format (' BICCSTAB:',1x,'Residuo exato > 3.16d0*conv '
+     .       ,1x,d20.10,1x,d20.10)
       end
 c *********************************************************************
 c
@@ -1217,7 +1220,7 @@ c
 c ... (r,r)
          d = dot(r,r,neq_doti)
 c ...
-         if (dsqrt(dabs(d)) .lt. conv) goto 300
+         if (dsqrt(dabs(d)) .lt. 3.16d0*conv) goto 300
 c ........................................................................
 c
 c ... beta = ( r(j+1),r0 ) / ( r(j), r0 )) * (alpha/w) 
@@ -1290,7 +1293,7 @@ c ... Controle de flops
       if(flog) then
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
-     .       "BICGSTAB: "," it ",j, " x * Kx ",xkx," ||x|| ",norm
+     .       "PBICGSTAB: "," it ",j, " x * Kx ",xkx," ||x|| ",norm
      .      ," tol ",tol," time ",time
         endif
       endif
@@ -1556,8 +1559,10 @@ c ... r = b - Ax (calculo do residuo explicito)
   310 continue
       tmp  = dot(r,r,neq_doti)
       tmp = dsqrt(tmp)
-      if( tmp .gt. conv ) then
-        write(*,1400) tmp
+      if( tmp .gt. 3.16d0*conv ) then
+         if(my_id .eq.0 )then
+           write(*,1400) tmp,conv
+         endif 
       endif
 c ......................................................................
 c
@@ -1579,7 +1584,6 @@ c ... Controle de flops
      .       "ICBICGSTAB: "," it ",j, " x * Kx ",xkx," ||x|| ",norm
      .      ," tol ",tol," time ",time
         endif
-
       endif
 c ......................................................................
       return
@@ -1598,7 +1602,8 @@ c ======================================================================
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' ICBICCSTAB:',5x,'It',i7,5x,2d20.10)
- 1400 format (' ICBICCSTAB:',1x,'Residuo exato > conv ',1x,d20.10)
+ 1400 format (' ICBICCSTAB:',1x,'Residuo exato > 3.16d0*conv '
+     .       ,1x,d20.10,1x,d20.10)
       end
 c *********************************************************************
 c

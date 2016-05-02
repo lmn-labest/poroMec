@@ -6,6 +6,7 @@ c *   Este arquivo contem subrotinas para montagem da estrutura de     *
 c *   dados CSR:                                                       *
 c *                                                                    *
 c *   csrstruct                                                        *
+c *   csrstruct_pm                                                     *
 c *   csria                                                            *
 c *   csrja                                                            *
 c *   csriaup                                                          *
@@ -14,14 +15,14 @@ c *   csriaup2                                                         *
 c *   csrjaup2                                                         *
 c *                                                                    *
 c **********************************************************************
-      subroutine csrstruct(id,ix,num,nnode,nnodev,numel,nen,ndf
+      subroutine csrstruct_pm(id,ix,num,nnode,nnodev,numel,nen,ndf
      .                    ,neq ,nequ,neqp
      .                    ,i2  ,i3   ,nad,naduu,nadpp,nadpu
      .                    ,lower,diag,upper,right,ija,ja
      ,                    ,n_blocks_up,dualCsr)
 c **********************************************************************
 c *                                                                    *
-c *   CSRSTRUCT: monta os arranjos ia e ja do formato CSR.             *
+c *   CSRSTRUCT_PM: monta os arranjos ia e ja do formato CSR.          *
 c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
@@ -238,6 +239,89 @@ c ...
 c ......................................................................
 c
 c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i2,i3,nad,
+     .                     nad1,lower,diag,upper,right,ija,ja)
+c **********************************************************************
+c *                                                                    *
+c *   CSRSTRUCT: monta os arranjos ia e ja do formato CSR.             *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    id(ndf,nnode)   - numeracao global das equacoes                 *
+c *    ix(nen+1,numel) - conetividades nodais                          *
+c *    num(nnode)      - numeracao RCM                                 *
+c *    nnode - numero de nos total da particao                         *
+c *    numel - numero de elementos                                     *
+c *    nen   - numero de nos por elemento                              *
+c *    ndf   - numero max. de graus de liberdade por no                *
+c *    neq   - numero de equacoes                                      *
+c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
+c *    diag  = .true.  -> inclui a diagonal no csr                     *
+c *    upper = .true.  -> inclui a parte triangular superior no csr    *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    i2    - ponteiro para o arranjo ia(neq+1)                       *
+c *    i3    - ponteiro para o arranjo ja(nad)                         *
+c *    nad   - numero de coeficientes nao nulos                        *
+c *    nad1  - numero de coeficientes nao nulos da parte retangular    *                                              *
+c *                                                                    *
+c **********************************************************************
+      use Malloc
+      implicit none
+      integer id(ndf,*),ix(nen+1,*),num(*)
+      integer nnode,numel,nen,ndf,neq,nad,nad1
+c ... ponteiros      
+      integer*8 i0,i1,i2,i3
+c .....................................................................      
+      integer n
+      logical lower,diag,upper,right
+      character*8 ija,ja
+c ......................................................................
+c
+c ... Grafo da malha:
+c
+c     ia(i0) => ip(nnode+1) - ip(i) indica a posicao em ips do primeiro
+c                             no vizinho ao no i.
+c     ia(i1) => ips(ipos) - contem as conectividades nodais de cada no
+      call graph(ix,nnode,numel,nen,i0,i1)
+c ......................................................................      
+c
+c ... Montagem do arranjo ia(neq+1):
+c
+c ... ia(i2)=>ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro
+c                               coeficiente nao-nulo da equacao i   
+c
+      n = neq + 1
+      if (right) n = 2*n
+      i2 = alloc_4(ija,1,n)
+      call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nad1,
+     .           lower,diag,upper,right)
+c ......................................................................     
+c
+c ... Montagem do arranjo ja(nad):
+c
+c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
+c                       a posicao k no vetor a  
+c
+      i3 = alloc_4(ja,1,nad+nad1+1)
+      ia(i3+nad) = 0
+      call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
+     .           diag,upper,right)
+      call sortgraph(ia(i2),ia(i3),neq)
+      if (right) then
+         call sortgraph(ia(i2+neq+1),ia(i3+nad),neq)      
+      endif
+c ......................................................................
+      i1 = dealloc('iaux1   ')
+      i0 = dealloc('iaux0   ')
+      i2 = locate (ija)
+      i3 = locate (ja)
       return
       end
 c **********************************************************************

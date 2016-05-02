@@ -63,6 +63,8 @@ c ... Variaveis do sistema de equacoes:
       integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
       integer n_blocks_pu
       logical block_pu
+      character*8 sia,sja,sau,sal,sad
+c .....................................................................
 c .......................................................................
 c
 c ... precondicionador
@@ -136,7 +138,7 @@ c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
-     .'pgeo    ','pgeoquad','block_pu','gravity ','        ','gmres   ',
+     .'pgeo    ','pgeoquad','block_pu','gravity ','pardiso ','gmres   ',
      .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','spcgm   ',
      .'solvm   ','pmecres ','        ','        ','        ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
@@ -205,10 +207,11 @@ c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
       ctol    =  1.d-6
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
-c ... solver  =  1 (pcg), 2 (gmres), 3 (gauss / LDU), 4 (bicgstab)
-c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline)
+c ... solver  =  1 (pcg)         , 2 (gmres)  , 3 (gauss / LDU), 4 (bicgstab), 
+c                5 (block_pcg_it), 9 (pardiso)
+c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
-      solver  =  2
+      solver  =  1
       stge    =  1
 c     block_pu= .true.
       n_blocks_pu = 0 
@@ -531,14 +534,34 @@ c
 c ... Memoria para a estrutura de dados do sistema de equacoes:
 c
       timei = MPI_Wtime()
-      if (ndf .gt. 0) then
-         call datastruct(ia(i_ix),ia(i_id),ia(i_inum),nnode,nnodev
-     .                  ,numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym
-     .                  ,nad,naduu,nadpp,nadpu
-     .                  ,i_ia,i_ja,i_au,i_al,i_ad 
-     .                  ,'ia      ','ja      '
-     .                  ,'au      ','al      ' ,'ad      '
-     .                  ,ovlp      ,n_blocks_pu,block_pu  )
+c ... poromecanico
+      if (fporomec) then
+         sia = 'ia' 
+         sja = 'ja' 
+         sau = 'au' 
+         sal = 'al' 
+         sad = 'ad' 
+         call datastruct_pm(ia(i_ix),ia(i_id),ia(i_inum),nnode,nnodev
+     .                     ,numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym
+     .                     ,nad  ,naduu,nadpp,nadpu
+     .                     ,i_ia ,i_ja,i_au  ,i_al,i_ad 
+     .                     ,sia  ,sja ,sau   ,sal ,sad    
+     .                     ,ovlp ,n_blocks_pu,block_pu  )
+c .....................................................................
+c
+c ... mec
+      else if(fmec) then
+         sia = 'ia' 
+         sja = 'ja' 
+         sau = 'au' 
+         sal = 'al' 
+         sad = 'ad'  
+         call datastruct(ia(i_ix),ia(i_id),ia(i_inum),nnode
+     .                  ,numel   ,nen     ,ndf       ,nst
+     .                  ,neq     ,stge    ,unsym     ,nad  ,nad1
+     .                  ,i_ia    ,i_ja    ,i_au      ,i_al ,i_ad 
+     .                  ,sia     ,sja     ,sau       ,sal  ,sad         
+     .                  ,ovlp     )
       endif
       dstime = MPI_Wtime()-timei
 c
@@ -614,7 +637,7 @@ c
 c ... forcas internas devidos as tensoes inicias tensoes
       if(fstress0 .and. fcstress0) then
           timei = MPI_Wtime()
-          call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
+          call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)  
      .                 ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
      .                 ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
      .                 ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
@@ -637,7 +660,7 @@ c ... forcas de volume e superficie do tempo t+dt e graus de liberade
 c     do passo t:  
       timei = MPI_Wtime()
       call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
-     .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja) 
      .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
      .             ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
      .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
@@ -712,6 +735,7 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
      .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
      .         ,ngram   ,block_pu,n_blocks_pu,solver,istep
      .         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
+     .         ,fmec    ,fporomec  
      .         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
      .         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -884,7 +908,9 @@ c ... Macro-comando:
 c
 c ......................................................................
  1000 continue
-      if(my_id.eq.0)print*, 'Macro      '
+      if(my_id.eq.0)print*, 'Macro PARDISO'
+      solver = 9 
+      stge   = 6
       goto 50
 c ......................................................................
 c
@@ -1377,6 +1403,7 @@ c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
      .            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
      .            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
      .            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
+     .            ,fmec    ,fporomec  
      .            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
      .            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1500,8 +1527,7 @@ c ......................................................................
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =2610,end =2610) maxnlit
-      write(*,'(a,i10)')' Set max poromechanic nonlinear it for ',
-     .                    maxnlit
+      write(*,'(a,i10)')' Set max nonlinear it for ', maxnlit
       goto 50
  2610 continue
       print*,'Erro na leitura da macro (MAXNLIT) !'
@@ -1777,8 +1803,6 @@ c ......................................................................
 c ... fecha o arquivo de entrada de dados
       close(nin)
 c ... fecha o arquivo gid , view3d  e log do solv
-c     close(ngid)
-c     close(nplot)
       close(logsolv)
       if(solver .eq. 5 ) close(logsolvd)
 c .....................................................................
