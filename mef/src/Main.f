@@ -139,8 +139,8 @@ c
       data nmc /40/
       data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
      .'pgeo    ','pgeoquad','block_pu','gravity ','pardiso ','gmres   ',
-     .'deltatc ','pcoo    ','bicgstab','pcg     ','pres    ','spcgm   ',
-     .'solvm   ','pmecres ','        ','        ','        ','        ',
+     .'deltatc ','pcoo    ','bcgs    ','pcg     ','pres    ','spcgm   ',
+     .'solvm   ','pmecres ','bcgsl2  ','        ','        ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','        ','setpnode','        ','        ','pnup    ',
      .'pnsf    ','config  ','maxit   ','solvtol ','stop    '/
@@ -196,7 +196,7 @@ c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
 c ... precond =  1 - NONE, 2 - diag, 3 - iLDLt(0), 4 - iC(0)
-      maxit   =  8000
+      maxit   =  50000
       solvtol =  1.d-11
       maxnlit =  2 
       tol     =  1.d-04
@@ -207,11 +207,12 @@ c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
       ctol    =  1.d-6
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
-c ... solver  =  1 (pcg)         , 2 (gmres)  , 3 (gauss / LDU), 4 (bicgstab), 
-c                5 (block_pcg_it), 9 (pardiso)
+c ... solver  =  1 (pcg)       , 2 (gmres)       , 3 (gauss / LDU)
+c                4 (bicgstab)  , 5 (block_pcg_it), 6 (bicgstabl2) 
+c                9 (pardiso)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
-      solver  =  1
+      solver  =  6
       stge    =  1
 c     block_pu= .true.
       n_blocks_pu = 0 
@@ -1471,12 +1472,47 @@ c ......................................................................
       goto 50     
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: BICGSTABL@
 c
 c ......................................................................
  2000 continue
-      print*, 'Macro '
+      if(my_id.eq.0)print*, 'Macro BICGSL2'
+      solver = 6 
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2002,end =2002) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2003,end =2003) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
+c ......................................................................
+c
+c ... precondicionador
+      call readmacro(nin,.false.)
+      write(string,'(6a)') (word(i),i=1,6)
+      call set_precond(word,precond,nin,my_id)  
+c ......................................................................
       goto 50
+ 2002 continue
+      print*,'Erro na leitura da macro (BICGSTABL2) maxit !'
+      goto 5000
+ 2003 continue
+      print*,'Erro na leitura da macro (BICGSTABL2) solvtol !'
+      goto 5000
+c ----------------------------------------------------------------------
+      goto 50
+c ----------------------------------------------------------------------
+c
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:

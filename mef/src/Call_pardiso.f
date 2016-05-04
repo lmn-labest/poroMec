@@ -73,7 +73,7 @@ c ... simetrico definido positivo
         iparm(2)  = 2 ! fill-in reordering from METIS
         iparm(7)  = 2 ! numbers of iterative refinement steps
         iparm(24) = 0 ! Parallel factorization control.
-      endif                                    
+      endif         
 c .....................................................................
 c
 c ...
@@ -82,7 +82,7 @@ c .....................................................................
 c
 c ... 
       phase = 13        
-      msglvl = 0
+      msglvl = 1
 #if _MKL_
       call pardiso (pt  , maxfct, mnum, mtype, phase, neq, a, ia, ja,
      .              idum, nrhs  , iparm, msglvl, b, x, error)

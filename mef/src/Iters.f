@@ -1045,6 +1045,730 @@ c ======================================================================
 c *********************************************************************
 c
 c **********************************************************************
+      subroutine bicgstabl2(neq     ,nequ  ,nad,ia ,ja 
+     .                     ,ad      ,au    ,al ,b  ,x   
+     .                     ,t       ,v     ,r  ,u  ,r0
+     .                     ,w       ,s 
+     .                     ,tol     ,maxit  
+     .                     ,matvec  ,dot    
+     .                     ,my_id   ,neqf1i,neqf2i 
+     .                     ,neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .                     ,fprint  ,flog   ,fnew)
+c **********************************************************************
+c * Data de criacao    : 01/05/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * BICGSTABL2: Solucao de sistemas de equacoes pelo metodo dos        * 
+c * gradientes biconjugados(2) para matrizes nao-simetricas.           *                                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *                                                                   *
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * t(neq)   - arranjo local de trabalho                               *
+c * v(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * u(neq)   - arranjo local de trabalho                               *
+c * r0(neq)  - arranjo local de trabalho                               *
+c * w(neq)   - arranjo local de trabalho                               *
+c * s(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * fnew     - .true.  x0 igual a zero                                 *
+c *            .false. x0 dado                                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * ad(*),al(*),au(*) e b - inalterados                                *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Versão do livro Iterative krylov Method for large linear Systems   *                                                                      *
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      integer neqf1i,neqf2i,neq_doti
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi
+      integer*8 i_rcvsi,i_dspli
+c .....................................................................   
+      integer neq,nequ,nad
+      integer maxit,i,j,jj,k
+      integer ia(*),ja(*),my_id
+      real*8  ad(*),au(*),al(*),x(*),b(*)
+      real*8  r(*),u(*),t(*),v(*),r0(*),w(*),s(*)
+      real*8  dot,tol,conv,xkx,norm,d
+      real*8  alpha,beta,rr0,rr1,omega1,omega2,mi,ni,gamma,tau,tmp
+      real*8  time0,time
+      real*8  dum1 
+      logical flog,fprint,fnew
+      external matvec,dot
+c ======================================================================
+      time0 = MPI_Wtime()
+c ......................................................................
+c
+c ...
+      do 5 i = 1, neq
+        if(ad(i) .eq. 0.d0 ) then
+          write(*,1000) i
+          call stop_mef()
+        endif 
+   5  continue
+c ......................................................................
+c
+c ... Chute inicial:
+c
+      if(fnew) then  
+        do 10 i = 1, neq
+          x(i)  = 0.d0
+   10   continue
+      endif  
+c .......................................................................
+c
+c ... conv = tol * |b|
+      d    = dot(b,b,neq_doti)
+      conv = tol*dsqrt(dabs(d))
+c .......................................................................
+c
+c ... Ax
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .            x,t,
+     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ...
+      do 100 i = 1, neq
+c ... r0 = b - Ax0
+         r0(i) = b(i) - t(i)
+c ... r = r0
+         r(i)  = r0(i)
+c ... u = 0.0d0
+         u(i)  = 0.d0 
+  100 continue
+c .......................................................................
+c
+c ...
+      rr0     = 1.0d0
+      alpha   = 0.d0
+      omega2  = 1.d0
+c .......................................................................
+c
+c ...
+      jj = 1
+      do 230 j = 1, maxit, 1
+c ... rro = -w2*rr0
+         rr0 = -omega2*rr0 
+c ... even BiCG step:
+c ... rr1 = (r,r0)
+         rr1  = dot(r,r0,neq_doti)
+c ... beta = alpha * rr1/ rr0
+         beta = alpha*rr1/rr0
+c ... rr0 = rr1
+         rr0  = rr1
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... u(j)   = r(j) - beta*u(i)
+           u(i) = r(i) - beta * u(i)
+         enddo        
+c .......................................................................
+c
+c ... v = Au(j)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,u,v
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ...  gamma = (v,r0)
+         gamma = dot(v,r0,neq_doti)
+c ... alpha = rr0 / gamma
+         alpha = rr0/gamma
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... r(j)   = r(j) - alpha*v(i)
+           r(i) = r(i) - alpha * v(i)
+         enddo        
+c .......................................................................
+c
+c ... s = Ar(j)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,r,s
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... x(j) = x(j) + alpha*u
+            x(i) = x(i) + alpha * u(i)
+         enddo   
+c ........................................................................
+c
+c ... odd BiCG step:
+c ... rr1 = (s,r0)
+         rr1  = dot(s,r0,neq_doti)
+c ... beta = alpha*rr1/rr0
+         beta = alpha*rr1/rr0
+c ... rr0 = rr1
+         rr0  = rr1
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... v(j) = s(j) - beta*v
+            v(i) = s(i) - beta * v(i)
+         enddo   
+c ........................................................................
+c
+c ... w = Av(j)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,v,w
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ... gamma = (w,r0) 
+         gamma = dot(w,r0,neq_doti)
+c ... alpha = rr0/gamma
+         alpha = rr0/gamma
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... u(j)   = r(j) - beta*u(i)
+           u(i) = r(i) - beta * u(i)
+c ... r(j)   = r(j) - alpha*v(i)
+           r(i) = r(i) - alpha * v(i)
+c ... s(j)   = s(j) - alpha*w(i)
+           s(i) = s(i) - alpha * w(i)
+         enddo        
+c .......................................................................
+c
+c ... t = As(j)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,s,t
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ... GCR(2)-part
+c ... w1 = (r,s)
+         omega1 = dot(r,s,neq_doti)
+c ... mi = (s,s)
+         mi = dot(s,s,neq_doti)
+c ... ni = (s,t)
+         ni = dot(s,t,neq_doti)
+c ... tau = (t,t)
+         tau = dot(t,t,neq_doti)
+c ... w2
+         omega2 = dot(r,t,neq_doti)
+c ... tau = tau - ni*ni/mi
+         tau = tau - ni*ni/mi
+c ... w2 = (w2 - ni*w1/mi)/tau
+         omega2 = (omega2 - ni*omega1/mi)/tau
+c ... w1 = (w1 - ni*w2)/mi
+         omega1 =(omega1 - ni*omega2)/mi
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... x(j+2) = x(i) + w1 * r(i) + w2 * s(i) + alpha * u(i)
+           x(i) = x(i) + omega1 * r(i) + omega2 * s(i) + alpha * u(i)
+c ... r(j+2) = r(j) - w1 * s(i) - w2 * t(i)
+           r(i) = r(i) - omega1 * s(i) - omega2 * t(i)
+         enddo        
+c .......................................................................
+c
+c ...
+         d  = dot(r,r,neq_doti)
+c ...
+         if (dsqrt(dabs(d)) .lt. conv) goto 300
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... u(j+1) = u(j) - w1 * v(i) - w2 * w(i)
+           u(i) = u(i) - omega1 * v(i) - omega2 * w(i)
+         enddo    
+c .......................................................................
+c
+c ...
+         if( jj .eq.500) then
+           jj = 0
+           if(my_id.eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c ......................................................................
+  230 continue
+c ......................................................................
+c
+c ...
+      if(my_id.eq.0) then
+        write(*,1200) maxit
+        if(fLog) write(10,1200) maxit
+      endif
+      call stop_mef()
+  300 continue
+c ......................................................................
+c
+c ... produto:  x*Kx
+c
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .           ,x,t 
+     .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      xkx =  dot(x,t,neq_doti)
+c .......................................................................
+c
+c ... norm-2 = || x ||
+      norm = dsqrt(dot(x,x,neq_doti))
+c ......................................................................
+c
+c ... r = b - Ax (calculo do residuo explicito)
+      do 310 i = 1, neq
+        r(i) = b(i) - t(i)
+  310 continue
+      tmp  = dot(r,r,neq_doti)
+      tmp = dsqrt(tmp)
+      if( tmp .gt. 3.16d0*conv ) then
+         if(my_id .eq.0 )then
+           write(*,1400) tmp,conv
+         endif 
+      endif
+c ......................................................................
+c
+c ...
+      time = MPI_Wtime()
+      time = time-time0
+c .......................................................................
+c
+c ...
+      if(my_id .eq.0 .and. fprint )then
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+      endif
+c .......................................................................
+c
+c ... Controle de flops
+      if(flog) then
+        if(my_id.eq.0) then
+          write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
+     .       "BICGSTAB(2): "," it ",j, " x * Kx ",xkx," ||x|| ",norm
+     .      ," tol ",tol," time ",time
+        endif
+      endif
+c ......................................................................
+      return
+c ======================================================================
+ 1000 format (/,1x,'SUBROTINA BICCSTAB(2):',/,1x
+     .       ,'Coeficiente da diagonal nulo ',i9)
+ 1100 format(' (BICGSTAB(2)) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * || b ||        = ',d20.6/
+     . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1200 format (' *** WARNING: No convergence reached after ',i9,
+     .        ' iterations !',/)
+ 1300 format (' BICGSTAB(2):',5x,'It',i7,5x,2d20.10)
+ 1400 format (' BICCSTAB(2):',1x,'Residuo exato > 3.16d0*conv '
+     .       ,1x,d20.10,1x,d20.10)
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine pbicgstabl2(neq     ,nequ  ,nad,ia ,ja 
+     .                     ,ad      ,au    ,al  ,m  ,b  ,x   
+     .                     ,t       ,v     ,r  ,u   ,r0
+     .                     ,w       ,s     ,p  ,h   ,z
+     .                     ,tol     ,maxit  
+     .                     ,matvec  ,dot    
+     .                     ,my_id   ,neqf1i,neqf2i 
+     .                     ,neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .                     ,fprint  ,flog   ,fnew)
+c **********************************************************************
+c * Data de criacao    : 01/05/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * PBICGSTABl2  : Solucao de sistemas de equacoes pelo metodo dos     * 
+c * gradientes biconjugados para matrizes nao-simetricas com           *
+c * prendicionador diagonal                                            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *                                                                   *
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * t(neq)   - arranjo local de trabalho                               *
+c * v(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * u(neq)   - arranjo local de trabalho                               *
+c * r0(neq)  - arranjo local de trabalho                               *
+c * w (neq)  - arranjo local de trabalho                               *
+c * s (neq)  - arranjo local de trabalho                               *
+c * p (neq)  - arranjo local de trabalho                               *
+c * h (neq)  - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * fnew     - .true.  x0 igual a zero                                 *
+c *            .false. x0 dado                                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * ad(*),al(*),au(*) e b - inalterados                                *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Versão do livro Iterative krylov Method for large linear Systems   * 
+c * A(M-1)y=b precondicionador a direita                               *                                                                      *
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      integer neqf1i,neqf2i,neq_doti
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi
+      integer*8 i_rcvsi,i_dspli
+c .....................................................................   
+      integer neq,nequ,nad
+      integer maxit,i,j,jj,k
+      integer ia(*),ja(*),my_id
+      real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
+      real*8  r(*),u(*),t(*),v(*),r0(*),w(*),s(*),p(*),z(*),h(*)
+      real*8  dot,tol,conv,xkx,norm,d
+      real*8  alpha,beta,rr0,rr1,omega1,omega2,mi,ni,gamma,tau,tmp
+      real*8  time0,time
+      real*8  dum1 
+      logical flog,fprint,fnew
+      external matvec,dot
+c ======================================================================
+      time0 = MPI_Wtime()
+c ......................................................................
+c
+c ...
+      do 5 i = 1, neq
+        if(ad(i) .eq. 0.d0 ) then
+          write(*,1000) i
+          call stop_mef()
+        endif 
+   5  continue
+c ......................................................................
+c
+c ... Chute inicial:
+c
+      if(fnew) then  
+        do 10 i = 1, neq
+          x(i)  = 0.d0
+   10   continue
+      endif  
+c .......................................................................
+c
+c ... conv = tol * |b|
+      d    = dot(b,b,neq_doti)
+      conv = tol*dsqrt(dabs(d))
+c .......................................................................
+c
+c ... Ax
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1),
+     .            x,t,
+     .            neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ...
+      do 100 i = 1, neq
+c ... r0 = b - Ax0
+         r0(i) = b(i) - t(i)
+c ... r = r0
+         r(i)  = r0(i)
+c ... u = 0.0d0
+         u(i)  = 0.d0 
+  100 continue
+c .......................................................................
+c
+c ...
+      rr0     = 1.0d0
+      alpha   = 0.d0
+      omega2  = 1.d0
+c .......................................................................
+c
+c ...
+      jj = 1
+      do 230 j = 1, maxit, 1
+c ... rro = -w2*rr0
+         rr0 = -omega2*rr0 
+c ... even BiCG step:
+c ... rr1 = (r,r0)
+         rr1  = dot(r,r0,neq_doti)
+c ... beta = alpha * rr1/ rr0
+         beta = alpha*rr1/rr0
+c ... rr0 = rr1
+         rr0  = rr1
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... u(j) = r(j) - beta*u(i)
+           u(i) = r(i) - beta * u(i)
+c ... p    = M(-1)u
+           z(i)= u(i)*m(i) 
+         enddo        
+c .......................................................................
+c
+c ... v = Ap(j) = AM(-1)u
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,z,v
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ...  gamma = (v,r0)
+         gamma = dot(v,r0,neq_doti)
+c ... alpha = rr0 / gamma
+         alpha = rr0/gamma
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... r(j)   = r(j) - alpha*v(i)
+           r(i) = r(i) - alpha * v(i)
+c ... p    = M(-1)r
+           p(i) = r(i)*m(i) 
+         enddo        
+c .......................................................................
+c
+c ... s = Ap(j) = AM(-1)r
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,p,s
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... x(j) = x(j) + alpha*(M-1)u
+            x(i) = x(i) + alpha * z(i)
+         enddo   
+c ........................................................................
+c
+c ... odd BiCG step:
+c ... rr1 = (s,r0)
+         rr1  = dot(s,r0,neq_doti)
+c ... beta = alpha*rr1/rr0
+         beta = alpha*rr1/rr0
+c ... rr0 = rr1
+         rr0  = rr1
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... v(j) = s(j) - beta*v
+           v(i) = s(i) - beta * v(i)
+c ... p    = M(-1)v
+           p(i) = v(i)*m(i) 
+         enddo   
+c ........................................................................
+c
+c ... w = Av(j) = AM(-1)v
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,p,w
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ... gamma = (w,r0) 
+         gamma = dot(w,r0,neq_doti)
+c ... alpha = rr0/gamma
+         alpha = rr0/gamma
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... u(j)   = r(j) - beta*u(i)
+           u(i) = r(i) - beta * u(i)
+c ... r(j)   = r(j) - alpha*v(i)
+           r(i) = r(i) - alpha * v(i)
+c ... s(j)   = s(j) - alpha*w(i)
+           s(i) = s(i) - alpha * w(i)
+c ... p    = M(-1)s
+           p(i) = s(i)*m(i)
+c ... z    = M(-1)u
+           z(i) = u(i)*m(i) 
+c ... h    = M(-1)r
+           h(i) = r(i)*m(i)  
+         enddo        
+c .......................................................................
+c
+c ... t = Ap(j) = AM(-1)s
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,p,t
+     .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+c .......................................................................
+c
+c ... GCR(2)-part
+c ... w1 = (r,s)
+         omega1 = dot(r,s,neq_doti)
+c ... mi = (s,s)
+         mi = dot(s,s,neq_doti)
+c ... ni = (s,t)
+         ni = dot(s,t,neq_doti)
+c ... tau = (t,t)
+         tau = dot(t,t,neq_doti)
+c ... w2
+         omega2 = dot(r,t,neq_doti)
+c ... tau = tau - ni*ni/mi
+         tau = tau - ni*ni/mi
+c ... w2 = (w2 - ni*w1/mi)/tau
+         omega2 = (omega2 - ni*omega1/mi)/tau
+c ... w1 = (w1 - ni*w2)/mi
+         omega1 =(omega1 - ni*omega2)/mi
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... x(j+2) = x(i) + w1 * r(i) + w2 * s(i) + alpha * u(i)
+           x(i) = x(i) + omega1 * h(i) + omega2 * p(i) + alpha * z(i)
+c ... r(j+2) = r(j) - w1 * s(i) - w2 * t(i)
+           r(i) = r(i) - omega1 * s(i) - omega2 * t(i)
+         enddo        
+c .......................................................................
+c
+c ...
+         d  = dot(r,r,neq_doti)
+c ...
+         if (dsqrt(dabs(d)) .lt. conv) goto 300
+c .......................................................................
+c
+c ...
+         do i = 1, neq
+c ... u(j+1) = u(j) - w1 * v(i) - w2 * w(i)
+           u(i) = u(i) - omega1 * v(i) - omega2 * w(i)
+         enddo    
+c .......................................................................
+c
+c ...
+         if( jj .eq.500) then
+           jj = 0
+           if(my_id.eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
+         endif  
+         jj = jj + 1
+c ......................................................................
+  230 continue
+c ......................................................................
+c
+c ...
+      if(my_id.eq.0) then
+        write(*,1200) maxit
+        if(fLog) write(10,1200) maxit
+      endif
+      call stop_mef()
+  300 continue
+c ......................................................................
+c
+c ... produto:  x*Kx
+c
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .           ,x,t 
+     .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
+      xkx =  dot(x,t,neq_doti)
+c .......................................................................
+c
+c ... norm-2 = || x ||
+      norm = dsqrt(dot(x,x,neq_doti))
+c ......................................................................
+c
+c ... r = b - Ax (calculo do residuo explicito)
+      do 310 i = 1, neq
+        r(i) = b(i) - t(i)
+  310 continue
+      tmp  = dot(r,r,neq_doti)
+      tmp = dsqrt(tmp)
+      if( tmp .gt. 3.16d0*conv ) then
+         if(my_id .eq.0 )then
+           write(*,1400) tmp,conv
+         endif 
+      endif
+c ......................................................................
+c
+c ...
+      time = MPI_Wtime()
+      time = time-time0
+c .......................................................................
+c
+c ...
+      if(my_id .eq.0 .and. fprint )then
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+      endif
+c .......................................................................
+c
+c ... Controle de flops
+      if(flog) then
+        if(my_id.eq.0) then
+          write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
+     .       "PBICGSTAB(2): "," it ",j, " x * Kx ",xkx," ||x|| ",norm
+     .      ," tol ",tol," time ",time
+        endif
+      endif
+c ......................................................................
+      return
+c ======================================================================
+ 1000 format (/,1x,'SUBROTINA BICCSTAB(2):',/,1x
+     .       ,'Coeficiente da diagonal nulo ',i9)
+ 1100 format(' (PBICGSTAB(2)) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * || b ||        = ',d20.6/
+     . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1200 format (' *** WARNING: No convergence reached after ',i9,
+     .        ' iterations !',/)
+ 1300 format (' PBICGSTAB(2):',5x,'It',i7,5x,2d20.10)
+ 1400 format (' PBICCSTAB(2):',1x,'Residuo exato > 3.16d0*conv '
+     .       ,1x,d20.10,1x,d20.10)
+      end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine pbicgstab(neq     ,nequ  ,nad,ia ,ja 
      .                    ,ad      ,au    ,al ,m  ,b ,x   
      .                    ,t       ,v     ,r  ,p  ,z ,r0 
@@ -1103,7 +1827,7 @@ c * x(neq) - vetor solucao                                             *
 c * ad(*),al(*),au(*) e b(*)  inalterados                              *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
-c * A(M-1)y=b precondicionador direita                                 *
+c * A(M-1)y=b precondicionador a direita                               *
 c * ------------------------------------------------------------------ *                                                                      *
 c **********************************************************************
       implicit none
@@ -1865,7 +2589,7 @@ c ......................................................................
 c ......................................................................
       time = MPI_Wtime()
 c ......................................................................
-      write(16,*) istep,i,time-time0,time_csr
+c
 c ... calculo de x*(kx)
 c
 c ... x*kx = u*bu + p*bp
@@ -1881,7 +2605,7 @@ c ...
 c ......................................................................
 c
 c ...
-      write(16,*) istep,i,time-time0,time_csr
+      write(16,*) istep,i,time-time0,time_csr,xkx,norm
 c ......................................................................
 c
 c ...
