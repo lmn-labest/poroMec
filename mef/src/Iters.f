@@ -21,9 +21,14 @@ c *                                                                   *
 c * icbicgstab - gradiente bi-conjugados estabilizados fatoracoes     *              
 c * incompletas                                                       *   
 c *                                                                   *
+c * bicgstabl2 - gradiente bi-conjugados estabilizados                *
+c *                                                                   *
+c * pbicgstabl2- gradiente bi-conjugados estabilizados  com            * 
+c * precondicionador diagonal                                         *
+c *                                                                   *
 c * gmres(m) - GMRES com precondicionador diagonal                    *
 c *                                                                   *
-c * pcg_split - resolucao iterativa do problema poro mecanico com     *
+c * block_it_pcg - resolucao iterativa do problema poro mecanico com  *
 c * matriz blocada | Kuu Kup | onde kup = -kpu                        * 
 c *                | kpu Kpp |                                        *
 c * ----------------------------------------------------------------- *
@@ -1869,7 +1874,7 @@ c .......................................................................
 c
 c ... conv = tol * |b|
       d    = dot(b,b,neq_doti)
-      conv = tol*dsqrt(dabs(d))
+      conv = tol*dsqrt(d)
 c .......................................................................
 c
 c ... Ax0
@@ -1882,9 +1887,9 @@ c ...
       do 100 i = 1, neq
 c ... r0 = b - Ax0
          r0(i) = b(i) - z(i)
-c ... r = r0
-         p(i)  = r0(i)
 c ... p = r0
+         p(i)  = r0(i)
+c ... r = r0
          r(i)  = r0(i)
 c ... z = M(-1)p
          z(i)  = p(i)*m(i) 

@@ -244,7 +244,7 @@ c ... Cargas distribuidas no volume e no contorno:
 c
 c ......................................................................
  400  continue
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 1 2 |
 c             2 | no 2 3 |
 c             3 | no 3 4 |     
@@ -534,7 +534,7 @@ c ... Cargas distribuidas no volume e no contorno:
 c
 c ......................................................................
  400  continue
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 1 2 |
 c             2 | no 2 3 |
 c             3 | no 3 4 |     
@@ -879,8 +879,7 @@ c.......................................................................
             wt1 = 0.5d0*det
             do 455 i = 1, 2
               no      = quad_side_node4(i,j)
-c              l1  = (no-1)*3+1
-c              wt1   = h(i)*w
+c             l1  = (no-1)*3+1
               l1    = 2*no-1
               l2    = l1 + 1
               p(l1) = p(l1) - face_f(1)*wt1
@@ -1142,7 +1141,7 @@ c ... Cargas distribuidas no volume e no contorno:
 c
 c ......................................................................
  400  continue
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 1 2 |
 c             2 | no 2 3 |
 c             3 | no 3 4 |     
@@ -1392,19 +1391,34 @@ c ...
       a         = (ym*a1)/(a3*a2)
       b         = ps/a1
       c         = 0.5d0*(a2/a1)
-c .....................................................................
 c
 c ... Matriz Jacobiana:
       call jtetra4(x,hx,hy,hz,det,.true.,nel)
+      call deform3d(hx,hy,hz,u,epsi,4)
+      call stress3d(a,b,c,epsi,p)
 c .....................................................................
 c
 c ... tensao nodal total
-      do 310 i = 1, 4
-c       tp = (i-1)*6 + 1
-        tp  = 6*i - 5
-c .....................................................................
-        call deform3d(hx,hy,hz,u,epsi,4)
-        call stress3d(a,b,c,epsi,p(tp))
+      p(7)  = p(1)
+      p(8)  = p(2)
+      p(9)  = p(3)
+      p(10) = p(4)
+      p(11) = p(5)
+      p(12) = p(6)
+c
+      p(13) = p(1)
+      p(14) = p(2)
+      p(15) = p(3)
+      p(16) = p(4)
+      p(17) = p(5)
+      p(18) = p(6)
+c
+      p(19) = p(1)
+      p(20) = p(2)
+      p(21) = p(3)
+      p(22) = p(4)
+      p(23) = p(5)
+      p(24) = p(6)
 c .....................................................................
   310 continue
 c .....................................................................
@@ -1451,7 +1465,7 @@ c
 c .....................................................................
 c
  430  continue
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 2 3 4  |
 c             2 | no 1 4 3  |
 c             3 | no 1 2 4  |     
@@ -1844,7 +1858,7 @@ c
 c .....................................................................
 c
  430  continue 
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 1 2 3 4 |
 c             2 | no 5 6 7 8 |
 c             3 | no 1 5 6 2 |     
@@ -2299,7 +2313,7 @@ c
 c .....................................................................
 c
  430  continue  
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 2 3 4  8  9 10 |
 c             2 | no 1 4 3  7  9  6 |
 c             3 | no 1 2 4  5 10  7 |     
@@ -2765,7 +2779,7 @@ c
 c .....................................................................
 c
   430 continue
-c ... forca e fluxo distribuida no contorno
+c ... forca distribuida no contorno
 c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
 c             2 | no 5 6 7 8 13 14 15 16 |
 c             3 | no 1 5 6 2 17 13 18  9 |     
