@@ -627,6 +627,7 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
+         i_g = dealloc('gsolver ')
          i_a = dealloc('asolver ')
          i_y = dealloc('ysolver ')   
          i_z = dealloc('zsolver ')     

@@ -444,9 +444,9 @@ c ... norm-2 = || x ||
       norm = dsqrt(dot(x,x,neq_doti))
 c ......................................................................
 c
-c ... r = b - Ax (calculo do residuo explicito)
+c ... r = M(-1)(b - Ax) (calculo do residuo explicito)
       do 310 i = 1, neq
-        r(i) = b(i) - z(i)
+        r(i) = (b(i) - z(i))*m(i)
   310 continue
       tmp  = dot(r,r,neq_doti)
       tmp = dsqrt(tmp)
