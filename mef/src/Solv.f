@@ -84,7 +84,7 @@ c
 c ... precondicionador diagonal:
          if(precond .eq. 2) then 
            precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq)
+           call pre_diag(m,ad,neq,.false.)
            precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
@@ -102,7 +102,15 @@ c ...
            precondtime = Mpi_Wtime() - precondtime 
            call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
            precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+         else if(precond .eq. 5) then
 c ...
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
          endif           
 c ...    Comunicacao da diagonal para o caso non-overlapping:
          if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
@@ -158,7 +166,7 @@ c ... Gmres com precondicionador diagonal:
 c ...    precondicionador diagonal:
          if(diag) then 
            precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq)
+           call pre_diag(m,ad,neq,.false.)
            precondtime = Mpi_Wtime() - precondtime  
 c ...    
          else                           
@@ -282,7 +290,7 @@ c
 c ...    precondicionador diagonal:
          if(precond .eq. 2) then
            precondtime = Mpi_Wtime() - precondtime    
-           call pre_diag(m,ad,neq)
+           call pre_diag(m,ad,neq,.false.)
            precondtime = Mpi_Wtime() - precondtime   
 c .....................................................................
          else if(precond .eq. 3) then
@@ -369,8 +377,8 @@ c ...
 c ...    precondicionador diagonal:
          if(diag) then 
            precondtime = Mpi_Wtime() - precondtime    
-           call pre_diag(m        ,ad        ,nequ)
-           call pre_diag(m(nequ+1),ad(nequ+1),neqp)
+           call pre_diag(m        ,ad        ,nequ,.false.)
+           call pre_diag(m(nequ+1),ad(nequ+1),neqp,.false.)
            precondtime = Mpi_Wtime() - precondtime   
 c ...    
          else                           
@@ -459,7 +467,7 @@ c
 c ... precondicionador diagonal:
          if(precond .eq. 2) then 
            precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq)
+           call pre_diag(m,ad,neq,.false.)
            precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
@@ -529,8 +537,117 @@ c ... mkl_pardiso
           call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),-2)
         endif
         i_z  = dealloc('zsolver ') 
+c ......................................................................
+c
+c ... minres
+      else if(solver .eq. 7 ) then
+c ...
+         i_c = alloc_8('tsolver ',1,neq)
+         i_h = alloc_8('hsolver ',1,neq)
+         i_r = alloc_8('rsolver ',1,neq)
+         i_s = alloc_8('psolver ',1,neq)
+         i_z = alloc_8('zsolver ',1,neq)
+         i_y = alloc_8('ysolver ',1,neq)
+         i_a = alloc_8('asolver ',1,neq)
+         i_g = alloc_8('gsolver ',1,neq)
+c
+c ... precondicionador diagonal:
+         if(precond .eq. 2) then 
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.false.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador LDLT incompleto
+         else if(precond .eq. 3) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime 
+           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador Cholesky LLT incompleto
+         else if(precond .eq. 4) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime 
+           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+         else if(precond .eq. 5) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+         endif 
+c .....................................................................
+c
+c ...   
+        if(precond .eq. 1 ) then
+          call minres(neq    ,nequ,nad     ,ip      ,ja
+     .          ,ad     ,al     ,al      ,b       ,x
+     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z),ia(i_y)
+     .          ,tol    ,maxit
+c ... matvec comum:
+     .          ,matvec_csrc_sym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true.,.true.)
+c .....................................................................
+c
+c ...
+        else if(precond .eq. 2) then
+          call pminres(neq    ,nequ,nad     ,ip      ,ja
+     .          ,ad     ,al  ,al           ,b       ,x    ,m
+     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
+     .          ,ia(i_y),ia(i_a),ia(i_g)
+     .          ,tol    ,maxit
+c ... matvec comum:
+     .          ,matvec_csrc_sym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true.,.true.)
+c .....................................................................
+c
+c ...
+        else if(precond .eq. 5) then
+          call pminres(neq    ,nequ,nad     ,ip      ,ja
+     .          ,ad     ,al  ,al           ,b       ,x    ,m
+     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
+     .          ,ia(i_y),ia(i_a),ia(i_g)
+     .          ,tol    ,maxit
+c ... matvec comum:
+     .          ,matvec_csrc_sym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true.,.true.)
+        endif
+c .....................................................................
+c
+c ...
+         i_a = dealloc('asolver ')
+         i_y = dealloc('ysolver ')   
+         i_z = dealloc('zsolver ')     
+         i_s = dealloc('psolver ')
+         i_r = dealloc('rsolver ')
+         i_h = dealloc('hsolver ')
+         i_c = dealloc('tsolver ')
+c .....................................................................
+c
+c ... mkl_pardiso
+      else if(solver .eq. 9 ) then
+        i_z  = alloc_8('zsolver ',1,neq)
+        if(fmec) then
+          call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),2)
+        else if(fporomec) then
+          call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),-2)
+        endif
+        i_z  = dealloc('zsolver ') 
+c ......................................................................
       endif
-c ......................................................................         
+c ......................................................................           
 c
 c ...                                                                     
       if (omp_solv) then
@@ -570,10 +687,10 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * precond  - precondicionador                                        *
 c *            1 - nenhum                                              *
-c *            2 - diag                                                *
-c *            3 - iLDLt                                               *
-c *            4 -                                                     *
-c *            5 -                                                     *
+c *            2 - diaggonal                                           *
+c *            3 - iLDLt(0)                                            *
+c *            4 - iLLt(0)                                             *
+c *            5 - modulo da diagonal                                  *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -642,7 +759,7 @@ c ... matvec comum:
 c .....................................................................
 c
 c ... pcg - cg com precondicionador diagonal
-      else if(precond .eq. 2) then
+      else if(precond .eq. 2 .or. precond .eq. 5 ) then
 c ...  
         call pcg(neq    ,nequ   ,nad,ia   ,ja
      .          ,ad     ,al     ,al ,m    ,b

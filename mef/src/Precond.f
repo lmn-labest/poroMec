@@ -9,6 +9,8 @@ c * ------------------------------------------------------------------ *
 c * m   - indefinido                                                   *
 c * ad  - coeficientes da diagonal principal                           *
 c * neq - numero de equacoes                                           *
+c * pd  - .true.  modulo da diagonal                                   *
+c *       .false. valor com sinal da diagonal                          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -17,13 +19,27 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c **********************************************************************
-      subroutine pre_diag(m,ad,neq)
+      subroutine pre_diag(m,ad,neq,pd)
       implicit none
       real*8 m(*),ad(*)
       integer i,neq
-      do i = 1, neq
-        m(i) = 1.d0/ad(i)
-      enddo
+      logical pd
+c ... positva definida
+      if(pd) then
+        do i = 1, neq
+          m(i) = dabs(1.d0/ad(i))
+        enddo
+c ....................................................................
+c
+c ...
+      else
+        do i = 1, neq
+          m(i) = 1.d0/ad(i)
+        enddo
+      endif
+c ....................................................................
+c
+c ...
       return
       end
 c **********************************************************************
@@ -921,7 +937,7 @@ c **********************************************************************
       integer precond,nin,my_id
       integer i,nmc 
       data macros/'none  ','diag  ','ildlt '
-     .           ,'illt  ','      ','      '/
+     .           ,'illt  ','diagm ','      '/
       data nmc /6/
 c ...
       write(string,'(6a)') (word(i),i=1,6)
@@ -954,6 +970,14 @@ c ... precondicionador ILLT ( Cholesky )
         precond = 4
         if(my_id.eq.0) then
           write(*,'(1x,a25,1x,a6)')'precond:',macros(4)
+        endif
+c .....................................................................
+c
+c ... precondicionador ILLT ( Cholesky )
+       elseif( string .eq. macros(5)) then
+        precond = 5
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6)')'precond:',macros(5)
         endif
 c .....................................................................
 c
