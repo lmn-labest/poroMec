@@ -46,7 +46,7 @@ c
       call initx(x,n)
 c
 c ...
-      off =  off_forbenius_norm_sym(a,n)
+      off = off_forbenius_norm_sym(a,n)
       if( off .eq. 0.d0) goto 2000
 c .....................................................................
 c

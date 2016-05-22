@@ -10,6 +10,10 @@ c *                                                                   *
 c * ICCG - gradiente conjugados com precondicionador de fatoracoes    *              
 c * incompletas                                                       *
 c *                                                                   *
+c * MINRES - matriz indefinida                                        *
+c *                                                                   *
+c * PMINRES - MINRES com precondicionador diagonal M=D(1/2)D(1/2)     *
+c *                                                                   *
 c * ----------------------------------------------------------------- *
 c * nao-simetricos:                                                   *
 c * ----------------------------------------------------------------- *
@@ -225,7 +229,7 @@ c ......................................................................
       time = time-time0
 c ......................................................................
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,tmp,time
       endif
 c ......................................................................
 c     Controle de flops
@@ -249,6 +253,7 @@ c ======================================================================
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
@@ -329,6 +334,7 @@ c .....................................................................
       real*8  ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8  r(*),z(*),p(*)
       real*8  dot,tol,conv,xkx,norm,d,di,alpha,beta,tmp
+      real*8  norm_r,norm_m_r
       real*8  time0,time
       real*8 dum1
       logical flog,fprint,fnew
@@ -355,7 +361,7 @@ c
       endif  
 c .......................................................................
 c
-c ... conv = tol * |(M-1)b|
+c ... conv = tol * |(M-1)b|m = tol *(b,M-1b)
       do 15 i = 1, neq
          z(i) = b(i) * m(i)
    15 continue
@@ -444,15 +450,18 @@ c ... norm-2 = || x ||
       norm = dsqrt(dot(x,x,neq_doti))
 c ......................................................................
 c
-c ... r = M(-1)(b - Ax) (calculo do residuo explicito)
+c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
       do 310 i = 1, neq
-        r(i) = (b(i) - z(i))*m(i)
+        r(i) = b(i) - z(i)
+        z(i) = r(i)*m(i)
   310 continue
-      tmp  = dot(r,r,neq_doti)
-      tmp = dsqrt(tmp)
-      if( tmp .gt. 3.16d0*conv ) then
+      norm_m_r = dot(r,z,neq_doti)
+      norm_m_r = dsqrt(dabs(norm_m_r))
+      norm_r = dot(r,r,neq_doti)
+      norm_r = dsqrt(norm_r)
+      if( norm_m_r .gt. 3.16d0*conv ) then
          if(my_id .eq.0 )then
-           write(*,1400) tmp,conv
+           write(*,1400) norm_m_r,conv
          endif 
       endif
 c ......................................................................
@@ -460,7 +469,7 @@ c ......................................................................
       time = time-time0
 c ......................................................................
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,norm_m_r,time
       endif
 c ......................................................................
 c
@@ -485,6 +494,8 @@ c ======================================================================
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'|| b - Ax ||m        = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
@@ -2707,6 +2718,7 @@ c .....................................................................
       real*8  ad(*),au(*),al(*),x(*),b(*),r(*),z(*),p(*)
       real*8  m(*)
       real*8  dot,ddot,tol,conv,xkx,norm,d,di,alpha,beta,tmp
+      real*8  norm_r,norm_m_r
       real*8  time0,time
       real*8 dum1
       logical flog,fnew,fprint
@@ -2733,9 +2745,9 @@ c
       endif  
 c ......................................................................
 c
-c ... conv = tol * |(M-1)b|
+c ... conv = tol * |(M-1)b|m = tol *(b,M-1b)
       call triasolv(neq,ia,ja,m,m(neq+1),b,z)
-      d    = dot(z,z,neq_doti)
+      d    = dot(b,z,neq_doti)
       conv = tol*dsqrt(dabs(d))
 c .......................................................................
 c  
@@ -2762,7 +2774,7 @@ c ... p0 = r0
   105 continue
 c .......................................................................      
 c
-c ... ( r(0),z(0) ) = ( r(0), (M-1)r0 )
+c ... ( z(0),z(0) )m = ( r(0), z0 ) (r(0), (M-1)r0 )
       d    = dot(r,z,neq_doti) 
 c .......................................................................
       jj = 1
@@ -2831,14 +2843,19 @@ c ... norm-2 = || x ||
       norm = dsqrt(dot(x,x,neq_doti))
 c ......................................................................
 c
-c ... r = b - Ax (calculo do residuo explicito)
+c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
       do 310 i = 1, neq
         r(i) = b(i) - z(i)
+        z(i) = r(i)*m(i)
   310 continue
-      tmp  = dot(r,r,neq_doti)
-      tmp = dsqrt(tmp)
-      if( tmp .gt. 3.16d0*conv ) then
-        write(*,1400) tmp,conv
+      norm_m_r = dot(r,z,neq_doti)
+      norm_m_r = dsqrt(norm_m_r)
+      norm_r = dot(r,r,neq_doti)
+      norm_r = dsqrt(norm_r)
+      if( norm_m_r .gt. 3.16d0*conv ) then
+         if(my_id .eq.0 )then
+           write(*,1400) norm_m_r,conv
+         endif 
       endif
 c ......................................................................
       time = MPI_Wtime()
@@ -3172,7 +3189,7 @@ c *********************************************************************
      .             ,ad    ,au    ,al  ,b     ,x     ,m
      .             ,v0    ,v     ,w   ,w0    ,w00
      .             ,z     ,z0    ,p
-     .             ,tol   ,maxit
+     .             ,tol   ,maxit ,nrestart
      .             ,matvec,dot
      .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .             ,i_xfi ,i_rcvsi,i_dspli
@@ -3241,7 +3258,7 @@ c ... ponteiros
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
       integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer ia(*),ja(*),my_id,it,nrestart
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  v(*),v0(*),w0(*),w00(*),w(*),z(*),z0(*),p(*)
       real*8  dot,tol,conv,xkx,norm,tmp1,tmp2,tmp3,tmp4
@@ -3252,7 +3269,8 @@ c .....................................................................
       logical flog,fprint,fnew
       external matvec,dot
 c ======================================================================
-      time0 = MPI_Wtime()
+      time0    = MPI_Wtime()
+      it       = 0
 c ......................................................................
 c
 c ...
@@ -3281,6 +3299,7 @@ c ... conv = tol * |M(-1/2)b|
       conv = tol*dsqrt(dabs(tmp1))
 c .......................................................................
 c  
+   50 continue
 c ... Ax0
       call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)  
      .           ,x,z 
@@ -3315,6 +3334,7 @@ c ...
 c ......................................................................
       jj = 1
       do 230 j = 1, maxit
+        it = it + 1
 c ... p = Az(j)
         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
      .             ,z0,p,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli 
@@ -3331,7 +3351,7 @@ c ...
         tmp2 = -alpha/beta
         tmp3 = -beta/beta_old
         do 215 i = 1, neq
-c ... v(j+1) = Av(j) - alpha(j)*v(j) - beta(j)*v(j-1)
+c ... v(j+1) = Az(j) - alpha(j)*v(j) - beta(j)*z(j-1)
           p(i) = tmp1*p(i) + tmp2* v(i) + tmp3 * v0(i)
 c ... Mz = v
           z(i) = p(i)*m(i)
@@ -3347,7 +3367,6 @@ c
 c ... QR part:
 c ... delta = c(j)*alfa(j) - c(j-1)*s(j)*beta(j)
         delta = c*alpha - c_old*s*beta_old
-
 c ... ro2 = s(j)*alpha(j) + c(j-1)*c(j)*beta(j)
         ro2 = s*alpha + c_old*c*beta_old
 c ... ro3 = s(j-1)*beta(j)
@@ -3360,9 +3379,9 @@ c ...
 c .......................................................................
 c
 c ... New Givens rotation for subdiag element:
+        call sym_ortho2(delta,beta,c,s,ro1)
 c ... ro1 = raiz( delta^2 + beta(j+1)^2)
 c     ro1 = dsqrt(delta*delta + beta*beta)
-        call sym_ortho2(delta,beta,c,s,ro1)
 c ... c(j+1) = delta*ro1
 c       c = delta/ro1
 c ... s(j+1) = beta(j+1)/ro1
@@ -3375,7 +3394,7 @@ c ... Update of solution (W = VR^-1)
         tmp3 = -ro3/ro1
         tmp4 = c*neta
         do 220 i = 1, neq
-c ... w(j) = (v(j) - ro2*w(j-1) - ro3*w(j-2))/ro1
+c ... w(j) = (v(j)/beta(j) - ro2*w(j-1) - ro3*w(j-2))/ro1
 c         w(i) = (tmp2*z0(i) - ro2*w0(i) - ro3*w00(i))*tmp1
           w(i) = tmp1*z0(i) + tmp2*w0(i) + tmp3*w00(i)
 c ... x(j) = x(j-1) + c(j+1)*neta*w(i)
@@ -3405,12 +3424,16 @@ c
 c ...
         if( jj .eq. 500) then
           jj = 0
-          write(*,1300),j,normr,conv 
+          write(*,1300)nrestart,it,normr,conv 
         endif  
         jj = jj + 1
 c ......................................................................
   230 continue
 c ......................................................................
+      if( nrestart .ne. 0 ) then
+        nrestart = nrestart - 1
+        goto 50
+      endif
       write(*,1200) maxit
       if(flog) write(10,1200) maxit
       call stop_mef()
@@ -3430,7 +3453,7 @@ c ......................................................................
 c
 c ... r = b - Ax (calculo do residuo explicito)
       do 310 i = 1, neq
-        v(i) = b(i) - z(i)
+        v(i) = (b(i) - z(i))*m(i)
   310 continue
       tmp1 = dot(v,v,neq_doti)
       tmp1 = dsqrt(tmp1)
@@ -3442,14 +3465,14 @@ c ......................................................................
       time = time-time0
 c ......................................................................
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,it,xkx,norm,time
       endif
 c ......................................................................
 c     Controle de flops
       if(flog) then
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
-     .       "PMINRES: "," it ",j, " x * Kx ",xkx," ||x|| ",norm
+     .       "PMINRES: "," it ",it, " x * Kx ",xkx," ||x|| ",norm
      .      ," tol ",tol," time ",time
         endif
       endif
@@ -3469,7 +3492,7 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
- 1300 format (' PMINRES:',5x,'It',i7,5x,2d20.10)
+ 1300 format (' PMINRES:','nrestart',i7,5x,'It',i7,5x,2d20.10)
  1400 format (' PMINRES:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
       end

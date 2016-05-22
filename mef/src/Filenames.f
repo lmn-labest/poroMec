@@ -32,6 +32,7 @@ c * 12 ->                                                             *
 c * 13 ->                                                             *
 c * 14 -> arquivo de tempos                                           *
 c * 15 -> arquivo do log do solver                                    *
+c * 16 -> arquivo do log nao linear                                   *
 c * 30 -> arquivos de resultados por nos                              *
 c * 31 -> arquivos de tensoes total por nos                           *
 c * 32 -> arquivos de tensoes efetivas de terzaghi por nos            *
@@ -86,6 +87,11 @@ c ... log solver
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_log_'//trim(StrExtensao)//'.txt'
+c ... log nao linear
+      elseif(code .eq. 16) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_log_nonlinear'//trim(StrExtensao)//'.txt'
 c ... pu node file 
       elseif(code .eq. 30) then
         write(StrExtensao,'( I6 )') NumArq

@@ -30,7 +30,7 @@ c ... Variaveis para controle de arquivos:
 c
       character*80 prename,fname,name,filein
       character*80 pnodename
-      integer nin,nplot,nout,nout_face
+      integer nin,nplot,nout,nout_face,nout_nonlinear
       integer logsolv,fconf,logsolvd
       integer totfiles,openflag
       integer*8 i_no,i_nfile
@@ -148,8 +148,8 @@ c ......................................................................
 c
 c ... Arquivos de entrada e saida:
 c
-      data nin /1/, nplot /3/, logsolv /10/, nout /15/,
-     .     logsolvd /16/, nout_face /17/ 
+      data nin /1/, nplot /3/, nout_nonlinear /4/ , logsolv /10/
+     .    , nout /15/,logsolvd /16/, nout_face /17/ 
       data fconf /5/
       data flag_pnd /.false./ 
 c     arquivo de impressao de nos associados aos seguintes inteiros
@@ -281,17 +281,22 @@ c ...    Testa se todos abriram sem erro:
    20 continue
 c ......................................................................   
       if (my_id .eq. 0) then   
-c ... intervace de linha de comando        
+c ... interface de linha de comando        
         if(nargs .eq. 2) then
           call getarg(2,arg)
           prename = arg
         else
           print*, 'Arquivo de saida: '
           read(*,'(a)') prename
-        endif 
+        endif
+c ... log do solver 
         fname = name(prename,nprcs,15)
         open(logsolv,file=fname)
         write(logsolv,'(a)') 'Solver control flop.'
+c ... log do nao linear 
+        fname = name(prename,nprcs,16)
+        open(nout_nonlinear,file=fname)
+        write(nout_nonlinear,'(a)') 'Non-linear control flop.'
       endif
 c ......................................................................      
       call MPI_barrier(MPI_COMM_WORLD,ierr)
@@ -622,11 +627,14 @@ c ...
 c .....................................................................
 c
 c ...
-      if(my_id.eq.0)write(*,'(a,i8,a,f15.5,a,f15.5,a,f15.5)')
+      if(my_id.eq.0) then
+        write(*,'(a,i8,a,f15.5,a,f15.5,a,f15.5)')
      .                                  ,' STEP '      ,istep
      .                                  ,' Time(s)'    ,t
      .                                  ,' Time(horas)',t/3600.d0
      .                                  ,' Time(dias)' ,t/86400.d0
+        write(nout_nonlinear,'(a,i7,f15.5)')'step',istep,t
+      endif
 c .....................................................................
 c
 c ... Cargas nodais e valores prescritos no tempo t+dt:
@@ -695,7 +703,7 @@ c loop nao linear:
 c ---------------------------------------------------------------------
   410 continue
 c ... Loop multi-corretor:      
-      if(my_id.eq.0) print*,'nonlinear iteration ',i
+      if(my_id.eq.0) print*,'nonlinear iteration ',i      
 c ...
       timei = MPI_Wtime()
       call aequalb(ia(i_b),ia(i_b0),neq)
@@ -725,6 +733,7 @@ c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
       if(i .eq. 1) resid0 = max(resid0,resid)
       print*,'resid/resid0',resid/resid0,'resid',resid
+      write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid
       if ((resid/resid0) .lt. tol) goto 420     
 c ......................................................................            
 c
@@ -1872,8 +1881,10 @@ c ......................................................................
       if(my_id.eq.0)print*, 'Macro STOP'
 c ... fecha o arquivo de entrada de dados
       close(nin)
-c ... fecha o arquivo gid , view3d  e log do solv
+c ... fecha log do solv e do loop nao linear
       close(logsolv)
+      close(nout_nonlinear)
+c ... fecha arquivo extra dp log do solv block_pcg_it
       if(solver .eq. 5 ) close(logsolvd)
 c .....................................................................
 c
