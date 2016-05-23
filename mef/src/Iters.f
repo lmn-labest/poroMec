@@ -865,7 +865,7 @@ c .....................................................................
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),b(*)
       real*8  r(*),p(*),t(*),v(*),r0(*)
-      real*8  dot,tol,conv,xkx,norm,d,alpha,beta,rr0,w,tmp
+      real*8  dot,tol,conv,xkx,norm,d,alpha,beta,rr0,w,tmp,norm_r
       real*8  time0,time
       real*8  dum1 
       logical flog,fprint,fnew
@@ -1016,7 +1016,7 @@ c ... r = b - Ax (calculo do residuo explicito)
         r(i) = b(i) - p(i)
   310 continue
       tmp  = dot(r,r,neq_doti)
-      tmp = dsqrt(tmp)
+      norm_r = dsqrt(tmp)
       if( tmp .gt. 3.16d0*conv ) then
          if(my_id .eq.0 )then
            write(*,1400) tmp,conv
@@ -1031,7 +1031,7 @@ c .......................................................................
 c
 c ...
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,time
       endif
 c .......................................................................
 c
@@ -1055,6 +1055,7 @@ c ======================================================================
      . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
@@ -1497,10 +1498,12 @@ c .....................................................................
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  r(*),u(*),t(*),v(*),r0(*),w(*),s(*),p(*),z(*),h(*)
-      real*8  dot,tol,conv,xkx,norm,d
+      real*8  dot,tol,conv,xkx,norm,d,morm_r
       real*8  alpha,beta,rr0,rr1,omega1,omega2,mi,ni,gamma,tau,tmp
       real*8  time0,time
       real*8  dum1 
+      real*8  breaktol,btol
+      parameter (btol = 1.d-32)
       logical flog,fprint,fnew
       external matvec,dot
 c ======================================================================
@@ -1558,6 +1561,10 @@ c ...
       do 230 j = 1, maxit, 1
 c ... rro = -w2*rr0
          rr0 = -omega2*rr0 
+         if( dabs(rr0) .lt. breaktol) then
+           write(*,1510)dabs(rr0)
+           call stop_mef() 
+         endif  
 c ... even BiCG step:
 c ... rr1 = (r,r0)
          rr1  = dot(r,r0,neq_doti)
@@ -1740,7 +1747,7 @@ c ... r = b - Ax (calculo do residuo explicito)
         r(i) = b(i) - t(i)
   310 continue
       tmp  = dot(r,r,neq_doti)
-      tmp = dsqrt(tmp)
+      morm_r = dsqrt(tmp)
       if( tmp .gt. 3.16d0*conv ) then
          if(my_id .eq.0 )then
            write(*,1400) tmp,conv
@@ -1755,7 +1762,7 @@ c .......................................................................
 c
 c ...
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,morm_r,time
       endif
 c .......................................................................
 c
@@ -1780,12 +1787,14 @@ c ======================================================================
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' PBICGSTAB(2):',5x,'It',i7,5x,2d20.10)
  1400 format (' PBICCSTAB(2):',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
+ 1510 format (' PBICGSTAB:',1x,'Breakdown:',1x,'(r0)',1x,d20.10)
       end
 c **********************************************************************
 c
@@ -1863,10 +1872,12 @@ c .....................................................................
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  r(*),p(*),t(*),v(*),z(*),r0(*)
-      real*8  dot,tol,conv,d,alpha,beta,rr0,w,xkx,norm,tmp
+      real*8  dot,tol,conv,d,alpha,beta,rr0,w,xkx,norm,tmp,norm_r
       real*8  time0,time
+      real*8  breaktol,btol
+      parameter (btol = 1.d-32)
       real*8  dum1 
-      logical flog,fprint,fnew
+      logical flog,fprint,fnew,f
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
@@ -1891,9 +1902,11 @@ c
 c ... conv = tol * |b|
       d    = dot(b,b,neq_doti)
       conv = tol*dsqrt(d)
+      breaktol = btol*dsqrt(d)
 c .......................................................................
 c
 c ... Ax0
+   
       call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
      .           ,x,z 
      .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,dum1)
@@ -1923,6 +1936,10 @@ c .......................................................................
 c
 c ... alpha = ( r(j),r0 ) / ( AM(-1)p(j), r0 ))
          rr0   = dot(r,r0,neq_doti)
+         if( dsqrt(dabs(rr0)) .lt. breaktol) then
+           write(*,1510)dabs(rr0)
+           call stop_mef() 
+         endif 
          alpha = rr0/dot(v,r0,neq_doti)
 c .......................................................................
 c
@@ -1951,6 +1968,11 @@ c ........................................................................
 c
 c ... w = ( AM(-1)s(j) ,s(j) ) / ( AM(-1)s(j), AM(-1)s(j) )
          w = dot(t,r,neq_doti) / dot(t,t,neq_doti)
+         if( dabs(w) .lt. breaktol) then
+           print*,breaktol
+           write(*,1515),dabs(w)
+           call stop_mef()
+         endif 
 c ........................................................................
 c
 c ... 
@@ -2017,7 +2039,7 @@ c ... r = b - Ax (calculo do residuo explicito)
         r(i) = b(i) - z(i)
   310 continue
       tmp  = dot(r,r,neq_doti)
-      tmp = dsqrt(tmp)
+      norm_r = dsqrt(tmp)
       if( tmp .gt. 3.16d0*conv ) then
         write(*,1400) tmp,conv
       endif
@@ -2030,7 +2052,7 @@ c .......................................................................
 c
 c ...
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,time
       endif
 c .......................................................................
 c
@@ -2055,12 +2077,15 @@ c ======================================================================
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' PBICGSTAB:',5x,'It',i7,5x,2d20.10)
  1400 format (' PBICGSTAB:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
+ 1510 format (' PBICGSTAB:',1x,'Breakdown:',1x,'(r,r0)',1x,d20.10)
+ 1515 format (' PBICGSTAB:',1x,'Breakdown:',1x,'w',1x,d20.10)
       end
 c *********************************************************************
 c

@@ -301,12 +301,20 @@ c ...    precondicionador diagonal:
            call pre_diag(m,ad,neq,.false.)
            precondtime = Mpi_Wtime() - precondtime   
 c .....................................................................
+c
+c ... precondicionador LDLT incompleto
          else if(precond .eq. 3) then
 c ...
            precondtime = Mpi_Wtime() - precondtime 
            call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
            precondtime = Mpi_Wtime() - precondtime 
+c ... precondicionador modulo da diagonal:
+         else if(precond .eq. 5) then
 c ...
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c ....
          endif           
 c ...    Comunicacao da diagonal para o caso non-overlapping:
          if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
@@ -493,7 +501,15 @@ c ...
            precondtime = Mpi_Wtime() - precondtime 
            call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
            precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+         else if(precond .eq. 5) then
 c ...
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c ....
          endif 
 c ......................................................................
 c
@@ -906,7 +922,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 14/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 23/05/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_BICGSTABCG : chama a versao do Bbicgstab desejada             *    
 c * ------------------------------------------------------------------ * 
@@ -935,7 +951,7 @@ c *            1 - nenhum                                              *
 c *            2 - diag                                                *
 c *            3 - iLDLt                                               *
 c *            4 -                                                     *
-c *            5 -                                                     *
+c *            5 - modulo da diagonal                                  *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -1004,7 +1020,7 @@ c ... matvec comum:
 c .....................................................................
 c
 c ... pbicgstab - bicgstab com precondicionador diagonal
-      else if(precond .eq. 2) then
+      else if(precond .eq. 2 .or. precond .eq. 5) then
 c ...  
         call pbicgstab(neq   ,nequ   ,nad    ,ia   ,ja      
      .                ,ad    ,al     ,al     ,m    ,b      ,x  
@@ -1042,9 +1058,9 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 14/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 23/05/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * CALL_BICGSTABCGL@ : chama a versao do bicgstabl2 desejada          *    
+c * CALL_BICGSTABCGL2 : chama a versao do bicgstabl2 desejada          *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1075,7 +1091,7 @@ c *            1 - nenhum                                              *
 c *            2 - diag                                                *
 c *            3 - iLDLt                                               *
 c *            4 -                                                     *
-c *            5 -                                                     *
+c *            5 - modulo da diagonal                                  *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -1146,7 +1162,7 @@ c ... matvec comum:
 c .....................................................................
 c
 c ... pbicgstabl2 - bicgstabl2 com precondicionador diagonal
-      else if(precond .eq. 2) then
+      else if(precond .eq. 2 .or. precond .eq. 5 ) then
          call pbicgstabl2(neq     ,nequ   ,nad,ia ,ja 
      .          ,ad      ,al     ,al ,m  ,b  ,x   
      .          ,c       ,h      ,r      ,s      ,z      
