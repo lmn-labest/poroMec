@@ -1,15 +1,23 @@
 c **********************************************************************
 c *                                                                    *
 c *   SOLV_PM.F                                            06/12/2015  *
-c *                                                                    *
+c *                                                        23/05/2016  *
 c *   Metodos iterativos de solucao:                                   *
 c *                                                                    *
+c *   cg                                                               *
 c *   pcg                                                              *
-c *   gmres                                                            *
-c *   pbcgstab                                                         *
-c *   pcg_block_it                                                     *
-c *   pardiso mkl                                                      *
-c *                                                                    *
+c *   iccg                                                             *              
+c *   minres                                                           *
+c *   pminres                                                          *
+c *   cr                                                               * 
+c *   pcr                                                              * 
+c *   bicgstab                                                         *
+c *   pbicgstab                                                        * 
+c *   icbicgstab                                                       *                
+c *   bicgstabl2                                                       *
+c *   pbicgstabl2                                                      * 
+c *   gmres(m)                                                         *
+c *   block_it_pcg                                                     *
 c **********************************************************************
       subroutine solv_pm(neq    ,nequ    ,neqp
      .                  ,nad    ,naduu   ,nadpp
@@ -585,8 +593,8 @@ c .....................................................................
 c .....................................................................
 c
 c ...   
-        if(precond .eq. 1 ) then
-          call minres(neq    ,nequ,nad     ,ip      ,ja
+         if(precond .eq. 1 ) then
+           call minres(neq    ,nequ,nad     ,ip      ,ja
      .          ,ad     ,al     ,al      ,b       ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z),ia(i_y)
      .          ,tol    ,maxit
@@ -598,8 +606,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-        else if(precond .eq. 2) then
-          call pminres(neq    ,nequ,nad     ,ip      ,ja
+         else if(precond .eq. 2) then
+           call pminres(neq    ,nequ,nad     ,ip      ,ja
      .          ,ad     ,al  ,al           ,b       ,x    ,m
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,ia(i_y),ia(i_a),ia(i_g)
@@ -612,8 +620,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-        else if(precond .eq. 5) then
-          call pminres(neq    ,nequ,nad     ,ip      ,ja
+         else if(precond .eq. 5) then
+           call pminres(neq    ,nequ,nad     ,ip      ,ja
      .          ,ad     ,al  ,al           ,b       ,x    ,m
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,ia(i_y),ia(i_a),ia(i_g)
@@ -623,12 +631,105 @@ c ... matvec comum:
      .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true.,.true.)
-        endif
+         endif
 c .....................................................................
 c
 c ...
          i_g = dealloc('gsolver ')
          i_a = dealloc('asolver ')
+         i_y = dealloc('ysolver ')   
+         i_z = dealloc('zsolver ')     
+         i_s = dealloc('psolver ')
+         i_r = dealloc('rsolver ')
+         i_h = dealloc('hsolver ')
+         i_c = dealloc('tsolver ')
+c .....................................................................
+c
+c ... CR - Conjugate Residual
+      else if(solver .eq. 8 ) then
+c ...
+         i_c = alloc_8('tsolver ',1,neq)
+         i_h = alloc_8('hsolver ',1,neq)
+         i_r = alloc_8('rsolver ',1,neq)
+         i_s = alloc_8('psolver ',1,neq)
+         i_z = alloc_8('zsolver ',1,neq)
+         i_y = alloc_8('ysolver ',1,neq)
+c ... precondicionador diagonal:
+         if(precond .eq. 2) then 
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.false.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador LDLT incompleto
+         else if(precond .eq. 3) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime 
+           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador Cholesky LLT incompleto
+         else if(precond .eq. 4) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime 
+           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+         else if(precond .eq. 5) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime  
+           call pre_diag(m,ad,neq,.true.)
+           precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+         endif 
+c .....................................................................
+c
+c ...   
+         if(precond .eq. 1 ) then
+           call cr(neq  ,nequ   ,nad     ,ip     ,ja
+     .          ,ad     ,al     ,al      ,b      ,x
+     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
+     .          ,tol    ,maxit
+c ... matvec comum:
+     .          ,matvec_csrc_sym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true.,.true.)
+c .....................................................................
+c
+c ...
+         else if(precond .eq. 2) then
+           call pcr(neq  ,nequ   ,nad     ,ip    ,ja
+     .          ,ad     ,al     ,al      ,b      ,m      ,x
+     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
+     .          ,ia(i_y)  
+     .          ,tol    ,maxit
+c ... matvec comum:
+     .          ,matvec_csrc_sym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true.,.true.)
+c .....................................................................
+c
+c ...
+         else if(precond .eq. 5) then
+           call pcr(neq  ,nequ  ,nad     ,ip    ,ja
+     .          ,ad     ,al     ,al      ,b     ,m      ,x
+     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
+     .          ,ia(i_y)  
+     .          ,tol    ,maxit
+c ... matvec comum:
+     .          ,matvec_csrc_sym_pm,dot_par 
+     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .          ,i_xfi ,i_rcvsi,i_dspli
+     .          ,.true.,.true.,.true.)
+         endif
+c .....................................................................
+c
+c ...
          i_y = dealloc('ysolver ')   
          i_z = dealloc('zsolver ')     
          i_s = dealloc('psolver ')

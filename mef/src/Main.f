@@ -140,7 +140,7 @@ c
       data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
      .'pgeo    ','pgeoquad','block_pu','gravity ','pardiso ','gmres   ',
      .'deltatc ','pcoo    ','bcgs    ','pcg     ','pres    ','spcgm   ',
-     .'solvm   ','pmecres ','bcgsl2  ','minres  ','        ','        ',
+     .'solvm   ','pmecres ','bcgsl2  ','minres  ','pcr     ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','        ','setpnode','        ','        ','pnup    ',
      .'pnsf    ','config  ','maxit   ','solvtol ','stop    '/
@@ -202,7 +202,7 @@ c                5 - diagm
       maxnlit =  2 
       tol     =  1.d-04
       ngram   =  50
-      precond =  2
+      precond =  5
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -210,10 +210,10 @@ c ... ctol    =  tolerancia do ciclo externo do pcg duplo
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
 c ... solver  =  1 (pcg)       , 2 (gmres)       , 3 (gauss / LDU)
 c                4 (bicgstab)  , 5 (block_pcg_it), 6 (bicgstabl2) 
-c                7 (minres)                      , 9 (pardiso)
+c                7 (minres)    , 8 (pcr)         , 9 (pardiso)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
-      solver  =  1
+      solver  =  8
       stge    =  1
 c     block_pu= .true.
       n_blocks_pu = 0 
@@ -1525,11 +1525,11 @@ c ----------------------------------------------------------------------
 c
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: PMINRES
 c
 c ......................................................................
  2100 continue
-      if(my_id.eq.0)print*, 'Macro MINRES'
+      if(my_id.eq.0)print*, 'Macro PMINRES'
       solver = 7 
 c ... numero maximo de iteracoes
       call readmacro(nin,.false.)
@@ -1557,21 +1557,50 @@ c ... precondicionador
 c ......................................................................
       goto 50
  2102 continue
-      print*,'Erro na leitura da macro (MINRES) maxit !'
+      print*,'Erro na leitura da macro (PMINRES) maxit !'
       goto 5000
  2103 continue
-      print*,'Erro na leitura da macro (MINRES) solvtol !'
+      print*,'Erro na leitura da macro (PMINRES) solvtol !'
       goto 5000
 c ----------------------------------------------------------------------
-      goto 50
-c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: PCR
 c
 c ......................................................................
  2200 continue
-      print*, 'Macro     '
+      if(my_id.eq.0)print*, 'Macro PCR'
+      solver = 8 
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2202,end =2202) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2203,end =2203) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
+c ......................................................................
+c
+c ... precondicionador
+      call readmacro(nin,.false.)
+      write(string,'(6a)') (word(i),i=1,6)
+      call set_precond(word,precond,nin,my_id)  
+c ......................................................................
       goto 50
+ 2202 continue
+      print*,'Erro na leitura da macro (PCR) maxit !'
+      goto 5000
+ 2203 continue
+      print*,'Erro na leitura da macro (PCR) solvtol !'
+      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:
