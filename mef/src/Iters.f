@@ -3093,8 +3093,6 @@ c
 c ... QR part:
 c ... delta = c(j)*alfa(j) - c(j-1)*s(j)*beta(j)
         delta = c*alpha - c_old*s*beta_old
-c ... ro1 = raiz( delta^2 + beta(j+1)^2)
-        ro1 = dsqrt(delta*delta + beta*beta)
 c ... ro2 = s(j)*alpha(j) + c(j-1)*c(j)*beta(j)
         ro2 = s*alpha + c_old*c*beta_old
 c ... ro3 = s(j-1)*beta(j)
@@ -3107,10 +3105,13 @@ c ...
 c .......................................................................
 c
 c ... New Givens rotation for subdiag element:
+      call sym_ortho(delta,beta,c,s,ro1)
+c ... ro1 = raiz( delta^2 + beta(j+1)^2)
+c       ro1 = dsqrt(delta*delta + beta*beta)
 c ... c(j+1) = delta*ro1
-        c = delta/ro1
+c       c = delta/ro1
 c ... s(j+1) = beta(j+1)/ro1
-        s = beta/ro1
+c       s = beta/ro1
 c .........................................................................
 c
 c ... Update of solution (W = VR^-1) 
@@ -3292,7 +3293,7 @@ c .....................................................................
       real*8  v(*),v0(*),w0(*),w00(*),w(*),z(*),z0(*),p(*)
       real*8  dot,tol,conv,xkx,norm,tmp1,tmp2,tmp3,tmp4
       real*8  neta,beta_old,beta,c_old,c,s_old,s,normr
-      real*8  ro1,ro2,ro3,alpha,delta
+      real*8  ro1,ro2,ro3,alpha,delta,norm_m_r,norm_r
       real*8  time0,time
       real*8 dum1
       logical flog,fprint,fnew
@@ -3322,7 +3323,7 @@ c .......................................................................
 c
 c ... conv = tol * |M(-1/2)b|
       do 15 i = 1, neq
-        z(i)  = b(i)*dsqrt(m(i))
+        z(i)  = b(i)*dsqrt(dabs(m(i)))
    15 continue
       tmp1 = dot(z,z,neq_doti)
       conv = tol*dsqrt(dabs(tmp1))
@@ -3382,7 +3383,7 @@ c ...
         do 215 i = 1, neq
 c ... v(j+1) = Az(j) - alpha(j)*v(j) - beta(j)*z(j-1)
           p(i) = tmp1*p(i) + tmp2* v(i) + tmp3 * v0(i)
-c ... Mz = v
+c ... z  =M(-1)v
           z(i) = p(i)*m(i)
   215   continue
 c .....................................................................
@@ -3408,9 +3409,9 @@ c ...
 c .......................................................................
 c
 c ... New Givens rotation for subdiag element:
-        call sym_ortho2(delta,beta,c,s,ro1)
+        call sym_ortho(delta,beta,c,s,ro1)
 c ... ro1 = raiz( delta^2 + beta(j+1)^2)
-c     ro1 = dsqrt(delta*delta + beta*beta)
+c       ro1 = dsqrt(delta*delta + beta*beta)
 c ... c(j+1) = delta*ro1
 c       c = delta/ro1
 c ... s(j+1) = beta(j+1)/ro1
@@ -3482,19 +3483,22 @@ c ......................................................................
 c
 c ... r = b - Ax (calculo do residuo explicito)
       do 310 i = 1, neq
-        v(i) = (b(i) - z(i))*m(i)
+        v(i) = b(i) - z(i)
+        z(i) = v(i)*dsqrt(dabs(m(i)))
   310 continue
-      tmp1 = dot(v,v,neq_doti)
-      tmp1 = dsqrt(tmp1)
-      if( tmp1 .gt. 3.16*conv ) then
-        write(*,1400) tmp1,conv
+      tmp1     = dot(v,v,neq_doti)
+      norm_r   = dsqrt(tmp1)
+      tmp1     = dot(z,z,neq_doti)
+      norm_m_r = dsqrt(tmp1)
+      if( norm_m_r .gt. 3.16*conv ) then
+        write(*,1400) norm_m_r,conv
       endif
 c ......................................................................
       time = MPI_Wtime()
       time = time-time0
 c ......................................................................
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,it,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,it,xkx,norm,norm_r,time
       endif
 c ......................................................................
 c     Controle de flops
@@ -3512,12 +3516,13 @@ c ======================================================================
      . '- equacao ',i9)
  1100 format(' (PMINRES) solver:'/
      . 5x,'Solver tol           = ',d20.6/
-     . 5x,'tol * || b ||        = ',d20.6/
+     . 5x,'tol * || M(-1/2)b || = ',d20.6/
      . 5x,'Number of equations  = ',i20/
      . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
@@ -4209,12 +4214,12 @@ c1200 format (' *** WARNING: No convergence reached after ',i4,
 c    .        ' iterations !',/)
 c     end
 c **********************************************************************
-      subroutine sym_ortho2(a,b,c,s,r)
+      subroutine sym_ortho(a,b,c,s,r)
 c **********************************************************************
 c * Data de criacao    : 18/05/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *
-c * SYM_ORTHO2: Givens rotation                                        * 
+c * SYM_ORTHO: Givens rotation                                        * 
 c * (versa com melhor comportamento numerico)                          *      
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -4238,30 +4243,69 @@ c * | s -c | | b |    |        0        |   | 0 |                      *
 c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
-      real*8 a,b,c,s,r,t,ma,mb
+      real*8 a,b,c,s,r,t,ma,mb,sa,sb
       real*8 sign1
 c ...      
       ma = dabs(a)
       mb = dabs(b)
+      sa = sign1(a)
+      sb = sign1(b)
 c .....................................................................
 c
-c ...     
-      c = 1.d0
-      s = 0.d0   
-      r = a
-      if(b .ne. 0.d0) then
-        if( mb .gt. ma) then
-          t = a/b
-          s = 1.d0/dsqrt(1.d0 + t*t)
-          c = s*t
-          r = b/s
-        else 
-          t = b/a
-          c = 1.d0/dsqrt(1.d0+t*t)
-          s = c*t
-          r = a/c
+c ...        
+      if(b .eq. 0.d0) then
+        s = 0.d0
+        r = ma
+        if ( a .eq. 0.d0) then
+          c = 1.0d0
+        else
+          c = sa
         endif
+      else if( a .eq. 0.d0) then
+        c = 0.d0
+        s = sb
+        r = mb
+      else if( mb .gt. a) then
+        t = a/b
+        s = sb/dsqrt(1.d0 + t*t)
+        c = s*t
+        r = b/s
+      else if( ma .gt. mb ) then
+        t = b/a
+        c = sa/dsqrt(1.d0+t*t)
+        s = c*t
+        r = a/c
       endif
       return
       end
 c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 18/05/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *
+c * SIGN1 : retorna o sinal de a                                       * 
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * a   - paramentro                                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * 0.0d0, 1.d0 ou -1.d0
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      real*8 function sign1(a)
+      implicit none
+      real*8 a
+      sign1 = 0.0d0
+      if( a .gt. 0.d0) then
+        sign1 = 1.d0
+      else if( a .lt. 0.d0) then
+        sign1 = -1.d0
+      endif
+      return
+      end
+c ***********************************************************************

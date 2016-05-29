@@ -41,7 +41,7 @@ c ... ponteiros
 c ......................................................................
       integer neq3i,neq4i,neq_doti
       integer ip(*),ja(*),neq,nequ,neqp,nad,naduu,nadpp
-      integer maxit,solver,ngram,istep,n_blocks_up
+      integer maxit,solver,ngram,istep,n_blocks_up,nrestart
       real*8  ad(*),al(*),m(*),x(*),b(*),tol,energy
 c ... pcg duplo
       integer cmaxit
@@ -565,6 +565,7 @@ c ......................................................................
 c
 c ... minres
       else if(solver .eq. 7 ) then
+         nrestart = 10
 c ...
          i_c = alloc_8('tsolver ',1,neq)
          i_h = alloc_8('hsolver ',1,neq)
@@ -627,7 +628,7 @@ c ...
      .          ,ad     ,al  ,al           ,b       ,x    ,m
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,ia(i_y),ia(i_a),ia(i_g)
-     .          ,tol    ,maxit
+     .          ,tol    ,maxit  ,nrestart
 c ... matvec comum:
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
@@ -641,7 +642,7 @@ c ...
      .          ,ad     ,al  ,al           ,b       ,x    ,m
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,ia(i_y),ia(i_a),ia(i_g)
-     .          ,tol    ,maxit
+     .          ,tol    ,maxit  ,nrestart 
 c ... matvec comum:
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
