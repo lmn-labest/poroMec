@@ -17,6 +17,7 @@ c *   icbicgstab                                                       *
 c *   bicgstabl2                                                       *
 c *   pbicgstabl2                                                      * 
 c *   gmres(m)                                                         *
+c *   gmres2(m)                                                        *
 c *   block_it_pcg                                                     *
 c **********************************************************************
       subroutine solv_pm(neq    ,nequ    ,neqp
@@ -212,7 +213,7 @@ c .....................................................................
 c
 c ... sequencial
            else 
-             call gmres(neq,nequ,nad,ip,ja 
+             call gmres2(neq,nequ,nad,ip,ja 
      .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
      .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
      .                 ,tol    ,maxit   
@@ -243,7 +244,7 @@ c .....................................................................
 c
 c ... sequencial
            else 
-             call gmres(neq,nequ,nad,ip,ja 
+             call gmres2(neq,nequ,nad,ip,ja 
      .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
      .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
      .                 ,tol    ,maxit   
