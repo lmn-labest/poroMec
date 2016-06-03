@@ -140,7 +140,7 @@ c
       data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
      .'pgeo    ','pgeoquad','block_pu','gravity ','pardiso ','gmres   ',
      .'deltatc ','pcoo    ','bcgs    ','pcg     ','pres    ','spcgm   ',
-     .'solvm   ','pmecres ','bcgsl2  ','minres  ','pcr     ','        ',
+     .'solvm   ','pmecres ','bcgsl2  ','minres  ','pcr     ','symmlq  ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','        ','setpnode','        ','        ','pnup    ',
      .'pnsf    ','config  ','maxit   ','solvtol ','stop    '/
@@ -202,7 +202,7 @@ c                5 - diagm
       maxnlit =  2 
       tol     =  1.d-04
       ngram   =  50
-      precond =  5
+      precond =  2
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -210,7 +210,8 @@ c ... ctol    =  tolerancia do ciclo externo do pcg duplo
 c ... unsym   =  true -> matriz de coeficientes nao-simetrica      
 c ... solver  =  1 (pcg)       , 2 (gmres)       , 3 (gauss / LDU)
 c                4 (bicgstab)  , 5 (block_pcg_it), 6 (bicgstabl2) 
-c                7 (minres)    , 8 (pcr)         , 9 (pardiso)
+c                7 (minres)    , 8 (pcr)         , 9 (symmlq)
+c               10 (pardiso)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
       solver  =  8
@@ -920,7 +921,7 @@ c
 c ......................................................................
  1000 continue
       if(my_id.eq.0)print*, 'Macro PARDISO'
-      solver = 9 
+      solver = 10 
       stge   = 6
       goto 50
 c ......................................................................
@@ -1603,12 +1604,43 @@ c ......................................................................
       goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
+c ... Macro-comando: SYMMLQ
 c
 c ......................................................................
  2300 continue
-      print*, 'Macro     '
+      if(my_id.eq.0)print*, 'Macro SYMMLQ'
+      solver = 9 
+c ... numero maximo de iteracoes
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2302,end =2302) maxit    
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
+      endif
+c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2303,end =2303) solvtol   
+      if( solvtol .eq. 0.d0) solvtol = smachn()
+      if(my_id.eq.0) then
+        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
+      endif
+c ......................................................................
+c
+c ... precondicionador
+      call readmacro(nin,.false.)
+      write(string,'(6a)') (word(i),i=1,6)
+      call set_precond(word,precond,nin,my_id)  
+c ......................................................................
       goto 50
+ 2302 continue
+      print*,'Erro na leitura da macro (SYMMLQ) maxit !'
+      goto 5000
+ 2303 continue
+      print*,'Erro na leitura da macro (SYMMLQ) solvtol !'
+      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:
