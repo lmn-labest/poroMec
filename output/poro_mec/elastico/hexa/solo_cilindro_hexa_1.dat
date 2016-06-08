@@ -1,0 +1,35 @@
+config 
+memory 400 omp_elmt false nth_elmt 2 omp_solver false nth_solver 2 reord false bvtk false
+end config
+//gmres 250 1000 0.0d0 
+pcg     100000 1.0d-11 
+gravity 0.0d0 0.0d0 -10.d0
+mesh
+nnode 1199 numel 920 ndf 4 numat 1 maxno 20 dim 3
+materials
+1   7  1.668d+01 0.3369d+00 1.0787d-09 5.6902d+04 9.989d-01 0.0d+00 1.0d+03
+end materials
+insert solo_cilindro_hexa_1_coor.dat
+insert solo_cilindro_hexa_1_elem.dat
+insert solo_cilindro_hexa_1_restricion.dat
+insert solo_cilindro_hexa_1_elmtloads.dat
+insert solo_cilindro_hexa_1_initial.dat
+loads
+1 40 3 0.0d0 0.0d0 -3.9d+00
+end loads
+end mesh
+pgeo
+setpnode solo_cilindro_hexa_1_node.dat
+maxnlit 1
+dt 3.6d+03
+deltatc
+pnup
+pnsf
+//pres
+loop  600
+solv
+pnup
+pnsf 
+//pres
+next
+stop

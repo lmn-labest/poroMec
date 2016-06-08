@@ -1,0 +1,40 @@
+config 
+memory  100 omp_elmt true nth_elmt 4 omp_solver true nth_solver 4 reord true bvtk false
+end config
+//block_pu 3
+//reord
+//gmres 150 6000   1.0d-11
+//bicgstab 6000 1.0d-09
+pcg      100000 1.0d-11
+//spcgm 1000 1.d-10 500 1.d-3
+gravity 0.0d0 0.0d0 -10.d0
+mesh
+nnode 1377 numel 6584 ndf 4 numat 1 maxno 10 dim 3
+materials
+1   6  1.668d+01 0.3369d+00 1.0787d-09 5.6902d+04 9.989d-01 0.0d+00 1.0d+03
+end materials
+insert solo_cilindro_tetra_1_coor.dat
+insert solo_cilindro_tetra_1_elem.dat
+insert solo_cilindro_tetra_1_restricion.dat
+insert solo_cilindro_tetra_1_elmtloads.dat
+insert solo_cilindro_tetra_1_initial.dat
+loads
+1 40 3 0.0d0 0.0d0 -3.9d+00
+end loads
+end mesh
+setpnode solo_cilindro_tetra_1_node.dat
+pgeo
+pres
+maxnlit 1
+dt 3.6d+03
+deltatc
+pnup
+pnsf
+//pres
+loop   600
+solv
+pnup
+pnsf 
+//pres
+next
+stop

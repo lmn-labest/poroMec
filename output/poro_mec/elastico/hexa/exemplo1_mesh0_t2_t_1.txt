@@ -1,0 +1,31 @@
+# Arquivo de log do poro mecanico
+Tempos (seg):
+Resolucao do tempo:  3.42E-07
+REORD           0.000007
+NUMEQ           0.000002
+FRONT           0.000023
+STRUC           0.000377
+VECTR           0.006412
+ELMT            3.596786
+TFORM           0.036760
+SOLVR           1.562619
+MATVC           0.088118
+DOT             0.002221
+SNDRC           0.000000
+OVERH           0.000000
+COLOR           0.000004
+WRES            0.057221
+TOTAL          71.494532
+Memoria:
+ia MB           0.000000
+Malha e sistema linear:
+Poromecanico:
+neq                160
+nequ                 0
+neqp                 0
+nad               2896
+nadu                 0
+nadp                 0
+nadpu                0
+nnode              128
+numel               10

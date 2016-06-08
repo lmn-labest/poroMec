@@ -1,0 +1,33 @@
+config 
+memory 400 omp_elmt false nth_elmt 8 omp_solver false nth_solver 4 reord false bvtk false
+end config
+pcg  1000 0.0d0 
+gravity 0.0d0 0.0d0 -10.d0
+mesh
+nnode 44 numel 60 ndf 4 numat 1 maxno 10 dim 3
+materials
+1   6  1.668d+01 0.3369d+00 1.0787d-09 5.6902d+04 9.989d-01 0.0d+00 1.0d+03
+end materials
+insert exemplo1_mesh0_coor.dat
+insert exemplo1_mesh0_tetra_elmt.dat
+insert exemplo1_mesh0_restricion.dat
+insert exemplo1_mesh0_initial.dat
+elmtloads
+3 0 1 0 0 0
+5 0 0 1 0 0
+end elmtloads
+loads
+1 40 3 0.0d0 0.0d0 -3.9d+00
+end loads
+end mesh
+setpnode node.dat
+maxnlit 2
+dt 3.6d+3
+pnup
+pnsf
+loop 600
+solv
+pnup
+pnsf
+next
+stop

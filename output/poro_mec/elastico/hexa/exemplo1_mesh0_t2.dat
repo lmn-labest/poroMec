@@ -1,0 +1,78 @@
+config 
+memory  400 omp_elmt false nth_elmt 8 omp_solver false nth_solver 4 reord false bvtk false
+end config
+pcg     100000 1.0d-11 
+gravity 0.0d0 0.0d0 -10.d0
+mesh
+nnode 44 numel 10 ndf 4 numat 1 maxno 20 dim 3
+materials
+1   7  1.668d+01 0.3369d+00 1.0787d-09 5.6902d+04 9.989d-01 0.0d+00 1.0d+03
+end materials
+insert exemplo1_mesh0_coor.dat
+insert exemplo1_mesh0_elem.dat
+insert exemplo1_mesh0_initial.dat
+constrainpmec
+ 1  1 1 0  1
+ 2  1 1 0  0
+ 3  1 1 0  0
+ 4  1 1 0  1
+ 5  1 1 0  1
+ 6  1 1 0  0
+ 7  1 1 0  0
+ 8  1 1 0  1
+ 9  1 1 0  0
+10  1 1 0  0
+11  1 1 0  0
+12  1 1 0  0
+13  1 1 0  0
+14  1 1 0  0
+15  1 1 0  0
+16  1 1 0  0
+17  1 1 0  0
+18  1 1 0  0
+19  1 1 0  0
+20  1 1 0  0
+21  1 1 0  0
+22  1 1 0  0
+23  1 1 0  0
+24  1 1 0  0
+25  1 1 0  0
+26  1 1 0  0
+27  1 1 0  0
+28  1 1 0  0
+29  1 1 0  0
+30  1 1 0  0
+31  1 1 0  0
+32  1 1 0  0
+33  1 1 0  0
+34  1 1 0  0
+35  1 1 0  0
+36  1 1 0  0
+37  1 1 0  0
+38  1 1 0  0
+39  1 1 0  0
+40  1 1 0  0
+41  1 1 1  0
+42  1 1 1  0
+43  1 1 1  0
+44  1 1 1  0
+end constrainpmec
+elmtloads
+1 1 0 0 0 0 0 0
+end elmtloads
+loads
+1 40 3 0.0d0 0.0d0 -3.9d+00
+end loads
+end mesh
+setpnode node.dat
+pgeo
+maxnlit 2
+dt 3.6d+3
+pnup
+pnsf
+loop 600
+solv
+pnup
+pnsf
+next
+stop

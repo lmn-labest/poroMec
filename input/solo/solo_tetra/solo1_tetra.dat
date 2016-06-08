@@ -1,0 +1,39 @@
+config 
+memory 100 omp_elmt false nth_elmt 8 omp_solver false nth_solver 4 reord true bvtk false
+end config
+//block_pu 3
+//pardiso
+//pcg 20000 0.0d0 none
+//bcgsl2 50000 0.0d0 diag
+//gmres 100 5000 0.0d0
+//spcgm 0.1 0.1 1000 1.d-11 200 1.0d-3
+//minres 10000 0.0d0 diagm
+symmlq 100000 0.d0 diagm
+gravity 0.0d0 0.0d0 -10.d0
+mesh
+nnode      1331 numel      6000 numat  1 maxno 10 ndf 4 dim 3
+materials
+1   12  1.668d+01 0.3369d+00 1.0787d-09 5.6902d+04 9.989d-01 1.2d+03 1.0d+03
+end materials
+insert solo1_coor.dat
+insert solo1_elmt_tetra.dat
+insert solo1_boun.dat
+insert solo1_tetra_elmtloads.dat
+insert solo1_initial.dat
+loads
+1 40 3 0.0d0 0.0d0 -3.9d+00
+end loads
+end mesh
+setpnode solo1_node.dat
+maxnlit 2
+pgeo
+dt 3.6d+03
+deltatc
+pres
+loop  100
+solv
+pnup
+pnsf 
+pres
+next
+stop
