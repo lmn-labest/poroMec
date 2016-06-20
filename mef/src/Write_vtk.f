@@ -101,7 +101,7 @@ c ... materiais
         ia(i_p+nel-1) = el(nen+1,nel)
       enddo
       write(aux1,'(15a)')"mat" 
-c ... cod = 1 variaveis interias
+c ... cod = 1 variaveis inteiras
       cod = 1
       gdl = 1
       if(legacy) then
@@ -120,7 +120,7 @@ c ... elIdG
         ia(i_p+nel-1) = nel
       enddo
       write(aux1,'(15a)')"elIdG" 
-c ... cod = 1 variaveis interias
+c ... cod = 1 variaveis inteiras
       cod = 1
       gdl = 1
       if(legacy) then
@@ -1222,7 +1222,7 @@ c ... materiais
         ia(i_p+nel-1) = el(nen+1,nel)
       enddo
       write(aux1,'(15a)')'mat' 
-c ... cod = 1 variaveis interias
+c ... cod = 1 variaveis inteiras
       cod = 1
       gdl = 1
       if(legacy) then
@@ -1241,7 +1241,7 @@ c ... elIdG
         ia(i_p+nel-1) = nel
       enddo
       write(aux1,'(15a)')'elIdG' 
-c ... cod = 1 variaveis interias
+c ... cod = 1 variaveis inteiras
       cod = 1
       gdl = 1
       if(legacy) then
@@ -1510,10 +1510,6 @@ c *********************************************************************
       real*8 uv(ndf-1,*),u(ndf,*),p(*)
 c ...      
       do i = 1, nnodev
-        do j = 1, ndf  
-        enddo
-      enddo
-      do i = 1, nnodev
         do j = 1, ndf - 1  
           uv(j,i) = u(j,i)  
         enddo
@@ -1540,8 +1536,8 @@ c * ----------------------------------------------------------------- *
 c * tx     - tensor simetrico                                         *
 c * tensor - indefinido                                               *
 c * nnode  - numero de nos de vertices                                *
-c * ntn    - numero total de termnos do tensor simetrico              *
-c * n      - numero total de termnos do tensor geral                  *
+c * ntn    - numero total de termos do tensor simetrico               *
+c * n      - numero total de termos do tensor geral                   *
 c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *

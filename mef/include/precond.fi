@@ -1,0 +1,2 @@
+      integer iparam(4)
+      common /precond/ iparam

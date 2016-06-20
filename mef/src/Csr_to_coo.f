@@ -65,18 +65,18 @@ c ... CSRC poro mecanico (ad-diagonal principal;al-parte inferior)
               val(kk) = al(nc)
             endif
           endif  
-          kk       = kk + 1
-          lin(kk)  = ja(nc)
-          col(kk)  = nl        
-          if(bin) then
-            val(kk) = 1.0
-          else
-            if(pre_diag) then
-              val(kk) = al(nc)/ad(ja(nc))
-            else
-              val(kk) = al(nc)
-            endif  
-          endif
+c         kk       = kk + 1
+c         lin(kk)  = ja(nc)
+c         col(kk)  = nl        
+c         if(bin) then
+c           val(kk) = 1.0
+c         else
+c           if(pre_diag) then
+c             val(kk) = al(nc)/ad(ja(nc))
+c           else
+c             val(kk) = al(nc)
+c           endif  
+c         endif
         enddo
       enddo
 c .....................................................................

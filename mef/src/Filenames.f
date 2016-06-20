@@ -92,6 +92,11 @@ c ... log nao linear
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_log_nonlinear'//trim(StrExtensao)//'.txt'
+c ... log hist solver
+      elseif(code .eq. 17) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_log_hist'//trim(StrExtensao)//'.txt'
 c ... pu node file 
       elseif(code .eq. 30) then
         write(StrExtensao,'( I6 )') NumArq

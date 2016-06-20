@@ -135,6 +135,11 @@ c
       call MPI_GATHER(ifatsolvtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
       if (my_id.eq.0) call twrite('IFSOLV',ia(i_ts),nprcs,nlog)
 c
+c ... Tempo levado no bloco diagonal solver                 
+c
+      call MPI_GATHER(prebdiagtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+      if (my_id.eq.0) call twrite('BDSOLV',ia(i_ts),nprcs,nlog)
+c
 c ... Tempo levado no solver
 c
       call MPI_GATHER(soltime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)

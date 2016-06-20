@@ -26,11 +26,12 @@ c **********************************************************************
      .                  ,m      ,b       ,x          ,tol    ,maxit
      .                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
      .                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond
-     .                  ,fmec   ,fporomec  
+     .                  ,fmec   ,fporomec,fhist_solv 
      .                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
      .                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
       implicit none
+      include 'precond.fi'
       include 'mpif.h'
       include 'parallel.fi'
       include 'openmp.fi'
@@ -48,10 +49,11 @@ c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
 c ......................................................................
-      logical block_pu,fmec,fporomec
+      logical block_pu,fmec,fporomec,fhist_solv
 c ... precondicionador
       logical diag
       integer precond
+      real*8  max_block_a(40000)
 c ...................................................................... 
       integer neqovlp
       external dot,dot_par
@@ -120,13 +122,19 @@ c ...
            call pre_diag(m,ad,neq,.true.)
            precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+         else if(precond .eq. 6) then
+c ...
+           precondtime = Mpi_Wtime() - precondtime 
+           call block_precond(ad,al,ip,ja,m,neq,max_block_a,iparam) 
+           precondtime = Mpi_Wtime() - precondtime
+c .....................................................................
          endif           
 c ...    Comunicacao da diagonal para o caso non-overlapping:
          if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
      .                               i_rcvsi,i_dspli)
 c .....................................................................
-c
-
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
          if(block_pu) then
@@ -153,7 +161,7 @@ c ... sequencial (cg, pcg e iccg)
              call call_cg(neq      ,nequ   ,nad   ,ip      ,ja
      .                   ,ad       ,al     ,m      ,b       ,x   
      .                   ,ia(i_z)  ,ia(i_r),ia(i_s) 
-     .                   ,tol      ,maxit  ,precond
+     .                   ,tol      ,maxit  ,precond,iparam ,fhist_solv 
      .                   ,my_id    ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .                   ,i_xfi ,i_rcvsi   ,i_dspli)  
 c .....................................................................
@@ -613,7 +621,7 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-         else if(precond .eq. 2) then
+         else if(precond .eq. 2 .or. precond .eq. 5) then
            call pminres(neq    ,nequ,nad     ,ip      ,ja
      .          ,ad     ,al  ,al           ,b       ,x    ,m
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
@@ -625,19 +633,6 @@ c ... matvec comum:
      .          ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true.,.true.)
 c .....................................................................
-c
-c ...
-         else if(precond .eq. 5) then
-           call pminres(neq    ,nequ,nad     ,ip      ,ja
-     .          ,ad     ,al  ,al           ,b       ,x    ,m
-     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
-     .          ,ia(i_y),ia(i_a),ia(i_g)
-     .          ,tol    ,maxit  ,nrestart 
-c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
          endif
 c .....................................................................
 c
@@ -708,7 +703,7 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-         else if(precond .eq. 2) then
+         else if(precond .eq. 2 .or. precond .eq. 5) then
            call pcr(neq  ,nequ   ,nad     ,ip    ,ja
      .          ,ad     ,al     ,al      ,b      ,m      ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
@@ -720,19 +715,6 @@ c ... matvec comum:
      .          ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true.,.true.)
 c .....................................................................
-c
-c ...
-         else if(precond .eq. 5) then
-           call pcr(neq  ,nequ  ,nad     ,ip    ,ja
-     .          ,ad     ,al     ,al      ,b     ,m      ,x
-     .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
-     .          ,ia(i_y)  
-     .          ,tol    ,maxit
-c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
          endif
 c .....................................................................
 c
@@ -879,6 +861,12 @@ c *            2 - diaggonal                                           *
 c *            3 - iLDLt(0)                                            *
 c *            4 - iLLt(0)                                             *
 c *            5 - modulo da diagonal                                  *
+c * iparam   - parametros do bloco diagonal                            *
+c *          - iparam(1) - numero de sub matriz em blocos              *
+c *          - iparam(2) - numero de inversos da diagonal simples      *
+c *          - iparam(3) - numero de termos nos bloco                  *
+c *          - iparam(4) - tamanho do bloco                            *
+c * fhist_log- log do residuo por iteracao                             *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -887,8 +875,6 @@ c * i_fmap   -                                                         *
 c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
-c * fprint   - saida na tela                                           *
-c * flog     - log do arquivo de saida                                 *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -904,8 +890,8 @@ c **********************************************************************
       subroutine call_cg(neq      ,nequ  ,nad   ,ia      ,ja
      .                  ,ad       ,al    ,m     ,b       ,x    
      .                  ,z        ,r     ,s    
-     ,                  ,tol      ,maxit ,precond
-     .                  ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
+     ,                  ,tol      ,maxit ,precond,iparam ,fhist_log
+     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
      .                  ,i_xfi    ,i_rcvsi,i_dspli)
       implicit none
       include 'time.fi'
@@ -923,14 +909,14 @@ c ... arranjos auxiliares
 c ...
       real*8  tol
       integer maxit  
+      logical fhist_log
 c ... precondicionador
-      logical diag
-      integer precond
+      integer precond,iparam(*)
       real*8 m(*)
 c ...
       external dot_par
       external matvec_csrc_sym_pm  
-      external ildlt_solv,illt_solv      
+      external ildlt_solv,illt_solv  
 c ......................................................................
 
 c ... cg
@@ -943,7 +929,7 @@ c ... matvec comum:
      .         ,matvec_csrc_sym_pm,dot_par 
      .         ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .         ,i_xfi ,i_rcvsi,i_dspli
-     .         ,.true.,.true. ,.true.)
+     .         ,.true.,.true. ,fhist_log ,.true.)
 c .....................................................................
 c
 c ... pcg - cg com precondicionador diagonal
@@ -957,7 +943,7 @@ c ... matvec comum:
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     .          ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LDLT(0) imcompleto
@@ -984,6 +970,19 @@ c ... matvec comum:
      .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true. ,.true.)
+c .....................................................................
+c
+c ... bpcg - cg com bloco diagonal 
+      elseif(precond .eq. 6 ) then
+        call bpcg(neq      ,nequ  ,nad   ,ia      ,ja
+     .           ,ad       ,al    ,al    ,m       ,b    
+     .           ,x        ,z     ,r     ,s   
+     .           ,tol      ,maxit ,iparam
+c ... matvec comum:
+     .           ,matvec_csrc_sym_pm,dot_par,illt_solv
+     .           ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     .           ,i_xfi ,i_rcvsi,i_dspli
+     .           ,.true.,.true. ,fhist_log ,.true.)
       endif  
 c .....................................................................
       return

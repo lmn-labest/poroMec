@@ -175,11 +175,17 @@ c ......................................................................
       return
 c ......................................................................
   600 continue
-      go to 10
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 4 nos (mec-elastico)
+        call elmt06_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif 
       return
 c ......................................................................
   700 continue
-      go to 10
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 8 nos (mec-elastico)
+        call elmt07_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif 
       return
 c ......................................................................
   800 continue

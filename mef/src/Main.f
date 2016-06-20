@@ -9,6 +9,7 @@ c **********************************************************************
       include 'mpif.h'
       include 'omp_lib.h'
       include 'string.fi'
+      include 'precond.fi'
       include 'transiente.fi'
       include 'parallel.fi'
       include 'gravity.fi'
@@ -31,14 +32,14 @@ c
       character*80 prename,fname,name,filein
       character*80 pnodename
       integer nin,nplot,nout,nout_face,nout_nonlinear
-      integer logsolv,fconf,logsolvd
+      integer logsolv,fconf,logsolvd,log_hist_solv
       integer totfiles,openflag
       integer*8 i_no,i_nfile
       integer num_pnode
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
       integer nfiles,ifiles
       parameter ( nfiles = 5)
-      logical new_file(nfiles),flag_pnd
+      logical new_file(nfiles),flag_pnd,fhist_log
 c      logical cont1
 c ......................................................................
 c
@@ -149,7 +150,7 @@ c
 c ... Arquivos de entrada e saida:
 c
       data nin /1/, nplot /3/, nout_nonlinear /4/ , logsolv /10/
-     .    , nout /15/,logsolvd /16/, nout_face /17/ 
+     .    , nout /15/,logsolvd /16/, nout_face /17/,log_hist_solv /18/ 
       data fconf /5/
       data flag_pnd /.false./ 
 c     arquivo de impressao de nos associados aos seguintes inteiros
@@ -196,13 +197,14 @@ c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
 c ... precond =  1 - NONE , 2 - diag, 3 - iLDLt(0), 4 - iC(0)
-c                5 - diagm
-      maxit   =  50000
-      solvtol =  1.d-11
-      maxnlit =  2 
-      tol     =  1.d-04
-      ngram   =  50
-      precond =  2
+c                5 - diagm, 6 - bdiag2
+      maxit     =  50000
+      solvtol   =  1.d-11
+      maxnlit   =  2 
+      tol       =  1.d-04
+      ngram     =  50
+      precond   =  6
+      fhist_log = .false.
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -214,7 +216,7 @@ c                7 (minres)    , 8 (pcr)         , 9 (symmlq)
 c               10 (pardiso)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
-      solver  =  8
+      solver  =  1
       stge    =  1
 c     block_pu= .true.
       n_blocks_pu = 0 
@@ -434,6 +436,7 @@ c
       writetime    = 0.d0
       precondtime  = 0.d0
       ifatsolvtime = 0.d0
+      prebdiagtime = 0.d0
       totaltime    = MPI_Wtime()
 c ......................................................................      
 c
@@ -601,12 +604,18 @@ c ...  Memoria para o precondicionador diagonal:
          if(precond .eq. 2 .or. precond .eq. 5) then 
            i_m   = alloc_8('m       ',    1,neq)
            call azero(ia(i_m),neq)
-c ......................................................................
+c .....................................................................
 c
 c ...  Memoria para o precondicionador iLDLt e iLLT (cholesky)
          else if( precond .eq. 3 .or.  precond .eq. 4) then
            i_m   = alloc_8('m       ',    1,neq+nad)
            call azero(ia(i_m),neq+nad)
+c ..................................................................... 
+c
+c ...  Memoria para o precondicionador block diagonal
+         else if( precond .eq. 6) then
+           i_m   = alloc_8('m       ',iparam(3),neq)
+           call azero(ia(i_m),iparam(3)*neq)
 c ..................................................................... 
          endif       
       endif
@@ -747,7 +756,7 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
      .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
      .         ,ngram   ,block_pu,n_blocks_pu,solver,istep
      .         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
-     .         ,fmec    ,fporomec  
+     .         ,fmec    ,fporomec,fhist_log
      .         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
      .         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1061,9 +1070,9 @@ c ...
 c ......................................................................
 c
 c ...
-        i_lin  = alloc_4('lincoo  ',1,neq+2*nad) 
-        i_col  = alloc_4('colcoo  ',1,neq+2*nad) 
-        i_acoo = alloc_8('acoo    ',1,neq+2*nad)
+        i_lin  = alloc_4('lincoo  ',1,neq+nad) 
+        i_col  = alloc_4('colcoo  ',1,neq+nad) 
+        i_acoo = alloc_8('acoo    ',1,neq+nad)
 c ......................................................................
 c
 c ...
@@ -1075,9 +1084,9 @@ c ......................................................................
 c
 c ...
         call write_coo(ia(i_lin),ia(i_col),ia(i_acoo)
-     .                   ,ia(i_b  ),neq      ,neq+2*nad  
+     .                   ,ia(i_b  ),neq      ,neq+nad  
      .                   ,fname    ,nout   
-     .                   ,.true.   ,.true.   )
+     .                   ,.false.  ,.false.  )
 c ......................................................................
 c
 c ...
@@ -1163,12 +1172,33 @@ c ... precondicionador
       write(string,'(6a)') (word(i),i=1,6)
       call set_precond(word,precond,nin,my_id)  
 c ......................................................................
+c
+c ... tolerancia 
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =1504,end =1504) fhist_log 
+      if(my_id.eq.0) then
+        if(fhist_log) then
+          write(*,'(3x,a30)')'Set hist log: .true.'
+        else
+          write(*,'(4x,a30)')'Set hist log: .false.'
+        endif  
+c ... log historia do resido do solver 
+        if(fhist_log) then
+          fname = name(prename,nprcs,17)
+          open(log_hist_solv,file=fname)
+          write(log_hist_solv,'(a)') 'Solver hist.'
+        endif 
+      endif   
+c ......................................................................
       goto 50
  1502 continue
       print*,'Erro na leitura da macro (PCG) maxit !'
       goto 5000
  1503 continue
       print*,'Erro na leitura da macro (PCG) solvtol !'
+ 1504 continue
+      print*,'Erro na leitura da macro (PCG) fhist_log !'
       goto 5000
 c ----------------------------------------------------------------------
       goto 50 
@@ -1415,7 +1445,7 @@ c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
      .            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
      .            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
      .            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
-     .            ,fmec    ,fporomec  
+     .            ,fmec    ,fporomec,fhist_log
      .            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
      .            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1898,9 +1928,9 @@ c ......................................................................
         goto 5000
       endif
       call read_config(maxmem
-     .                ,omp_elmt,omp_solv
-     .                ,nth_elmt,nth_solv
-     .                ,reordf  ,bvtk 
+     .                ,omp_elmt ,omp_solv
+     .                ,nth_elmt ,nth_solv
+     .                ,reordf   ,bvtk 
      .                ,nin)
       goto 50
 c ----------------------------------------------------------------------
@@ -1945,6 +1975,7 @@ c ... fecha o arquivo de entrada de dados
 c ... fecha log do solv e do loop nao linear
       close(logsolv)
       close(nout_nonlinear)
+      if(fhist_log) close(log_hist_solv)
 c ... fecha arquivo extra dp log do solv block_pcg_it
       if(solver .eq. 5 ) close(logsolvd)
 c .....................................................................

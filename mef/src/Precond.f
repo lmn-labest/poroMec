@@ -45,6 +45,419 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
+c * Data de criacao    : 15/06/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *
+c * BLOCK_PRECOND : precondicionador bloco diagonal diagonal simetrico *                                *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ad     - coeficientes da diagonal principal                        *
+c * al     - coeficientes da parte inferior da matriz                  *
+c * ia     - csrc                                                      *
+c * ja     - csrc                                                      *
+c * m      - indefinido                                                *
+c * n      - numero de linhas                                          *
+c * aux(100)- arranjo auxiliar de trabalho                             *
+c * iparam - parametros do bloco diagonal                              *
+c *        - iparam(1) - nao definido                                  *
+c *        - iparam(2) - nao definido                                  *
+c *        - iparam(3) - numero de termos nos bloco                    *
+c *        - iparam(4) - tamanho do bloco                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * m      - precondicionador bloco diagonal (M-1)                     *
+c * iparam - parametros do bloco diagonal                              *
+c *        - iparam(1) - numero de sub matriz em blocos                *
+c *        - iparam(2) -  numero de inversos da diagonal simples       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * para tamanho de blocos 2 e 3 inversao direta M(-1)                 *        
+c * para tamanho de blocos maior ou igual a 4 fatoracao LLt            *                                         *
+c *                                                                    *
+c * bloco (2x2) - iparam(3) = 2                                        *
+c *    | a11 a21 |        | a22 a21 |                                  *
+c *    |         | =1/det |         |                                  *
+c *    | a21 a22 |        |-a21 a11 |                                  *
+c * m(3,*) = 1/det | a11 a22 -a21 |                                    *
+c *                                                                    *
+c * bloco (3x3) - iparam(3) = 3                                        *                 *
+c *    | a11 a21 a31 |        | c11 c12 c31|                           *
+c *    | a21 a22 a32 | =1/det | c21 c22 c32|                           *  
+c *    | a31 a32 a33 |        | c31 c32 c33|                           *
+c * m(6,*) = 1/det | c11 c22 c33 c21 c31 c32 |                         *
+c *                                                                    *
+c * bloco (4x4) fatorado(LLt)                                          *
+c *          | a11 a21 a31 a41 |                                       *
+c *          | a21 a22 a32 a42 |                                       * 
+c *          | a31 d32 a33 a43 |                                       *
+c *          | a41 a42 d43 a44 |                                       *
+c * m(10,1) = | a11 a22 a33 a44 a21 a31 a32 a41 a42 a43 |              *   
+c **********************************************************************
+      subroutine block_precond(ad,al,ia,ja,m,n,aux,iparam)
+      implicit none
+      integer nblock,n,ndiv,rest,tmp1,tmp2,i,j,ii,jj,iparam(*)
+      integer ia(*),ja(*),kk,k,l,c
+      real*8 ad(*),al(*),m(iparam(3),*),idet
+      real*8 a11,a21,a22,a33,a31,a32
+      real*8 aux(iparam(4),*)
+c .....................................................................
+c
+c ...
+      nblock = iparam(4) 
+c .....................................................................
+c 
+c ... numero de blocos completos
+      ndiv = n/nblock
+c .....................................................................
+c
+c ... 
+      rest = mod(n,nblock)
+c .....................................................................
+c
+c ...
+      iparam(1) = ndiv
+      iparam(2) = rest
+c .....................................................................    
+c
+c .....................................................................
+      do i = 1, ndiv + rest
+        do j = 1, iparam(3)
+          m(j,i) = 0.d0
+        enddo
+      enddo
+c .....................................................................
+c
+c ... blocos inverso(2x2)
+c      | a11 a21 |        | a22 -a21|
+c      |         | =1/det |         | 
+c      | a21 a22 |        |-a21  a11| 
+      if( nblock .eq. 2) then
+        do i = 1, ndiv
+          ii = 2*i - 1
+c ... 
+          a11 = ad(ii)
+          a22 = ad(ii+1)
+c ......................................................................
+c
+c ...
+          a21 = 0.d0
+          do j = ia(ii+1) , ia(ii+2) - 1
+            jj = ja(j)
+            if( jj .eq. ii) a21 = al(j)
+          enddo
+c ......................................................................
+c
+c ...        
+          idet = 1.d0/(a11*a22-a21*a21)
+c ...
+          m(1,i) =   idet*a22
+          m(2,i) =   idet*a11
+          m(3,i) =  -idet*a21
+        enddo
+c .....................................................................    
+c
+c ... blocos inverso(3x3)
+c      | a11 a21 a31 |        | c11 c12 c31|
+c      | a21 a22 a32 | =1/det | c21 c22 c32| 
+c      | a31 a32 a33 |        | c31 c32 c33| 
+      else if (nblock .eq. 3) then
+        do i = 1, ndiv
+          ii = 3*i - 2
+c ... 
+          a11 = ad(ii)
+          a22 = ad(ii+1)
+          a33 = ad(ii+2)
+c ......................................................................
+c
+c ...
+          a21 = 0.d0
+          do j = ia(ii+1) , ia(ii+2) - 1
+            jj = ja(j)
+            if( jj .eq. ii) a21 = al(j)
+          enddo
+c ......................................................................
+c
+c
+          a31 = 0.d0
+          a32 = 0.d0
+          do j = ia(ii+2) , ia(ii+3) - 1
+            jj = ja(j)
+            if( jj .eq. ii  ) then
+              a31 =al(j)
+            else if( jj .eq. ii+1) then
+              a32 =al(j)
+            endif
+          enddo
+c .....................................................................
+c
+c ...
+          call inverse_matrix_3x3_sym(m,a11,a22,a33,a21,a31,a32)
+c .....................................................................
+c
+c ...
+          m(1,i) = a11
+          m(2,i) = a22
+          m(3,i) = a33
+          m(4,i) = a21
+          m(5,i) = a31
+          m(6,i) = a32
+c .....................................................................
+        enddo 
+c .....................................................................
+c
+c ... blocos LLT(4x4,5x5,6x6)
+      else if (nblock .ge. 4) then
+c ...
+        do i = 1, ndiv
+c ...
+          do j = 1, nblock
+            do k = 1, nblock
+              aux(k,j) = 0.d0
+            enddo
+          enddo
+c ......................................................................
+c 
+c ...
+          ii = (i-1)*nblock + 1
+c ... extraindo o bloco da csrc
+          do j = 1, nblock 
+            aux(j,j) = ad(ii+j-1)
+          enddo
+c
+          do l = 1, nblock - 1
+            kk = ii + l
+            do j = ia(kk) , ia(kk+1) - 1
+              jj = ja(j) 
+              do c = 0, l - 1
+                 if( jj .eq. ii + c) then
+                   aux(l+1,c+1) = al(j)
+                endif
+              enddo
+            enddo
+          enddo
+c .....................................................................
+c
+c ... fat LLT
+          call choleskyc(nblock,aux)
+c .....................................................................
+c
+c ... armazenando L
+          do j = 1, nblock
+            m(j,i) = aux(j,j) 
+          enddo
+c
+          kk = nblock
+          do j = 2, nblock
+            do k = 1, j - 1
+              kk = kk + 1
+              m(kk,i) = aux(j,k)
+            enddo
+          enddo
+c .....................................................................
+
+c .....................................................................
+        enddo 
+c .....................................................................     
+      endif
+c .....................................................................    
+c
+c ... 
+      tmp1 = ndiv*nblock
+      tmp2 = ndiv
+      do i = 1, rest 
+        ii      = tmp1 + i
+        jj      = tmp2 + i
+        m(1,jj) = 1.d0/ad(ii)
+      enddo
+c .....................................................................    
+c
+c ...
+c     print*,ndiv,rest
+c     do i = 1, ndiv+rest
+c       write(*,'(6es9.2)')m(1:iparam(3),i)
+c     enddo
+      return
+      end
+c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 18/06/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * op_block_precond : operador do precondicionador bloco jacobi       *
+c * diagonal                                                           *                                                           *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * m       - matriz bloco diagonal                                    *
+c * x       - vetor x                                                  *
+c * y       - nao definido                                             *
+c * aux(100)- arranjo auxiliar de trabalho                             *
+c * iparam - parametros do bloco diagonal                              *
+c *        - iparam(1) - numero de sub matriz em blocos                *                  *
+c *        - iparam(2) - numero de inversos da diagonal simples        *                 *
+c *        - iparam(3) - numero de termos nos bloco                    *
+c *        - iparam(4) - tamanho do bloco                              *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * y - M(-1) * x                                                      *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * para tamanho de blocos 2 e 3 inversao direta (y=M(-1)x             *        
+c * para tamanho de blocos maior ou igual a 4 solucao do sistema por   *
+c * metodo direto ( (LLt)y=x )                                         *
+c *                                                                    *                                                   
+c * bloco (2x2) invertido                                              *
+c *          | a11 a21              |                                  *
+c *          | a21 a22              |                                  * 
+c * inv(M) = |         a33 a34      |                                  *
+c *          |         a43 a44      |                                  *
+c *          |                  a55 |                                  *
+c * m(3,1) = | a11 a22 a21 |                                           *
+c * m(3,2) = | a33 a44 a34 |                                           *
+c * m(3,3) = | a55 0.0 0.0 |                                           *
+c *                                                                    *
+c * bloco (3x3) invertido                                              *
+c *          | a11 a21 a31          |                                  *
+c *          | a21 a22 a32          |                                  * 
+c * inv(M) = | a31 d32 a33          |                                  *
+c *          |             a44      |                                  *
+c *          |                  a55 |                                  *
+c * m(6,1) = | a11 a22 a33 a21 a31 a32 |                               *
+c * m(6,2) = | a44 0.0 0.0 0.0 0.0 0.0 |                               *
+c * m(6,3) = | a55 0.0 0.0 0.0 0.0 0.0 |                               *
+c *                                                                    *
+c * bloco (4x4) fatorado(LLt)                                          *
+c *          | a11 a21 a31 a41      |                                  *
+c *          | a21 a22 a32 a42      |                                  * 
+c * LLt    = | a31 d32 a33 a43      |                                  *
+c *          | a41 a42 d43 a44      |                                  *
+c *          |                  a55 |                                  *
+c * m(10,1) = | a11 a22 a33 a44 a21 a31 a32 a41 a42 a43 |              *   
+c * m(10,2) = | a44 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 |              *   
+c **********************************************************************
+      subroutine op_block_precond(m,x,y,aux,iparam)
+      implicit none
+      include 'mpif.h'
+      include 'time.fi'
+      integer i,ii,j,jj,k,kk,iparam(*),tmp1,tmp2,ndiv,nblock,rest
+      real*8 m(iparam(3),*),x(*),y(*),a1,a2,a3,a4,a5,a6,x1,x2,x3
+      real*8 aux(iparam(4),*)
+c .....................................................................
+c
+c ...
+      prebdiagtime = Mpi_Wtime() - prebdiagtime
+c .....................................................................
+c
+c
+c ...
+      nblock = iparam(4)
+      ndiv   = iparam(1) 
+      rest   = iparam(2)
+c .....................................................................
+c 
+c ... bloco diagonal
+      if (nblock .eq. 2) then  
+        do i = 1, ndiv
+          ii      = i*2 - 1
+c
+          a1      = m(1,i)
+          a2      = m(2,i)
+          a3      = m(3,i)
+c
+          x1      = x(ii)
+          x2      = x(ii+1)
+c ... y = M(-1)x
+          y(ii)   = a1*x1 + a3*x2
+          y(ii+1) = a3*x1 + a2*x2
+        enddo
+c .....................................................................
+c
+c ...
+      else if( nblock .eq. 3) then
+        do i = 1, ndiv
+          ii      = i*3 - 2
+c ... a11
+          a1      = m(1,i)
+c ... a22
+          a2      = m(2,i)
+c ... a33
+          a3      = m(3,i)
+c ... a21
+          a4      = m(4,i)
+c ... a31
+          a5      = m(5,i)
+c ... a32
+          a6      = m(6,i)
+c ...
+          x1      = x(ii)
+          x2      = x(ii+1)
+          x3      = x(ii+2)
+c ... y = M(-1)x
+          y(ii)   = a1*x1 + a4*x2 + a5*x3
+          y(ii+1) = a4*x1 + a2*x2 + a6*x3
+          y(ii+2) = a5*x1 + a6*x2 + a3*x3
+        enddo  
+c .....................................................................
+c
+c ...
+      else if( nblock .ge. 4) then
+        do i = 1, ndiv
+          ii = (i-1)*nblock + 1
+c ...    
+          do j = 1, nblock
+            aux(j,j) = m(j,i)
+          enddo
+c .....................................................................
+c
+c ...
+          kk = nblock
+          do j = 2, nblock
+            do k = 1, j - 1
+              kk = kk + 1
+              aux(j,k) =  m(kk,i)
+              aux(k,j) =aux(j,k)  
+            enddo
+          enddo
+c .....................................................................
+c
+c ... LLTy = x
+          call solv_cholesky(aux,x(ii),y(ii),nblock)
+c .....................................................................
+        enddo 
+      endif
+c .....................................................................
+c
+c ... diagonal simples
+      tmp1 = ndiv*nblock
+      tmp2 = ndiv
+      do i = 1, rest
+        ii      = tmp1 + i
+        jj      = tmp2 + i  
+c
+        a1      = m(1,jj)
+c
+        y(ii)   = a1*x(ii) 
+      enddo
+c .....................................................................
+c
+c ...
+      prebdiagtime = Mpi_Wtime() - prebdiagtime
+c .....................................................................
+c ... 
+c     do i = 1, 13176
+c       print*,i,x(i),y(i)
+c     enddo
+      return  
+      end
+c **********************************************************************  
+c
+c **********************************************************************
        subroutine ildlt1(n,ia,ja,al,ad,ldlt,v,shift,fcheck)  
 c **********************************************************************
 c * Data de criacao    : 10/04/2016                                    *
@@ -705,7 +1118,7 @@ c * a(n,n) - matriz fatorada LDLt incompleta                           *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * parte triangular superio inalterada                                *  
+c * parte triangular superior inalterada                               *  
 c **********************************************************************      
       implicit none
       integer n,i,j,k
@@ -772,43 +1185,64 @@ c * a(n,n) - matriz fatorada LDLt                                      *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * parte triangular superio inalterada                                *  
+c * parte triangular superior inalterada e diagonal invertida          *  
 c **********************************************************************      
       implicit none
       integer n,i,j,k
       real*8 a(n,*),t
+c     open(15,file='ch.matrix')
+c     do i = 1, n
+c       write(15,'(100d15.1)')(a(i,j),j=1,n)
+c     enddo 
+c     write(15,'(a6)')'d'
+c     do i = 1, n
+c       write(15,'(d15.2)')a(i,i)
+c     enddo
+c     write(15,'(a6)')'d'
+c     do i = 1, n
+c       do j = 1, i - 1
+c         write(15,'(d15.2)')a(i,j)
+c        enddo 
+c     enddo      
+      close(15)
 c ......................................................................
       do j = 1, n
 c ...
-         t = 0.0d0
-         do i = 1, j-1
-            t = t +  a(j,i)*a(j,i)
-         enddo
+        t = 0.0d0
+        do i = 1, j-1
+          t = t + a(j,i)*a(j,i)
+        enddo
 c .....................................................................
 c
 c ...
-         t = a(j,j) - t
-         if (t .lt. 0.d0) then
-           print*, 'Subrotina CHOLESKYC: Pivot negativo !'
-           stop
-         endif 
-         a(j,j) = dsqrt(t)
+        t = a(j,j) - t
+        if (t .lt. 0.d0) then
+          print*, 'Subrotina CHOLESKYC: Pivot negativo !',j
+          stop
+        endif 
+        a(j,j) = dsqrt(t)
 c .....................................................................
 c
 c ...
-         do k = j+1, n
-           t = 0.0d0
-           do i = 1, j-1
-             t = t +  a(k,i)*a(j,i)
-           enddo
-c .....................................................................
+        do k = j+1, n
+          t = 0.0d0
+          do i = 1, j-1
+            t = t +  a(k,i)*a(j,i)
+          enddo
+c ....................................................................
 c
 c ...
-           a(k,j) = (a(k,j) - t) / a(j,j)
-         enddo
+          a(k,j) = (a(k,j) - t) / a(j,j)
+        enddo
       enddo
 c ......................................................................
-      open(15,file='ch.matrix')
+c
+c ...
+      do j = 1, n
+        a(j,j) = 1.d0/a(j,j)
+      enddo
+c ......................................................................
+c     open(15,file='ch.matrix')
 c     do i = 1, n
 c       write(15,'(100d15.1)')(a(i,j),j=1,i)
 c     enddo 
@@ -932,12 +1366,13 @@ c **********************************************************************
       subroutine set_precond(macro,precond,nin,my_id)
       implicit none
       include 'string.fi'
+      include 'precond.fi'
       character macro(maxstrl)
       character*6 macros(6),string
-      integer precond,nin,my_id
+      integer precond,size,nin,my_id
       integer i,nmc 
       data macros/'none  ','diag  ','ildlt '
-     .           ,'illt  ','diagm ','      '/
+     .           ,'illt  ','diagm ','bdiag '/
       data nmc /6/
 c ...
       write(string,'(6a)') (word(i),i=1,6)
@@ -958,7 +1393,7 @@ c ... precondicionador diagonal
 c .....................................................................
 c
 c ... precondicionador ILDLT
-       elseif( string .eq. macros(3)) then
+      elseif( string .eq. macros(3)) then
         precond = 3
         if(my_id.eq.0) then
           write(*,'(1x,a25,1x,a6)')'precond:',macros(3)
@@ -966,7 +1401,7 @@ c ... precondicionador ILDLT
 c .....................................................................
 c
 c ... precondicionador ILLT ( Cholesky )
-       elseif( string .eq. macros(4)) then
+      elseif( string .eq. macros(4)) then
         precond = 4
         if(my_id.eq.0) then
           write(*,'(1x,a25,1x,a6)')'precond:',macros(4)
@@ -974,10 +1409,28 @@ c ... precondicionador ILLT ( Cholesky )
 c .....................................................................
 c
 c ... precondicionador ILLT ( Cholesky )
-       elseif( string .eq. macros(5)) then
+      elseif( string .eq. macros(5)) then
         precond = 5
         if(my_id.eq.0) then
           write(*,'(1x,a25,1x,a6)')'precond:',macros(5)
+        endif
+c .....................................................................
+c
+c ... precondicionador Block diagnal 
+      elseif( string .eq. macros(6)) then
+        precond = 6
+c ... numero de blocos
+        call size_Block(size,nin)
+c .....................................................................
+c
+c ... 
+        iparam(3) = size*(size+1)/2
+        iparam(4) = size
+c .....................................................................
+c
+c ...  
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6,i3)')'precond:',macros(6),iparam(4)
         endif
 c .....................................................................
 c
@@ -992,3 +1445,144 @@ c ...
       return
       end
 c ********************************************************************** 
+c
+c **********************************************************************
+c * Data de criacao    : 18/06/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * inverse_matrix_3x3_sym : inverte um matriz simeterica 3x3          *                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * m(6,*)  - indefinido                                               *
+c * a11     - coeficiente da posicao a(1,1)                            *
+c * a22     - coeficiente da posicao a(2,2)                            *
+c * a33     - coeficiente da posicao a(3,3)                            *
+c * a21     - coeficiente da posicao a(2,1)                            *
+c * a31     - coeficiente da posicao a(3,1)                            *
+c * a32     - coeficiente da posicao a(3,2)                            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * precond - precondicionador escolhido                               * 
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Inversao feita atraves de cofatores                                *  
+c **********************************************************************
+      subroutine inverse_matrix_3x3_sym(m,a11,a22,a33,a21,a31,a32)
+      implicit none
+      real*8 m(6,*),a11,a22,a33,a21,a31,a32
+      real*8 c11,c22,c33,c21,c31,c32,det
+c ... cofatores
+      c11 = a22*a33 - a32*a32
+c
+      c22 = a11*a33 - a31*a31
+c     
+      c33 = a11*a22 - a21*a21
+c
+      c21 = a31*a32 - a21*a33
+c
+      c31 = a21*a32 - a31*a22
+c
+      c32 = a31*a21 - a11*a32
+c .....................................................................
+c
+c ... determinante 
+      det = a11*a22*a33 + a21*a32*a31 + a31*a21*a32
+     .    -(a22*a31*a31 + a11*a32*a32 + a33*a21*a21)
+      det = 1.d0/det 
+c .....................................................................
+c
+c ...
+      a11 = c11*det
+      a22 = c22*det
+      a33 = c33*det
+c ...
+      a21 = c21*det
+      a31 = c31*det
+      a32 = c32*det
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine size_Block(size,nin)
+      implicit none
+      include 'string.fi'
+      character*30 string
+      integer size,i,nin
+c ...
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =10,end =10) size
+c .....................................................................
+c
+c ...
+      return
+   10 continue
+      print*,'Erro na leitura da tamanho do bloco diagonal !'
+      stop
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 19/06/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * solv_cholesky : solver direto para fatoracao LLt                   *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * cllt(n,n) - fatora LLt                                             *
+c * b         - vetor de forcas                                        *
+c * x         - nao definido                                           *
+c * n         - numero de equacoes                                     *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x         - solucao                                                *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Diagonal LLt ja invertida informacoes da parte inferior e superior *
+c * loop interno por coluna                                            *
+c **********************************************************************
+      subroutine solv_cholesky(cllt,b,x,n)
+      implicit none
+      real*8 cllt(n,*),b(*),x(*),t
+      integer i,j,n
+c ...
+      x(1:n) = b(1:n)
+c .....................................................................
+c
+c ... Gy = b
+      x(1) = x(1)*cllt(1,1)
+      do i =2, n
+        t = x(i)
+        do j = 1, i - 1
+c         t = t - cllt(i,j)*x(j) 
+          t = t - cllt(j,i)*x(j) 
+        enddo
+        x(i) = t*cllt(i,i)
+      enddo
+c .....................................................................
+c
+c ... Gtx = y
+      x(n) = x(n)*cllt(n,n)
+      do i =n-1, 1, -1
+        t = x(i)
+        do j = i+1, n
+          t = t - cllt(j,i)*x(j) 
+        enddo
+        x(i) = t*cllt(i,i)
+      enddo
+c .....................................................................
+c
+c ... 
+      return
+      end
+c *********************************************************************
+      
+       

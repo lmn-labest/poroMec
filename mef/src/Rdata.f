@@ -239,7 +239,8 @@ c
       nenv       = 4
       call elconn(ia(i_ix),nen+1,nenv,ntetra4(1),numel,nin)
       ntetra4(2) = totnel+1
-      totnel    = totnel + ntetra4(1)
+      totnel     = totnel + ntetra4(1)
+      nst        = 4*ndf
 c ... transforma os elementos lineares em quadraticos (10 nos)
       if( nen .eq. 10) then
         if(fmec) then
@@ -330,6 +331,7 @@ c
       call elconn(ia(i_ix),nen+1,nenv,nhexa8(1),numel,nin)
       nhexa8(2) = totnel + 1
       totnel    = totnel + nhexa8(1)
+      nst       = 8*ndf
 c ... transforma os elementos lineares em quadraticos (20 nos)
       if(nen .eq. 20) then
         if(fmec) then
