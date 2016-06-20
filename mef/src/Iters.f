@@ -1387,7 +1387,6 @@ c * versao com refined modified gram-schmidt                           *
 c **********************************************************************
       implicit none
       include 'mpif.h'
-      include 'mkl.fi'
       integer neqf1i,neqf2i,neq_doti
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
