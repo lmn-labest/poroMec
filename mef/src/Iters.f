@@ -779,7 +779,7 @@ c *********************************************************************
       subroutine bpcg(neq   ,nequ   ,nad     ,ia      ,ja
      .               ,ad    ,au     ,al      ,m       ,b       
      .               ,x     ,z      ,r       ,p   
-     .               ,tol   ,maxit  ,iparam
+     .               ,tol   ,maxit  
      .               ,matvec,dot    ,triasolv
      .               ,my_id ,neqf1i ,neqf2i  ,neq_doti,i_fmapi
      .               ,i_xfi ,i_rcvsi,i_dspli
@@ -788,7 +788,7 @@ c **********************************************************************
 c * Data de criacao    : 17/06/2016                                    *
 c * Data de modificaco : 18/06/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * BPCG : Solucao de sistemas de equacoes pelo metodo dos gradientes   *
+c * BPCG : Solucao de sistemas de equacoes pelo metodo dos gradientes  *
 c * conjugados com precondicionador bloco diagonal                     *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -801,7 +801,7 @@ c * ja(*)    - ponteiro das colunas no formato CSR                     *
 c * ad(neq)  - diagonal da matriz A                                    *
 c * au(*)    - parte triangular superior de A                          *
 c * al(*)    - parte triangular inferior de A                          *
-c * m(*)     - precondicionador bloco diagonal                               *
+c * m(*)     - precondicionador bloco diagonal                         *
 c * b(neq)   - vetor de forcas                                         *
 c * x(neq)   - chute inicial                                           *
 c * z(neq)   - arranjo local de trabalho                               *
@@ -810,7 +810,6 @@ c * p(neq)   - arranjo local de trabalho                               *
 c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * matvec   - nome da funcao externa para o produto matrix-vetor      *
-c * iparam   - paramenteros do precond bloco diagonal
 c * dot      - nome da funcao externa para o produto escalar           *
 c * triasolv - nome da funcao externa para o o solver triangular       *
 c * my_id    -                                                         *
@@ -837,15 +836,16 @@ c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'mpif.h'
+      include 'precond.fi'
       integer neqf1i,neqf2i,neq_doti
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj,iparam(*)
+      integer neq,nequ,nad,maxit,i,j,jj
       integer ia(*),ja(*),my_id,bsize
       real*8  ad(*),au(*),al(*),x(*),b(*),r(*),z(*),p(*)
-      real*8  m(*),max_block_a(40000)
+      real*8  m(*),max_block_a(max_block*max_block)
       real*8  dot,ddot,tol,conv,xkx,norm,d,di,alpha,beta,tmp
       real*8  norm_r,norm_m_r
       real*8  time0,time

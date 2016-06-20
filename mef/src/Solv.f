@@ -53,7 +53,7 @@ c ......................................................................
 c ... precondicionador
       logical diag
       integer precond
-      real*8  max_block_a(40000)
+      real*8  max_block_a(max_block*max_block)
 c ...................................................................... 
       integer neqovlp
       external dot,dot_par
@@ -884,8 +884,6 @@ c * ad(*),al(*),au(*) - inalterados                                    *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * Arranjos jat,iat e kat são utilizados na retrosubstituizao do      *
-c * solver iLDLt                                                       *
 c **********************************************************************  
       subroutine call_cg(neq      ,nequ  ,nad   ,ia      ,ja
      .                  ,ad       ,al    ,m     ,b       ,x    
@@ -977,7 +975,7 @@ c ... bpcg - cg com bloco diagonal
         call bpcg(neq      ,nequ  ,nad   ,ia      ,ja
      .           ,ad       ,al    ,al    ,m       ,b    
      .           ,x        ,z     ,r     ,s   
-     .           ,tol      ,maxit ,iparam
+     .           ,tol      ,maxit 
 c ... matvec comum:
      .           ,matvec_csrc_sym_pm,dot_par,illt_solv
      .           ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi

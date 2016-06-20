@@ -203,7 +203,7 @@ c                5 - diagm, 6 - bdiag2
       maxnlit   =  2 
       tol       =  1.d-04
       ngram     =  50
-      precond   =  6
+      precond   =  2
       fhist_log = .false.
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
