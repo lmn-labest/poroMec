@@ -556,7 +556,8 @@ c ......................................................................
         v(j) = ldlt(j) - t
 c ... pivo negativo ou muito pequeno
         if(v(j) .lt. tol*dmax .and. fcheck) then
-          print*,'Valor do Pivo invalido !!!',v(j)
+          print*,'(iLDLt) Valor do Pivo invalido !!!',v(j)
+          print*,'Linha: ',j
           call stop_mef()
         endif
         ldlt(j) = v(j)
@@ -677,7 +678,8 @@ c ......................................................................
         v(j) = ldlt(j) - t
 c ... pivo negativo ou muito pequeno
         if(v(j) .lt. tol*dmax .and. fcheck) then
-          print*,'Valor do Pivo invalido !!!',v(j)
+          print*,'(iLDLt) Valor do Pivo invalido !!!',v(j)
+          print*,'Linha: ',j
           call stop_mef()
         endif
         ldlt(j) = v(j)
@@ -795,7 +797,8 @@ c .....................................................................
         v(j) = ich(j) - t
 c ... pivo negativo ou muito pequeno
         if(v(j) .le. 0.d0 .and. fcheck) then
-          print*,'Valor do Pivo invalido !!!',v(j)
+          print*,'(iLLT) Valor do Pivo invalido !!!',v(j)
+          print*,'Linha: ',j  
           call stop_mef()
         endif
         ich(j) = dsqrt(v(j)) 

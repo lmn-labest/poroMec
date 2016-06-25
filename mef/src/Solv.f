@@ -131,7 +131,7 @@ c ...
            precondtime = Mpi_Wtime() - precondtime
 c .....................................................................
          endif           
-c ...    Comunicacao da diagonal para o caso non-overlapping:
+c ...    Comunicacao da diagonal para o caso non-ovelapping:
          if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
      .                               i_rcvsi,i_dspli)
 c .....................................................................
@@ -954,7 +954,7 @@ c ... matvec comum:
      .           ,matvec_csrc_sym_pm,dot_par,ildlt_solv 
      .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     .           ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LLT(0) imcompleto
@@ -967,7 +967,7 @@ c ... matvec comum:
      .           ,matvec_csrc_sym_pm,dot_par,illt_solv
      .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     .          ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ... bpcg - cg com bloco diagonal 
@@ -977,7 +977,7 @@ c ... bpcg - cg com bloco diagonal
      .           ,x        ,z     ,r     ,s   
      .           ,tol      ,maxit 
 c ... matvec comum:
-     .           ,matvec_csrc_sym_pm,dot_par,illt_solv
+     .           ,matvec_csrc_sym_pm,dot_par
      .           ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
      .           ,.true.,.true. ,fhist_log ,.true.)

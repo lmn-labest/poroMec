@@ -89,6 +89,7 @@ c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
 c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  x0 igual a zero                                 *
 c *            .false. x0 dado                                         *
 c * ------------------------------------------------------------------ * 
@@ -273,7 +274,7 @@ c ======================================================================
  1300 format (' CG:',5x,'It',i7,5x,2d20.10)
  1400 format (' CG:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
- 1500 format ( ' CG: ',5x,i7,5x,2d20.10)
+ 1500 format (' CG: ',5x,i7,5x,2es20.10)
       end
 c *********************************************************************  
 c
@@ -324,6 +325,7 @@ c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
 c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  -> x0 igual a zero                              *
 c *            .false. -> x0 dado                                      *
 c * ------------------------------------------------------------------ * 
@@ -520,7 +522,7 @@ c ======================================================================
  1300 format (' PCG:',5x,'It',i7,5x,2d20.10)
  1400 format (' PCG:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
-1500  format ( 'PCG: ',5x,i7,5x,2d20.10)
+1500  format ( 'PCG: ',5x,i7,5x,2es20.10)
       end
 c *********************************************************************  
 c
@@ -532,7 +534,7 @@ c *********************************************************************
      .               ,matvec,dot    ,triasolv
      .               ,my_id ,neqf1i ,neqf2i  ,neq_doti,i_fmapi
      .               ,i_xfi ,i_rcvsi,i_dspli
-     .               ,fprint,flog   ,fnew)
+     .               ,fprint,flog   ,fhist   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 10/04/2016                                    *
 c * Data de modificaco : 20/04/2016                                    * 
@@ -571,6 +573,7 @@ c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
 c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  -> x0 igual a zero                              *
 c *            .false. -> x0 dado                                      *
 c * ------------------------------------------------------------------ * 
@@ -600,7 +603,7 @@ c .....................................................................
       real*8  norm_r,norm_m_r
       real*8  time0,time
       real*8 dum1
-      logical flog,fnew,fprint
+      logical flog,fnew,fprint,fhist
       external matvec,dot,triasolv
 c ======================================================================
       time0 = MPI_Wtime()
@@ -694,6 +697,10 @@ c ...
 c .....................................................................
 c
 c ...
+         if(fhist) write(18,1500),j,dsqrt(dabs(d)) 
+c .....................................................................
+c
+c ...
          d = di           
          if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ......................................................................
@@ -722,11 +729,13 @@ c ... norm-2 = || x ||
       norm = dsqrt(dot(x,x,neq_doti))
 c ......................................................................
 c
-c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
+c ... r =(b - Ax) (calculo do residuo explicito)
       do 310 i = 1, neq
         r(i) = b(i) - z(i)
-        z(i) = r(i)*m(i)
   310 continue
+c ... Mz=r  
+      call triasolv(neq,ia,ja,m,m(neq+1),r,z)
+c .......................................................................
       norm_m_r = dot(r,z,neq_doti)
       norm_m_r = dsqrt(norm_m_r)
       norm_r = dot(r,r,neq_doti)
@@ -741,7 +750,7 @@ c ......................................................................
       time = time-time0
 c ----------------------------------------------------------------------
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,time
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,norm_m_r,time
       endif
 c ......................................................................
 c
@@ -766,12 +775,15 @@ c ======================================================================
      . 5x,'Number of iterations = ',i20/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'|| b - Ax ||m        = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
- 1300 format ( 'ICCG: ',5x,'It',i7,5x,2d20.10)
+ 1300 format (' ICCG: ',5x,'It',i7,5x,2d20.10)
  1400 format (' ICCG:',1x,'Residuo exato > 3.16*conv ',1x,d20.10
      .       ,1x,d20.10)
+ 1500 format ( 'ICCG ',5x,i7,5x,2es20.10)
       end
 c **********************************************************************
 c
@@ -780,7 +792,7 @@ c *********************************************************************
      .               ,ad    ,au     ,al      ,m       ,b       
      .               ,x     ,z      ,r       ,p   
      .               ,tol   ,maxit  
-     .               ,matvec,dot    ,triasolv
+     .               ,matvec,dot    
      .               ,my_id ,neqf1i ,neqf2i  ,neq_doti,i_fmapi
      .               ,i_xfi ,i_rcvsi,i_dspli
      .               ,fprint,flog   ,fhist   ,fnew)
@@ -811,7 +823,6 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * matvec   - nome da funcao externa para o produto matrix-vetor      *
 c * dot      - nome da funcao externa para o produto escalar           *
-c * triasolv - nome da funcao externa para o o solver triangular       *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -822,6 +833,7 @@ c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
 c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  -> x0 igual a zero                              *
 c *            .false. -> x0 dado                                      *
 c * ------------------------------------------------------------------ * 
@@ -851,7 +863,7 @@ c .....................................................................
       real*8  time0,time
       real*8 dum1
       logical flog,fnew,fprint,fhist
-      external matvec,dot,triasolv
+      external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
 c ......................................................................
@@ -949,7 +961,6 @@ c .....................................................................
 c
 c ...
          d = di
-         
          if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ......................................................................
          if( jj .eq.500)then
@@ -1032,10 +1043,10 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
- 1300 format ( 'BPCG: ',5x,'It',i7,5x,2d20.10)
+ 1300 format (' BPCG: ',5x,'It',i7,5x,2d20.10)
  1400 format (' BPCG:',1x,'Residuo exato > 3.16*conv ',1x,d20.10
      .       ,1x,d20.10)
- 1500 format ( 'BPCG: ',5x,i7,5x,2d20.10)
+ 1500 format ( 'BPCG: ',5x,i7,5x,2es20.10)
       end
 c **********************************************************************
 c
