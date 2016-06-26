@@ -87,66 +87,67 @@ c
 c ... PCG
       if (solver .eq. 1) then
 c ...
-         i_z = alloc_8('zsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
 c ......................................................................
 c
 c ... precondicionador diagonal:
-         if(precond .eq. 2) then 
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+        if(precond .eq. 2) then 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador LDLT incompleto
-         else if(precond .eq. 3) then
+        else if(precond .eq. 3) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador Cholesky LLT incompleto
-         else if(precond .eq. 4) then
+        else if(precond .eq. 4) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 5) then
+        else if(precond .eq. 5) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 6) then
+        else if(precond .eq. 6) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call block_precond(ad,al,ip,ja,m,neq,max_block_a,iparam) 
-           precondtime = Mpi_Wtime() - precondtime
+          precondtime = Mpi_Wtime() - precondtime 
+          call block_precond(ad,al,ip,ja,m,neq,max_block_a,iparam) 
+          precondtime = Mpi_Wtime() - precondtime
 c .....................................................................
-         endif           
+        endif           
 c ...    Comunicacao da diagonal para o caso non-ovelapping:
-         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
+        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
      .                               i_rcvsi,i_dspli)
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
-         if(block_pu) then
-           print*,"PCG não disponivel para a matriz blocada"
-           stop   
+        if(block_pu) then
+           print*,"PCG não disponivel para a matriz", 
+     .            " blocada nao simetrica !!"
+          stop   
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
-         else
+        else
 c ... omp
-           if(omp_solv) then
-             call pcg_omp(neq    ,nequ   ,nad,ip   ,ja
+          if(omp_solv) then
+            call pcg_omp(neq    ,nequ   ,nad,ip   ,ja
      .                   ,ad     ,al     ,al ,m    ,b ,x
      .                   ,ia(i_z),ia(i_r),tol,maxit
 c ... matvec comum:
@@ -157,8 +158,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ... sequencial (cg, pcg e iccg)
-           else
-             call call_cg(neq      ,nequ   ,nad   ,ip      ,ja
+          else
+            call call_cg(neq      ,nequ   ,nad   ,ip      ,ja
      .                   ,ad       ,al     ,m      ,b       ,x   
      .                   ,ia(i_z)  ,ia(i_r),ia(i_s) 
      .                   ,tol      ,maxit  ,precond,iparam ,fhist_solv 
@@ -166,19 +167,34 @@ c ... sequencial (cg, pcg e iccg)
      .                   ,i_xfi ,i_rcvsi   ,i_dspli)  
 c .....................................................................
 c
-           endif      
+          endif      
 c .....................................................................
-         endif
+        endif
 c .....................................................................
 c
 c ...
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_z = dealloc('zsolver ')
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_z = dealloc('zsolver ')
 c ......................................................................
 c
-c ... Gmres com precondicionador diagonal:
+c ... GMRES :
       elseif(solver .eq. 2) then
+c ...
+        if(block_pu) then
+          if(n_blocks_up .eq. 1 ) then
+            print*,"GMRES nao disponivel para a matriz",
+     .             " blocada [Kuu Kpp]."
+            stop   
+          else if( n_blocks_up .eq. 3 ) then
+            print*,"GMRES nao disponivel para a matriz",
+     .           " blocada [Kuu] [Kpp] [Kpu]."
+            stop   
+          endif
+        endif
+c ......................................................................
+c
+c ...
          diag = .true.
 c ...    precondicionador diagonal:
          if(diag) then 
@@ -281,17 +297,19 @@ c ...
         print*,'Solver GUASS nao disponivel para o poromecanico !!'
 c ......................................................................
 c
-c ... BICGSTAB com precondicionador diagonal:
+c ... BICGSTAB :
       else if (solver .eq. 4) then
 c ...
-        if(n_blocks_up .eq. 1 ) then
-          print*,"BICGSTAB nao disponivel para a matriz",
-     .           " blocada [Kuu Kpp]."
-          stop   
-        else if( n_blocks_up .eq. 3 ) then
-          print*,"BICGSTAB nao disponivel para a matriz",
+        if(block_pu) then
+          if(n_blocks_up .eq. 1 ) then
+            print*,"BICGSTAB nao disponivel para a matriz",
+     .             " blocada [Kuu Kpp]."
+            stop   
+          else if( n_blocks_up .eq. 3 ) then
+            print*,"BICGSTAB nao disponivel para a matriz",
      .           " blocada [Kuu] [Kpp] [Kpu]."
-          stop   
+            stop   
+          endif
         endif
 c ......................................................................
 c
@@ -411,7 +429,7 @@ c ...
          endif           
 c ......................................................................
 c
-c ... 
+c ... BLOCK_IT_PCG :
          if(block_pu) then
             if(n_blocks_up .eq. 1 ) then
               print*,"PCG_BLOCK indisponivel para a matriz",
@@ -474,23 +492,37 @@ c ...
          i_z  = dealloc('zsolver ') 
 c ......................................................................
 c
-c ...
+c ... BICGSTAB(2) :
       else if(solver .eq. 6 ) then
+c ...
+        if(block_pu) then
+          if(n_blocks_up .eq. 1 ) then
+            print*,"BICGSTAB(2) nao disponivel para a matriz",
+     .             " blocada [Kuu Kpp]."
+            stop   
+          else if( n_blocks_up .eq. 3 ) then
+            print*,"BICGSTAB(2) nao disponivel para a matriz",
+     .           " blocada [Kuu] [Kpp] [Kpu]."
+            stop   
+          endif
+        endif
+c ......................................................................
+c
 c ... alocacao dos arronjos auxiliares (8neq)    
-         i_c = alloc_8('tsolver ',1,neq)
-         i_h = alloc_8('hsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
-         i_z = alloc_8('zsolver ',1,neq)
-         i_y = alloc_8('ysolver ',1,neq)
-         i_a = alloc_8('asolver ',1,neq)
-         i_d = alloc_8('dsolver ',1,neq)
-         i_g = alloc_8('gsolver ',1,neq)
-         i_b = alloc_8('bsolver ',1,neq)
+        i_c = alloc_8('tsolver ',1,neq)
+        i_h = alloc_8('hsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_y = alloc_8('ysolver ',1,neq)
+        i_a = alloc_8('asolver ',1,neq)
+        i_d = alloc_8('dsolver ',1,neq)
+        i_g = alloc_8('gsolver ',1,neq)
+        i_b = alloc_8('bsolver ',1,neq)
 c ....................................................................
 c
 c ... precondicionador diagonal:
-         if(precond .eq. 2) then 
+        if(precond .eq. 2) then 
            precondtime = Mpi_Wtime() - precondtime  
            call pre_diag(m,ad,neq,.false.)
            precondtime = Mpi_Wtime() - precondtime 
@@ -561,55 +593,62 @@ c ...
          i_c = dealloc('tsolver ')
 c ...................................................................... 
 c
-c ... minres
+c ... MINRES:
       else if(solver .eq. 7 ) then
-         nrestart = 10
+c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
+        if(block_pu) then
+          print*,"MINRES não disponivel para a matriz", 
+     .           " blocada nao simetrica !!"
+          stop 
+        endif    
+c .....................................................................
+        nrestart = 10
 c ...
-         i_c = alloc_8('tsolver ',1,neq)
-         i_h = alloc_8('hsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
-         i_z = alloc_8('zsolver ',1,neq)
-         i_y = alloc_8('ysolver ',1,neq)
-         i_a = alloc_8('asolver ',1,neq)
-         i_g = alloc_8('gsolver ',1,neq)
+        i_c = alloc_8('tsolver ',1,neq)
+        i_h = alloc_8('hsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_y = alloc_8('ysolver ',1,neq)
+        i_a = alloc_8('asolver ',1,neq)
+        i_g = alloc_8('gsolver ',1,neq)
 c
 c ... precondicionador diagonal:
-         if(precond .eq. 2) then 
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+        if(precond .eq. 2) then 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador LDLT incompleto
-         else if(precond .eq. 3) then
-c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+        else if(precond .eq. 3) then
+c ...   
+          precondtime = Mpi_Wtime() - precondtime 
+          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador Cholesky LLT incompleto
-         else if(precond .eq. 4) then
+        else if(precond .eq. 4) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 5) then
+        else if(precond .eq. 5) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
-         endif 
+        endif 
 c .....................................................................
 c
 c ...   
-         if(precond .eq. 1 ) then
-           call minres(neq    ,nequ,nad     ,ip      ,ja
+        if(precond .eq. 1 ) then
+          call minres(neq    ,nequ,nad     ,ip      ,ja
      .          ,ad     ,al     ,al      ,b       ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z),ia(i_y)
      .          ,tol    ,maxit
@@ -621,8 +660,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-         else if(precond .eq. 2 .or. precond .eq. 5) then
-           call pminres(neq    ,nequ,nad     ,ip      ,ja
+        else if(precond .eq. 2 .or. precond .eq. 5) then
+          call pminres(neq    ,nequ,nad     ,ip      ,ja
      .          ,ad     ,al  ,al           ,b       ,x    ,m
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,ia(i_y),ia(i_a),ia(i_g)
@@ -633,65 +672,73 @@ c ... matvec comum:
      .          ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true.,.true.)
 c .....................................................................
-         endif
+        endif
 c .....................................................................
 c
 c ...
-         i_g = dealloc('gsolver ')
-         i_a = dealloc('asolver ')
-         i_y = dealloc('ysolver ')   
-         i_z = dealloc('zsolver ')     
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_h = dealloc('hsolver ')
-         i_c = dealloc('tsolver ')
+        i_g = dealloc('gsolver ')
+        i_a = dealloc('asolver ')
+        i_y = dealloc('ysolver ')   
+        i_z = dealloc('zsolver ')     
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_h = dealloc('hsolver ')
+        i_c = dealloc('tsolver ')
 c .....................................................................
 c
 c ... CR - Conjugate Residual
       else if(solver .eq. 8 ) then
+c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
+        if(block_pu) then
+          print*,"CR não disponivel para a matriz", 
+     .           " blocada nao simetrica !!"
+          stop 
+        endif    
+c .....................................................................
+c
 c ...
-         i_c = alloc_8('tsolver ',1,neq)
-         i_h = alloc_8('hsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
-         i_z = alloc_8('zsolver ',1,neq)
-         i_y = alloc_8('ysolver ',1,neq)
+        i_c = alloc_8('tsolver ',1,neq)
+        i_h = alloc_8('hsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_y = alloc_8('ysolver ',1,neq)
 c ... precondicionador diagonal:
-         if(precond .eq. 2) then 
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+        if(precond .eq. 2) then 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador LDLT incompleto
-         else if(precond .eq. 3) then
+        else if(precond .eq. 3) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador Cholesky LLT incompleto
-         else if(precond .eq. 4) then
+        else if(precond .eq. 4) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 5) then
+        else if(precond .eq. 5) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
-         endif 
+        endif 
 c .....................................................................
 c
 c ...   
-         if(precond .eq. 1 ) then
-           call cr(neq  ,nequ   ,nad     ,ip     ,ja
+        if(precond .eq. 1 ) then
+          call cr(neq  ,nequ   ,nad     ,ip     ,ja
      .          ,ad     ,al     ,al      ,b      ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,tol    ,maxit
@@ -703,8 +750,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-         else if(precond .eq. 2 .or. precond .eq. 5) then
-           call pcr(neq  ,nequ   ,nad     ,ip    ,ja
+        else if(precond .eq. 2 .or. precond .eq. 5) then
+          call pcr(neq  ,nequ   ,nad     ,ip    ,ja
      .          ,ad     ,al     ,al      ,b      ,m      ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
      .          ,ia(i_y)  
@@ -715,63 +762,71 @@ c ... matvec comum:
      .          ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true.,.true.)
 c .....................................................................
-         endif
+        endif
 c .....................................................................
 c
 c ...
-         i_y = dealloc('ysolver ')   
-         i_z = dealloc('zsolver ')     
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_h = dealloc('hsolver ')
-         i_c = dealloc('tsolver ')
+        i_y = dealloc('ysolver ')   
+        i_z = dealloc('zsolver ')     
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_h = dealloc('hsolver ')
+        i_c = dealloc('tsolver ')
 c .....................................................................
 c
-c ... SYMMLQ 
+c ... SYMMLQ :
       else if(solver .eq. 9 ) then
+c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
+        if(block_pu) then
+          print*,"CR não disponivel para a matriz", 
+     .           " blocada nao simetrica !!"
+          stop 
+        endif    
+c .....................................................................
+c
 c ...
-         i_c = alloc_8('tsolver ',1,neq)
-         i_h = alloc_8('hsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
-         i_z = alloc_8('zsolver ',1,neq)
-         i_y = alloc_8('ysolver ',1,neq)
+        i_c = alloc_8('tsolver ',1,neq)
+        i_h = alloc_8('hsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_y = alloc_8('ysolver ',1,neq)
 c ... precondicionador diagonal:
-         if(precond .eq. 2) then 
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+        if(precond .eq. 2) then 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador LDLT incompleto
-         else if(precond .eq. 3) then
+        else if(precond .eq. 3) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador Cholesky LLT incompleto
-         else if(precond .eq. 4) then
+        else if(precond .eq. 4) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime 
+          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
 c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 5) then
+        else if(precond .eq. 5) then
 c ...
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
+          precondtime = Mpi_Wtime() - precondtime  
+          call pre_diag(m,ad,neq,.true.)
+          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
-         endif 
+        endif 
 c .....................................................................
 c
 c ...   
-         if(precond .eq. 1 ) then
-           call symmlq(neq  ,nequ   ,nad     ,ip     ,ja
+        if(precond .eq. 1 ) then
+          call symmlq(neq  ,nequ   ,nad     ,ip     ,ja
      .          ,ad     ,al     ,al      ,b      ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s)
      .          ,tol    ,maxit
@@ -783,8 +838,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ... precondicionador diagonal:
-         else if(precond .eq. 2 .or. precond .eq. 5) then
-           call psymmlq(neq  ,nequ   ,nad  ,ip   ,ja
+        else if(precond .eq. 2 .or. precond .eq. 5) then
+          call psymmlq(neq  ,nequ   ,nad  ,ip   ,ja
      .          ,ad     ,al  ,al     ,b    ,m    ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z),ia(i_y)
      .          ,tol    ,maxit
@@ -794,16 +849,16 @@ c ... matvec comum:
      .          ,i_xfi ,i_rcvsi,i_dspli
      .          ,.true.,.true.,.true.)
 c .....................................................................
-         endif
+        endif
 c .....................................................................
 c
 c ...
-         i_y = dealloc('ysolver ')   
-         i_z = dealloc('zsolver ')     
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_h = dealloc('hsolver ')
-         i_c = dealloc('tsolver ')
+        i_y = dealloc('ysolver ')   
+        i_z = dealloc('zsolver ')     
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_h = dealloc('hsolver ')
+        i_c = dealloc('tsolver ')
 c .....................................................................
 c
 c ... mkl_pardiso
