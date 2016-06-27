@@ -270,9 +270,10 @@ c **********************************************************************
       real*8  s(nst,*),p(*),au(*),al(*),ad(*),b(*)
       logical lhs,rhs,unsym
 c ......................................................................
+c
 c ... Verifica se a particao eh overlapping (versao em paralelo):
       nad  = ia(neq+1)-1
-      ovlp = ja(nad+1)
+c     ovlp = ja(nad+1)
 c ...................................................................... 
       do 200 i = 1, nst
          k = ld(i)
@@ -293,12 +294,12 @@ c ......................................................................
 c ......................................................................
 c
 c ...     Monta a parte retangular da matriz para particoes overlapping:
-               if (ovlp .gt. 0) then 
-                  do 101 kk = ia(neq+k+1), ia(neq+k+2)-1
-                     if (l.eq.ja(nad+kk)) al(nad+kk) = al(nad+kk)+s(i,j)
-  101             continue
+c              if (ovlp .gt. 0) then 
+c                 do 101 kk = ia(neq+k+1), ia(neq+k+2)-1
+c                    if (l.eq.ja(nad+kk)) al(nad+kk) = al(nad+kk)+s(i,j)
+c 101             continue
 c ......................................................................         
-               endif
+c              endif
   110       continue
          endif
   200 continue

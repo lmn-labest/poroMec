@@ -63,10 +63,9 @@ c
 c ... Variaveis do sistema de equacoes:
       integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
       integer n_blocks_pu
-      logical block_pu
+      logical block_pu,block_pu_sym
       character*8 sia,sja,sau,sal,sad
 c .....................................................................
-c .......................................................................
 c
 c ... precondicionador
       integer precond  
@@ -219,9 +218,10 @@ c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       solver  =  1
       stge    =  1
 c     block_pu= .true.
-      n_blocks_pu = 0 
-      block_pu    = .false.
-      resid0      =  0.d0
+      n_blocks_pu  = 0 
+      block_pu     = .false.
+      block_pu_sym = .true.
+      resid0       =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
 c ... campo gravitacional (Padrao)
@@ -413,7 +413,8 @@ c ......................................................................
 c
 c ... desabilita o csrc blocado em problemas mecanicos
       if(fmec) then
-         block_pu    = .false. 
+         block_pu     = .false. 
+         block_pu_sym = .false. 
          n_blocks_pu = 0 
       endif
 c ......................................................................   
@@ -464,7 +465,7 @@ c
 c ... poro mecanico
       else if(fporomec) then
 c ... primero numera os deslocamento e depois as pressoes
-        if(block_pu) then
+        if(block_pu .or. block_pu_sym) then
           call numeqpmec1(ia(i_id),ia(i_inum),ia(i_id),
      .                    nnode,nnodev,ndf,neq,nequ,neqp)
         else
@@ -557,7 +558,7 @@ c ... poromecanico
      .                     ,nad  ,naduu,nadpp,nadpu
      .                     ,i_ia ,i_ja,i_au  ,i_al,i_ad 
      .                     ,sia  ,sja ,sau   ,sal ,sad    
-     .                     ,ovlp ,n_blocks_pu,block_pu  )
+     .                     ,ovlp ,n_blocks_pu,block_pu ,block_pu_sym) 
 c .....................................................................
 c
 c ... mec
@@ -601,7 +602,8 @@ c ......................................................................
 c ...
          i_m   = 1
 c ...  Memoria para o precondicionador diagonal:
-         if(precond .eq. 2 .or. precond .eq. 5) then 
+         if(precond .eq. 2 .or. precond .eq. 5 
+     .     .or.  precond .eq. 7  ) then 
            i_m   = alloc_8('m       ',    1,neq)
            call azero(ia(i_m),neq)
 c .....................................................................

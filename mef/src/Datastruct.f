@@ -2,59 +2,78 @@
      .               ,neq,nequ,neqp,stge
      .               ,unsym,nad,naduu,nadpp,nadpu
      .               ,i_ia,i_ja,i_au,i_al,i_ad,ija,ja,au
-     .               ,al,ad,ovlp,n_blocks_up,dualCsr)
+     .               ,al,ad,ovlp,n_blocks_up,block_pu ,block_pu_sym)
 c **********************************************************************
-c *                                                                    *
-c *   DATASTRUCT: monta a estrutura de dados para a matriz de          *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 26/06/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * DATASTRUCT: monta a estrutura de dados para a matriz de            *
 c *               coeficientes do sistema de equacoes de acordo com    *
 c *               o formato especificado.                              *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    ix(nen+1,numel) - conetividades nodais                          *
-c *    id(ndf,nnode)   - numeracao global das equacoes                 *
-c *    num(nnode)      - arranjo auxiliar temporario                   *
-c *    nnode - numero de nos total da particao                         *
-c *    nnodev- numero de nos vertices da particao                      *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    nst   - nen*ndf                                                 *
-c *    neq   - numero de equacoes                                      *
-c *    nequ  - numero de equacoes de deslocamentos                     *
-c *    neqp  - numero de equacoes de  pressao                          *
-c *    stge  - estrutura de dados, 1 = CSR, 2 = ARESTAS, 3 = EBE,      *
-c *                                4 = skyline                         *
-c *    unsym - flag para matrizes nao simetricas                       *
-c *    n_blocks_up = numero de blocos                                  *
-c *                  1 - ( [Kuu  Kpp]  )                               *
-c *                  2 - ( [Kuu, Kpp] e [kpu] )                        *
-c *                  3 - ( [Kuu], [Kpp] e [kpu])                       *     
-c *    dualCsr - flag para matrizes (Kuu+Kpp) e Kup separadas          *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    i_ia  = ponteiro para o arranjo ia(neq+1) do CSR (stge = 1)     *
-c *          = ponteiro para o arranjo edge(2,nedge)    (stge = 2)     *
-c *          = nao definido (stge = 3)                                 *
-c *          = i_ja         (stge = 4)                                 *
-c *    i_ja  = ponteiro para o arranjo ja do CSR        (stge = 1)     *
-c *          = ponteiro para o arranjo ipedg(nnode+1)   (stge = 2)     *
-c *          = nao definido (stge = 3)                                 *
-c *          = ponteiro da diagonal  (stge = 4)                        *
-c *    i_au  - ponteiro para o arranjo au(nad)                         *
-c *    i_al  - ponteiro para o arranjo al(nad)                         *
-c *    i_ad  - ponteiro para a diagonal                                *
-c * dualCsr = true                                                     *
+c * ------------------------------------------------------------------ *                                                             *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * id(ndf,nnode)   - numeracao global das equacoes                    *
+c * num(nnode)      - arranjo auxiliar temporario                      *
+c * nnode - numero de nos total da particao                            *
+c * nnodev- numero de nos vertices da particao                         *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * nst   - nen*ndf                                                    *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes de deslocamentos                        *
+c * neqp  - numero de equacoes de  pressao                             *
+c * stge  - estrutura de dados, 1 = CSR, 2 = ARESTAS, 3 = EBE,         *
+c *                             4 = skyline                            *
+c * unsym - flag para matrizes nao simetricas                          *
+c * n_blocks_up = numero de blocos                                     *
+c *               1 - ( [Kuu  Kpp]  )                                  *
+c *               2 - ( [Kuu, Kpp] e [kpu] )                           *
+c *               3 - ( [Kuu], [Kpp] e [kpu])                          *     
+c * block_pu     - flag para matrizes Kuu,kpp e Kup nao simetricos     *
+c * block_pu_sym - flag para matrizes Kuu, Kpp e Kup simetricos        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * i_ia  = ponteiro para o arranjo ia(neq+1) do CSR (stge = 1)        *
+c *       = ponteiro para o arranjo edge(2,nedge)    (stge = 2)        *
+c *       = nao definido (stge = 3)                                    *
+c *       = i_ja         (stge = 4)                                    *
+c * i_ja  = ponteiro para o arranjo ja do CSR        (stge = 1)        *
+c *       = ponteiro para o arranjo ipedg(nnode+1)   (stge = 2)        *
+c *       = nao definido (stge = 3)                                    *
+c *       = ponteiro da diagonal  (stge = 4)                           *
+c * i_au  - ponteiro para o arranjo au(nad)                            *
+c * i_al  - ponteiro para o arranjo al(nad)                            *
+c * i_ad  - ponteiro para a diagonal                                   *
+c * block_pu = true                                                    *     *
 c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c *    naduu - numero de coeficientes nao nulos do bloco uu            *
 c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
 c *    nadpu - numero de coeficientes nao nulos do bloco pu            *
-c * dualCsr = false                                                    *
+c * block_pu_sym = true | false; block_pu = false                      *                                    *
 c *    nad   - numero de coeficientes nao nulos                        *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * block_pu = true e n_blocks_up = 1                                  *
+c * monta o bloco kuu e kpp separados e nao monta o bloco kup          *
 c *                                                                    *
-c *    Obs: esta rotina deve ser utilizada com a estrutura de dados    *
-c *         definida no arquivo 'common.h'                             *
+c * block_pu = true e n_blocks_up = 2                                  *
+c * monta o bloco kuu e kpp juntos e o bloco kup separado              *
+c *                                                                    *
+c * block_pu = true e n_blocks_up = 3                                  *
+c * monta o bloco kuu, kpp e kup separados                             *
+c *                                                                    *
+c * block_pu_sym = true                                                *
+c * monta o bloco kuu, kpp e kup juntos ( primeiras equacoes u e       *
+c * depois as esquacoes de pressao                                     *
+c *                                                                    *
+c * block_pu_sym = false e block_pu = false                            *                   
+c * monta o bloco kuu, kpp e kup juntos se considera a estrutura       * 
+c * blocada, i.e., graus de liberda juntos                             *
 c *                                                                    *
 c **********************************************************************
       use Malloc
@@ -67,7 +86,7 @@ c ... ponteiros
       integer*8 i_bd,i_lde
 c .....................................................................      
       integer nedge,nste
-      logical unsym,bdfl,ovlp,dualCsr
+      logical unsym,bdfl,ovlp,block_pu ,block_pu_sym
       character*8 ija,ja,au,al,ad
 c ......................................................................
       i_ia    = 1
@@ -98,7 +117,7 @@ c
      .                    ,numel,nen,ndf,neq,nequ,neqp
      .                    ,i_ia,i_ja,nad,naduu,nadpp,nadpu
      .                    ,.true.,.false.,.false.,ovlp,ija,ja
-     .                    ,n_blocks_up,dualCsr)
+     .                    ,n_blocks_up,block_pu ,block_pu_sym)
 c     
 c ...    matriz de coeficientes:
 c

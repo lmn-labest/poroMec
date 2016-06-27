@@ -45,10 +45,74 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
+c * Data de criacao    : 10/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *
+c * PRE_DIAG_SCHUR : precondicionador diagonal com complemento schur   *
+c * aproximado ( problema poro mecanico)
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ia  - csrc                                                         *
+c * ja  - csrc                                                         *
+c * m   - indefinido                                                   *
+c * ad  - coeficientes da diagonal principal                           *
+c * al  - coeficientes da parte inferior da matriz                     *
+c * neq - numero de equacoes                                           *
+c * nequ- numero de equacoes no bloco Kuu                              *
+c * pd  - .true.  modulo da diagonal                                   *
+c *       .false. valor com sinal da diagonal                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * m   - precondicionador diagonal ( M-1)                             *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c *     | diag(Kuu)                0                         |         *
+c * M = |                                                    |         *  
+c *     |    0         diag(Kpp + Kpu*(diag(Kuu))(-1)*(Kpu)T |         *
+c *                                                                    *                
+c *     | Kuu              (Kpu)T   |                                  *
+c * K = |                           |                                  *  
+c *     | Kpu              -Kpp     |                                  *          
+c **********************************************************************
+      subroutine pre_diag_schur(ia,ja,m,ad,al,w,neq,nequ)
+      implicit none
+      real*8 m(*),ad(*),al(*),w(*),tmp
+      integer i,j,neq,nequ,jak,ia(*),ja(*)
+c ... positva definida
+      do i = 1, nequ
+        m(i) = 1.d0/ad(i)
+      enddo
+c ....................................................................
+c
+c ...
+      do i = nequ + 1, neq
+        w(1:nequ) = 0.d0
+        do j = ia(i), ia(i+1) - 1
+          jak = ja(j)
+          if( jak .le. nequ) w(jak) = al(j)
+        enddo
+c ... C + BD(-1)BT
+        tmp = -ad(i)
+        do j = 1, nequ
+          tmp = tmp + w(j)*w(j)*m(j)
+        enddo
+        m(i) = 1.0d0/tmp
+      enddo
+c ....................................................................
+c
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
 c * Data de criacao    : 15/06/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *
-c * BLOCK_PRECOND : precondicionador bloco diagonal diagonal simetrico *
+c * BLOCK_PRECOND : precondicionador bloco diagonal simetrico          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
@@ -1400,12 +1464,13 @@ c **********************************************************************
       include 'string.fi'
       include 'precond.fi'
       character macro(maxstrl)
-      character*6 macros(6),string
+      character*6 macros(7),string
       integer precond,size,nin,my_id
       integer i,nmc 
       data macros/'none  ','diag  ','ildlt '
-     .           ,'illt  ','diagm ','bdiag '/
-      data nmc /6/
+     .           ,'illt  ','diagm ','bdiag '
+     .           ,'diags '/
+      data nmc /7/
 c ...
       write(string,'(6a)') (word(i),i=1,6)
 c ... nenhum precondicionador
@@ -1466,6 +1531,14 @@ c ...
         endif
 c .....................................................................
 c
+c ... precondicionador Block diagnal 
+      elseif( string .eq. macros(7)) then
+        precond = 7
+        if(my_id.eq.0) then
+          write(*,'(1x,a25,1x,a6)')'precond:',macros(7)
+        endif
+c .....................................................................
+c
 c ...                         
       else
         print*,'Erro na leitura da macro precond !'
@@ -1477,6 +1550,104 @@ c ...
       return
       end
 c ********************************************************************** 
+c
+c c **********************************************************************
+c * Data de criacao    : 27/06/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * CAL_PRECOND : calculo o precondicionador                           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ia     - csrc                                                      *
+c * ja     - csrc                                                      *
+c * m      - indefinido                                                *
+c * ad     - coeficientes da diagonal principal                        *
+c * al     - coeficientes da parte inferior da matriz                  *
+c * w(neq) - vetor auxiliar                                            *
+c * precond- codigo para o precondicionador                            *
+c * neq    - numero de equacoes                                        *
+c * nequ   - numero de equacoes no bloco Kuu                           *
+c * my_id  - id do processo do mpi                                     *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * m      - precondicionador                                          *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c ********************************************************************** 
+      subroutine cal_precond(ia,ja,m,ad,al,w,precond,neq,nequ,my_id)
+      implicit none
+      include 'mpif.h'
+      include 'precond.fi'
+      include 'time.fi'
+      real*8 m(*),ad(*),al(*),w(*)
+      integer ia(*),ja(*),neq,nequ
+      integer precond,my_id
+      real*8  max_block_a(max_block*max_block)
+c ... sem precondicionador:
+      if(precond .eq. 1) then
+c .....................................................................
+c
+c ... precondicionador diagonal:
+      else if(precond .eq. 2) then 
+        precondtime = Mpi_Wtime() - precondtime  
+        call pre_diag(m,ad,neq,.false.)  
+        precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador LDLT incompleto
+      else if(precond .eq. 3) then
+c ...
+        precondtime = Mpi_Wtime() - precondtime 
+        call ildlt2(neq,ia,ja,al,ad,m,w,0.0d0,.false.)
+        precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador Cholesky LLT incompleto
+      else if(precond .eq. 4) then
+c ...
+        precondtime = Mpi_Wtime() - precondtime 
+        call ichfat(neq,ia,ja,al,ad,m,w,0.0d0,.true.)
+        precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+      else if(precond .eq. 5) then
+c ...
+        precondtime = Mpi_Wtime() - precondtime  
+        call pre_diag(m,ad,neq,.true.)
+        precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ... precondicionador modulo da diagonal:
+      else if(precond .eq. 6) then
+c ...
+        precondtime = Mpi_Wtime() - precondtime 
+        call block_precond(ad,al,ia,ja,m,neq,max_block_a,iparam) 
+        precondtime = Mpi_Wtime() - precondtime
+c .....................................................................
+c
+c ... precondicionador diagonal com complemento de schur:
+      else if(precond .eq. 7) then
+c ...
+        precondtime = Mpi_Wtime() - precondtime  
+        call pre_diag(m,ad,neq,.true.)
+        precondtime = Mpi_Wtime() - precondtime 
+c .....................................................................
+c
+c ...
+      else
+        if( my_id.eq.0 ) then
+          print*,"Precond invalido: !!",precond
+          call stop_mef()
+        endif 
+      endif
+c ......................................................................
+      return      
+      end
+c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 18/06/2016                                    *

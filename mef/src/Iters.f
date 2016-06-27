@@ -7,6 +7,8 @@ c * CG   - gradiente conjugados                                       *
 c *                                                                   *
 c * PCG  - gradiente conjugados com precondicionador diagonal         *
 c *                                                                   *
+c * BCG  - gradiente conjugados com precondicionador bloco diagonal   *
+c *                                                                   *
 c * ICCG - gradiente conjugados com precondicionador de fatoracoes    *              
 c * incompletas  (LLT e LDLt)                                         *
 c *                                                                   *
@@ -374,7 +376,7 @@ c
         do 10 i = 1, neq
           x(i)  = 0.d0
    10   continue
-      endif  
+      endif 
 c .......................................................................
 c
 c ... conv = tol * |(M-1)b|m = tol *(b,M-1b)

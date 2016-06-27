@@ -1,11 +1,12 @@
 c **********************************************************************
 c *                                                                    *
 c *   SOLV_PM.F                                            06/12/2015  *
-c *                                                        23/05/2016  *
+c *                                                        26/06/2016  *
 c *   Metodos iterativos de solucao:                                   *
 c *                                                                    *
 c *   cg                                                               *
 c *   pcg                                                              *
+c *   bcg                                                              *
 c *   iccg                                                             *              
 c *   minres                                                           *
 c *   pminres                                                          *
@@ -92,45 +93,10 @@ c ...
         i_s = alloc_8('psolver ',1,neq)
 c ......................................................................
 c
-c ... precondicionador diagonal:
-        if(precond .eq. 2) then 
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador LDLT incompleto
-        else if(precond .eq. 3) then
 c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
 c .....................................................................
-c
-c ... precondicionador Cholesky LLT incompleto
-        else if(precond .eq. 4) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador modulo da diagonal:
-        else if(precond .eq. 5) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador modulo da diagonal:
-        else if(precond .eq. 6) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call block_precond(ad,al,ip,ja,m,neq,max_block_a,iparam) 
-          precondtime = Mpi_Wtime() - precondtime
-c .....................................................................
-        endif           
+c          
 c ...    Comunicacao da diagonal para o caso non-ovelapping:
         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
      .                               i_rcvsi,i_dspli)
@@ -138,7 +104,7 @@ c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
         if(block_pu) then
-           print*,"PCG não disponivel para a matriz", 
+           print*,"PCG nao disponivel para a matriz", 
      .            " blocada nao simetrica !!"
           stop   
 c .....................................................................
@@ -322,27 +288,10 @@ c ... alocacao dos arronjos auxiliares (6neq)
          i_y = alloc_8('ysolver ',1,neq)
 c .....................................................................
 c
-c ...    precondicionador diagonal:
-         if(precond .eq. 2) then
-           precondtime = Mpi_Wtime() - precondtime    
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime   
+c ...
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
 c .....................................................................
 c
-c ... precondicionador LDLT incompleto
-         else if(precond .eq. 3) then
-c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
-c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 5) then
-c ...
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
-c ....
-         endif           
 c ...    Comunicacao da diagonal para o caso non-overlapping:
          if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
      .                               i_rcvsi,i_dspli)
@@ -521,37 +470,10 @@ c ... alocacao dos arronjos auxiliares (8neq)
         i_b = alloc_8('bsolver ',1,neq)
 c ....................................................................
 c
-c ... precondicionador diagonal:
-        if(precond .eq. 2) then 
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
+c ...
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
 c .....................................................................
 c
-c ... precondicionador LDLT incompleto
-         else if(precond .eq. 3) then
-c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-           precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador Cholesky LLT incompleto
-         else if(precond .eq. 4) then
-c ...
-           precondtime = Mpi_Wtime() - precondtime 
-           call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador modulo da diagonal:
-         else if(precond .eq. 5) then
-c ...
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.true.)
-           precondtime = Mpi_Wtime() - precondtime 
-c ....
-         endif 
 c ......................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
@@ -597,7 +519,7 @@ c ... MINRES:
       else if(solver .eq. 7 ) then
 c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
         if(block_pu) then
-          print*,"MINRES não disponivel para a matriz", 
+          print*,"MINRES nao disponivel para a matriz", 
      .           " blocada nao simetrica !!"
           stop 
         endif    
@@ -612,38 +534,10 @@ c ...
         i_y = alloc_8('ysolver ',1,neq)
         i_a = alloc_8('asolver ',1,neq)
         i_g = alloc_8('gsolver ',1,neq)
-c
-c ... precondicionador diagonal:
-        if(precond .eq. 2) then 
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
-c ... precondicionador LDLT incompleto
-        else if(precond .eq. 3) then
-c ...   
-          precondtime = Mpi_Wtime() - precondtime 
-          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador Cholesky LLT incompleto
-        else if(precond .eq. 4) then
 c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador modulo da diagonal:
-        else if(precond .eq. 5) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-        endif 
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
 c .....................................................................
 c
 c ...   
@@ -690,7 +584,7 @@ c ... CR - Conjugate Residual
       else if(solver .eq. 8 ) then
 c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
         if(block_pu) then
-          print*,"CR não disponivel para a matriz", 
+          print*,"CR nao disponivel para a matriz", 
      .           " blocada nao simetrica !!"
           stop 
         endif    
@@ -703,37 +597,10 @@ c ...
         i_s = alloc_8('psolver ',1,neq)
         i_z = alloc_8('zsolver ',1,neq)
         i_y = alloc_8('ysolver ',1,neq)
-c ... precondicionador diagonal:
-        if(precond .eq. 2) then 
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
-c ... precondicionador LDLT incompleto
-        else if(precond .eq. 3) then
 c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador Cholesky LLT incompleto
-        else if(precond .eq. 4) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador modulo da diagonal:
-        else if(precond .eq. 5) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-        endif 
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
 c .....................................................................
 c
 c ...   
@@ -750,7 +617,8 @@ c ... matvec comum:
 c .....................................................................
 c
 c ...
-        else if(precond .eq. 2 .or. precond .eq. 5) then
+        else if(precond .eq. 2 
+     .         .or. precond .eq. 5 .or.  precond .eq. 7) then
           call pcr(neq  ,nequ   ,nad     ,ip    ,ja
      .          ,ad     ,al     ,al      ,b      ,m      ,x
      .          ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
@@ -778,9 +646,9 @@ c ... SYMMLQ :
       else if(solver .eq. 9 ) then
 c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
         if(block_pu) then
-          print*,"CR não disponivel para a matriz", 
+          print*,"SYMMLQ nao disponivel para a matriz", 
      .           " blocada nao simetrica !!"
-          stop 
+          call stop_mef() 
         endif    
 c .....................................................................
 c
@@ -791,37 +659,10 @@ c ...
         i_s = alloc_8('psolver ',1,neq)
         i_z = alloc_8('zsolver ',1,neq)
         i_y = alloc_8('ysolver ',1,neq)
-c ... precondicionador diagonal:
-        if(precond .eq. 2) then 
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
-c ... precondicionador LDLT incompleto
-        else if(precond .eq. 3) then
 c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ildlt2(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.false.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador Cholesky LLT incompleto
-        else if(precond .eq. 4) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime 
-          call ichfat(neq,ip,ja,al,ad,m,ia(i_z),0.0d0,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-c
-c ... precondicionador modulo da diagonal:
-        else if(precond .eq. 5) then
-c ...
-          precondtime = Mpi_Wtime() - precondtime  
-          call pre_diag(m,ad,neq,.true.)
-          precondtime = Mpi_Wtime() - precondtime 
-c .....................................................................
-        endif 
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
 c .....................................................................
 c
 c ...   
