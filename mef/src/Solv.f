@@ -655,6 +655,43 @@ c ... mkl_pardiso
         endif
         i_z  = dealloc('zsolver ') 
 c ......................................................................
+c
+c ... SQRM - QRM simetrico
+      else if(solver .eq. 11) then
+c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
+        if(block_pu) then
+          print*,"CR nao disponivel para a matriz", 
+     .           " blocada nao simetrica !!"
+          stop 
+        endif    
+c .....................................................................
+c
+c ...
+        i_c = alloc_8('tsolver ',1,neq)
+        i_h = alloc_8('hsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
+c .....................................................................
+c
+c ...
+        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
+c .....................................................................
+c
+c ...
+        call call_sqrm(neq      ,nequ  ,nad    ,ip      ,ja
+     .                ,ad       ,al    ,m      ,b       ,x    
+     .                ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s) 
+     .                ,tol      ,maxit ,precond,iparam  ,fhist_solv
+     .                ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     .                ,i_xfi    ,i_rcvsi,i_dspli)   
+c .....................................................................
+c
+c ...
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_h = dealloc('hsolver ')
+        i_c = dealloc('tsolver ')
+c .....................................................................
       endif
 c ......................................................................           
 c
@@ -1064,10 +1101,123 @@ c .....................................................................
 c **********************************************************************
 c
 c **********************************************************************
+c * Data de criacao    : 28/06/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * CALL_AQRM:chama a versao do CR                                     *    
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * al(*)    - parte triangular inferior de A                          *
+c * b(neq)   - vetor de forcas                                         *
+c * m(*)     - precondicionador                                        *
+c * x(neq)   - chute inicial                                           *
+c * c(neq)   - arranjo local de trabalho                               *
+c * h(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * s(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * pc       - precondicionador                                        *
+c *            1 - nenhum                                              *
+c *            2 - diaggonal                                           *
+c *            3 - iLDLt(0)                                            *
+c *            4 - iLLt(0)                                             *
+c *            5 - modulo da diagonal                                  *
+c * iparam   - parametros do bloco diagonal                            *
+c *          - iparam(1) - numero de sub matriz em blocos              *
+c *          - iparam(2) - numero de inversos da diagonal simples      *
+c *          - iparam(3) - numero de termos nos bloco                  *
+c *          - iparam(4) - tamanho do bloco                            *
+c * fhist_log- log do residuo por iteracao                             *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************  
+      subroutine call_sqrm(neq      ,nequ  ,nad   ,ia      ,ja
+     .                    ,ad       ,al    ,m     ,b       ,x    
+     .                    ,c        ,h     ,r     ,s    
+     .                    ,tol      ,maxit ,pc    ,iparam ,fhist_log
+     .                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     .                    ,i_xfi    ,i_rcvsi,i_dspli)
+      implicit none
+c ... mpi
+      integer my_id
+      integer neqf1i,neqf2i
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+c .....................................................................
+      integer neq,nequ,nad,neq_doti 
+      integer ia(*),ja(*)
+      real*8  ad(*),al(*),x(*),b(*)
+c ... arranjos auxiliares
+      real*8 c(*),h(*),r(*),s(*)
+c ...
+      real*8  tol
+      integer maxit  
+      logical fhist_log
+c ... precondicionador
+      integer pc,iparam(*)
+      real*8 m(*)
+c ...
+      external dot_par
+      external matvec_csrc_sym_pm  
+      external ildlt_solv,illt_solv  
+c ......................................................................
+c
+      if(pc .eq. 1 ) then
+        call sqrm(neq    ,nequ   ,nad    ,ia    ,ja
+     .           ,ad     ,al     ,al     ,m     ,b   ,x 
+     .           ,c      ,h      ,r      ,s 
+     .           ,tol   ,maxit
+     .           ,matvec_csrc_sym_pm,dot_par
+     .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .           ,i_xfi ,i_rcvsi,i_dspli
+     .           ,.true.,.true. ,fhist_log,.true.)
+c .....................................................................
+c
+c ...
+       else if(pc .eq. 2 .or. pc .eq. 5 .or.  pc .eq. 7) then
+         call rpsqrm(neq    ,nequ   ,nad    ,ia    ,ja
+     .             ,ad     ,al     ,al      ,m     ,b   ,x 
+     .             ,c      ,h      ,r       ,s 
+     .             ,tol   ,maxit
+     .             ,matvec_csrc_sym_pm,dot_par
+     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .             ,i_xfi ,i_rcvsi,i_dspli
+     .             ,.true.,.true. ,fhist_log,.true.)
+c .....................................................................
+        endif
+c .....................................................................
+      return
+      end    
+c **********************************************************************
+c
+c **********************************************************************
 c * Data de criacao    : 27/06/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *   
-c * CALL_MINRES: chama a versao do MINRES                             *    
+c * CALL_MINRES: chama a versao do MINRES                              *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 

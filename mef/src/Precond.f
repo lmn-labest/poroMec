@@ -95,7 +95,7 @@ c ...
           if( jak .le. nequ) w(jak) = al(j)
         enddo
 c ... C + BD(-1)BT
-        tmp = -ad(i)
+        tmp = dabs(ad(i))
         do j = 1, nequ
           tmp = tmp + w(j)*w(j)*m(j)
         enddo
@@ -1633,7 +1633,7 @@ c ... precondicionador diagonal com complemento de schur:
       else if(precond .eq. 7) then
 c ...
         precondtime = Mpi_Wtime() - precondtime  
-        call pre_diag(m,ad,neq,.true.)
+        call pre_diag_schur(ia,ja,m,ad,al,w,neq,nequ)
         precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
