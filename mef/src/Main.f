@@ -220,7 +220,7 @@ c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
 c     block_pu= .true.
       n_blocks_pu  = 0 
       block_pu     = .false.
-      block_pu_sym = .true.
+      block_pu_sym = .false.
       resid0       =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
@@ -932,8 +932,10 @@ c
 c ......................................................................
  1000 continue
       if(my_id.eq.0)print*, 'Macro PARDISO'
-      solver = 10 
-      stge   = 6
+      solver       = 10 
+      stge         = 6
+      block_pu_sym = .false.
+      block_pu     = .false.
       goto 50
 c ......................................................................
 c

@@ -9,31 +9,37 @@ c * PCG  - gradiente conjugados com precondicionador diagonal         *
 c *                                                                   *
 c * BCG  - gradiente conjugados com precondicionador bloco diagonal   *
 c *                                                                   *
-c * ICCG - gradiente conjugados com precondicionador de fatoracoes    *              
+c * ICCG - gradiente conjugados com precondicionador de fatoracoes    *   
 c * incompletas  (LLT e LDLt)                                         *
 c *                                                                   *
 c * MINRES - matriz indefinida                                        *
 c *                                                                   *
 c * PMINRES - MINRES com precondicionador diagonal M=D(1/2)D(1/2)     *
 c *                                                                   *
-c * CR -Residuos conjugados                                           * 
+c * CR -Residuos conjugados                                           *
 c *                                                                   *
-c * PCR -Residuos conjugados com precondicionador diagonal            * 
-c *                                                                   * 
+c * PCR -Residuos conjugados com precondicionador diagonal            *
+c *                                                                   *
+c * SQRM - QRM simetrico                                              *
+c *                                                                   *
+c * RSQRM - QRM simetrico com precondicionador diagonal a direita     *
+c *                                                                   *
+c * LSQRM - QRM simetrico com precondicionador diagonal a esquerda    *
+c *                                                                   *
 c * ----------------------------------------------------------------- *
 c * nao-simetricos:                                                   *
 c * ----------------------------------------------------------------- *
 c * bicgstab - gradiente bi-conjugados estabilizados                  *
 c *                                                                   *
-c * pbicgstab - gradiente bi-conjugados estabilizados  com            * 
+c * pbicgstab - gradiente bi-conjugados estabilizados  com            *
 c * precondicionador diagonal                                         *
 c *                                                                   *
-c * icbicgstab - gradiente bi-conjugados estabilizados fatoracoes     *              
-c * incompletas (LLT e LDLt)                                          *   
+c * icbicgstab - gradiente bi-conjugados estabilizados fatoracoes     *             
+c * incompletas (LLT e LDLt)                                          *  
 c *                                                                   *
 c * bicgstabl2 - gradiente bi-conjugados estabilizados (l=2)          *
 c *                                                                   *
-c * pbicgstabl2- gradiente bi-conjugados estabilizados (l=2) com      * 
+c * pbicgstabl2- gradiente bi-conjugados estabilizados (l=2) com      *
 c * precondicionador diagonal                                         *
 c *                                                                   *
 c * gmres(m) - GMRES com precondicionador diagonal                    *
@@ -3259,7 +3265,7 @@ c *********************************************************************
      .                       ,i_xfi ,i_rcvsi,i_dspli)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 22/04/2016                                    * 
+c * Data de modificaco : 18/07/2016                                    * 
 c * ------------------------------------------------------------------ *                                                                   *
 c * Subroutine PCG_BLOCK_IT                                            *
 c * ------------------------------------------------------------------ * 
@@ -3407,7 +3413,7 @@ c ... P = inv(Kpp)*(Fp - kpu*U)= inv(Kpp)*rp
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id     ,neqf1i     ,neqf2i,neqp    ,i_fmapi
      .          ,i_xfi     ,i_rcvsi    ,i_dspli
-     .          ,.false.   ,.false.    ,.false.)
+     .          ,.false.   ,.false.    ,.false.,.false.)
 c ......................................................................
 c
 c ... x - > p
@@ -3431,7 +3437,7 @@ c ... U = inv(Kuu)*(Fu - kup*P)=inv(Kuu)*ru
      .          ,matvec_csrc_sym_pm,dot_par 
      .          ,my_id  ,neqf1i ,neqf2i,nequ    ,i_fmapi
      .          ,i_xfi  ,i_rcvsi,i_dspli
-     .          ,.false.,.true.  ,.false.)
+     .          ,.false.,.true.  ,.false.,.false.)
 c ......................................................................
 c
 c ... x - > u

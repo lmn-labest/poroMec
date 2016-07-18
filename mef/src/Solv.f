@@ -1,7 +1,7 @@
 c **********************************************************************
 c *                                                                    *
 c *   SOLV_PM.F                                            06/12/2015  *
-c *                                                        27/06/2016  *
+c *                                                        28/06/2016  *
 c *   Metodos iterativos de solucao:                                   *
 c *                                                                    *
 c *   cg                                                               *
@@ -12,6 +12,9 @@ c *   minres                                                           *
 c *   pminres                                                          *
 c *   cr                                                               * 
 c *   pcr                                                              * 
+c *   sqrm                                                             *
+c *   rsqrm                                                            *
+c *   lsqrm                                                            *
 c *   bicgstab                                                         *
 c *   pbicgstab                                                        * 
 c *   icbicgstab                                                       *                

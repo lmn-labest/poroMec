@@ -82,7 +82,7 @@ c .....................................................................
 c
 c ... 
       phase = 13        
-      msglvl = 1
+      msglvl = 0
 #if _MKL_
       call pardiso (pt  , maxfct, mnum, mtype, phase, neq, a, ia, ja,
      .              idum, nrhs  , iparm, msglvl, b, x, error)
