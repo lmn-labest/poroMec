@@ -196,7 +196,7 @@ c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
 c ... precond =  1 - NONE , 2 - diag, 3 - iLDLt(0), 4 - iC(0)
-c                5 - diagm, 6 - bdiag2
+c                5 - diagm, 6 - bdiag, 7 -diagS
       maxit     =  50000
       solvtol   =  1.d-11
       maxnlit   =  2 
@@ -215,12 +215,29 @@ c                7 (minres)    , 8 (pcr)         , 9 (symmlq)
 c               10 (pardiso)   ,11 (sqrm)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
-      solver  =  1
+      solver  =  11
       stge    =  1
-c     block_pu= .true.
+c ... Matriz blocada 
+c     block_pu = true e n_blocks_up = 1 monta o bloco 
+c     kuu e kpp separados e nao monta o bloco kup           
+c                                                                     
+c     block_pu = true e n_blocks_up = 2 monta o bloco 
+c     kuu e kpp juntos e o bloco kup separado              
+c                                                                    
+c     block_pu = true e n_blocks_up = 3 monta o bloco 
+c     kuu, kpp e kup separados                                   
+c 
+c     block_pu_sym = true  monta o bloco kuu, kpp e kup juntos na 
+c     forma simetrica
+c     ( primeiras equacoes u e depois as esquacoes de pressao)                                     *
+c 
+c     block_pu_sym = false e block_pu = false                               
+c     monta o bloco kuu, kpp e kup juntos sem considera a estrutura      
+c     blocada, i.e., graus de liberda juntos                      
       n_blocks_pu  = 0 
       block_pu     = .false.
       block_pu_sym = .false.
+c
       resid0       =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1

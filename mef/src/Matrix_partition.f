@@ -175,7 +175,7 @@ c *********************************************************************
       integer neq,split
       integer i,j
 c
-c$omp parallel private(split)
+c$omp parallel private(split) num_threads(nth_solv)
 !$    thread_id = omp_get_thread_num()
       split = mod(neq, nth_solv)
       thread_begin(thread_id+1) = thread_id*(neq/nth_solv)
@@ -219,7 +219,7 @@ c *********************************************************************
       include 'openmp.fi'
       integer ia(*),ja(*),neq,h,i
 c
-c$omp parallel private(h)
+c$omp parallel private(h) num_threads(nth_solv)
 !$    thread_id = omp_get_thread_num()
       h = thread_begin(thread_id+1)
       do i = thread_begin(thread_id+1), thread_end(thread_id+1)
@@ -340,7 +340,7 @@ c *********************************************************************
       integer ia(*),ja(*),iapu(*),japu(*)
       integer h,i,nequ
 c
-c$omp parallel private(h)
+c$omp parallel private(h) num_threads(nth_solv)
 !$    thread_id = omp_get_thread_num()
 c ... kuu e kpp
       h = thread_begin(thread_id+1)

@@ -69,10 +69,10 @@ c * monta o bloco kuu, kpp e kup separados                             *
 c *                                                                    *
 c * block_pu_sym = true                                                *
 c * monta o bloco kuu, kpp e kup juntos ( primeiras equacoes u e       *
-c * depois as esquacoes de pressao                                     *
+c * depois as esquacoes de pressao) na forma simetrica                 *
 c *                                                                    *
 c * block_pu_sym = false e block_pu = false                            *                   
-c * monta o bloco kuu, kpp e kup juntos se considera a estrutura       * 
+c * monta o bloco kuu, kpp e kup juntos sem considera a estrutura      * 
 c * blocada, i.e., graus de liberda juntos                             *
 c *                                                                    *
 c **********************************************************************

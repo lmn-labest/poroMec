@@ -4,6 +4,8 @@ c * ----------------------------------------------------------------- *
 c * simetricos:                                                       *
 c * ----------------------------------------------------------------- *
 c * PCG - gradiente conjugados com precondicionador diagonal          *
+c *                                                                   *
+c * RSQRM - QRM simetrico com precondicionador diagonal a direita     *
 c * ----------------------------------------------------------------- *
 c * nao-simetricos:                                                   *
 c * ----------------------------------------------------------------- *                                                       *
@@ -16,13 +18,15 @@ c * ----------------------------------------------------------------- *
 c ********************************************************************* 
       subroutine pcg_omp(neq   ,nequ,nad,ia ,ja
      .                  ,ad    ,au  ,al ,m  ,b
-     .                  ,x     ,z   ,r  ,tol,maxit
+     .                  ,x     ,z   ,r  ,p
+     .                  ,tol,maxit
      .                  ,matvec,dot
      .                  ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi ,i_rcvsi,i_dspli,thread_y,flog)
+     .                  ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     .                  ,fprint,flog   ,fhist  ,fnew)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 12/12/2015                                    * 
+c * Data de modificaco : 23/09/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PCG_OMP : Solucao de sistemas de equacoes pelo metodo dos          *
 c * gradientes conjugados com precondicionador diagonal para matrizes  *
@@ -40,9 +44,11 @@ c * au(*)    - parte triangular superior de A                          *
 c * al(*)    - parte triangular inferior de A                          *
 c * m(*)     - precondicionador diagonal                               *
 c * b(neq)   - vetor de forcas                                         *
+c * b(neq)   - vetor de forcas                                         *
 c * x(neq)   - chute inicial                                           *
 c * z(neq)   - arranjo local de trabalho                               *
 c * r(neq)   - arranjo local de trabalho                               *
+c * p(neq)   - arranjo local de trabalho                               *
 c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * matvec   - nome da funcao externa para o produto matrix-vetor      *
@@ -56,7 +62,11 @@ c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
 c * thread_y - buffer de equacoes para o vetor y (openmp)              *
+c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
+c * fnew     - .true.  -> x0 igual a zero                              *
+c *            .false. -> x0 dado                                      *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -80,69 +90,120 @@ c ... ponteiros
 c ......................................................................      
       integer neq,nequ,maxit,i,j,jj,nad
       integer ia(*),ja(*),my_id
-      real*8  ad(*),au(*),al(*),m(*),x(*),r(*),z(*),b(*)
-      real*8  dot,tol,conv,energy,d,alpha,beta
+      real*8  ad(*),au(*),al(*),b(*),m(*),x(*)
+      real*8  r(*),z(*),p(*)
+      real*8  dot,tol,conv,xkx,norm,d,di,alpha,beta,tmp,norm_b
+      real*8  norm_r,norm_m_r
       real*8  time0,time
       real*8  thread_y(*)
-      logical flog
+      logical flog,fprint,fnew,fhist
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
 c ......................................................................
 c$omp parallel default(none) 
-c$omp.private(i,j,jj,d,conv,alpha,beta,energy)
-c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,z,r,tol,maxit,thread_y)
-c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti,flog)
+c$omp.private(i,j,jj,conv,alpha,beta,xkx,norm,d,di,tmp)
+c$omp.private(norm_b,norm_r,norm_m_r)
+c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,p,z,r,tol,maxit,thread_y)
+c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti)
+c$omp.shared(flog,fprint,fnew,fhist)
 c$omp.shared(my_id,time,time0)
 c$omp.num_threads(nth_solv)                                          
 c ......................................................................
 c
 c ... Chute inicial:
 c
+      if(fnew) then  
 c$omp do
-      do 10 i = 1, neq
-         x(i) = 0.d0
-   10 continue
+        do 10 i = 1, neq
+          x(i) = 0.d0
+   10   continue
 c$omp end do
-c ----------------------------------------------------------------------
+      endif  
+c ......................................................................
+c
+c ... conv = tol * |(M-1)b|m = tol *(b,M-1b)
+c$omp do
+      do 15 i = 1, neq
+         z(i) = b(i) * m(i)
+   15 continue
+c$omp end do
+      d      = dot(b,z,neq_doti)
+      norm_b = dsqrt(dabs(d))  
+      conv   = tol*dsqrt(dabs(d))
+c .......................................................................
+c  
+c ... Ax0 
       call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
      .           ,x,z
      .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,thread_y)
 c$omp do
       do 100 i = 1, neq
+c ... r0 = b - Ax0
          r(i) = b(i) - z(i)
+c ... z0 = (M-1)r0
          z(i) = r(i) * m(i)
-         b(i) = z(i)
+c ... p0 = r0
+         p(i) = z(i)
   100 continue
 c$omp end do
       d    = dot(r,z,neq_doti)
-      conv = tol*dsqrt(dabs(d))
-c ----------------------------------------------------------------------
+c ... ( r(0),z(0) ) = ( r(0), (M-1)r0 )
+      d    = dot(r,z,neq_doti)
+c ......................................................................
       jj = 1
       do 230 j = 1, maxit
+c ... z = Ap(j)
          call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
-     .              ,b,z
+     .              ,p,z
      .              ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
      .              ,thread_y)
-         alpha = d / dot(b,z,neq_doti)
+c .....................................................................
+c
+c ... alpha = ( r(j),z(j) ) / ( Ap(j), p(j) ))
+         alpha = d / dot(z,p,neq_doti)
+c .....................................................................
+c
+c ...
 c$omp do
          do 210 i = 1, neq
-            x(i) = x(i) + alpha * b(i)
+c ... x(j+1) = x(j) + alpha*p
+            x(i) = x(i) + alpha * p(i)
+c ... r(j+1) = r(j) - alpha*Ap
             r(i) = r(i) - alpha * z(i)
+c ... z  = (M-1)r0
             z(i) = r(i) * m(i)
   210    continue
 c$omp end do
-         beta = dot(r,z,neq_doti)/d
+c .....................................................................
+c
+c ... ( r(j+1),(M-1)r(j+1) ) = ( r(j+1),z )
+         di   = dot(r,z,neq_doti) 
+c ... beta = ( r(j+1),(M-1)r(j+1) ) / ( r(j),r(j) ) 
+         beta = di / d
+c .....................................................................
+c
+c ...
 c$omp do
          do 220 i = 1, neq
-            b(i) = z(i) + beta * b(i)
+c ... p(j+1) = (M-1)r(j+1) + beta*p(j) = z + beta*p(j)
+            p(i) = z(i) + beta * p(i)
   220    continue
 c$omp end do
-         d = beta * d
+c ......................................................................
+c
+c ...
+         if(fhist) write(18,1500),j,dsqrt(dabs(d))/norm_b 
+c .....................................................................
+c
+c ...
+         d =  di
          if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ......................................................................
+c
+c ...
 c$omp master
-         if( jj .eq.500) then
+         if( jj .eq.1000) then
            jj = 0
            write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
@@ -158,40 +219,417 @@ c$omp single
 c$omp end single
   300 continue
 c
-c ... Energy norm:
+c ... Energy norm:  x*Kx
 c
       call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
      .           ,x,z
      .           ,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
      .           ,thread_y)
-      energy = dot(x,z,neq_doti)
+      xkx = dot(x,z,neq_doti)
+c ......................................................................
+c
+c ... norm-2 = || x ||
+      norm = dsqrt(dot(x,x,neq_doti))
+c ......................................................................
+c
+c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
+c$omp do
+      do 310 i = 1, neq
+        r(i) = b(i) - z(i)
+        z(i) = r(i)*m(i)
+  310 continue
+c$omp end do
+      norm_m_r = dot(r,z,neq_doti)
+      norm_m_r = dsqrt(dabs(norm_m_r))
+      norm_r = dot(r,r,neq_doti)
+      norm_r = dsqrt(norm_r)
+      if( norm_m_r .gt. conv ) then
+c$omp single
+         if(my_id .eq.0 )then
+           write(*,1400) norm_m_r,conv
+         endif 
+c$omp end single
+      endif
 c ......................................................................
 c$omp single
       time = MPI_Wtime()
       time = time-time0
 c ----------------------------------------------------------------------
-      if(my_id.eq.0)write(*,1100) tol,neq,j,energy,time
+      if(my_id .eq.0 .and. fprint )then
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,norm_m_r,time
+      endif
 c ......................................................................
-      if(my_id.eq.0) write(10,'(a,a,i9,a,d20.10,a,d20.10,a,f20.2)')
-     .               "PCG_OMP: ","it",j, " energy norm ",energy,
-     .               " tol ",tol," time ",time
+c
+c ... Controle de flops
+      if(flog) then
+        if(my_id.eq.0) then
+          write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
+     .       'PCG_OMP: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
+     .      ,' tol ',tol,' time ',time
+        endif
+      endif
+c ......................................................................
 c$omp end single
 c$omp end parallel
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal nulo
-     .ou negativo - equacao ',i7)
+ 1000 format (//,5x,'SUBROTINA PCG_OMP:',/,5x,'Diagonal coefficient ' 
+     . '- equation ',i9)
  1100 format(' (PCG_OMP) solver:'/
      . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||m         = ',d20.6/
      . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
      . 5x,'Number of iterations = ',i20/
-     . 5x,'Energy norm          = ',d20.10/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'|| b - Ax ||m        = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' PCG_OMP:',5x,'It',i7,5x,2d20.10)
+ 1400 format (' PCG_OMP:',1x,'Explicit residual > tol * ||b||m :'
+     .       ,1x,d20.10,1x,d20.10)
+1500  format ( 'PCG_OMP: ',5x,i7,5x,2es20.10)
       end
+c *********************************************************************  
+c
+c *********************************************************************  
+      subroutine rpsqrm_omp(neq   ,nequ   ,nad   ,ia  ,ja
+     .                 ,ad    ,au     ,al    ,m   ,b  ,x  
+     .                 ,t     ,r     ,q   ,d   
+     .                 ,tol   ,maxit
+     .                 ,matvec,dot
+     .                 ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     .                 ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     .                 ,fprint,flog   ,fhist  ,fnew)
+c **********************************************************************
+c * Data de criacao    : 22/09/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
+c * diagonal a direita                                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * au(*)    - parte triangular superior de A                          *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador diagonal                               *
+c * b(neq)   - vetor de forcas                                         *
+c * x(neq)   - chute inicial                                           *
+c * r(neq)   - arranjo local de trabalho                               *
+c * q(neq)   - arranjo local de trabalho                               *
+c * t(neq)   - arranjo local de trabalho                               *
+c * d(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * matvec   - nome da funcao externa para o produto matrix-vetor      *
+c * dot      - nome da funcao externa para o produto escalar           *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * thread_y - buffer de equacoes para o vetor y (openmp)              *                                                 *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
+c * fnew     - .true.  -> x0 igual a zero                              *
+c *            .false. -> x0 dado                                      *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * Fonte: A New Krylov-subspace method for symmetric indefinite       * 
+c * linear systems                                                     *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'omp_lib.h'
+      include 'openmp.fi'
+      integer neqf1i,neqf2i,neq_doti
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi
+      integer*8 i_rcvsi,i_dspli
+c .....................................................................      
+      integer neq,nequ,nad,maxit,i,j,jj
+      integer ia(*),ja(*),my_id
+      real*8 ad(*),au(*),al(*),b(*),m(*),x(*)
+      real*8 r(*),t(*),q(*),d(*)
+      real*8 dot,tol,conv,xkx,norm,alpha,beta,tmp1,tmp2,tau,ro,vn,v0
+      real*8 sigma,cn,norm_b 
+      real*8 norm_r
+      real*8 time0,time
+      real*8 thread_y(*)
+      logical flog,fprint,fnew,fhist
+      external matvec,dot
+c ======================================================================
+      time0 = MPI_Wtime()
+c ......................................................................
+c
+c ...
+      do 5 i = 1, neq
+        if(ad(i) .eq. 0.d0 ) then
+          write(*,1000) i
+          call stop_mef()
+        endif 
+   5  continue
+c ......................................................................
+c
+c ......................................................................
+c$omp parallel default(none) 
+c$omp.private(i,j,jj,conv,alpha,beta,xkx,norm_b,norm_r,norm)  
+c$omp.private(tau,ro,v0,sigma,vn,cn,tmp1,tmp2)
+c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,t,r,q,d)
+c$omp.shared(tol,maxit,thread_y)
+c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti,flog)
+c$omp.shared(my_id,time,time0,fnew,fhist,fprint)
+c$omp.num_threads(nth_solv)                                          
+c ......................................................................
+c
+c ... Chute inicial:
+c
+      if(fnew) then 
+c$omp do 
+        do 10 i = 1, neq
+          x(i)  = 0.d0
+   10   continue
+c$omp end do
+      endif 
+c .......................................................................
+c
+c ... conv = tol * |b| 
+      norm_b = dot(b,b,neq_doti)
+      conv = tol*dsqrt(dabs(norm_b))
+c .......................................................................
+c  
+c ... Ax0                                                            
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1) 
+     .           ,x,t,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .           ,thread_y)
+c .......................................................................
+c
+c ...
+c$omp do
+      do 100 i = 1, neq
+c ... r0 = b - Ax0
+         r(i) = b(i) - t(i)
+c ... q = t
+         q(i) = r(i) * m(i)
+c ... d = 0.0
+         d(i) = 0.d0
+  100 continue
+c$omp end do
+c ... ( r,r ) 
+      tau = dsqrt(dot(r,r,neq_doti))
+c ... ( r,q ) 
+      ro  = dot(r,q,neq_doti)
+c ......................................................................
+c
+c ...
+      v0 = 0.0d0
+c ......................................................................
+      jj = 1
+      do 230 j = 1, maxit
+c ... t = Aq(j-1)
+         call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .              ,q,t,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .              ,thread_y)
+c .....................................................................
+c
+c ... sigma = ( q(j-1),t)
+         sigma = dot(q,t,neq_doti)
+         if( sigma .eq. 0.0) then
+c$omp single
+           print*,"RSQRM_OMP fail (sigma)!"
+c$omp end single
+           call stop_mef()  
+         endif  
+c .....................................................................
+c
+c ... alpha(j-1) = ro(j-1)/sigma(j-1)
+         alpha = ro/sigma
+c .....................................................................
+c
+c ...
+c$omp do
+         do 210 i = 1, neq
+c ... r(j) = r(j-1) - alpha(j-1)*t
+            r(i) = r(i) - alpha * t(i)
+  210    continue
+c$omp end do
+c .....................................................................
+c
+c ... v(j) = ||r||/tau(j-1)
+         vn   = dsqrt(dot(r,r,neq_doti))/tau
+c ... c(j) = 1/sqrt(1+v(j)*v(j) 
+         cn   = 1.0d0/dsqrt(1+vn*vn)
+c ... tau(j) = tau(j-1)*v(j)*c(j)
+         tau = tau*vn*cn
+c .....................................................................
+c
+c ... tau(j) = (c(j)*c(j)*v(j-1)*v(j-1)) d(j-1)
+c            + c(j)*c(j)*alpha(j-1) * q(j-1)
+         tmp1 = cn*cn*v0*v0
+         tmp2 = cn*cn*alpha
+c$omp do 
+         do 215 i = 1, neq
+c ... d(j) = (cj*cj*vj*vj) d(j-1) + cj*cj*alpha(j-1) * q(j-1)
+           d(i) = tmp1*d(i) + tmp2*q(i) 
+c ... x(j) = x(j-1) + d(j)
+           x(i) = x(i) + d(i) 
+c ... u(j) = M(-1)r
+           t(i) = r(i)*m(i)
+  215    continue 
+c$omp end do
+c .....................................................................
+c
+c ...
+         v0 = vn
+c ......................................................................
+c
+c ... 
+         if( ro .eq. 0.0) then
+c$omp single
+           print*,"RSQRM_OMP fail (ro)!"
+c$omp end single
+           call stop_mef()  
+         endif  
+c .....................................................................
+c
+c ... (r,u) 
+         tmp1 = dot(r,t,neq_doti) 
+c ... beta = (r,u)/ro(j-1)
+         beta = tmp1/ro
+c ...
+         ro = tmp1
+c .....................................................................
+c
+c ...
+c$omp do
+         do 220 i = 1, neq
+c ... q(j+1) = (M-1)r(j) + beta*q(j-1) = t + beta*q(j-1)
+            q(i) = t(i) + beta * q(i)
+  220    continue
+c$omp end do
+c .....................................................................
+c
+c ...
+         norm_r = dsqrt(dot(r,r,neq_doti))
+c$omp master
+         if(fhist) write(18,1500),j,norm_r/norm_b 
+c$omp end master
+c .....................................................................
+c
+c ...
+         if (norm_r .lt. conv) goto 300
+c ......................................................................
+c$omp single
+         if( jj .eq. 1000) then
+           jj = 0
+           write(*,1300),j,norm_r,conv 
+         endif  
+         jj = jj + 1
+c$omp end single
+c ......................................................................
+  230 continue
+c ----------------------------------------------------------------------
+      write(*,1200) maxit
+      if(flog) write(10,1200) maxit
+      call stop_mef()
+  300 continue
+c
+c ... Energy norm:  x*Kx
+      call matvec(neq,nequ,ia,ja,ia(neq+2),ja(nad+1),ad,al,al(nad+1)
+     .           ,x,t,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     .           ,thread_y)
+      xkx = dot(x,t,neq_doti)
+c ......................................................................
+c
+c ... norm-2 = || x ||
+      norm = dsqrt(dot(x,x,neq_doti))
+c ......................................................................
+c
+c ... r =(b - Ax) (calculo do residuo explicito)
+c$omp do
+      do 310 i = 1, neq
+        r(i) = b(i) - t(i)
+  310 continue
+c$omp end do
+      norm_r = dot(r,r,neq_doti)
+      norm_r = dsqrt(norm_r)
+c$omp single
+      if( norm_r .gt. conv ) then
+
+         if(my_id .eq.0 )then
+           write(*,1400) norm_r,conv
+         endif 
+      endif
+c$omp end single
+c ......................................................................
+      time = MPI_Wtime()
+      time = time-time0
+c ......................................................................
+c
+c ...
+c$omp single
+      if(my_id .eq.0 .and. fprint )then
+        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,time
+      endif
+c ......................................................................
+c
+c ... Controle de flops
+      if(flog) then
+        if(my_id.eq.0) then
+          write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
+     .       'RPSMRQ_OMP: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
+     .      ,' tol ',tol,' time ',time
+        endif
+      endif
+c$omp end single
+c ......................................................................
+c$omp end parallel
+c ...
+c
+      return
+c ======================================================================
+ 1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Diagonal coefficient ' 
+     . '- equacao ',i9)
+ 1100 format(' (RPSMRQ_OMP) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||          = ',d20.6/
+     . 5x,'Number of equations  = ',i20/
+     . 5x,'nad                  = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1200 format (' *** WARNING: No convergence reached after ',i9,
+     .        ' iterations !',/)
+ 1300 format (' RPSMRQ_OMP:',5x,'It',i7,5x,2d20.10)
+ 1400 format (' RPSMRQ_OMP:',1x,'Explicit residual > tol * ||b|| :'
+     .       ,1x,d20.10,1x,d20.10)
+ 1500 format ( 'RPSMRQ_OMP: ',5x,i7,5x,2es20.10)
+      end
+c **********************************************************************
+c
 c **********************************************************************
       subroutine gmres_omp(neq    ,nequ ,nad,ia ,ja
      .                    ,ad     ,au   ,al ,m  ,b

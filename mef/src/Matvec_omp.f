@@ -648,21 +648,22 @@ c ......................................................................
       return
       end
 c **********************************************************************
+c
 c **********************************************************************
 c *                                                                    *
-c *   DOT_PAR_OMP: produto escalar omp(versao de diretiva orfã,  funcao*
-c *   chamada de uma regiao paralela, portanto nao ha a necessidade de *
-c *   abertura de uma nova regia paralela).                            *
+c * DOT_PAR_OMP: produto escalar omp(versao de diretiva orfã,  funcao *
+c * chamada de uma regiao paralela, portanto nao ha a necessidade de   *
+c * abertura de uma nova regia paralela).                              *
 c *                                                                    *
-c *   Parametros de entrada:                                           *
+c * Parametros de entrada:                                             *
 c *                                                                    *
-c *   a        - vetor                                                 *
-c *   b        - vetor                                                 *
-c *   neq_doti - dimensao dos vetores                                  *
+c * a        - vetor                                                   *
+c * b        - vetor                                                   *
+c * neq_doti - dimensao dos vetores                                    *
 c *                                                                    *
-c *   Parametros de saida:                                             *
+c * Parametros de saida:                                               *
 c *                                                                    *
-c *   dot    - valor do produto escalar                                *
+c * dot    - valor do produto escalar                                  *
 c *                                                                    *
 c **********************************************************************
       real*8 function dot_par_omp(a,b,neq_doti)
@@ -745,3 +746,4 @@ c ......................................................................
 c ......................................................................    
       return
       end
+c **********************************************************************

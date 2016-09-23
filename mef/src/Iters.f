@@ -514,8 +514,8 @@ c ... Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Coeficiente da diagonal ' 
-     . '- equacao ',i9)
+ 1000 format (//,5x,'SUBROTINA PCG:',/,5x,'Diagonal coefficient ' 
+     . '- equation ',i9)
  1100 format(' (PCG) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||m         = ',d20.6/
@@ -530,9 +530,9 @@ c ======================================================================
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' PCG:',5x,'It',i7,5x,2d20.10)
- 1400 format (' PCG:',1x,'Residuo exato > 3.16d0*conv '
+ 1400 format (' PCG:',1x,'Explicit residual > tol * ||b||| :'
      .       ,1x,d20.10,1x,d20.10)
-1500  format ( 'PCG: ',5x,i7,5x,2es20.10)
+ 1500 format ( 'PCG: ',5x,i7,5x,2es20.10)
       end
 c *********************************************************************  
 c
@@ -1572,7 +1572,6 @@ c .....................................................................
 c
 c ...... Atualizacao de x:
 c
- 
          do 600 j = 1, ni
            r = y(j) 
            do 610 i = 1, neq
@@ -2857,7 +2856,7 @@ c
 c ... (r,r)
          d = dot(r,r,neq_doti)
 c ...
-         if (dsqrt(dabs(d)) .lt. 3.16d0*conv) goto 300
+         if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ........................................................................
 c
 c ... beta = ( r(j+1),r0 ) / ( r(j), r0 )) * (alpha/w) 
@@ -6014,7 +6013,7 @@ c .....................................................................
       real*8 r(*),t(*),q(*),d(*)
       real*8 dot,tol,conv,xkx,norm,alpha,beta,tmp1,tmp2,tau,ro,vn,v0
       real*8 sigma,cn,norm_b 
-      real*8 norm_r,norm_m_r
+      real*8 norm_r
       real*8 time0,time
       real*8 dum1
       logical flog,fprint,fnew,fhist
@@ -6182,7 +6181,7 @@ c ... r =(b - Ax) (calculo do residuo explicito)
   310 continue
       norm_r = dot(r,r,neq_doti)
       norm_r = dsqrt(norm_r)
-      if( norm_m_r .gt. 3.16d0*conv ) then
+      if( norm_r .gt. conv ) then
          if(my_id .eq.0 )then
            write(*,1400) norm_r,conv
          endif 
@@ -6207,8 +6206,8 @@ c ... Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Coeficiente da diagonal ' 
-     . '- equacao ',i9)
+ 1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Diagonal coefficient ' 
+     . '- equation ',i9)
  1100 format(' (RPSMRQ) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
@@ -6222,7 +6221,7 @@ c ======================================================================
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
  1300 format (' RPSMRQ:',5x,'It',i7,5x,2d20.10)
- 1400 format (' RPSMRQ:',1x,'Residuo exato > 3.16d0*conv '
+ 1400 format (' RPSMRQ:',1x,'Explicit residual > tol * ||b|| :'
      .       ,1x,d20.10,1x,d20.10)
  1500 format ( 'RPSMRQ: ',5x,i7,5x,2es20.10)
       end

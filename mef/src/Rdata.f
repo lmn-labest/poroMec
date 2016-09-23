@@ -1846,6 +1846,7 @@ c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
             maxmem = (maxmem*1024*1024)/4
             n = n + 1
             r(1) = .true.
+            print*,'Memory(MB) = ',maxmem*4/(1024*1024)
          elseif (string .eq. macro(2)) then
             call readmacro(nin,.false.)
             write(string,'(15a)') (word(j),j=1,15)
@@ -1858,7 +1859,7 @@ c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
             read(string,*,err = 100,end = 100) omp_solver
             n = n + 1
             r(3) = .true.
-         elseif (string .eq. macro(4)) then
+          elseif (string .eq. macro(4)) then
             call readmacro(nin,.false.)
             write(string,'(15a)') (word(j),j=1,15)            
             read(string,*,err = 100,end = 100) nth_elmt
@@ -1870,13 +1871,13 @@ c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
             read(string,*,err = 100,end = 100) nth_solver
             n = n + 1
             r(5) = .true.
-         elseif (string .eq. macro(6)) then
+          elseif (string .eq. macro(6)) then
             call readmacro(nin,.false.)
             write(string,'(15a)') (word(j),j=1,15)            
             read(string,*,err = 100,end = 100) reord          
             n = n + 1
             r(6) = .true.
-         elseif (string .eq. macro(7)) then
+          elseif (string .eq. macro(7)) then
             call readmacro(nin,.false.)
             write(string,'(15a)') (word(j),j=1,15)            
             read(string,*,err = 100,end = 100) bvtk          
@@ -1892,7 +1893,7 @@ c ...
 c ......................................................................
 c
 c ...
-      if(n .lt. 7) goto 100
+c     if(n .lt. 7) goto 100
       return
 c ......................................................................                        
   100 continue
