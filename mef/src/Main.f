@@ -37,9 +37,10 @@ c
       integer*8 i_no,i_nfile
       integer num_pnode
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
-      integer nfiles,ifiles
+      integer nfiles,ifiles,num_print
       parameter ( nfiles = 5)
-      logical new_file(nfiles),flag_pnd,fhist_log
+      logical new_file(nfiles),flag_pnd,fhist_log,print_flag(10)
+      logical flag_tmp
 c      logical cont1
 c ......................................................................
 c
@@ -111,7 +112,7 @@ c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl
 c ... forcas e graus de liberdade 
       integer*8 i_f
-      integer*8 i_u,i_u0,i_tx0,i_dp
+      integer*8 i_u,i_u0,i_tx0,i_dp,i_dporosity
       integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
@@ -142,7 +143,7 @@ c
      .'deltatc ','pcoo    ','bcgs    ','pcg     ','pres    ','spcgm   ',
      .'solvm   ','pmecres ','bcgsl2  ','minres  ','pcr     ','symmlq  ',
      .'sqrm    ','        ','maxnlit ','        ','nltol   ','        ',
-     .'        ','        ','setpnode','        ','        ','pnup    ',
+     .'        ','setpnode','setprint','        ','        ','pnup    ',
      .'pnsf    ','config  ','maxit   ','solvtol ','stop    '/
 c ......................................................................
 c
@@ -178,6 +179,23 @@ c ......................................................................
       dt      =  1.d0
       alfa    =  1.d0
       beta    =  1.d0
+c ... escrita de variavies no vtk
+c ... deslocamento    (1)
+c ... pressao         (2)
+c ... delta pressa    (3)
+c ... stress Total    (4)
+c ... stress Biot     (5)
+c ... stress Terzaghi (6)
+c ... fluxo de darcy  (7)
+c ... delta prosidade (8)
+      print_flag(1) = .true.
+      print_flag(2) = .true.  
+      print_flag(3) = .false.  
+      print_flag(4) = .false.  
+      print_flag(5) = .false.  
+      print_flag(6) = .false.
+      print_flag(7) = .false. 
+      print_flag(8) = .false.  
 c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
@@ -405,21 +423,22 @@ c
 c      call rdat(nnode,numel,numat,nen,ndf,ndm,nst,i_ix,i_id,i_ie,
 c     .          i_nload,i_eload,i_inum,i_e,i_x,i_f,i_u,i_v,i_a,nin)
 c
-      call rdat_pm(nnode  ,nnodev  ,numel  ,numat  
-     .         ,nen       ,nenv   
-     .         ,ndf       ,ndm     ,nst    ,i_ix  
-     .         ,i_ie      ,i_inum  ,i_e    ,i_x
-     .         ,i_id      ,i_nload ,i_eload,i_f  
-     .         ,i_u       ,i_u0    ,i_tx0  ,i_dp
-     .         ,fstress0  ,fporomec,fmec
-     .         ,nin ) 
+      call rdat_pm(nnode   ,nnodev  ,numel  ,numat  
+     1         ,nen        ,nenv   
+     2         ,ndf        ,ndm     ,nst    ,i_ix  
+     3         ,i_ie       ,i_inum  ,i_e    ,i_x
+     4         ,i_id       ,i_nload ,i_eload,i_f  
+     5         ,i_u        ,i_u0    ,i_tx0  ,i_dp
+     6         ,i_dporosity  
+     7         ,fstress0   ,fporomec,fmec
+     8         ,nin ) 
 c
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp |                                                            
+c    | dp | dporosity |                                                
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -1241,25 +1260,43 @@ c .....................................................................
 c .....................................................................
 c
 c ...
-      timei = MPI_Wtime()
-      call tform_pm(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     .             ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     .             ,ia(i_txl),ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
-     .             ,ia(i_tx) ,ia(i_txb),ia(i_txe),ia(i_flux)
-     .             ,nnodev   ,numel   ,nen       ,nenv
-     .             ,ndm      ,ndf     ,nst       ,ntn
-     .             ,3        ,ilib)
-      tformtime = tformtime + MPI_Wtime()-timei
+      if( print_flag(4) .or. print_flag(5) .or. print_flag(6) 
+     .  .or. print_flag(7)) then
+        timei = MPI_Wtime()
+        call tform_pm(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     1               ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2               ,ia(i_txl),ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
+     3               ,ia(i_tx) ,ia(i_txb),ia(i_txe),ia(i_flux)
+     4               ,nnodev   ,numel   ,nen       ,nenv
+     5               ,ndm      ,ndf     ,nst       ,ntn
+     6               ,3        ,ilib)
+        tformtime = tformtime + MPI_Wtime()-timei
+      endif
+c ......................................................................
+c
+c ...
+      if( print_flag(8))then
+        timei = MPI_Wtime()
+        call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     1                   ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2                   ,ia(i_pl) ,ia(i_u)  ,ia(i_dp) ,ia(i_dporosity)
+     3                   ,nnodev   ,numel    ,nen      ,nenv
+     4                   ,ndm      ,ndf      ,nst       
+     5                   ,7        ,ilib)
+        tformtime = tformtime + MPI_Wtime()-timei
+      endif
 c ......................................................................
 c
 c ...
       fname = name(prename,istep,2)
       open(nplot,file=fname)
       call write_mesh_res_pm(ia(i_ix),ia(i_x)  ,ia(i_u)  ,ia(i_dp)
-     .                      ,ia(i_tx),ia(i_txb),ia(i_txe),ia(i_flux)
-     .                      ,nnodev  ,numel    ,istep    ,t
-     .                      ,nen     ,ndm      ,ndf      ,ntn
-     .                      ,fname   ,.false.,.true.     ,nplot)
+     1               ,ia(i_dporosity)
+     2               ,ia(i_tx)       ,ia(i_txb),ia(i_txe),ia(i_flux)
+     3               ,nnodev         ,numel    ,istep    ,t
+     4               ,nen            ,ndm      ,ndf      ,ntn
+     5               ,fname          ,.false.,.true.     ,print_flag
+     6               ,nplot)
       close(nplot)  
 c ......................................................................
 c
@@ -1499,7 +1536,7 @@ c
 c ......................................................................
  1900 continue
       if(my_id.eq.0)print*,'Macro PMECRES'
-c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
+c ... calculo da tensoes.
       ntn   = 6
 c .....................................................................
       i_tx  = alloc_8('tx      ',  ntn,nnodev)
@@ -1812,38 +1849,41 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:
-c
-c ......................................................................
- 3100 continue
-      print*, 'Macro     '
-      goto 50
-c ----------------------------------------------------------------------
-c
 c ... Macro-comando: SETPNODE impressao de grandezas por no no tempo
 c
 c ......................................................................
- 3200 continue
+ 3100 continue
       if(my_id.eq.0) print*, 'Macro SETPNODE'
       if(my_id.eq.0) then
         call readmacro(nin,.false.)
         write(str,'(80a)') (word(i),i=1,80)
-        read(str,*,err=2310,end = 2310) pnodename
-        goto 2320
+        read(str,*,err=3110,end = 3110) pnodename
+        goto 3120
 c ... problema no arquivo auxiliar        
- 2310   continue
+ 3110   continue
         print*,'Erro na leitura da macro (SETPNODE)'
         flag_pnd = .false.
-        goto 2330
+        goto 3130
 c ... leitura normal 
- 2320   continue     
+ 3120   continue     
         call readpnode(pnodename,i_no,i_nfile,num_pnode,flag_pnd,nout)
         new_file(1:nfiles) = .true.
- 2330   continue
+ 3130   continue
       endif
       call MPI_BCAST(flag_pnd,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
 c ... erro na letura do nome do arquivo auxiliar      
       if( flag_pnd .eqv. .false.) call stop_mef()
+      goto 50
+c ----------------------------------------------------------------------
+c
+c ... Macro-comando: SETPRINT impressao de grandezas no arquivo vtk  
+c
+c ......................................................................
+ 3200 continue
+      if(my_id.eq.0) then
+        print*, 'Macro SETPRINT'
+        call set_print_vtk(print_flag,nin)
+      endif
       goto 50
 c ----------------------------------------------------------------------
 c

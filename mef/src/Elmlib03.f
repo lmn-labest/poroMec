@@ -767,7 +767,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 30/04/2016                                    * 
+c * Data de modificaco : 26/09/2016                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT07_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -799,7 +799,7 @@ c *  4 = forcas de volume, superficies e integrais do passo            *
 c *    de tempo anterior                                               *
 c *  5 = Tensoes iniciais                                              *
 c *  6 =                                                               *
-c *  7 =                                                               *
+c *  7 = variacao da porosidade                                        *
 c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
 c *            false- aramzenamento em unico bloco                     *      
 c * ------------------------------------------------------------------ * 
@@ -811,6 +811,7 @@ c * p - isw = 2  residuo                                               *
 c *     isw = 3  tensao e fluxo                                        *
 c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *     de tempo anterior                                              *
+c *     isw = 7  porosidade                                            *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -886,7 +887,7 @@ c
 c
       data nen/20/
 c ......................................................................
-      goto (100,200,300,400,500) isw
+      goto (100,200,300,400,500,600,700) isw
 c ======================================================================
 c
 c.... calculo do delta t critico               
@@ -1526,6 +1527,47 @@ c
 c ......................................................................
   600 continue
       stop
-c ....................................................................
+c ======================================================================
+c
+c ... Tensoes iniciais:                  
+c
+c ......................................................................
+c 
+c ...  
+  700 continue                      
+c ... matriz constitutiva:
+      ym        = e(1)
+      ps        = e(2)
+c ... 
+      coef_biot = e(5)
+      imod_biot = 1.d0/e(4)
+c ...
+      a1        = 1.d0 - ps
+      a2        = 1.d0 - 2.d0*ps
+      a3        = 1.d0 + ps
+c ...
+      a         = (ym*a1)/(a3*a2)
+      b         = ps/a1
+      c         = 0.5d0*(a2/a1)
+c .....................................................................
+c
+c ... variacao de porosidade
+      do 710 i = 1, 8
+c ... calculo do terminante
+        call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel ,.true.)
+c ... calculo da derivadas das funcoes de interpolacao
+        call sfhexa20_m(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
+c .....................................................................
+        call deform3d(hux,huy,huz,u,epsi,20)
+c ... variacao da porosidade = biot (eps11 + eps22 + eps33) + dp/M
+        dpm  = imod_biot*dp(i)
+c ... porosidade  
+        p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpm
+c .....................................................................
+  710 continue
+c .....................................................................
+      return
       end
 c *********************************************************************

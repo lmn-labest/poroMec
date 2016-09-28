@@ -1,14 +1,15 @@
       subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat   
-     .                  ,nen     ,nenv
-     .                  ,ndf     ,ndm       ,nst    ,i_ix 
-     .                  ,i_ie    ,i_inum    ,i_e    ,i_x 
-     .                  ,i_id    ,i_nload   ,i_eload,i_f
-     .                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
-     .                  ,fstress0,fporomec  ,fmec  
-     .                  ,nin     )
+     1                  ,nen     ,nenv
+     2                  ,ndf     ,ndm       ,nst    ,i_ix 
+     3                  ,i_ie    ,i_inum    ,i_e    ,i_x 
+     4                  ,i_id    ,i_nload   ,i_eload,i_f
+     5                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
+     6                  ,i_dporo       
+     7                  ,fstress0,fporomec  ,fmec  
+     8                  ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 30/03/2016                                    *
+c * Data de modificaco : 26/09/2016                                    *
 c * ------------------------------------------------------------------ *    
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ * 
@@ -40,6 +41,7 @@ c * i_u     - ponteiro para o arranjo u (poro_mecanico)                *
 c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
 c * i_tx0   - ponteiro para o arranjo tx(poro_mecanico)                *
 c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
+c * i_dporo - ponteiro para o arranjo deltaPorosity(poro_mecanico)     *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *      
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
@@ -53,6 +55,7 @@ c * f     - forcas e prescricoes nodais                                *
 c * u0    - condicoes de contorno e inicial                            * 
 c * tx0   - tensoes inicias                                            *
 c * dp    - delta P ( apenas alocado)                                  *
+c * dporo - delta Porosity ( apenas alocado)                           *
 c * nload(i,j) - numero identificador da carga na direcao i do no j    *
 c * load(1,n)  - tipo da carga n                                       *
 c * load(2,n)  - numero de termos da carga n                           *
@@ -71,7 +74,7 @@ c ......................................................................
       integer maxgrade
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
-      integer*8 i_u,i_u0,i_tx0,i_dp
+      integer*8 i_u,i_u0,i_tx0,i_dp,i_dporo
       integer*8 i_ix,i_id,i_ie
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid
 c ......................................................................      
@@ -154,12 +157,14 @@ c
         i_e     = alloc_8('e       ', prop,numat)
         i_x     = alloc_8('x       ',  ndm,nnodev)
         i_dp    = alloc_8('dpres   ',    1,nnodev)
+        i_dporo = alloc_8('dporo   ',    1,nnodev)
         i_eload = alloc_4('eload   ',    7,numel)
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
         call azero(ia(i_e),numat*10)
         call azero(ia(i_x),nnodev*ndm)
         call azero(ia(i_dp)   ,nnodev)
+        call azero(ia(i_dporo),nnodev)
         call mzero(ia(i_eload),numel*7)
       endif 
 c ......................................................................
@@ -1846,7 +1851,6 @@ c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
             maxmem = (maxmem*1024*1024)/4
             n = n + 1
             r(1) = .true.
-            print*,'Memory(MB) = ',maxmem*4/(1024*1024)
          elseif (string .eq. macro(2)) then
             call readmacro(nin,.false.)
             write(string,'(15a)') (word(j),j=1,15)
@@ -1905,4 +1909,110 @@ c ......................................................................
 c ......................................................................                  
       end
 c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 27/09/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *      
+c * SET_PRINT_VTK : leitualeitura das configuracoes basicas de excucao *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c * fprint    - nao definido                                           *
+c * nin       - arquivo de entrada                                     *
+c * -----------------------------------------------------------------  *
+c * Parametros de saida :                                              *
+c * -----------------------------------------------------------------  *
+c * fprint - deslocamento    (1)                                       *   
+c *          pressao         (2)                                       *
+c *          delta pressa    (3)                                       *
+c *          stress Total    (4)                                       *
+c *          stress Biot     (5)                                       *
+c *          stress Terzaghi (6)                                       *
+c *          fluxo de darcy  (7)                                       *
+c *          delta prosidade (8)                                       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine set_print_vtk(fprint,nin)
+      implicit none
+      include 'string.fi'
+      character*15 string,macro(8)
+      logical fprint(*),fexit
+      integer j,nmacro
+      integer nin
+      data nmacro /8/
+      data macro/'desloc        ','pressure       ','dpressure      '
+     .          ,'stresstotal   ','stressbiot     ','stressterzaghi '
+     .          ,'fdarcy        ','dporosity      '/
+c ......................................................................
+c
+c ...
+      do j = 1, 8
+        fprint(j) = .false.
+      enddo
+c ......................................................................
+c
+c ...
+      fexit = .true.
+      call readmacro(nin,.false.)
+      write(string,'(15a)') (word(j),j=1,12)
+      do while (strl .ne. 0 )
+c ... desloc
+        if     (string .eq. macro(1)) then
+          fprint(1) = .true.
+c .....................................................................
+c
+c ... pressure 
+        elseif (string .eq. macro(2)) then
+          fprint(2) = .true. 
+c .....................................................................
+c
+c ... delta pressure 
+        elseif (string .eq. macro(3)) then
+          fprint(3) = .true.
+c .....................................................................
+c
+c ... stress total  
+        elseif (string .eq. macro(4)) then 
+          fprint(4) = .true.
+c .....................................................................
+c
+c ... stress biot   
+        elseif (string .eq. macro(5)) then
+          fprint(5) = .true. 
+c .....................................................................
+c
+c ... stress terzaghi 
+        elseif (string .eq. macro(6)) then
+          fprint(6) = .true. 
+c .....................................................................
+c
+c ... fdarcy  
+        elseif (string .eq. macro(7)) then
+          fprint(7) = .true.
+c .....................................................................
+c
+c ... delta  
+        elseif (string .eq. macro(8)) then
+          fprint(8) = .true.
+        endif
+c .....................................................................
+        call readmacro(nin,.false.)
+        write(string,'(15a)') (word(j),j=1,15)                 
+      end do
+c .....................................................................
+c
+c ...
+      do j = 1, nmacro
+        print*,macro(j),fprint(j)
+      enddo
+c ......................................................................
+c
+c ...
+      return
+      end
+c **********************************************************************
+
 

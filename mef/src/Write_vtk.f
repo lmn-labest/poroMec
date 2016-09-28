@@ -24,8 +24,8 @@ c * OBS:                                                              *
 c * ----------------------------------------------------------------- *         
 c *********************************************************************
       subroutine write_mesh_geo(el     ,x  ,nnode ,numel
-     .                         ,nen    ,ndm,filein,bvtk
-     .                         ,legacy ,nout)
+     1                         ,nen    ,ndm,filein,bvtk
+     2                         ,legacy ,nout)
 c ===
       use Malloc 
       implicit none
@@ -207,12 +207,12 @@ c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine write_mesh_geo_pm(el   ,x         ,ie
-     .                            ,id   ,f         ,u0    
-     .                            ,tx0  ,nload     ,eload
-     .                            ,nnode,numel     ,ndf   ,ntn
-     .                            ,nen  ,ndm       ,filein
-     .                            ,bvtk ,macros    ,legacy
-     .                            ,nout ,nelemtload)
+     1                            ,id   ,f         ,u0    
+     2                            ,tx0  ,nload     ,eload
+     3                            ,nnode,numel     ,ndf   ,ntn
+     4                            ,nen  ,ndm       ,filein
+     5                            ,bvtk ,macros    ,legacy
+     6                            ,nout ,nelemtload)
 c ===
       use Malloc 
       implicit none
@@ -788,7 +788,16 @@ c * nen         - numero de nos por elementos                         *
 c * ndm         - numero de dimensoes                                 *
 c * filein      - prefix do arquivo de saida                          *
 c * bvtk        - true BINARY vtk false ASCII vtk                     *
-c * legacy      - true (formato padrão .vtk) false (formato xlm .vtu) *
+c * legacy      - true (formato padrão .vtk) false (formato xlm .vtu)*
+c * fprint      -                                                     *
+c *                 deslocamento    (1)                               *
+c *                 pressao         (2)                               *
+c *                 delta pressa    (3)                               *
+c *                 stress Total    (4)                               *
+c *                 stress Biot     (5)                               *
+c *                 stress Terzaghi (6)                               *
+c *                 fluxo de darcy  (7)                               *
+c *                 delta prosidade (8)                               *
 c * nout        - arquivo de saida                                    *
 c * ----------------------------------------------------------------- *    
 c * Parametros de saida :                                             *
@@ -800,18 +809,20 @@ c * 1 - Valores apenas nos nos dos vertices                           *
 c * 2 - deslocamento do no i- u(1,i), u(2,i) e u(3,i)                 *
 c * 3-  pressao do no i     - u(4,i)                                  *       
 c ********************************************************************* 
-       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp   
-     .                             ,tx     ,txb   ,txe   ,flux    
-     .                             ,nnode  ,numel ,istep ,t 
-     .                             ,nen    ,ndm   ,ndf   ,ntn  
-     .                             ,fileout,bvtk  ,legacy,nout)
+       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp  
+     1                           ,dporosity    
+     2                           ,tx     ,txb   ,txe   ,flux    
+     3                           ,nnode  ,numel ,istep ,t 
+     4                           ,nen    ,ndm   ,ndf   ,ntn  
+     5                           ,fileout,bvtk  ,legacy,fprint
+     6                           ,nout)
 c ===
       use Malloc 
       implicit none
 c ... variaveis da malha      
       integer nnode,numel,nen,ndm,ndf,ntn,ntn1
       integer el(nen+1,numel)
-      real*8  x(ndm,*),u(ndf,*),dp(*)
+      real*8  x(ndm,*),u(ndf,*),dp(*),dporosity(*) 
       real*8 tx(ntn,*),txb(ntn,*),txe(ntn,*),flux(ndm,*)
       integer nel,nno
 c ... tempo
@@ -826,6 +837,8 @@ c ... variaveis dums
       real*8 ddum
       real*4 fdum
       integer idum 
+c ...
+      logical fprint(*)
 c ... arquivo      
       integer nout
       character*80 fileout,name,filein
@@ -953,12 +966,14 @@ c     cod2 3 real(8bytes)
       gdl =  ndf - 1
       cod =  2
       cod2 = 3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
+      if(fprint(1)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
+        else
+          call point_prop_vtu(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c
@@ -970,12 +985,14 @@ c     cod2 3 real(8bytes)
       gdl =  1              
       cod =  1
       cod2 = 3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+      if(fprint(2)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c      
@@ -987,12 +1004,33 @@ c     cod2 3 real(8bytes)
       gdl =  1              
       cod =  1
       cod2 = 3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+      if(fprint(3)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        endif
+      endif
+c .....................................................................
+c
+c ... delta porosidade    
+      write(aux1,'(15a)')'deltaPorosity'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 3 real(8bytes) 
+      gdl =  1              
+      cod =  1
+      cod2 = 3
+      if(fprint(8)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,dporosity,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,dporosity,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c
@@ -1001,20 +1039,22 @@ c ...
       i_p = dealloc('p       ')
 c .....................................................................
 c
-c ... delta pressao    
-      write(aux1,'(15a)')'flux'           
+c ... fluxo de darcy    
+      write(aux1,'(15a)')'fluxDarcy'           
 c ... gdb graus de liberdade
 c     cod  2 vetor      
 c     cod2 3 real(8bytes) 
       gdl =  ndm            
       cod =  2
       cod2 = 3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+      if(fprint(7)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c    
@@ -1034,12 +1074,14 @@ c     cod2 3 real(8bytes)
       gdl  =  ntn1            
       cod  =  3
       cod2 =  3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+      if(fprint(4)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
      .                    ,cod ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+        else
+          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c
@@ -1063,12 +1105,14 @@ c     cod2 3 real(8bytes)
       gdl  =  ntn1            
       cod  =  3
       cod2 =  3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
-     .                    ,cod ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+      if(fprint(6)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                      ,cod ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c
@@ -1092,12 +1136,14 @@ c     cod2 3 real(8bytes)
       gdl  =  ntn1            
       cod  =  3
       cod2 =  3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
-     .                    ,cod ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+      if(fprint(5)) then
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                      ,cod ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+     .                       ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c
@@ -1147,9 +1193,9 @@ c * OBS:                                                              *
 c * ----------------------------------------------------------------- *
 c ********************************************************************* 
        subroutine write_mesh_res_mec(el     ,x     ,u     ,tx    
-     .                             ,nnode  ,numel  
-     .                             ,nen    ,ndm   ,ndf   ,ntn  
-     .                             ,fileout,bvtk  ,legacy,nout)
+     1                             ,nnode  ,numel  
+     2                             ,nen    ,ndm   ,ndf   ,ntn  
+     3                             ,fileout,bvtk  ,legacy,nout)
 c ===
       use Malloc 
       implicit none
@@ -1372,8 +1418,8 @@ c * quadface   - numero de faca quandrigulares com carga              *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine make_face(el         ,ie      ,eload   ,face    ,carga
-     .                    ,tipo_face  ,numel   ,maxno   ,maxface
-     .                    ,max_no_face,line_face,tria_face,quad_face)
+     1                    ,tipo_face  ,numel   ,maxno   ,maxface
+     2                    ,max_no_face,line_face,tria_face,quad_face)
       implicit none
       integer numel,maxno
       integer i,j,k,c,maxface,nface,max_no_face,ty

@@ -274,12 +274,12 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine tform_pm(ix    ,x    ,e   ,ie
-     .                   ,ic    ,xl   ,ul  ,dpl
-     .                   ,pl    ,u    ,dp  ,tx0
-     .                   ,t     ,tb   ,te  ,flux
-     .                   ,nnodev,numel,nen ,nenv
-     .                   ,ndm   ,ndf  ,nst ,ntn  
-     .                   ,isw   ,ilib)
+     1                   ,ic    ,xl   ,ul  ,dpl
+     2                   ,pl    ,u    ,dp  ,tx0
+     3                   ,t     ,tb   ,te  ,flux
+     4                   ,nnodev,numel,nen ,nenv
+     5                   ,ndm   ,ndf  ,nst ,ntn  
+     6                   ,isw   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
 c * Data de modificaco : 09/04/2016                                    * 
@@ -300,7 +300,6 @@ c * dpl(nst)         - nao definido                                    *
 c * u(ndf,nnode)     - solucao corrente                                *
 c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
 c * tx0(ntn,nnodev)  - tensao inicial                                  *
-c * stres(nte,numel) - tensoes por elemento                            *
 c * t(ntn,nnodev)    - nao definido                                    *
 c * tb(ntn,nnodev)   - nao definido                                    *
 c * te(ntn,nnodev)   - nao definido                                    *
@@ -421,6 +420,8 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el,idum,xl,ul,dpl,pl,ddum,ddum,ddum,ndm,nst,nel,
      .                 iel,isw,ma,idum,ilib,ldum)
+c ......................................................................
+c
 c ...... media do vetor global
         do 800 i = 1, nenv
            no = ix(i,nel)
@@ -467,6 +468,151 @@ c ... fluxo
           flux(j,i) = flux(j,i)/ic(i)
  1030   continue 
 c ......................................................................
+ 1000 continue
+c ......................................................................
+c
+c ......................................................................
+      return
+      end      
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine delta_porosity(ix    ,x    ,e   ,ie
+     1                         ,ic    ,xl   ,ul  ,dpl
+     2                         ,pl    ,u    ,dp  ,dporosity
+     3                         ,nnodev,numel,nen ,nenv
+     4                         ,ndm   ,ndf  ,nst   
+     5                         ,isw   ,ilib)
+c **********************************************************************
+c * Data de criacao    : 26/09/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * DELTA_PORISITY: calculo da porosidade                              *                                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel)  - conetividades nodais                            *
+c * x(ndm,nnode)     - coordenadas nodais                              *
+c * e(10,numat)      - constantes fisicas dos materiais                *
+c * ie(numat)        - tipo de elemento                                *
+c * ic(nnode)        - nao definido                                    *
+c * xl(ndm,nen)      - nao definido                                    *
+c * ul(ndf,nen)      - nao definido                                    *
+c * pl(ntn*nen)      - nao definido                                    *
+c * dpl(nst)         - nao definido                                    *
+c * u(ndf,nnode)     - solucao corrente                                *
+c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
+c * dpososity(nnodev)- nao definido                                    *
+c * nnodev           - numero de nos de vertices                       *
+c * numel            - numero de elementos                             *
+c * nen              - numero max. de nos por elemento                 *
+c * nenv             - numero de nos de vertice por elemento           *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * nst              - nst = nen*ndf                                   *
+c * ndm              - dimensao                                        *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * ntn              - numero max. de derivadas por no                 *
+c * ovlp             - chave indicativa de overlapping                 *
+c * nprcs            - numero de processos                             *
+c * isw              - codigo de instrucao para as rotinas             *
+c *                    de elemento                                     *
+c * ilib             - determina a biblioteca do elemento              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * dpososity(nnodev)- delta phi ( phi(n  ,0  ) - phi(0) )             *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Calcula as tensoes apenas nos vertices                             *     
+c **********************************************************************
+      use Malloc
+      implicit none
+c     include 'mpif.h'
+      include 'parallel.fi'
+      include 'termprop.fi'
+      integer nnodev,numel,nen,nenv,ndf,nst,ndm,ntn
+c ......................................................................      
+      integer ix(nen+1,*),ie(*),ic(nnodev)
+      integer nel,ma,iel,i,j,k,k1,no,kk
+      integer ilib,isw
+      real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv)
+      real*8  x(ndm,*),e(prop,*)
+      real*8  u(ndf,*),el(prop),dp(*),dporosity(*)
+c ...
+      logical ldum
+      integer idum
+      real*8 ddum
+c ......................................................................
+c
+c ...
+      do 30 i = 1, nnodev
+        ic(i)        = 0
+        dporosity(i) = 0.d0
+   30 continue
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 900 nel = 1, numel
+        kk = 0
+c ... 
+        do 300 i = 1, nenv
+          pl(i) = 0.d0
+  300   continue
+c .......................................................................
+c
+c ... loop nos arranjos locais ( apenas nos de vertices)
+        do 400 i = 1, nen
+          no = ix(i,nel)
+c ... loop nos deslocamentos
+          do 410 j = 1, ndf - 1
+            kk     = kk + 1
+            ul(kk) = u(j,no)
+  410     continue
+c ......................................................................
+  400   continue
+c ......................................................................
+c
+c ... loop nas pressoes
+        do 510 i = 1, nenv
+          no     = ix(i,nel)
+          kk     = kk + 1
+          ul(kk) = u(ndf,no)
+          dpl(i) = dp(no)
+          do 500 j = 1, ndm
+            xl(j,i) = x(j,no)
+  500     continue
+  510   continue
+c ......................................................................
+c
+c ...... form element array
+        ma  = ix(nen+1,nel)
+        iel = ie(ma)      
+        do 610 i = 1, prop
+          el(i) = e(i,ma)
+  610   continue
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+        call elmlib_pm(el,idum,xl,ul,dpl,pl,ddum,ddum,ddum,ndm,nst,nel,
+     .                 iel,isw,ma,idum,ilib,ldum)
+c ......................................................................
+c
+c ...... media do vetor global
+        do 800 i = 1, nenv
+           no = ix(i,nel)
+           if (no .le. 0) go to 800
+           ic(no) = ic(no) + 1
+           dporosity(no) = dporosity(no) + pl(i)
+  800   continue
+  900 continue
+c .......................................................................
+c
+c ... Comunica vetor de contagem de elementos por no'
+c     if (novlp) call allgatheri(ic,i_xfi)
+c .......................................................................
+      do 1000 i = 1, nnodev
+        dporosity(i) = dporosity(i)/ic(i)
  1000 continue
 c ......................................................................
 c
