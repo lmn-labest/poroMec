@@ -3,17 +3,25 @@ c * Biblioteca de elementos poro-mecanicos                            *
 c * ----------------------------------------------------------------- *
 c * Elastico:                                                         *
 c * ----------------------------------------------------------------- *
-c * ELMT12_PM - tetraedros de 10 nos para o problema poro mecanico    *
+c *                                                                   *
+c * ELMT16_PM - tetraedros de 10 nos para o problema poro mecanico    *
 c * elastico                                                          *
 c *                                                                   *
-c * ELMT13_PM - hexaedros de 20 nos para o problema poro mecanico     *
+c * ELMT17_PM - hexaedros de 20 nos para o problema poro mecanico     *
 c * elastico                                                          *
 c *                                                                   *
 c * ----------------------------------------------------------------- *
 c * Plastico:                                                         *
 c * ----------------------------------------------------------------- *
+c *                                                                   *
+c * ELMT26_PM - tetraedros de 10 nos para o problema poro mecanico    *
+c * plastico (Nao implementado)                                       *
+c *                                                                   *
+c * ELMT27_PM - hexaedros de 20 nos para o problema poro mecanico     *
+c * plastico (Nao implementado)                                       *
+c *                                                                   *
 c *********************************************************************  
-      subroutine elmt12_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
+      subroutine elmt16_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
@@ -763,7 +771,7 @@ c ......................................................................
 c ....................................................................
       end
 c *********************************************************************
-      subroutine elmt13_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
+      subroutine elmt17_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *

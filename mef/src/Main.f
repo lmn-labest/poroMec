@@ -780,8 +780,10 @@ c
 c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
       if(i .eq. 1) resid0 = max(resid0,resid)
-      print*,'resid/resid0',resid/resid0,'resid',resid
-      write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid
+      if(my_id.eq.0) then
+        print*,'resid/resid0',resid/resid0,'resid',resid
+        write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid
+      endif
       if ((resid/resid0) .lt. tol) goto 420     
 c ......................................................................            
 c
@@ -2033,7 +2035,7 @@ c ... Macro-comando: CONFIG
 c
 c ......................................................................
  3700 continue
-      print*, 'Macro CONFIG    '
+      if(my_id .eq. 0 )print*, 'Macro CONFIG    '
       if(flag_macro_mesh) then
         print*,'Macro so pode ser utilizada antes da macro mesh'
         goto 5000
@@ -2042,6 +2044,7 @@ c ......................................................................
      .                ,omp_elmt ,omp_solv
      .                ,nth_elmt ,nth_solv
      .                ,reordf   ,bvtk 
+     .                ,mpi      ,nprcs
      .                ,nin)
       goto 50
 c ----------------------------------------------------------------------

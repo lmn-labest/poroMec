@@ -3,7 +3,7 @@
      .                    ,ma,nlit,ilib,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 30/04/2016                                    * 
+c * Data de modificaco : 23/10/2016                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMLIB_PM: biblioteca de elementos do poromecanico                 *
 c * ------------------------------------------------------------------ * 
@@ -43,7 +43,12 @@ c **********************************************************************
       real*8 dt
       logical block_pu
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200,1300) iel
+      goto (100 , 200, 300
+     1     ,400 , 500, 600
+     2     ,700 , 800, 900
+     3     ,1000,1100,1200
+     4     ,1300,1400,1500
+     5     ,1600,1700,1800 ) iel
    10 write(*,2000) iel,nel
       stop
 c ......................................................................
@@ -92,19 +97,39 @@ c ......................................................................
       return       
 c ......................................................................
  1200 continue
-      if (ilib .eq. 1) then  
-c     Elemento tetraedro de 10 nos (poromec)
-        call elmt12_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
-      endif 
+      go to 10
       return       
 c ......................................................................
  1300 continue
+      go to 10
+      return       
+c ......................................................................
+ 1400 continue
+      go to 10
+      return       
+c ......................................................................
+ 1500 continue
+      go to 10
+      return         
+c ......................................................................
+ 1600 continue
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (poromec)
+        call elmt16_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
+      endif 
+      return       
+c ......................................................................
+ 1700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec)
-        call elmt13_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
+        call elmt17_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
       endif
+      return 
+c ......................................................................
+ 1800 continue
+      go to 10
       return
-c ......................................................................        
+c ......................................................................       
  2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
      .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i9,' !')
        end
