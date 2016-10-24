@@ -1493,7 +1493,9 @@ c ... verifica se ha carga nas faces do elemento
 c ....................................................................
 c
 c ... Tetraedro
-        else if( ty .eq. 6  .or. ty .eq. 12) then
+        else if( (ty .eq.  6)  
+     .      .or. (ty .eq. 16) 
+     .      .or. (ty .eq. 26) ) then
 c ... verifica se ha carga nas faces do elemento
           do j = 1, 4
             c = eload(j,i)
@@ -1510,7 +1512,10 @@ c ... verifica se ha carga nas faces do elemento
 c ....................................................................
 c 
 c ...  hexaedros      
-        else if(ty .eq. 7 .or. ty .eq. 13) then
+        else if(ty .eq. 7 .or. ty .eq. 17) then
+       else if( (ty .eq.  7)  
+     .     .or. (ty .eq. 17) 
+     .     .or. (ty .eq. 27) ) then
 c ... verifica se ha carga nas faces do elemento
           do j = 1, 6
             c = eload(j,i)

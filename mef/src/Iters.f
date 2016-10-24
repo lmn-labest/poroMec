@@ -371,7 +371,7 @@ c
 c ...
       do 5 i = 1, neq
         if(ad(i) .eq. 0.d0 ) then
-          write(*,1000) i
+          write(*,1000) i,ad(i)
           call stop_mef()
         endif 
    5  continue
@@ -527,12 +527,12 @@ c ======================================================================
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'|| b - Ax ||m        = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
- 1200 format (' *** WARNING: No convergence reached after ',i9,
+ 1200 format (' *** WARNING: No convergence reached after ',i9,d20.10
      .        ' iterations !',/)
  1300 format (' PCG:',5x,'It',i7,5x,2d20.10)
  1400 format (' PCG:',1x,'Explicit residual > tol * ||b||| :'
      .       ,1x,d20.10,1x,d20.10)
- 1500 format ( 'PCG: ',5x,i7,5x,2es20.10)
+ 1500 format ( 5x,i7,5x,2es20.10)
       end
 c *********************************************************************  
 c
@@ -1639,14 +1639,14 @@ c     Controle de flops
       if(flog) then
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,i9,a,d20.10,a,f20.2)')
-     .         'GMRES: ',' it ',nit, ' x * Kx ',xkx,' ||x|| ',norm,
+     .         'GMRES2: ',' it ',nit, ' x * Kx ',xkx,' ||x|| ',norm,
      .         ' nKylov ',k,' tol ',tol,' time ',time
         endif
       endif
 c ......................................................................
       return
 c ----------------------------------------------------------------------
- 2000 format(' (GMRES) solver:'/
+ 2000 format(' (GMRES2) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'Number of equations  = ',i20/
      . 5x,'Number of cycles     = ',i20/
@@ -1657,8 +1657,8 @@ c ----------------------------------------------------------------------
      . 5x,'CPU time (s)         = ',f20.2/)
  2100 format(' *** WARNING: no convergence reached for '
      .      ,i9,' cycles !',5x,i7,' nKylov',5x,' It ',i7/)
- 2300 format (' GMRES:',5x,'cycles',i7,5x,'It',i7,5x,2d20.10)
- 2400 format (' GMRES:',1x,'Residuo exato > 3.16d0*conv '
+ 2300 format (' GMRES2:',5x,'cycles',i7,5x,'It',i7,5x,2d20.10)
+ 2400 format (' GMRES2:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
       end
 c **********************************************************************
@@ -5727,7 +5727,7 @@ c
 c ...
       do 5 i = 1, neq
         if(ad(i) .eq. 0.d0 ) then
-          write(*,1000) i
+          write(*,1000) i,ad(i)
           call stop_mef()
         endif 
    5  continue
@@ -5917,7 +5917,7 @@ c ......................................................................
       return
 c ======================================================================
  1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Coeficiente da diagonal ' 
-     . '- equacao ',i9)
+     . '- equacao ',i9,d20.10)
  1100 format(' (LPSMRQ) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||M(-1)b||     = ',d20.6/
@@ -5934,7 +5934,7 @@ c ======================================================================
  1300 format (' LPSMRQ:',5x,'It',i7,5x,2d20.10)
  1400 format (' LPSMRQ:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
-1500  format ( 'LPSMRQ: ',5x,i7,5x,2es20.10)
+ 1500 format ( 5x,i7,5x,2es20.10)
       end
 c ********************************************************************* 
 c
@@ -6025,7 +6025,7 @@ c
 c ...
       do 5 i = 1, neq
         if(ad(i) .eq. 0.d0 ) then
-          write(*,1000) i
+          write(*,1000) i,ad(i)
           call stop_mef()
         endif 
    5  continue
@@ -6207,7 +6207,7 @@ c ......................................................................
       return
 c ======================================================================
  1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Diagonal coefficient ' 
-     . '- equation ',i9)
+     . '- equation ',i9,d20.10)
  1100 format(' (RPSMRQ) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
@@ -6223,7 +6223,7 @@ c ======================================================================
  1300 format (' RPSMRQ:',5x,'It',i7,5x,2d20.10)
  1400 format (' RPSMRQ:',1x,'Explicit residual > tol * ||b|| :'
      .       ,1x,d20.10,1x,d20.10)
- 1500 format ( 'RPSMRQ: ',5x,i7,5x,2es20.10)
+ 1500 format ( 5x,i7,5x,2es20.10)
       end
 c **********************************************************************
 c

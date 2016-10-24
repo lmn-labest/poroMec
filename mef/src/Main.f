@@ -139,12 +139,12 @@ c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
-     .'pgeo    ','pgeoquad','block_pu','gravity ','pardiso ','gmres   ',
-     .'deltatc ','pcoo    ','bcgs    ','pcg     ','pres    ','spcgm   ',
-     .'solvm   ','pmecres ','bcgsl2  ','minres  ','pcr     ','symmlq  ',
-     .'sqrm    ','        ','maxnlit ','        ','nltol   ','        ',
+     .'pgeo    ','pgeoquad','block_pu','gravity ','        ','solver  ',
+     .'deltatc ','pcoo    ','        ','        ','pres    ','        ',
+     .'solvm   ','pmecres ','        ','        ','        ','        ',
+     .'        ','        ','maxnlit ','        ','nltol   ','        ',
      .'        ','setpnode','setprint','        ','        ','pnup    ',
-     .'pnsf    ','config  ','maxit   ','solvtol ','stop    '/
+     .'pnsf    ','config  ','        ','        ','stop    '/
 c ......................................................................
 c
 c ... Arquivos de entrada e saida:
@@ -419,10 +419,6 @@ c
       flag_macro_mesh = .true.
 c
 c.... Leitura de dados:
-c
-c      call rdat(nnode,numel,numat,nen,ndf,ndm,nst,i_ix,i_id,i_ie,
-c     .          i_nload,i_eload,i_inum,i_e,i_x,i_f,i_u,i_v,i_a,nin)
-c
       call rdat_pm(nnode   ,nnodev  ,numel  ,numat  
      1         ,nen        ,nenv   
      2         ,ndf        ,ndm     ,nst    ,i_ix  
@@ -432,7 +428,6 @@ c
      6         ,i_dporosity  
      7         ,fstress0   ,fporomec,fmec
      8         ,nin ) 
-c
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
@@ -447,6 +442,24 @@ c     habilitado
       if(fstress0) fcstress0 = .true.
 c ......................................................................   
 c
+c ... estrutura de dados para o pardiso 
+      if(solver .eq. 10) then
+        stge         = 6
+        block_pu_sym = .false.
+        block_pu     = .false.
+      endif
+c .....................................................................
+c
+c ... estrutura de dados para o bloclo iterativo pcg (poro_mec)
+      if(solver .eq. 5) then
+        fname = name(prename,nprcs,53)
+        open(logsolvd,file=fname)
+        block_pu_sym = .false.
+        block_pu     = .true.
+        n_blocks_pu  = 3
+      endif
+c .....................................................................
+c 
 c ... desabilita o csrc blocado em problemas mecanicos
       if(fmec) then
          block_pu     = .false. 
@@ -682,6 +695,7 @@ c ...
      .                                  ,' Time(horas)',t/3600.d0
      .                                  ,' Time(dias)' ,t/86400.d0
         write(nout_nonlinear,'(a,i7,f15.5)')'step',istep,t
+        if(fhist_log)write(log_hist_solv,'(a,i7,f15.5)')'step',istep,t
       endif
 c .....................................................................
 c
@@ -782,7 +796,8 @@ c ......................................................................
       if(i .eq. 1) resid0 = max(resid0,resid)
       if(my_id.eq.0) then
         print*,'resid/resid0',resid/resid0,'resid',resid
-        write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid
+        write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid    
+        if(fhist_log)write(log_hist_solv,'(a,i7)')'nlit',i   
       endif
       if ((resid/resid0) .lt. tol) goto 420     
 c ......................................................................            
@@ -969,57 +984,26 @@ c ... Macro-comando:
 c
 c ......................................................................
  1000 continue
-      if(my_id.eq.0)print*, 'Macro PARDISO'
-      solver       = 10 
-      stge         = 6
-      block_pu_sym = .false.
-      block_pu     = .false.
       goto 50
 c ......................................................................
 c
-c ... Macro-comando: GMRES 
+c ... Macro-comando: SOLVER
 c
 c ......................................................................
  1100 continue
-      if(my_id.eq.0)print*, 'Macro GMRES'
-      solver = 2       
-c ... numero de base de krylov
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1101,end =1101) ngram    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Krylov subspace:',ngram
+      if(my_id.eq.0)print*, 'Macro SOLVER'
+      if(flag_macro_mesh) then
+        print*,'Macro so pode ser utilizada antes da macro mesh'
+        goto 5000
       endif
-c ......................................................................
-c
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1102,end =1102) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1103,end =1103) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
+      call read_solver_config_pm(solver   ,solvtol
+     .                          ,maxit    ,precond
+     .                          ,ngram    ,fhist_log
+     .                          ,prename  ,log_hist_solv
+     .                          ,alfap    ,alfau
+     .                          ,ctol     ,cmaxit
+     .                          ,nprcs    ,my_id,nin)
       goto 50
- 1101 continue
-      print*,'Erro na leitura da macro (GMRES) ngram !'
-      goto 5000
- 1102 continue
-      print*,'Erro na leitura da macro (GMRES) maxit !'
-      goto 5000
- 1103 continue
-      print*,'Erro na leitura da macro (GMRES) solvtol !'
-      goto 5000
 c ......................................................................
 c
 c ... Macro-comando: DELTATC
@@ -1143,106 +1127,17 @@ c ...
       goto 50     
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: BICGSTAB
+c ... Macro-comando:            
 c
 c ......................................................................
  1400 continue
-      if(my_id.eq.0)print*, 'Macro BICGSTAB'
-      solver = 4 
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1402,end =1402) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1403,end =1403) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
-      goto 50
- 1402 continue
-      print*,'Erro na leitura da macro (BICGSTAB) maxit !'
-      goto 5000
- 1403 continue
-      print*,'Erro na leitura da macro (BICGSTAB) solvtol !'
-      goto 5000
-c ----------------------------------------------------------------------
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PCG
+c ... Macro-comando: 
 c
 c ......................................................................
  1500 continue
-      if(my_id.eq.0)print*,'Macro PCG'
-      solver = 1       
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1502,end =1502) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1503,end =1503) solvtol  
-      if( solvtol .eq. 0.d0) solvtol = smachn() 
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif     
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
-c
-c ... escrita de log 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1504,end =1504) fhist_log 
-      if(my_id.eq.0) then
-        if(fhist_log) then
-          write(*,'(3x,a30)')'Set hist log: .true.'
-        else
-          write(*,'(4x,a30)')'Set hist log: .false.'
-        endif  
-c ... log historia do resido do solver 
-        if(fhist_log) then
-          fname = name(prename,nprcs,17)
-          open(log_hist_solv,file=fname)
-          write(log_hist_solv,'(a)') 'Solver hist.'
-        endif 
-      endif   
-c ......................................................................
-      goto 50
- 1502 continue
-      print*,'Erro na leitura da macro (PCG) maxit !'
-      goto 5000
- 1503 continue
-      print*,'Erro na leitura da macro (PCG) solvtol !'
- 1504 continue
-      print*,'Erro na leitura da macro (PCG) fhist_log !'
-      goto 5000
-c ----------------------------------------------------------------------
       goto 50 
 c ----------------------------------------------------------------------
 c
@@ -1277,7 +1172,7 @@ c ...
 c ......................................................................
 c
 c ...
-      if( print_flag(8))then
+      if(print_flag(8))then
         timei = MPI_Wtime()
         call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
      1                   ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
@@ -1312,91 +1207,10 @@ c ......................................................................
       goto 50     
 c ......................................................................
 c
-c ... Macro-comando: SPCGM        
+c ... Macro-comando:       
 c
 c ......................................................................
  1700 continue
-      if(my_id.eq.0)print*,'Macro SPCGM'
-c ...
-      fname = name(prename,nprcs,53)
-      open(logsolvd,file=fname)
-c ......................................................................
-      solver = 5       
-c ... fator de sobre-relaxação p
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1703,end =1701) alfap    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set alfaP :',alfap
-      endif
-c ......................................................................
-c
-c ... fator de sobre-relaxação p
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1702,end =1702) alfau    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set alfaU :',alfau
-      endif
-c ......................................................................
-c
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1703,end =1703) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1704,end =1704) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c
-c ... tolerancia no ciclo
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1705,end =1705) cmaxit   
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max cycles it solver for:',cmaxit
-      endif
-c ......................................................................
-c
-c ... tolerancia no ciclo
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1702,end =1702) ctol   
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set cycle tol for:', ctol 
-      endif
-c ......................................................................
-      goto 50
- 1701 continue
-      print*,'Erro na leitura da macro (SPCG) alfaP   !'
-      goto 5000
- 1702 continue
-      print*,'Erro na leitura da macro (SPCG) alfaU!'
-      goto 5000
- 1703 continue
-      print*,'Erro na leitura da macro (SPCG) maxit !'
-      goto 5000
- 1704 continue
-      print*,'Erro na leitura da macro (SPCG) solvtol !'
-      goto 5000
- 1705 continue
-      print*,'Erro na leitura da macro (SPCG) cmaxit !'
-      goto 5000
- 1706 continue
-      print*,'Erro na leitura da macro (SPCG) ctol !'
-      goto 5000
-c ----------------------------------------------------------------------
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -1493,7 +1307,7 @@ c
 c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
       if(i .eq. 1) resid0 = max(resid0,resid)
-      print*,'resid/resid0',resid/resid0,'resid',resid
+      if(my_id .eq. 0 ) print*,'resid/resid0',resid/resid0,'resid',resid
       if ((resid/resid0) .lt. tol) goto 1820     
 c ......................................................................            
 c
@@ -1573,222 +1387,39 @@ c ......................................................................
       goto 50     
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: BICGSTABL2
+c ... Macro-comando:
 c
 c ......................................................................
  2000 continue
-      if(my_id.eq.0)print*, 'Macro BICGSL2'
-      solver = 6 
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2002,end =2002) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2003,end =2003) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
-      goto 50
- 2002 continue
-      print*,'Erro na leitura da macro (BICGSTABL2) maxit !'
-      goto 5000
- 2003 continue
-      print*,'Erro na leitura da macro (BICGSTABL2) solvtol !'
-      goto 5000
-c ----------------------------------------------------------------------
       goto 50
 c ----------------------------------------------------------------------
 c
-c ----------------------------------------------------------------------
-c
-c ... Macro-comando: PMINRES
+c ... Macro-comando:
 c
 c ......................................................................
  2100 continue
-      if(my_id.eq.0)print*, 'Macro PMINRES'
-      solver = 7 
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2102,end =2102) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2103,end =2103) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
       goto 50
- 2102 continue
-      print*,'Erro na leitura da macro (PMINRES) maxit !'
-      goto 5000
- 2103 continue
-      print*,'Erro na leitura da macro (PMINRES) solvtol !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PCR
+c ... Macro-comando: 
 c
 c ......................................................................
  2200 continue
-      if(my_id.eq.0)print*, 'Macro PCR'
-      solver = 8 
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2202,end =2202) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2203,end =2203) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
       goto 50
- 2202 continue
-      print*,'Erro na leitura da macro (PCR) maxit !'
-      goto 5000
- 2203 continue
-      print*,'Erro na leitura da macro (PCR) solvtol !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: SYMMLQ
+c ... Macro-comando: 
 c
 c ......................................................................
  2300 continue
-      if(my_id.eq.0)print*, 'Macro SYMMLQ'
-      solver = 9 
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2302,end =2302) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2303,end =2303) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
-      goto 50
- 2302 continue
-      print*,'Erro na leitura da macro (SYMMLQ) maxit !'
-      goto 5000
- 2303 continue
-      print*,'Erro na leitura da macro (SYMMLQ) solvtol !'
-      goto 5000
+      goto 50 
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: SQRM
+c ... Macro-comando:
 c
 c ......................................................................
  2400 continue
-      if(my_id.eq.0)print*, 'Macro SQRM'
-      solver = 11 
-c ... numero maximo de iteracoes
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2402,end =2402) maxit    
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,i10)')'Set max it solver for:',maxit
-      endif
-c ......................................................................
-c
-c ... tolerancia 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2403,end =2403) solvtol   
-      if( solvtol .eq. 0.d0) solvtol = smachn()
-      if(my_id.eq.0) then
-        write(*,'(1x,a25,1x,e10.3)')'Set solver tol for:', solvtol  
-      endif
-c ......................................................................
-c
-c ... precondicionador
-      call readmacro(nin,.false.)
-      write(string,'(6a)') (word(i),i=1,6)
-      call set_precond(word,precond,nin,my_id)  
-c ......................................................................
-c
-c ... escrita de log 
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =1504,end =1504) fhist_log 
-      if(my_id.eq.0) then
-        if(fhist_log) then
-          write(*,'(3x,a30)')'Set hist log: .true.'
-        else
-          write(*,'(4x,a30)')'Set hist log: .false.'
-        endif  
-c ... log historia do resido do solver 
-        if(fhist_log) then
-          fname = name(prename,nprcs,17)
-          open(log_hist_solv,file=fname)
-          write(log_hist_solv,'(a)') 'Solver hist.'
-        endif 
-      endif   
-c ......................................................................
       goto 50
- 2402 continue
-      print*,'Erro na leitura da macro (SQRM) maxit !'
-      goto 5000
- 2403 continue
-      print*,'Erro na leitura da macro (SQRM) solvtol !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:
@@ -1938,7 +1569,7 @@ c
 c ... Macro-comando:                                                    
 c ......................................................................
  3600 continue
-      if(my_id.eq.0) print*, 'Macro PNSF    '
+      if(my_id.eq.0) print*, 'Macro PNSF'
       if(flag_pnd.eqv..false.) then
         if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
         call stop_mef()
@@ -2049,34 +1680,18 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: Set maxit solver
+c ... Macro-comando: 
 c
 c ......................................................................
  3800 continue
-      if(my_id.eq.0)print*, 'Macro MAXIT '
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =3910,end =3910) maxit
-      write(*,'(a,i10)')' Set max it solver for ',maxit
       goto 50
- 3810 continue
-      print*,'Erro na leitura da macro (MAXIT) !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: Set Solver Tol
+c ... Macro-comando:
 c
 c ......................................................................
  3900 continue
-      if(my_id.eq.0)print*, 'Macro SOLVTOL'
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =3910,end =3910) solvtol
-      write(*,'(a,d10.2)')' Set solver tol for ',solvtol
       goto 50
- 3910 continue
-      print*,'Erro na leitura da macro (SOLVTOL) !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando STOP:

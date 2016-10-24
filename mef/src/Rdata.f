@@ -1943,7 +1943,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 13/10/2016                                   *
-c * Data de modificaco : 13/10/2016                                   *
+c * Data de modificaco : 23/10/2016                                   *
 c * ------------------------------------------------------------------* 
 c * read_solver_config : leitura das configuracoes basicas do solver  *
 c * ------------------------------------------------------------------*
@@ -1953,8 +1953,13 @@ c * solver    - nao definido                                          *
 c * tol       - nao definido                                          *
 c * maxit     - nao definido                                          *
 c * precond   - nao definido                                          *
-c * nin       - arquivo de entrada                                    *
+c * nkrylov   - nao definido                                          *
+c * fhist_log - nao definido                                          *
+c * prename   - prefixo do arquivo de entrada                         *
+c * nout      - arquivo de log do solver(it)                          *
 c * my_id     - id mpi                                                *
+c * nprcs     - numero de processos de mpi                            *
+c * nin       - arquivo de entrada                                    *
 c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *
@@ -1962,90 +1967,164 @@ c * solver    - solver ( 1 - CG)                                      *
 c * tol       - tolerancia do solver                                  *
 c * maxit     - numero de iteracoes                                   *
 c * precond   - precondicionador ( 1 - NONE; 2 - Diag )               *
-c * nin       - arquivo de entrada                                    *
-c * my_id     - id mpi                                                *
+c * nkrylov   - numero de base de krylov                              *      
+c * fhist_log - escreve o historico de iteracao do solver             *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-c     subroutine read_solver_config(solver,tol,maxit,precond,nin,my_id)
-c     implicit none
-c     include 'string.fi'
-c     character*15 string,macro(7)
-c     character*80 fname
-c     real*8 tol,smachn
-c     integer my_id,solver,maxit,precond
-c     integer i,j,nmacro
-c     integer nin
-c     integer nincl /7/
-c     data nmacro /7/
-c     data macro/'name           ','it             ','tol            ',
-c    .           'precond        ','               ','               ',
-c    .           '               '/
+      subroutine read_solver_config_pm(solver    ,tol
+     .                                ,maxit     ,precond
+     .                                ,nkrylov   ,fhist_log
+     .                                ,prename   ,nout
+     .                                ,alfap     ,alfau
+     .                                ,ctol      ,cmaxit 
+     .                                ,nprcs     ,my_id
+     .                                ,nin)
+      implicit none
+      include 'string.fi'
+      character*15 string,macro(12)
+      character*80 fname,prename,name
+      real*8 tol,ctol,smachn,alfap,alfau
+      integer my_id,nprcs,solver,maxit,cmaxit,precond,nkrylov
+      integer i,j,nmacro
+      integer nin,nout
+      logical fhist_log  
+      integer nincl /12/
+      data nmacro /12/
+      data macro/'name           ','it             ','tol            ',
+     .           'precond        ','nkrylov        ','histlog        ',
+     .           'alfap          ','alfau          ','ctol           ',
+     .           'cmaxit         ','               ','               '/
 c .....................................................................
 c      
 c ... arquivo de config
-c     call readmacro(nin,.false.)
-c     write(fname,'(80a)') (word(j),j=1,strl)
-c     open(nincl, file= fname,status= 'old',err=200,action='read')
+      call readmacro(nin,.false.)
+      write(fname,'(80a)') (word(j),j=1,strl)
+      open(nincl, file= fname,status= 'old',err=200,action='read')
 c .....................................................................
 c
 c ...
-c     call readmacro(nincl,.true.)
-c     write(string,'(15a)') (word(j),j=1,12)
-c     do while (string .ne. 'end')
+      call readmacro(nincl,.true.)
+      write(string,'(15a)') (word(j),j=1,12)
+      do while (string .ne. 'end')
 c ... solver
-c        if (string .eq. macro(1)) then
-c           i = 1
-c           call readmacro(nincl,.false.)
-c           write(string,'(6a)') (word(j),j=1,6)
-c           call set_solver(string,solver,nin,my_id)            
+         if (string .eq. macro(1)) then
+            i = 1
+            call readmacro(nincl,.false.)
+            write(string,'(6a)') (word(j),j=1,6)
+            call set_solver(string,solver,nin,my_id)            
 c .....................................................................
 c
 c ... maxit
-c        elseif (string .eq. macro(2)) then
-c           i = 2
-c           call readmacro(nincl,.false.)
-c           write(string,'(15a)') (word(j),j=1,15)
-c           read(string,*,err = 100,end = 100) maxit
-c           if(my_id.eq.0) write(*,'(1x,a10,1x,9i)')'It     :',maxit 
+         elseif (string .eq. macro(2)) then
+            i = 2
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) maxit
+            if(my_id.eq.0) write(*,'(a10,1x,9i)')'It     :',maxit 
 c .....................................................................
 c
 c ... tol
-c        elseif (string .eq. macro(3)) then
-c           i = 3
-c           call readmacro(nincl,.false.)
-c           write(string,'(15a)') (word(j),j=1,15)           
-c           read(string,*,err = 100,end = 100) tol
-c           if(tol .eq. 0.d0) tol = smachn()
-c           if(my_id.eq.0) write(*,'(1x,a10,1x,d13.6)')'Tol    :',tol   
+         elseif (string .eq. macro(3)) then
+            i = 3
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)           
+            read(string,*,err = 100,end = 100) tol
+            if(tol .eq. 0.d0) tol = smachn()
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'Tol    :',tol   
 c .....................................................................
 c
 c ... precond
-c        elseif (string .eq. macro(4)) then
-c           i = 4
-c           call readmacro(nincl,.false.)
-c           write(string,'(6a)') (word(j),j=1,6)            
-c           call set_precond(word,precond,nin,my_id)
-c        endif
+         elseif (string .eq. macro(4)) then
+            i = 4
+            call readmacro(nincl,.false.)
+            write(string,'(6a)') (word(j),j=1,6)            
+            call set_precond(word,precond,nin,my_id)
+c .....................................................................
+c
+c ... nkrylov
+         elseif (string .eq. macro(5)) then
+            i = 5
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) nkrylov
+            if(my_id.eq.0) write(*,'(a10,1x,9i)')'nKrylov:',nkrylov
+c .....................................................................
+c
+c ... histlog
+         elseif (string .eq. macro(6)) then
+            i = 6
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) fhist_log
+            if(my_id.eq.0) then
+              write(*,'(a10,1x)',advance='no')'Histlog:'
+              write(*,*)fhist_log
+            endif
+c ... alphap 
+         elseif (string .eq. macro(7)) then
+            i = 7
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) alfap    
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpap  :',alfap  
+c .....................................................................
+c
+c ... alphau 
+         elseif (string .eq. macro(8)) then
+            i = 8
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) alfau    
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpau  :',alfau  
+c .....................................................................
+c
+c ... alphau 
+         elseif (string .eq. macro(9)) then
+            i = 9
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) ctol     
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'ctol   :',ctol   
+c .....................................................................
+c
+c ... alphau 
+         elseif (string .eq. macro(10)) then
+            i = 10
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) cmaxit     
+            if(my_id.eq.0) write(*,'(a10,1x,i9)')'cmaxit :',cmaxit   
+c .....................................................................
+         endif
 c .....................................................................
 c
 c ... 
-c        call readmacro(nincl,.true.)
-c        write(string,'(15a)') (word(j),j=1,15)                 
-c     end do
+         call readmacro(nincl,.true.)
+         write(string,'(15a)') (word(j),j=1,15)                 
+      end do
 c ......................................................................
 c
 c ...
-c     close(nincl)
-c     return  
+      close(nincl)
 c ......................................................................
-c100  continue
-c     print*,'*** Erro na leitura das config !',macro(i)
-c     stop                          
-c200  continue
-c     print*, trim(fname), ' arquivo nao existente !'
-c     stop      
+c
+c ...
+      if(fhist_log) then 
+        fname = name(prename,0,17)
+        open(nout,file=fname)
+        write(nout,'(a)') '#solver it r/r0'
+      endif
+c ......................................................................
+      return  
+c ......................................................................
+ 100  continue
+      print*,'*** Erro na leitura das config !',macro(i)
+      call stop_mef()                        
+ 200  continue
+      print*, trim(fname), ' arquivo nao existente !'
+      call stop_mef()    
 c ......................................................................                  
-c     end
+      end
 c **********************************************************************
 c
 c **********************************************************************

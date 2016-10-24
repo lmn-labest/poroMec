@@ -99,7 +99,18 @@ c ......................................................................
       logical flog,fprint,fnew,fhist
       external matvec,dot
 c ======================================================================
-      time0 = MPI_Wtime()
+      time0 = MPI_Wtime() 
+c......................................................................
+c
+c ...
+      do 5 i = 1, neq
+        if(ad(i) .eq. 0.d0 ) then
+          write(*,1000) i,ad(i)
+          call stop_mef()
+        endif 
+   5  continue
+c ......................................................................
+c
 c ......................................................................
 c$omp parallel default(none) 
 c$omp.private(i,j,jj,conv,alpha,beta,xkx,norm,d,di,tmp)
@@ -287,12 +298,12 @@ c ======================================================================
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'|| b - Ax ||m        = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
- 1200 format (' *** WARNING: No convergence reached after ',i9,
+ 1200 format (' *** WARNING: No convergence reached after ',i9,d20.10
      .        ' iterations !',/)
  1300 format (' PCG_OMP:',5x,'It',i7,5x,2d20.10)
  1400 format (' PCG_OMP:',1x,'Explicit residual > tol * ||b||m :'
      .       ,1x,d20.10,1x,d20.10)
-1500  format ( 'PCG_OMP: ',5x,i7,5x,2es20.10)
+1500  format (5x,i7,5x,2es20.10)
       end
 c *********************************************************************  
 c

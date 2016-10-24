@@ -1532,7 +1532,7 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * precond  - precondicionador                                        *
 c *            1 - nenhum                                              *
-c *            2 - diaggonal                                           *
+c *            2 - diagonal                                            *
 c *            3 - iLDLt(0)                                            *
 c *            4 - iLLt(0)                                             *
 c *            5 - modulo da diagonal                                  *
@@ -1930,6 +1930,144 @@ c ...
       return
       end
 c *************************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 18/04/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * SET_PRECOND : escolhe o precondicionandor                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * macro   - precondicionador escolhido                               *
+c * solver  - nao definido                                             *
+c * nin     - aqruivo de entrada                                       *
+c * my_id   - id do processo do mpi                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * solver  - solver escolhido                                         *
+c *         1 - CG                                                     *
+c *         2 - GMRES                                                  *
+c *         3 -                                                        *
+c *         4 - BICGSTAB                                               *
+c *         5 -                                                        *
+c *         6 - BICGSTABL2                                             *
+c *         7 - MINRES                                                 *
+c *         8 - PCR                                                    *
+c *         9 - SYMMLQ                                                 *
+c *        10 - pardiso                                                *
+c *        11 - SQRM                                                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c ********************************************************************** 
+      subroutine set_solver(macro,solver,nin,my_id)
+      implicit none
+      include 'string.fi'
+      include 'precond.fi'
+      character macro(maxstrl)
+      character*8 macros(12),string
+      integer solver,nin,my_id
+      integer i,nmc 
+      data macros/'cg      ','sqrm    ','symmlq  '
+     .           ,'cr      ','minres  ','bicgsl2 '
+     .           ,'bicgs   ','gmres   ','pardiso '
+     .           ,'block_it','        ','        '/
+      data nmc /12/
+c ...
+      write(string,'(8a)') (word(i),i=1,8)
+c ... CG
+      if( string .eq. macros(1)) then
+        solver = 1
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(1))
+        endif
+c .....................................................................
+c
+c ... SQRM
+      else if( string .eq. macros(2)) then
+        solver = 11
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(2))
+        endif
+c .....................................................................
+c
+c ... symmlq
+      else if( string .eq. macros(3)) then
+        solver =  9
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(3))
+        endif
+c .....................................................................
+c
+c ... cr     
+      else if( string .eq. macros(4)) then
+        solver =  8
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(4))
+        endif
+c .....................................................................
+c
+c ... minres
+      else if( string .eq. macros(5)) then
+        solver =  7
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(5))
+        endif
+c .....................................................................
+c
+c ... BICGSTABL2
+      else if( string .eq. macros(6)) then
+        solver =  6
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(6))
+        endif
+c .....................................................................
+c
+c ... BICGSTAB
+      else if( string .eq. macros(7)) then
+        solver =  4
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :',adjustr(macros(7))
+        endif
+c .....................................................................
+c
+c ... GMRES   
+      else if( string .eq. macros(8)) then
+        solver =  2
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :', adjustr(macros(8))
+        endif
+c .....................................................................
+c
+c ... PARDISO 
+      else if( string .eq. macros(9)) then
+        solver =  10
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :', adjustr(macros(9))
+        endif
+c .....................................................................
+c
+c ... BLOK_IT_PCG
+      else if( string .eq. macros(10)) then
+        solver =  5
+        if(my_id.eq.0) then
+          write(*,'(a10,1x,a8)')'Solver :', adjustr(macros(9))
+        endif
+c .....................................................................
+c
+c ...                         
+      else
+        print*,'Erro na leitura da macro set solver !'
+        stop
+      endif 
+c .....................................................................
+c
+c ...
+      return
+      end
+c ********************************************************************** 
 c
 c **********************************************************************
 c *                                                                    *
