@@ -5,11 +5,11 @@
      4                  ,i_id    ,i_nload   ,i_eload,i_f
      5                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
      6                  ,i_dporo       
-     7                  ,fstress0,fporomec  ,fmec  
+     7                  ,fstress0,fporomec  ,fmec   ,print_quad
      8                  ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 26/09/2016                                    *
+c * Data de modificaco : 25/10/2016                                    *
 c * ------------------------------------------------------------------ *    
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ * 
@@ -42,7 +42,8 @@ c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
 c * i_tx0   - ponteiro para o arranjo tx(poro_mecanico)                *
 c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
 c * i_dporo - ponteiro para o arranjo deltaPorosity(poro_mecanico)     *
-c * fstress0- leitura de tensoes iniciais (true/false)                 *      
+c * fstress0- leitura de tensoes iniciais (true/false)                 *
+c * print_quad - escrita da malha com elmentos quadraticos(true|false) *              
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -76,7 +77,7 @@ c ... ponteiros
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
       integer*8 i_u,i_u0,i_tx0,i_dp,i_dporo
       integer*8 i_ix,i_id,i_ie
-      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid
+      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_aux
 c ......................................................................      
       integer nin
       integer j,nmc,totnel,nmacros,itmp
@@ -84,9 +85,10 @@ c ......................................................................
       character*80 fname
       integer naux
       integer nincl /7/
-      logical fstress0,fporomec,fmec
+      logical fstress0,fporomec,fmec,print_quad
       logical f_read_el /.false./
       logical el_quad  /.false./
+      logical mk_el_quad  /.false./
 c ......................................................................
       data macro/'materials      ','bar2           ','tria3          ',
      .           'quad4          ','tetra4         ','hexa8          ',
@@ -121,7 +123,17 @@ c ... poro mecanico
       endif
 c ......................................................................
 c
+c ...
+      nbar2(1:4)    = 0
+      ntria3(1:4)   = 0
+      ntetra4(1:4)  = 0
+      nhexa8(1:4)   = 0
+      ntetra10(1:4) = 0
+      nhexa20(1:4)  = 0
+c ......................................................................
+c
 c ... numero do tensor de tensoes
+c ... | sxx syy szz  sxy syz sxz |
       if( ndm .eq. 3) then
         ntn = 6
       endif
@@ -135,14 +147,14 @@ c
       if(fmec) then
         i_ix    = alloc_4('ix      ',nen+1,numel)
         i_ie    = alloc_4('ie      ',    1,numat)
-        i_e     = alloc_8('e       ', prop,numat)
-        i_x     = alloc_8('x       ',  ndm,nnodev)
         i_eload = alloc_4('eload   ',    7,numel)
+        i_e     = alloc_8('e       ', prop,numat)
+        i_x     = alloc_8('x       ',  ndm,nnode)  
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
-        call azero(ia(i_e),numat*10)
-        call azero(ia(i_x),nnodev*ndm)
         call mzero(ia(i_eload),numel*7)
+        call azero(ia(i_e),numat*10)
+        call azero(ia(i_x),nnodev*ndm)        
       endif 
 c ......................................................................
 c   
@@ -151,21 +163,21 @@ c     ---------------------------------------------------------------
 c     | ix | ie | e | x | dp | eload |
 c     ---------------------------------------------------------------
 c
-      if( fporomec) then
+      if(fporomec) then
         i_ix    = alloc_4('ix      ',nen+1,numel)
         i_ie    = alloc_4('ie      ',    1,numat)
+        i_eload = alloc_4('eload   ',    7,numel)
         i_e     = alloc_8('e       ', prop,numat)
-        i_x     = alloc_8('x       ',  ndm,nnodev)
         i_dp    = alloc_8('dpres   ',    1,nnodev)
         i_dporo = alloc_8('dporo   ',    1,nnodev)
-        i_eload = alloc_4('eload   ',    7,numel)
+        i_x     = alloc_8('x       ',  ndm,nnodev)
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
         call azero(ia(i_e),numat*10)
-        call azero(ia(i_x),nnodev*ndm)
+        call mzero(ia(i_eload),numel*7)
         call azero(ia(i_dp)   ,nnodev)
         call azero(ia(i_dporo),nnodev)
-        call mzero(ia(i_eload),numel*7)
+        call azero(ia(i_x),nnodev*ndm)        
       endif 
 c ......................................................................
       totnel  = 0            
@@ -254,31 +266,8 @@ c ... transforma os elementos lineares em quadraticos (10 nos)
           itmp = nen*(ndf-1) + nenv   
         endif
         nst   = max(nst,itmp)
-        el_quad   = .true.
-c .....................................................................
-c       i_nelcon  = alloc_4('nelcon  ',  4,numel)
-c       i_nodcon  = alloc_4('nodcon  ',  1,nnode)
-c .....................................................................
-c
-c ... obetem os vizinhos por face
-c       call adjtetra4(ia(i_ix)   ,ia(i_nodcon)
-c    .              ,ia(i_nelcon),nnodev
-c    .              ,numel       ,nen)
-c .....................................................................
-c
-c ... gera a conectividade dos elementos quadraticos
-c       call mk_elConn_quad_v2(ia(i_ix),ia(i_nelcon)
-c    .                        ,numel   
-c    .                        ,nnode   ,nnodev
-c    .                        ,nen     ,nenv  
-c    .                        ,4)
-c .....................................................................
-c
-c ...
-c       i_nodcon    = dealloc('nodcon  ')
-c       i_nelcon    = dealloc('nelcon  ')
-c .....................................................................
-c
+        el_quad      = .true.
+        mk_el_quad   = .true.
 c .....................................................................
 c
 c ...  Multicore finite element assembling:
@@ -346,26 +335,7 @@ c ... transforma os elementos lineares em quadraticos (20 nos)
         endif
         nst   = max(nst,itmp) 
         el_quad   = .true.
-c .....................................................................
-c       i_nelcon  = alloc_4('nelcon  ',  6,numel)
-c       i_nodcon  = alloc_4('nodcon  ',  1,nnode)
-c ... obetem os vizinhos por face
-c       call adjhexa8(ia(i_ix)   ,ia(i_nodcon)
-c    .              ,ia(i_nelcon),nnodev
-c    .              ,numel       ,nen)
-c .....................................................................
-c
-c ... gera a conectividade dos elementos quadraticos
-c       call mk_elConn_quad_v2(ia(i_ix),ia(i_nelcon)
-c    .                         ,numel   
-c    .                         ,nnode   ,nnodev
-c    .                         ,nen     ,nenv  
-c    .                         ,6)
-c .....................................................................
-c
-c ...
-c       i_nodcon    = dealloc('nodcon  ')
-c       i_nelcon    = dealloc('nelcon  ')
+        mk_el_quad   = .true.
 c .....................................................................
 c
 c ...  Multicore finite element assembling:
@@ -656,6 +626,60 @@ c ... Inicializa as condicoes de contorno no vetor u:
 c
       if(ndf .gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
       call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
+c .....................................................................
+c
+c ... escrita de todes os nohs
+      if(el_quad) then
+        if(print_quad) then
+          if(mk_el_quad) then
+            i_aux   = i_x
+            i_x     = alloc_8('xq      ',  ndm,nnode)
+c ... gerando as coordenada quadraticas 
+            call mk_coor_quad(ia(i_aux) ,ia(i_x),ia(i_ix)
+     .                     ,numel       ,nen  
+     .                     ,nnode       ,nnodev  ,ndm)
+c .....................................................................
+c
+c ...
+            i_aux   = dealloc('x       ')
+            i_x     =  locate('xq      ')
+            i_inum  =  locate('inum    ')  
+            i_id    =  locate('id      ')
+            i_nload =  locate('nload   ')
+            i_f     =  locate('f       ')
+            i_u     =  locate('u       ')
+            i_u0    =  locate('u0      ')
+            i_tx0   =  locate('tx0     ')
+c ...
+            i_ix    = locate('ix      ')
+            i_ie    = locate('ie      ')
+            i_e     = locate('e       ')
+            i_dp    = locate('dpres   ')
+            i_dporo = locate('dporo   ')
+            i_eload = locate('eload   ')
+c .....................................................................
+c
+c ...
+            ntetra10(1:4) = ntetra4(1:4)
+            nhexa20(1:4)  = nhexa8(1:4)
+            ntetra4(1:4)  = 0
+            nhexa8(1:4)   = 0
+          endif
+c ......................................................................
+c
+c ... escrita apenas dos vertices
+        else
+          if(mk_el_quad .eqv. .false.) then
+            ntetra4(1:4)  = ntetra10(1:4)
+            nhexa8(1:4)   = nhexa20(1:4)
+            ntetra10(1:4) = 0
+            nhexa20(1:4)  = 0
+          endif 
+c ......................................................................
+        endif
+c ......................................................................
+      endif  
+c ......................................................................
       return
 c ......................................................................      
       end
@@ -1772,36 +1796,6 @@ c .....................................................................
       end
 c **********************************************************************
 c
-c **********************************************************************
-c *                                                                    *
-c *   GET_PRES : obtem as presoes                                      *
-c *                                                                    *
-c *   Parâmetros de entrada:                                           *
-c *   ----------------------                                           *
-c *                                                                    *
-c *   u (ndf,*)  - deslocamento e pressoes                             *
-c *   pres(*)    - indefinido                                          *
-c *   nnodev     - nos de vertices                                     *
-c *   ndf        - grau de liberdade                                   *
-c *                                                                    *
-c *   Parâmetros de saida:                                             *
-c *   -------------------                                              *
-c *   pres(*)    - pressoes                                            *
-c *                                                                    *
-c **********************************************************************
-      subroutine get_pres(u,pres,nnodev,ndf)
-      implicit none
-      integer ndf,i,nnodev
-      real*8 u(ndf,*),pres(*)
-c ...
-      do i = 1, nnodev
-        pres(i) = u(ndf,i)
-      enddo
-c .....................................................................  
-      return
-      end
-c *********************************************************************
-c
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
 c * Data de modificaco : 23/10/2016                                   *
@@ -2129,7 +2123,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 27/09/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 25/10/2016                                    * 
 c * ------------------------------------------------------------------ *      
 c * SET_PRINT_VTK : leitualeitura das configuracoes basicas de excucao *
 c * ------------------------------------------------------------------ *
@@ -2140,14 +2134,16 @@ c * nin       - arquivo de entrada                                     *
 c * -----------------------------------------------------------------  *
 c * Parametros de saida :                                              *
 c * -----------------------------------------------------------------  *
-c * fprint - deslocamento    (1)                                       *   
-c *          pressao         (2)                                       *
-c *          delta pressa    (3)                                       *
-c *          stress Total    (4)                                       *
-c *          stress Biot     (5)                                       *
-c *          stress Terzaghi (6)                                       *
-c *          fluxo de darcy  (7)                                       *
-c *          delta prosidade (8)                                       *
+c * fprint -                                                           * 
+c *          quadratic       (1)                                       *
+c *          deslocamento    (2)                                       * 
+c *          pressao         (3)                                       *
+c *          delta pressa    (4)                                       *
+c *          stress Total    (5)                                       *
+c *          stress Biot     (6)                                       *
+c *          stress Terzaghi (7)                                       *
+c *          fluxo de darcy  (8)                                       *
+c *          delta prosidade (9)                                       *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -2155,14 +2151,14 @@ c **********************************************************************
       subroutine set_print_vtk(fprint,nin)
       implicit none
       include 'string.fi'
-      character*15 string,macro(8)
+      character*15 string,macro(9)
       logical fprint(*),fexit
       integer j,nmacro
       integer nin
-      data nmacro /8/
-      data macro/'desloc        ','pressure       ','dpressure      '
-     .          ,'stresstotal   ','stressbiot     ','stressterzaghi '
-     .          ,'fdarcy        ','dporosity      '/
+      data nmacro /9/
+      data macro/'quadratic      ','desloc        ','pressure       '
+     .          ,'dpressure      ','stresstotal   ','stressbiot     '
+     .          ,'stressterzaghi ','fdarcy        ','dporosity      '/
 c ......................................................................
 c
 c ...
@@ -2176,44 +2172,49 @@ c ...
       call readmacro(nin,.false.)
       write(string,'(15a)') (word(j),j=1,12)
       do while (strl .ne. 0 )
-c ... desloc
-        if     (string .eq. macro(1)) then
+c ... quadratic
+        if (string .eq. macro(1)) then
           fprint(1) = .true.
 c .....................................................................
 c
+c ... desloc
+        else if (string .eq. macro(2)) then
+          fprint(2) = .true.
+c .....................................................................
+c
 c ... pressure 
-        elseif (string .eq. macro(2)) then
-          fprint(2) = .true. 
+        elseif (string .eq. macro(3)) then
+          fprint(3) = .true. 
 c .....................................................................
 c
 c ... delta pressure 
-        elseif (string .eq. macro(3)) then
-          fprint(3) = .true.
-c .....................................................................
-c
-c ... stress total  
-        elseif (string .eq. macro(4)) then 
+        elseif (string .eq. macro(4)) then
           fprint(4) = .true.
 c .....................................................................
 c
-c ... stress biot   
-        elseif (string .eq. macro(5)) then
-          fprint(5) = .true. 
+c ... stress total  
+        elseif (string .eq. macro(5)) then 
+          fprint(5) = .true.
 c .....................................................................
 c
-c ... stress terzaghi 
+c ... stress biot   
         elseif (string .eq. macro(6)) then
           fprint(6) = .true. 
 c .....................................................................
 c
-c ... fdarcy  
+c ... stress terzaghi 
         elseif (string .eq. macro(7)) then
-          fprint(7) = .true.
+          fprint(7) = .true. 
+c .....................................................................
+c
+c ... fdarcy  
+        elseif (string .eq. macro(8)) then
+          fprint(8) = .true.
 c .....................................................................
 c
 c ... delta  
-        elseif (string .eq. macro(8)) then
-          fprint(8) = .true.
+        elseif (string .eq. macro(9)) then
+          fprint(9) = .true.
         endif
 c .....................................................................
         call readmacro(nin,.false.)
@@ -2229,6 +2230,79 @@ c ......................................................................
 c
 c ...
       return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 23/10/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *      
+c * READ_GRAVITY : leitura do campo de gravidade                       *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c * g         - nao definido                                           *
+c * mg        - nao definido                                           *
+c * nin       - arquivo de entrada                                     *
+c * -----------------------------------------------------------------  *
+c * Parametros de saida :                                              *
+c * -----------------------------------------------------------------  *
+c * g      - gravidade                                                 *   
+c * mg     - modulo da gravidade                                       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine read_gravity(g,mg,nin)
+      include 'string.fi'
+      character*30 string
+      integer nin
+      real*8 g(3),mg
+c ...
+      g(1:3) = 0.d0
+c .....................................................................
+c
+c ... gx
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =910,end =910) g(1)
+c .....................................................................
+c
+c ... gy
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =920,end =920) g(2)  
+c .....................................................................
+c  
+c ... gz
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =930,end =930) g(3)    
+      mg = dsqrt(g(1)*g(1)+g(2)*g(2)+g(3)*g(3))
+c .....................................................................
+c
+      return
+c .....................................................................
+c
+c ...
+  910 continue
+      print*,'Erro na leitura da macro (GRAVITY) gx !'
+      call stop_mef()
+c .....................................................................
+c
+c ...
+  920 continue
+      print*,'Erro na leitura da macro (GRAVITY) gy !'
+      call stop_mef()
+c .....................................................................
+c
+c ...
+  930 continue
+      print*,'Erro na leitura da macro (GRAVITY) gz !'
+      call stop_mef()
+c .....................................................................
+c
+c ...
       end
 c **********************************************************************
 

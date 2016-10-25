@@ -385,7 +385,7 @@ c ...
   300   continue
 c .......................................................................
 c
-c ... loop nos arranjos locais ( apenas nos de vertices)
+c ... loop nos arranjos locais 
         do 400 i = 1, nen
           no = ix(i,nel)
 c ... loop nos deslocamentos

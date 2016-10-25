@@ -144,7 +144,7 @@ c
 c
       data nen/10/,igrau_vol/2/,igrau_face/2/    
 c ......................................................................
-      goto (100,200,300,400,500) isw
+      goto (100,200,300,400,500,600,700) isw
 c ======================================================================
 c
 c.... calculo do delta t critico               
@@ -769,6 +769,47 @@ c ......................................................................
   600 continue
       stop
 c ....................................................................
+c
+c ... Variacao da porosidade             
+c
+c ......................................................................
+c 
+c ...  
+  700 continue                      
+c ... matriz constitutiva:
+      ym        = e(1)
+      ps        = e(2)
+c ... 
+      coef_biot = e(5)
+      imod_biot = 1.d0/e(4)
+c ...
+      a1        = 1.d0 - ps
+      a2        = 1.d0 - 2.d0*ps
+      a3        = 1.d0 + ps
+c ...
+      a         = (ym*a1)/(a3*a2)
+      b         = ps/a1
+      c         = 0.5d0*(a2/a1)
+c .....................................................................
+c
+c ... variacao de porosidade
+      do 710 i = 1, 4
+c ... calculo do terminante
+        call sftetra4(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel ,.true.)
+c ... calculo da derivadas das funcoes de interpolacao
+        call sftetra10(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel ,.false.)
+c .....................................................................
+        call deform3d(hux,huy,huz,u,epsi,10)
+c ... variacao da porosidade = biot (eps11 + eps22 + eps33) + dp/M
+        dpm  = imod_biot*dp(i)
+c ... porosidade  
+        p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpm
+c .....................................................................
+  710 continue
+c .....................................................................
+      return
       end
 c *********************************************************************
       subroutine elmt17_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw
@@ -1217,7 +1258,7 @@ c .....................................................................
 c
 c ... fluxo nodal 
       do 320 i = 1, 8
-c ... fuxo (8x6 + 8x6=96)                 
+c ... fuxo (8x6 + 8x6 + 1 = 97)                 
 c       tp = (i-1)*3 + 97
         tp = 3*i + 94
 c ...
@@ -1537,7 +1578,7 @@ c ......................................................................
       stop
 c ======================================================================
 c
-c ... Tensoes iniciais:                  
+c ... Variacao da porosidade             
 c
 c ......................................................................
 c 

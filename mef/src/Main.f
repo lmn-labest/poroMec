@@ -35,6 +35,7 @@ c
       integer logsolv,fconf,logsolvd,log_hist_solv
       integer totfiles,openflag
       integer*8 i_no,i_nfile
+      integer print_nnode
       integer num_pnode
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
       integer nfiles,ifiles,num_print
@@ -139,7 +140,7 @@ c ... Macro-comandos disponiveis:
 c
       data nmc /40/
       data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
-     .'pgeo    ','pgeoquad','block_pu','gravity ','        ','solver  ',
+     .'pgeo    ','        ','block_pu','gravity ','        ','solver  ',
      .'deltatc ','pcoo    ','        ','        ','pres    ','        ',
      .'solvm   ','pmecres ','        ','        ','        ','        ',
      .'        ','        ','maxnlit ','        ','nltol   ','        ',
@@ -180,22 +181,24 @@ c ......................................................................
       alfa    =  1.d0
       beta    =  1.d0
 c ... escrita de variavies no vtk
-c ... deslocamento    (1)
-c ... pressao         (2)
-c ... delta pressa    (3)
-c ... stress Total    (4)
-c ... stress Biot     (5)
-c ... stress Terzaghi (6)
-c ... fluxo de darcy  (7)
-c ... delta prosidade (8)
-      print_flag(1) = .true.
-      print_flag(2) = .true.  
-      print_flag(3) = .false.  
+c ... malha quadratica(1)
+c ... deslocamento    (2)
+c ... pressao         (3)
+c ... delta pressa    (4)
+c ... stress Total    (5)
+c ... stress Biot     (6)
+c ... stress Terzaghi (7)
+c ... fluxo de darcy  (8)
+c ... delta prosidade (9)
+      print_flag(1) = .false. 
+      print_flag(2) = .true.
+      print_flag(3) = .true.  
       print_flag(4) = .false.  
       print_flag(5) = .false.  
-      print_flag(6) = .false.
-      print_flag(7) = .false. 
-      print_flag(8) = .false.  
+      print_flag(6) = .false.  
+      print_flag(7) = .false.
+      print_flag(8) = .false. 
+      print_flag(9) = .false. 
 c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
@@ -426,7 +429,7 @@ c.... Leitura de dados:
      4         ,i_id       ,i_nload ,i_eload,i_f  
      5         ,i_u        ,i_u0    ,i_tx0  ,i_dp
      6         ,i_dporosity  
-     7         ,fstress0   ,fporomec,fmec
+     7         ,fstress0   ,fporomec,fmec   ,print_flag(1)
      8         ,nin ) 
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
@@ -533,7 +536,8 @@ c ... Front Mpi
       timei = MPI_Wtime()
       call init_front(i_noLG,i_noGL,nno1,nno2,nno3,nnofi
      .                ,nno_pload
-     .                ,nnoG,nelG,nnode,numel,ovlp,novlp,nprcs,nviz1
+     .                ,nnovG,nnoG,nelG,nnodev,nnode
+     .                ,numel,ovlp,novlp,nprcs,nviz1
      .                ,nviz2,i_rreqs,i_sreqs,i_rcvs0i,i_dspl0i
      .                ,i_fmap0i,mpi)
 c
@@ -873,58 +877,29 @@ c ......................................................................
 c ...
       print*, 'Macro PGEO'
       ntn   = 6
+c ...
+      print_nnode = nnovG   
+      if(print_flag(1)) print_nnode = nnoG     
+c ......................................................................
+c
 c ... Geometria:
       writetime = writetime + MPI_Wtime()-timei 
-      call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
-     .                      ,ia(i_id)   ,ia(i_f)    ,ia(i_u) 
-     .                      ,ia(i_tx0)  ,ia(i_nload),ia(i_eload)
-     .                      ,nnodev     ,numel      ,ndf     ,ntn
-     .                      ,nen        ,ndm        ,prename
-     .                      ,bvtk       ,macros     ,.true.
-     .                      ,nplot      ,nout_face)
+      call write_mesh_geo_pm(ia(i_ix)     ,ia(i_x)    ,ia(i_ie)
+     .                      ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
+     .                      ,ia(i_tx0)    ,ia(i_nload),ia(i_eload)
+     .                      ,print_nnode  ,numel      ,ndf     ,ntn
+     .                      ,nen          ,ndm        ,prename
+     .                      ,bvtk         ,macros     ,.true.
+     .                      ,print_flag(1),nplot      ,nout_face)
       writetime = writetime + MPI_Wtime()-timei
 c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PGEOQ
+c ... Macro-comando: 
 c
 c ......................................................................
   700 continue
-      if(my_id.eq.0)  then  
-        print*, 'Macro PGEOQ'
-c ... tetraedros de 10 nos     
-        if( nen .eq. 10 ) then
-          i_xq = alloc_8('xq      ',ndm,nnode)
-          call mkCoorQuad(ia(i_x) ,ia(i_xq)
-     .                   ,ia(i_ix)
-     .                   ,numel   ,nen  
-     .                   ,nnode   ,nnodev  ,ndm)   
-          ntetra10(1:4) = ntetra4(1:4)   
-          ntetra4(1:4)  = 0 
-          call write_mesh_geo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
-     .                     ,nen    ,ndm     ,prename,.false.
-     .                     ,.true. ,nplot)
-          ntetra4(1:4)  = ntetra10(1:4)
-          ntetra10(1:4) = 0
-          i_xq = dealloc('xq      ') 
-c ... hexaedros de 20 nos     
-        else if( nen .eq. 20 ) then
-          i_xq = alloc_8('xq      ',ndm,nnode)
-          call mkCoorQuad(ia(i_x) ,ia(i_xq)
-     .                   ,ia(i_ix)
-     .                   ,numel   ,nen  
-     .                   ,nnode   ,nnodev  ,ndm)   
-          nhexa20(1:4) = nhexa8(1:4)   
-          nhexa8(1:4)  = 0 
-          call write_mesh_geo(ia(i_ix)   ,ia(i_xq),nnode   ,numel
-     .                     ,nen    ,ndm     ,prename,.false.
-     .                     ,.true. ,nplot)
-          nhexa8(1:4)  = nhexa20(1:4)
-          nhexa20(1:4) = 0
-          i_xq = dealloc('xq      ')      
-        endif
-      endif
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -953,31 +928,8 @@ c
 c ......................................................................
   900 continue
       if (my_id .eq. 0)   print*, 'Macro Gravity'
-c ... gx
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =910,end =910) gravity(1)    
-c ... gy
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =920,end =920) gravity(2)    
-c ... gz
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =930,end =930) gravity(3)    
-      gravity_mod = dsqrt(gravity(1)*gravity(1)
-     .                   +gravity(2)*gravity(2)
-     .                   +gravity(3)*gravity(3))
+      call read_gravity(gravity,gravity_mod,nin)
       goto 50
-  910 continue
-      print*,'Erro na leitura da macro (GRAVITY) gx !'
-      goto 5000
-  920 continue
-      print*,'Erro na leitura da macro (GRAVITY) gy !'
-      goto 5000
-  930 continue
-      print*,'Erro na leitura da macro (GRAVITY) gz !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando:       
@@ -1149,6 +1101,13 @@ c ......................................................................
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
       ntn   = 6
 c .....................................................................
+c
+c ...
+      print_nnode = nnovG   
+      if(print_flag(1)) print_nnode = nnoG     
+c ......................................................................
+c
+c ...
       i_tx  = alloc_8('tx      ',  ntn,nnodev)
       i_txe = alloc_8('txe     ',  ntn,nnodev)
       i_txb = alloc_8('txb     ',  ntn,nnodev)
@@ -1157,22 +1116,22 @@ c .....................................................................
 c .....................................................................
 c
 c ...
-      if( print_flag(4) .or. print_flag(5) .or. print_flag(6) 
-     .  .or. print_flag(7)) then
+      if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
+     .  .or. print_flag(8)) then
         timei = MPI_Wtime()
-        call tform_pm(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1               ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2               ,ia(i_txl),ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
-     3               ,ia(i_tx) ,ia(i_txb),ia(i_txe),ia(i_flux)
-     4               ,nnodev   ,numel   ,nen       ,nenv
-     5               ,ndm      ,ndf     ,nst       ,ntn
-     6               ,3        ,ilib)
+        call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     1               ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2               ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
+     3               ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
+     4               ,nnodev     ,numel   ,nen       ,nenv
+     5               ,ndm        ,ndf     ,nst       ,ntn
+     6               ,3          ,ilib)
         tformtime = tformtime + MPI_Wtime()-timei
       endif
 c ......................................................................
 c
 c ...
-      if(print_flag(8))then
+      if(print_flag(9))then
         timei = MPI_Wtime()
         call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
      1                   ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
@@ -1190,7 +1149,7 @@ c ...
       call write_mesh_res_pm(ia(i_ix),ia(i_x)  ,ia(i_u)  ,ia(i_dp)
      1               ,ia(i_dporosity)
      2               ,ia(i_tx)       ,ia(i_txb),ia(i_txe),ia(i_flux)
-     3               ,nnodev         ,numel    ,istep    ,t
+     3               ,print_nnode    ,numel    ,istep    ,t
      4               ,nen            ,ndm      ,ndf      ,ntn
      5               ,fname          ,.false.,.true.     ,print_flag
      6               ,nplot)

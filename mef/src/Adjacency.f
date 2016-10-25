@@ -902,10 +902,12 @@ c **********************************************************************
 c *********************************************************************
 c
 c ********************************************************************* 
-      subroutine mkCoorQuad(x       ,xq
-     .                     ,el
-     .                     ,numel   ,nen             
-     .                     ,tnnode  ,nnode  ,ndm)      
+c MK_COOR_QUAD : gera as coordenadas intermediarias                   *
+c ********************************************************************* 
+      subroutine mk_coor_quad(x       ,xq
+     .                       ,el
+     .                       ,numel   ,nen             
+     .                       ,tnnode  ,nnode  ,ndm)      
       implicit none
       integer maxEdge
       parameter (maxEdge = 12) 

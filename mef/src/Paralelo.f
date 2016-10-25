@@ -580,50 +580,73 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-c *                                                                    *
-c *   init_front : inicia a estrutura do fronte                        *
-c *   ------                                                           *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ----------------------                                           *
-c *      noLG(nnode)      -  arranjo de nos local -> global            *
-c *      noGL             -  arranjo de nos global -> local            *
-c *      nno1             -  numero de nos V1                          *
-c *      nno2             -  numero de nos V2                          *
-c *      nno3             -  numero de nos V3                          *
-c *      nnofi            -  nao definido                              *
-c *      nno_pload        -  nao definino                              *
-c *      nnoG             -  nao definido                              *
-c *      nelG             -  nao definido                              *
-c *      ovlp             -  nao definido                              *
-c *      novlp            -  nao definido                              *
-c *      nprcs            -  numero de processo do Mpi                 *
-c *      nviz1            -  numeros de vizinhos recebimento           *
-c *      nviz2            -  numeros de vizinhos envio                 *
-c *      i_rreqs          -  nao definido                              *
-c *      i_rreqs          -  nao definido                              *
-c *      i_sreqs          -  nao definido                              *
-c *      i_rcvs0i         -  nao definido                              *
-c *      i_dspl0i         -  nao definido                              *
-c *      i_fmap0i         -  nao definido                              *
-c *                                                                    *
-c *   Parametro de saida:                                              *
-c *   ------------------                                               *
-c *      nno_pload        -  nnode (sem Mpi)                           *
-c *      nnoG             -  nnode (sem Mpi)                           *
-c *      nelG             -  numel (sem Mpi)                           *
-c *      ovlp             -  .false.(sem Mpi)                          *
-c *      novlp            -  .false. (sem Mpi)                         *
-c *      i_rrqes          - estrutura de comunicacao do mpi            *
-c *      i_srqes          - estrutura de comunicacao do mpi            *
-c *      i_rcvs0i         - mapa para os nos                           *
-c *      i_dspl0i         - mapa para os nos                           *
-c *      i_fmap0i         - mapa para nos                              *
-c *      nnofi            - numero de nos com comunicacao              *
-c *      mpi              - excucao em mpi                             *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 25/10/2016                                    *
+c * ------------------------------------------------------------------ *    
+c * init_front : inicia a estrutura do fronte                          *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * noLG(nnode) -  nao definido                                        *
+c * noGL        -  nao definido                                        *
+c * nno1        -  nao definido                                        *
+c * nno2        -  nao definido                                        *
+c * nno3        -  nao definido                                        *
+c * nnofi       -  nao definido                                        *
+c * nno_pload   -  nao definino                                        *
+c * nnovG       -  nao definido                                        *
+c * nnoG        -  nao definido                                        *
+c * nelG        -  nao definido                                        *
+c * ovlp        -  nao definido                                        *
+c * novlp       -  nao definido                                        *
+c * nprcs       -  nao definido                                        *
+c * nviz1       -  nao definido                                        *
+c * nviz2       -  nao definido                                        *
+c * i_rreqs     -  nao definido                                        *
+c * i_rreqs     -  nao definido                                        *
+c * i_sreqs     -  nao definido                                        *
+c * i_rcvs0i    -  nao definido                                        *
+c * i_dspl0i    -  nao definido                                        *
+c * i_fmap0i    -  nao definido                                        *
+c * ------------------------------------------------------------------ *
+c * Parametro de saida:                                                *
+c * ------------------------------------------------------------------ *
+c * noLG(nnode) - arranjo de nos local -> global                       *
+c * noGL        - arranjo de nos global -> local                       *
+c * nno1        - numero de nos V1                                     *
+c * nno2        - numero de nos V2                                     *
+c * nno3        - numero de nos V3                                     *
+c * nnofi       - nao definido                                         *
+c * nno_pload   - nno1 + nno2                                          *
+c * nnovG       - numero global de vertices                            *
+c * nnoG        - numero global de nos                                 *
+c * nelG        - numero global de elementos                           *
+c * ovlp        - overllaping(true|false)                              *
+c * novlp       - non-overllaping(true|false)                          *
+c * nprcs       - numero de processo do Mpi                            *
+c * nviz1       - numeros de vizinhos recebimento                      *
+c * nviz2       - numeros de vizinhos envio                            *
+c * i_rrqes     - estrutura de comunicacao do mpi                      *
+c * i_srqes     - estrutura de comunicacao do mpi                      *
+c * i_rcvs0i    - mapa para os nos                                     *
+c * i_dspl0i    - mapa para os nos                                     *
+c * i_fmap0i    - mapa para nos                                        *
+c * nnofi       - numero de nos com comunicacao                        *
+c * mpi         - excucao em mpi                                       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * nno_pload   -  nnode (sem Mpi)                                     *
+c * nnovG       -  nnodev(sem Mpi)                                     *
+c * nnoG        -  nnode (sem Mpi)                                     *
+c * nelG        -  numel (sem Mpi)                                     *
+c * ovlp        -  .false.(sem Mpi)                                    *
+c * novlp       -  .false. (sem Mpi)                                   *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       subroutine init_front(i_noLG,i_noGL,nno1,nno2,nno3,nnofi,nno_pload
-     .                     ,nnoG,nelG,nnode,numel,ovlp,novlp,nprcs,nviz1
+     .                     ,nnovG,nnoG,nelG,nnodev,nnode
+     .                     ,numel,ovlp,novlp,nprcs,nviz1
      .                     ,nviz2,i_rreqs,i_sreqs,i_rcvs0i,i_dspl0i
      .                     ,i_fmap0i,mpi) 
 c ===     
@@ -631,10 +654,10 @@ c ===
       implicit none
       include 'mpif.h'
       integer nno1,nno2,nno3,nnofi
-      integer nno_pload,nnoG,nelG
+      integer nno_pload,nnovG,nnoG,nelG
       logical ovlp,novlp
       integer nprcs,nviz1,nviz2
-      integer nnode,numel
+      integer nnodev,nnode,numel
       logical mpi
 c ... ponteiros      
       integer*8 i_noLG,i_noGL
@@ -649,6 +672,7 @@ c
 c === sem Mpi
       if (nprcs .eq. 1) then
         nno_pload = nnode
+        nnovG     = nnodev
         nnoG      = nnode
         nelG      = numel
         ovlp      = .false.

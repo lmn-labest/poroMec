@@ -206,13 +206,13 @@ c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-      subroutine write_mesh_geo_pm(el   ,x         ,ie
-     1                            ,id   ,f         ,u0    
-     2                            ,tx0  ,nload     ,eload
-     3                            ,nnode,numel     ,ndf   ,ntn
-     4                            ,nen  ,ndm       ,filein
-     5                            ,bvtk ,macros    ,legacy
-     6                            ,nout ,nelemtload)
+      subroutine write_mesh_geo_pm(el        ,x     ,ie
+     1                            ,id        ,f     ,u0    
+     2                            ,tx0       ,nload ,eload
+     3                            ,nnode     ,numel ,ndf   ,ntn
+     4                            ,nen       ,ndm   ,filein
+     5                            ,bvtk      ,macros,legacy
+     6                            ,print_quad,nout  ,nelemtload)
 c ===
       use Malloc 
       implicit none
@@ -245,7 +245,7 @@ c ...
 c ... arquivo      
       integer nout,nelemtload
       character*80 fileout,fileelmtload,name,filein
-      logical bvtk,legacy
+      logical bvtk,legacy,print_quad
       integer cod,cod2,gdl
 c =====================================================================
 c ... auxiliares
@@ -477,7 +477,7 @@ c ... initialpres
       i_p = alloc_8(malloc_name,1,nnode)
       call azero(ia(i_p),nnode)
 c ... obtem as pressoes inciciais
-      call get_pres(u0,ia(i_p),nnode,ndf)
+      call get_pres(u0,ia(i_p),el,nnode,numel,nen,ndf,print_quad)
 c .....................................................................
 c
 c ... gdb graus de liberdade
@@ -765,7 +765,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 09/04/2016                                   * 
+c * Data de modificaco : 25/10/2016                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
 c * poromecanico no formato vtk                                       *
@@ -790,14 +790,15 @@ c * filein      - prefix do arquivo de saida                          *
 c * bvtk        - true BINARY vtk false ASCII vtk                     *
 c * legacy      - true (formato padrão .vtk) false (formato xlm .vtu)*
 c * fprint      -                                                     *
-c *                 deslocamento    (1)                               *
-c *                 pressao         (2)                               *
-c *                 delta pressa    (3)                               *
-c *                 stress Total    (4)                               *
-c *                 stress Biot     (5)                               *
-c *                 stress Terzaghi (6)                               *
-c *                 fluxo de darcy  (7)                               *
-c *                 delta prosidade (8)                               *
+c *                 quadratic       (1)                               *
+c *                 deslocamento    (2)                               *
+c *                 pressao         (3)                               *
+c *                 delta pressa    (4)                               *
+c *                 stress Total    (5)                               *
+c *                 stress Biot     (6)                               *
+c *                 stress Terzaghi (7)                               *
+c *                 fluxo de darcy  (8)                               *
+c *                 delta prosidade (9)                               *
 c * nout        - arquivo de saida                                    *
 c * ----------------------------------------------------------------- *    
 c * Parametros de saida :                                             *
@@ -805,9 +806,8 @@ c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- * 
 c * OBS:                                                              *
 c * ----------------------------------------------------------------- *
-c * 1 - Valores apenas nos nos dos vertices                           *
-c * 2 - deslocamento do no i- u(1,i), u(2,i) e u(3,i)                 *
-c * 3-  pressao do no i     - u(4,i)                                  *       
+c * 1 - deslocamento do no i- u(1,i), u(2,i) e u(3,i)                 *
+c * 2-  pressao do no i     - u(4,i)                                  *       
 c ********************************************************************* 
        subroutine write_mesh_res_pm(el     ,x     ,u     ,dp  
      1                           ,dporosity    
@@ -957,7 +957,8 @@ c
 c ...
       i_p  = alloc_8('p       ',1     ,nnode)
       i_uv = alloc_8('uv      ',ndf-1 ,nnode)
-      call split_u_p(ia(i_p),ia(i_uv),u,nnode,ndf)
+      call split_u_p(ia(i_p),ia(i_uv),u,el,nnode,numel
+     .              ,nen,ndf,fprint(1))
 c ... desloc     
       write(aux1,'(15a)')'desloc'
 c ... gdb graus de liberdade
@@ -966,7 +967,7 @@ c     cod2 3 real(8bytes)
       gdl =  ndf - 1
       cod =  2
       cod2 = 3
-      if(fprint(1)) then
+      if(fprint(2)) then
         if(legacy) then
           call point_prop_vtk(idum,fdum,ia(i_uv),nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
@@ -985,7 +986,7 @@ c     cod2 3 real(8bytes)
       gdl =  1              
       cod =  1
       cod2 = 3
-      if(fprint(2)) then
+      if(fprint(3)) then
         if(legacy) then
           call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                      ,cod2,bvtk,nout)
@@ -1004,12 +1005,20 @@ c     cod2 3 real(8bytes)
       gdl =  1              
       cod =  1
       cod2 = 3
-      if(fprint(3)) then
+      if(fprint(4)) then
+c ...
+        call mk_field_quad(dp      ,ia(i_p)
+     .                    ,el
+     .                    ,nnode   ,numel   ,nen             
+     .                    ,1       ,fprint(1))   
+c .....................................................................
+c
+c ...
         if(legacy) then
-          call point_prop_vtk(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
+          call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                      ,cod2,bvtk,nout)
         else
-          call point_prop_vtu(idum,fdum,dp,nnode,aux1,ndm,gdl,cod
+          call point_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                      ,cod2,bvtk,nout)
         endif
       endif
@@ -1023,12 +1032,20 @@ c     cod2 3 real(8bytes)
       gdl =  1              
       cod =  1
       cod2 = 3
-      if(fprint(8)) then
+      if(fprint(9)) then
+c ...
+        call mk_field_quad(dporosity,ia(i_p)
+     .                    ,el
+     .                    ,nnode    ,numel   ,nen             
+     .                    ,1        ,fprint(1))   
+c .....................................................................
+c
+c ...
         if(legacy) then
-          call point_prop_vtk(idum,fdum,dporosity,nnode,aux1,ndm,gdl,cod
+          call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                      ,cod2,bvtk,nout)
         else
-          call point_prop_vtu(idum,fdum,dporosity,nnode,aux1,ndm,gdl,cod
+          call point_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                      ,cod2,bvtk,nout)
         endif
       endif
@@ -1047,14 +1064,27 @@ c     cod2 3 real(8bytes)
       gdl =  ndm            
       cod =  2
       cod2 = 3
-      if(fprint(7)) then
+      if(fprint(8)) then
+c ...
+        i_p  = alloc_8('p       ',ndm   ,nnode)
+        call mk_field_quad(flux     ,ia(i_p)
+     .                    ,el
+     .                    ,nnode    ,numel   ,nen             
+     .                    ,ndm      ,fprint(1))   
+c .....................................................................
+c
+c ...
         if(legacy) then
-          call point_prop_vtk(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+          call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                      ,cod2,bvtk,nout)
         else
-          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
+          call point_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
      .                    ,cod2,bvtk,nout)
         endif
+c .....................................................................
+c
+c ...
+        i_p = dealloc('p       ')
       endif
 c .....................................................................
 c    
@@ -1062,7 +1092,7 @@ c ... gerando o tensor completo
       if( ntn .eq. 6 ) then
         i_tensor = alloc_8('tensor  ',9 ,nnode)
         ntn1     = 9
-        call make_full_tensor(tx,ia(i_tensor),nnode,6, ntn1 )
+        call make_full_tensor(tx,ia(i_tensor),nnode,ntn, ntn1 )
       endif
 c .....................................................................
 c    
@@ -1074,13 +1104,19 @@ c     cod2 3 real(8bytes)
       gdl  =  ntn1            
       cod  =  3
       cod2 =  3
-      if(fprint(4)) then
+      if(fprint(5)) then
+c ...
+        call mk_field_quad(ia(i_tensor),ia(i_tensor)
+     .                    ,el
+     .                    ,nnode       ,numel   ,nen             
+     .                    ,ntn1        ,fprint(1))   
+c .....................................................................
         if(legacy) then
           call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
      .                    ,cod ,cod2,bvtk,nout)
         else
-          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+          call point_prop_vtu(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                       ,cod,cod2,bvtk,nout)
         endif
       endif
 c .....................................................................
@@ -1093,7 +1129,7 @@ c ... gerando o tensor completo
       if( ntn .eq. 6 ) then
         i_tensor = alloc_8('tensor  ',9 ,nnode)
         ntn1     = 9
-        call make_full_tensor(txe,ia(i_tensor),nnode,6, ntn1 )
+        call make_full_tensor(txe,ia(i_tensor),nnode,ntn,ntn1)
       endif
 c .....................................................................
 c
@@ -1105,13 +1141,19 @@ c     cod2 3 real(8bytes)
       gdl  =  ntn1            
       cod  =  3
       cod2 =  3
-      if(fprint(6)) then
+      if(fprint(7)) then
+c ...
+        call mk_field_quad(ia(i_tensor),ia(i_tensor)
+     .                    ,el
+     .                    ,nnode       ,numel   ,nen             
+     .                    ,ntn1        ,fprint(1))   
+c .....................................................................
         if(legacy) then
           call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
      .                      ,cod ,cod2,bvtk,nout)
         else
-          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
-     .                      ,cod2,bvtk,nout)
+          call point_prop_vtu(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                       ,cod ,cod2,bvtk,nout)
         endif
       endif
 c .....................................................................
@@ -1136,13 +1178,19 @@ c     cod2 3 real(8bytes)
       gdl  =  ntn1            
       cod  =  3
       cod2 =  3
-      if(fprint(5)) then
+      if(fprint(6)) then
+c ...
+        call mk_field_quad(ia(i_tensor),ia(i_tensor)
+     .                    ,el
+     .                    ,nnode       ,numel   ,nen             
+     .                    ,ntn1        ,fprint(1))   
+c .....................................................................
         if(legacy) then
           call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
      .                      ,cod ,cod2,bvtk,nout)
         else
-          call point_prop_vtu(idum,fdum,flux,nnode,aux1,ndm,gdl,cod
-     .                       ,cod2,bvtk,nout)
+          call point_prop_vtu(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                       ,cod,cod2,bvtk,nout)
         endif
       endif
 c .....................................................................
@@ -1511,9 +1559,8 @@ c ... verifica se ha carga nas faces do elemento
           enddo
 c ....................................................................
 c 
-c ...  hexaedros      
-        else if(ty .eq. 7 .or. ty .eq. 17) then
-       else if( (ty .eq.  7)  
+c ...  haxaedros      
+        else if( (ty .eq.  7)  
      .     .or. (ty .eq. 17) 
      .     .or. (ty .eq. 27) ) then
 c ... verifica se ha carga nas faces do elemento
@@ -1538,29 +1585,47 @@ c .....................................................................
       end
 c *********************************************************************
 c
-c *********************************************************************
-c * SPLIT_U_P : pega a solução apenas nos vertices em divide em dois  *
-c *  vetores                                                          *
-c * ----------------------------------------------------------------- *
-c * Parametros de entrada :                                           *
-c * ----------------------------------------------------------------- *
-c * p      - indefinido                                               *
-c * uv     - indefinido                                               *
-c * u      - campo de pressao e deslocamente(u(4,i)=p;u(1:3)=desloc)  *
-c * nnodev - numero de nos de vertices                                *
-c * ndf    - numero de gaus de liberade                               *
-c * ----------------------------------------------------------------- *
-c * Parametros de saida :                                             *
-c * ----------------------------------------------------------------- *
-c * p(nnodev) - pressao                                               *
-c * uv(nnodev)- deslocamento nos vertices                             *
-c *********************************************************************
-      subroutine split_u_p(p,uv,u,nnodev,ndf)
+c **********************************************************************
+c * Data de criacao    : 27/03/2016                                    *
+c * Data de modificaco : 25/10/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * SPLIT_U_P : pega a solucoes dois vetores                           *                                                           *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada :                                            *
+c * ------------------------------------------------------------------ *
+c * p            - indefinido                                          *
+c * uv           - indefinido                                          *
+c * u            - campo de pressao e deslocamente                     *
+c *                (u(4,i)=p;u(1:3)=desloc)                            *
+c * el(maxno+1,*)- conectividade                                       *
+c * nnode        - nos de nos ( verticeis ou total)                    *
+c * numel        - numero de elmentos                                  *
+c * maxno        - numero de nos maximo por elemento                   *
+c * ndf          - grau de liberdade                                   *
+c * quad         - pressoes nos nos intermediarios por interpolacao    *
+c *                linear (true| false)                                *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida :                                              *
+c * ------------------------------------------------------------------ *
+c * p(nnode) - pressao                                                 *
+c * uv(nnode)- deslocamento nos vertices                               *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine split_u_p(p,uv,u,el,nnode,numel,maxno,ndf,quad)
       implicit none
-      integer nnodev,i,j,ndf
+      integer maxEdge
+      parameter (maxEdge = 12) 
+c ...
+      integer i,j
+      integer nnode,numel,ndf,nedge,no1,no2,no3,maxno
+      integer el(maxno+1,*)
+      integer iEdge(3,maxEdge)
       real*8 uv(ndf-1,*),u(ndf,*),p(*)
+      logical quad
 c ...      
-      do i = 1, nnodev
+      do i = 1, nnode
         do j = 1, ndf - 1  
           uv(j,i) = u(j,i)  
         enddo
@@ -1568,10 +1633,37 @@ c ...
 c ..................................................................... 
 c
 c ...      
-      do i = 1, nnodev
+      do i = 1, nnode
         p(i) = u(ndf,i)   
       enddo
 c ..................................................................... 
+c
+c ... pressao no nos quadraticos
+      if(quad) then
+c ...
+        nedge = 0  
+c ... tetraedros de 10 nos 
+        if( maxno .eq. 10 ) then
+          nedge =  6
+          call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+        else if( maxno .eq. 20 ) then
+          nedge = 12
+          call hexa20edgeNod(iEdge) 
+        endif
+c ...
+        do i = 1, numel
+          do j = 1, nedge
+c ... no vertices
+            no1    = el(iEdge(1,j),i)
+            no2    = el(iEdge(2,j),i)
+c ... no central
+            no3    = el(iEdge(3,j),i)
+            p(no3) = 0.5d0*(u(ndf,no1) +  u(ndf,no2))
+          enddo
+        enddo
+      endif  
+c .....................................................................
 c
 c ...
       return
@@ -1690,6 +1782,172 @@ c ... identifica nos prescritos
         enddo
       enddo
 c ..................................................................... 
+c
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 27/03/2016                                    *
+c * Data de modificaco : 25/10/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * GET_PRES : obtem as presoes                                        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * u (ndf,*)    - deslocamento e pressoes                             *
+c * pres(*)      - indefinido                                          *
+c * el(maxno+1,*)- conectividade                                       *
+c * nnode        - nos de nos ( verticeis ou total)                    *
+c * numel        - numero de elmentos                                  *
+c * maxno        - numero de nos maximo por elemento                   *
+c * ndf          - grau de liberdade                                   *
+c * quad         - pressoes nos nos intermediarios por interpolacao    *
+c *                linear (true| false)                                *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * pres(*)    - pressoes                                              *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine get_pres(u,pres,el,nnode,numel,maxno,ndf,quad)
+      implicit none
+      integer maxEdge
+      parameter (maxEdge = 12) 
+c ...
+      integer i,j
+      integer nnode,numel,ndf,nedge,no1,no2,no3,maxno
+      integer el(maxno+1,*)
+      integer iEdge(3,maxEdge)
+      real*8 u(ndf,*),pres(*)
+      logical quad
+c .....................................................................  
+c
+c ... pressa no nos lineres
+      do i = 1, nnode
+        pres(i) = u(ndf,i)
+      enddo
+c .....................................................................  
+c
+c ... pressao no nos quadraticos
+      if(quad) then
+c ...
+        nedge = 0  
+c ... tetraedros de 10 nos 
+        if( maxno .eq. 10 ) then
+          nedge =  6
+          call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+        else if( maxno .eq. 20 ) then
+          nedge = 12
+          call hexa20edgeNod(iEdge) 
+        endif
+c ...
+        do i = 1, numel
+          do j = 1, nedge
+c ... no vertices
+            no1     = el(iEdge(1,j),i)
+            no2     = el(iEdge(2,j),i)
+c ... no central
+            no3     = el(iEdge(3,j),i)
+            pres(no3) = 0.5d0*(u(ndf,no1) +  u(ndf,no2))
+          enddo
+        enddo
+      endif  
+c .....................................................................
+
+      return
+      end
+c *********************************************************************
+c
+c ********************************************************************* 
+c * Data de criacao    : 25/10/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * MK_FIELD_QUAD : transforma um campo vetorial localizados nos       *
+c * vertices em um campo em todos os nos (interpolacao linear)         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * x (ndf,*)    - campo nos vertives                                  *
+c * xq(ndf,*)    - nao definido                                        *
+c * el(maxno+1,*)- conectividade                                       *
+c * nnode        - nos de nos ( verticeis ou total)                    *
+c * numel        - numero de elmentos                                  *
+c * maxno        - numero de nos maximo por elemento                   *
+c * ndf          - grau de liberdade                                   *
+c * quad         - pressoes nos nos intermediarios por interpolacao    *
+c *                linear (true| false)                                *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * xq(ndf,*)    - campo em todos os nos                               *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c ********************************************************************* 
+      subroutine mk_field_quad(x       ,xq
+     .                        ,el
+     .                        ,nnode   ,numel   ,nen             
+     .                        ,ndf     ,quad)      
+      implicit none
+      integer maxEdge
+      parameter (maxEdge = 12) 
+c ...
+      integer i,j,k
+      integer numel,tnnode,nnode,ndf
+      integer nen,nedge,no1,no2,no3
+      integer el(nen+1,*)
+      integer iEdge(3,maxEdge)
+      real*8 x(ndf,*),xq(ndf,*)
+      logical quad
+c ...
+      do i = 1, nnode
+        do j = 1, ndf
+          xq(j,i) = x(j,i)
+        enddo
+      enddo
+c .....................................................................
+c
+c ...
+      if(quad) then
+        nedge = 0  
+c ... tetraedros de 10 nos 
+        if( nen .eq. 10 ) then
+          nedge =  6
+          call tetra10edgeNod(iEdge) 
+c ... hexaedros de 20 nos 
+        else if( nen .eq. 20 ) then
+          nedge = 12
+          call hexa20edgeNod(iEdge) 
+        endif
+c ...
+        do i = 1, nnode
+          do j = 1, ndf
+            xq(j,i) = x(j,i)
+          enddo
+        enddo
+c .....................................................................
+c
+c ...
+        do i = 1, numel
+          do j = 1, nedge
+c ... no vertices
+            no1     = el(iEdge(1,j),i)
+            no2     = el(iEdge(2,j),i)
+c ... no central
+            no3     = el(iEdge(3,j),i)
+            do k = 1, ndf
+              xq(k,no3) = 0.5d0*(x(k,no1) + x(k,no2)) 
+            enddo
+          enddo
+        enddo
+c .....................................................................
+      endif
+c .....................................................................
 c
 c ...
       return
