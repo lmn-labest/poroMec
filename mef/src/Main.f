@@ -41,7 +41,7 @@ c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)
       integer nfiles,ifiles,num_print
       parameter ( nfiles = 5)
       logical new_file(nfiles),flag_pnd,fhist_log,print_flag(10)
-      logical flag_tmp
+      logical legacy_vtk
 c      logical cont1
 c ......................................................................
 c
@@ -272,7 +272,8 @@ c ... campo gravitacional (Padrao)
 c ...
       flag_macro_mesh = .false.
 c ... 
-      bvtk = .false.
+      bvtk       = .false.
+      legacy_vtk = .false.
 c ... OpenMP
       omp_elmt = .false.
       omp_solv = .false.
@@ -889,7 +890,7 @@ c ... Geometria:
      .                      ,ia(i_tx0)    ,ia(i_nload),ia(i_eload)
      .                      ,print_nnode  ,numel      ,ndf     ,ntn
      .                      ,nen          ,ndm        ,prename
-     .                      ,bvtk         ,macros     ,.true.
+     .                      ,bvtk         ,macros     ,legacy_vtk
      .                      ,print_flag(1),nplot      ,nout_face)
       writetime = writetime + MPI_Wtime()-timei
 c ......................................................................
@@ -1144,14 +1145,12 @@ c ...
 c ......................................................................
 c
 c ...
-      fname = name(prename,istep,2)
-      open(nplot,file=fname)
-      call write_mesh_res_pm(ia(i_ix),ia(i_x)  ,ia(i_u)  ,ia(i_dp)
-     1               ,ia(i_dporosity)
-     2               ,ia(i_tx)       ,ia(i_txb),ia(i_txe),ia(i_flux)
-     3               ,print_nnode    ,numel    ,istep    ,t
-     4               ,nen            ,ndm      ,ndf      ,ntn
-     5               ,fname          ,.false.,.true.     ,print_flag
+      call write_mesh_res_pm(ia(i_ix),ia(i_x)    ,ia(i_u)  ,ia(i_dp)
+     1               ,ia(i_dporosity),ia(i_tx)   ,ia(i_txb),ia(i_txe)
+     2               ,ia(i_flux)     ,print_nnode,numel    ,istep   
+     3               ,t              ,nen        ,ndm      ,ndf   
+     4               ,ntn            ,fname      ,prename   
+     5               ,bvtk           ,legacy_vtk ,print_flag
      6               ,nplot)
       close(nplot)  
 c ......................................................................

@@ -21,7 +21,6 @@ c * Prametros de saida:                                                *
 c * -------------------------------------------------------------------*
 c * -------------------------------------------------------------------*
 c **********************************************************************
-c **********************************************************************
       subroutine coor_vtk(coor,nnode,ndm,bvtk,nfile)
       implicit none
       integer nnode,ndm,nfile
@@ -123,7 +122,7 @@ c **********************************************************************
 c ======================================================================
 c ... xml binario      
       if(bvtk)then
-        print*,'não implementado.'
+        print*,'nao implementado.'
         stop
 c ... xml ascii
       else
@@ -168,7 +167,7 @@ c **********************************************************************
       subroutine elm_vtk(nos,numel,nen,bvtk,nfile)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 12/10/2016                                    * 
 c * ------------------------------------------------------------------ *  
 c * ELM_VTK: escreve elementos nos formato vtk com os seus respectivos *
 c *           materias                                                 *
@@ -220,7 +219,287 @@ c ... Calculo do numero de tipo de cada elemento
       nh20 = nhexa20(1)
       numet =3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10
      .      +21*nh20
-c ... elemento em overllaping 
+c ... total de elemntos e tamnhanho dos dados totais
+      if(bvtk)then
+        write(str1(1:15),'(i15)')numel
+        write(str2(1:15),'(i15)')numet
+        buffer = lf//'CELLS '//str1//str2//lf
+        write(nfile) trim(buffer)  
+      else
+        write(nfile,'(a,i10,i10)') 'CELLS ',numel,numet  
+      endif 
+c ... escrevendo a malha
+c     
+c ... nos dos elementos
+c      
+c ......................................................................
+      if (nbar2(1) .gt. 0) then
+        nnoel = 2 
+        do i = nbar2(2), nbar2(2) + nbar2(1)-1
+          if(bvtk)then
+             write(nfile) nnoel,(nos(j,i)-1,j=1,2)
+          else
+             write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,2)
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ......................................................................
+      if (ntria3(1) .gt. 0) then
+        nnoel = 3 
+        do i = ntria3(2), ntria3(2) + ntria3(1)-1
+          if(bvtk)then
+            write(nfile) nnoel,(nos(j,i)-1,j=1,3)
+          else
+            write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,3)
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ......................................................................
+      if (nquad4(1) .gt. 0) then
+        nnoel = 4 
+        do i = nquad4(2), nquad4(2) + nquad4(1)-1
+          if(bvtk)then
+            write(nfile) nnoel,(nos(j,i)-1,j=1,4)
+          else
+            write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,4)
+          endif  
+        enddo
+      endif
+c ......................................................................
+      if (ntetra4(1) .gt. 0) then
+        nnoel = 4 
+        do i = ntetra4(2), ntetra4(2) + ntetra4(1)-1
+          if(bvtk)then
+            write(nfile) nnoel,(nos(j,i)-1,j=1,4)
+          else
+            write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,4)
+          endif  
+        enddo              
+      endif
+c ......................................................................
+      if (nhexa8(1) .gt. 0) then
+        nnoel = 8 
+        do i = nhexa8(2), nhexa8(2) + nhexa8(1)-1
+          if(bvtk)then
+            write(nfile) nnoel,(nos(j,i)-1,j=1,8)
+          else
+            write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,8)
+          endif  
+        enddo 
+      endif
+c ......................................................................
+c
+c ......................................................................
+      if (ntetra10(1) .gt. 0) then
+        nnoel = 10 
+        do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
+          if(bvtk)then
+            write(nfile) nnoel,nos(1 ,i)-1,nos(2,i)-1
+     .                                  ,nos(3 ,i)-1,nos(4,i)-1
+     .                                  ,nos(5 ,i)-1,nos(8,i)-1
+     .                                  ,nos(6 ,i)-1,nos(7,i)-1
+     .                                  ,nos(10,i)-1,nos(9,i)-1
+          else
+            write(nfile,'(11i10)') nnoel,nos(1 ,i)-1,nos(2,i)-1
+     .                                  ,nos(3 ,i)-1,nos(4,i)-1
+     .                                  ,nos(5 ,i)-1,nos(8,i)-1
+     .                                  ,nos(6 ,i)-1,nos(7,i)-1
+     .                                  ,nos(10,i)-1,nos(9,i)-1
+          endif  
+        enddo 
+      endif
+c ......................................................................
+c
+c ......................................................................
+      if (nhexa20(1) .gt. 0) then
+        nnoel = 20 
+        do i = nhexa20(2), nhexa20(2) + nhexa20(1)-1
+          if(bvtk)then
+            write(nfile) nnoel
+     .                  ,nos( 5,i)-1,nos( 6,i)-1,nos( 7,i)-1,nos( 8,i)-1
+     .                  ,nos( 1,i)-1,nos( 2,i)-1,nos( 3,i)-1,nos( 4,i)-1
+     .                  ,nos(13,i)-1,nos(14,i)-1,nos(15,i)-1,nos(16,i)-1
+     .                  ,nos( 9,i)-1,nos(10,i)-1,nos(11,i)-1,nos(12,i)-1
+     .                  ,nos(17,i)-1,nos(18,i)-1,nos(19,i)-1,nos(20,i)-1
+          else
+            write(nfile,'(21i10)') nnoel
+     .                  ,nos( 5,i)-1,nos( 6,i)-1,nos( 7,i)-1,nos( 8,i)-1
+     .                  ,nos( 1,i)-1,nos( 2,i)-1,nos( 3,i)-1,nos( 4,i)-1
+     .                  ,nos(13,i)-1,nos(14,i)-1,nos(15,i)-1,nos(16,i)-1
+     .                  ,nos( 9,i)-1,nos(10,i)-1,nos(11,i)-1,nos(12,i)-1
+     .                  ,nos(17,i)-1,nos(18,i)-1,nos(19,i)-1,nos(20,i)-1
+          endif  
+        enddo 
+      endif
+c ......................................................................
+c ======================================================================
+c ... tipo dos elementos
+c
+      if(bvtk)then
+        write(str1(1:15),'(i15)')numel
+        buffer = lf//'CELL_TYPES '//str1//lf
+        write(nfile) trim(buffer)
+      else
+        write(nfile,'(a,i10)') 'CELL_TYPES ',numel
+      endif
+c .......................................................................      
+c
+c ...     
+      if (nbar2(1) .gt. 0) then
+        nnoel = 3
+        do i = nbar2(2), nbar2(2) + nbar2(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c .......................................................................
+c
+c ...
+      if (ntria3(1) .gt. 0) then
+        nnoel = 5
+        do i = ntria3(2), ntria3(2) + ntria3(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (nquad4(1) .gt. 0) then
+        nnoel = 9
+        do i = nquad4(2), nquad4(2) + nquad4(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (ntetra4(1) .gt. 0) then
+        nnoel = 10
+        do i = ntetra4(2), ntetra4(2) + ntetra4(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)') nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (nhexa8(1) .gt. 0) then
+        nnoel = 12
+        do i = nhexa8(2), nhexa8(2) + nhexa8(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (ntetra10(1) .gt. 0) then
+        nnoel = 24
+        do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (nhexa20(1) .gt. 0) then
+        nnoel = 25
+        do i = nhexa20(2), nhexa20(2) + nhexa20(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+      return
+      end
+c ======================================================================
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine elm_part_vtk(nos,numel,nen,bvtk,nfile)
+c **********************************************************************
+c * Data de criacao    : 12/10/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * ELM_PART_VTK: escreve elementos nos formato vtk com os seus        *
+c * respectivos materias                                               *
+c * -------------------------------------------------------------------*
+c * Parametros de entrada:                                             *
+c * -------------------------------------------------------------------*
+c * nos(nen+1,numel)  - conetividade nodai                             *
+c * numel             - numero de elementos                            *
+c * ndm               - numeros de dimensoes                           *
+c * nen               - numero maximo de nos por elemento              *
+c * nfile             - arquivo de saida                               *
+c * nbar2             - numeros de barras                              *
+c * ntria3            - numero de triangulos                           *
+c * nquad4            - numero de quaddrilateros                       *
+c * ntetra4           - numero de tetraedros                           *
+c * nhexa8            - numero de hexaedros                            *
+c * bvtk              - true formato binary false ascii                *
+c * nfile             - numero associado ao arquivo de saida           *
+c * -------------------------------------------------------------------*
+c * Prametros de saida:                                                *
+c * -------------------------------------------------------------------*
+c * -------------------------------------------------------------------*
+c * OBS:                                                               *
+c * -------------------------------------------------------------------*
+c * Os prametors nbar2,ntria3,nquad4,ntetra4 e nhexa8 foram herdados do*
+c *   mefpar                                                           *
+c *--------------------------------------------------------------------*
+c **********************************************************************
+      implicit none
+      include 'elementos.fi'
+      integer numel,nen,nfile
+      integer nnoel
+      integer numet,nb2,nt3,nq4,nt4,nh8,nt10,nh20
+      integer i,j
+      integer nos(nen+1,*)
+      character buffer*1024,lf*1,str1*15,str2*15
+      logical bvtk
+
+      lf =char(10)
+c ======================================================================
+c
+c ... Calculo do numero de tipo de cada elemento
+      nb2  = nbar2(1)
+      nt3  = ntria3(1) 
+      nq4  = nquad4(1) 
+      nt4  = ntetra4(1)
+      nh8  = nhexa8(1)
+      nt10 = ntetra10(1)
+      nh20 = nhexa20(1)
+      numet =3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10
+     .      +21*nh20
+c ... elemento em overllaping      
       nt3  = ntria3(3) 
       nq4  = nquad4(3) 
       nt4  = ntetra4(3)
@@ -307,7 +586,11 @@ c ......................................................................
         nnoel = 10 
         do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
           if(bvtk)then
-            write(nfile) nnoel,(nos(j,i)-1,j=1,10)
+           write(nfile) nnoel,nos(1 ,i)-1,nos(2,i)-1
+     .                                  ,nos(3 ,i)-1,nos(4,i)-1
+     .                                  ,nos(5 ,i)-1,nos(8,i)-1
+     .                                  ,nos(6 ,i)-1,nos(7,i)-1
+     .                                  ,nos(10,i)-1,nos(9,i)-1
           else
             write(nfile,'(11i10)') nnoel,nos(1 ,i)-1,nos(2,i)-1
      .                                  ,nos(3 ,i)-1,nos(4,i)-1
@@ -324,7 +607,12 @@ c ......................................................................
         nnoel = 20 
         do i = nhexa20(2), nhexa20(2) + nhexa20(1)-1
           if(bvtk)then
-            write(nfile) nnoel,(nos(j,i)-1,j=1,20)
+             write(nfile) nnoel
+     .                  ,nos( 5,i)-1,nos( 6,i)-1,nos( 7,i)-1,nos( 8,i)-1
+     .                  ,nos( 1,i)-1,nos( 2,i)-1,nos( 3,i)-1,nos( 4,i)-1
+     .                  ,nos(13,i)-1,nos(14,i)-1,nos(15,i)-1,nos(16,i)-1
+     .                  ,nos( 9,i)-1,nos(10,i)-1,nos(11,i)-1,nos(12,i)-1
+     .                  ,nos(17,i)-1,nos(18,i)-1,nos(19,i)-1,nos(20,i)-1
           else
             write(nfile,'(21i10)') nnoel
      .                  ,nos( 5,i)-1,nos( 6,i)-1,nos( 7,i)-1,nos( 8,i)-1
@@ -381,7 +669,7 @@ c ......................................................................
           else
             write(nfile,'(10i10)') nnoel,(nos(j,i)-1,j=1,8)
           endif  
-        enddo 
+        enddo  
       endif
 c ......................................................................
 c ======================================================================
@@ -539,6 +827,31 @@ c ...
       endif
 c ......................................................................
 c
+c ...
+      if (ntetra10(3) .gt. 0) then
+        nnoel = 24
+        do i = ntetra10(4), ntetra10(4) + ntetra10(3)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
+      if (nhexa20(3) .gt. 0) then
+        nnoel = 25
+        do i = nhexa20(4), nhexa20(4) + nhexa20(3)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
       return
       end
 c ======================================================================
@@ -580,7 +893,7 @@ c **********************************************************************
       include 'elementos.fi'
       integer numel,nen,nfile
       integer nnoel
-      integer numet,nb2,nt3,nq4,nt4,nh8
+      integer numet,nb2,nt3,nq4,nt4,nh8,nt10,nh20
       integer i,j
       integer nos(nen+1,*)
       integer*8 offset
@@ -591,12 +904,15 @@ c **********************************************************************
 c ======================================================================
 c
 c ... Calculo do numero de tipo de cada elemento 
-      nb2 = nbar2(1)
-      nt3 = ntria3(1) 
-      nq4 = nquad4(1) 
-      nt4 = ntetra4(1)
-      nh8 = nhexa8(1)
-      numet = 3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 
+      nb2  = nbar2(1)
+      nt3  = ntria3(1) 
+      nq4  = nquad4(1) 
+      nt4  = ntetra4(1)
+      nh8  = nhexa8(1)
+      nt10 = ntetra10(1)
+      nh20 = nhexa20(1)
+      numet =3*nb2 + 4*nt3 + 5*nq4 + 5*nt4 + 9*nh8 + 11*nt10
+     .      +21*nh20 
 c
 c ... total de elemntos e tamnhanho dos dados totais
       if(bvtk)then
@@ -664,6 +980,33 @@ c ......................................................................
         enddo 
       endif
 c ......................................................................
+      if (ntetra10(1) .gt. 0) then
+        do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
+          if(bvtk)then
+          else
+            write(nfile,'(11i10)') nos(1 ,i)-1,nos(2,i)-1
+     .                            ,nos(3 ,i)-1,nos(4,i)-1
+     .                            ,nos(5 ,i)-1,nos(8,i)-1
+     .                            ,nos(6 ,i)-1,nos(7,i)-1
+     .                            ,nos(10,i)-1,nos(9,i)-1
+          endif  
+        enddo 
+      endif
+c ......................................................................
+      if (nhexa20(1) .gt. 0) then
+        do i = nhexa20(2), nhexa20(2) + nhexa20(1)-1
+          if(bvtk)then
+          else
+            write(nfile,'(21i10)')
+     .                ,nos( 5,i)-1,nos( 6,i)-1,nos( 7,i)-1,nos( 8,i)-1
+     .                ,nos( 1,i)-1,nos( 2,i)-1,nos( 3,i)-1,nos( 4,i)-1
+     .                ,nos(13,i)-1,nos(14,i)-1,nos(15,i)-1,nos(16,i)-1
+     .                ,nos( 9,i)-1,nos(10,i)-1,nos(11,i)-1,nos(12,i)-1
+     .                ,nos(17,i)-1,nos(18,i)-1,nos(19,i)-1,nos(20,i)-1
+          endif  
+        enddo 
+      endif
+c ......................................................................
       if(bvtk)then
       else
         write(nfile,'(a)') '</DataArray>'
@@ -676,6 +1019,9 @@ c                         de um elemento apenas)
         buffer2 =' format="ascii">'
         buffer = trim(buffer1) // trim(buffer2)
         write(nfile,'(a)') trim(buffer)
+c ......................................................................
+c
+c ...
         if (nbar2(1) .gt. 0) then
           offset = 2
           do i = 1, numel
@@ -683,6 +1029,9 @@ c                         de um elemento apenas)
               offset = 2 + offset
             enddo  
         endif  
+c ......................................................................
+c
+c ...
         if (ntria3(1) .gt. 0) then
           offset = 3
           do i = 1, numel
@@ -690,6 +1039,9 @@ c                         de um elemento apenas)
             offset = 3 + offset
           enddo  
         endif  
+c ......................................................................
+c
+c ...
         if (nquad4(1) .gt. 0) then
           offset = 4
           do i = 1, numel
@@ -697,6 +1049,9 @@ c                         de um elemento apenas)
             offset = 4 + offset
           enddo  
         endif  
+c ......................................................................
+c
+c ...
         if (ntetra4(1) .gt. 0) then
           offset = 4
           do i = 1, numel
@@ -704,13 +1059,37 @@ c                         de um elemento apenas)
             offset = 4 + offset
           enddo  
         endif  
+c ......................................................................
+c
+c ...
         if (nhexa8(1) .gt. 0) then
           offset = 8
           do i = 1, numel
             write(nfile,'(i20)') offset
             offset = 8 + offset
           enddo  
-        endif  
+        endif 
+c ......................................................................
+c
+c ...
+        if (ntetra10(1) .gt. 0) then
+          offset = 10
+          do i = 1, numel
+            write(nfile,'(i20)') offset
+            offset = 10 + offset
+          enddo  
+        endif 
+c ......................................................................
+c
+c ...
+        if (nhexa20(1) .gt. 0) then
+          offset = 20
+          do i = 1, numel
+            write(nfile,'(i20)') offset
+            offset = 20 + offset
+          enddo  
+        endif 
+c ......................................................................
         write(nfile,'(a)') '</DataArray>'
       endif 
 c ======================================================================
@@ -789,6 +1168,32 @@ c ...
       endif
 c ......................................................................
 c
+c ...
+      if (ntetra10(1) .gt. 0) then
+        nnoel = 24
+        do i = ntetra10(2), ntetra10(2) + ntetra10(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c
+c ...
+      if (nhexa20(1) .gt. 0) then
+        nnoel = 25
+        do i = nhexa20(2), nhexa20(2) + nhexa20(1)-1
+          if(bvtk)then
+            write(nfile)nnoel
+          else  
+            write(nfile,'(i3)')nnoel
+          endif  
+        enddo
+      endif
+c ......................................................................
+c
+c ...
       if(bvtk)then
       else
         write(nfile,'(a)') '</DataArray>'
@@ -833,6 +1238,7 @@ c **********************************************************************
      .                        ,cod1 
      .                        ,cod2,bvtk,nfile)
       implicit none
+      character*6 str
       integer nnode,ndm,gdl,cod1,cod2,nfile
       integer  i,j
       integer iprop(gdl,*)
@@ -852,30 +1258,33 @@ c ... campo escalar
         if(cod1.eq.1) then
 c .. escalar int BINARY     
           if(cod2.eq.1)then
-            buffer =' SCALARS '//cname//' int'//lf
+            write(str,'( I6 )') gdl
+            buffer =' SCALARS '//cname//' int '//str//lf
             write(nfile)trim(buffer)
             buffer =' LOOKUP_TABLE '//'default '//lf
             write(nfile)trim(buffer)
             do i=1,nnode
-              write(nfile)iprop(1,i)
+              write(nfile)(iprop(j,i),j=1,gdl) 
             enddo
 c ... escalar float BINARY         
-          elseif(cod2.eq.2)then  
-            buffer = lf//'SCALARS '//cname//' float'//lf
+          elseif(cod2.eq.2)then 
+            write(str,'( I6 )') gdl 
+            buffer = lf//'SCALARS '//cname//' float '//str//lf
             write(nfile)trim(buffer)
             buffer = lf//'LOOKUP_TABLE '//'default '//lf
             write(nfile)trim(buffer)
             do i=1,nnode
-              write(nfile)fprop(1,i)
+              write(nfile)(fprop(j,i),j=1,gdl) 
             enddo
 c ... escalardouble BINARY         
-          elseif(cod2.eq.3)then  
-            buffer = lf//'SCALARS '//cname//' double'//lf
+          elseif(cod2.eq.3)then 
+            write(str,'( I6 )') gdl 
+            buffer = lf//'SCALARS '//cname//' double'//str//lf
             write(nfile)trim(buffer)
             buffer = lf//'LOOKUP_TABLE '//'default '//lf
             write(nfile)trim(buffer)
             do i=1,nnode
-              write(nfile)dprop(1,i)
+              write(nfile)(dprop(j,i),j=1,gdl) 
             enddo
           endif  
 c ......................................................................
@@ -926,7 +1335,26 @@ c ......................................................................
 c 
 c ... campo tensorial BINARY
         elseif(cod1.eq.3) then
-          print*,'\nnao implementado '
+c ... integer ASCII
+          if(cod2.eq.1)then
+            buffer =' TENSORS '//cname//' int'//lf
+            do i=1,nnode
+              write(nfile)(iprop(j,i),j=1,9) 
+            enddo
+c ... float ASCII 
+          elseif(cod2.eq.2)then  
+            buffer =' TENSORS '//cname//' float'//lf
+            do i=1,nnode
+              write(nfile)(fprop(j,i),j=1,9) 
+            enddo
+c ... double ASCII 
+          elseif(cod2.eq.3)then
+            buffer =' TENSORS '//cname//' double'//lf
+            write(nfile)trim(buffer)
+            do i=1,nnode
+              write(nfile)(dprop(j,i),j=1,9) 
+            enddo
+          endif
         endif
 c ......................................................................
 c
@@ -965,6 +1393,7 @@ c ......................................................................
 c
 c ... campo vetorial ASCII
         elseif(cod1.eq.2) then
+c ... int ASCII
           if(cod2.eq.1)then
             idum = 0
             write(nfile,'(a,15a,a)')'VECTORS ',cname,' int'
@@ -978,7 +1407,7 @@ c ... campo vetorial ASCII
      .          iprop(1,i),iprop(2,i),iprop(3,i)
               endif
             enddo
-c .. escalar float ASCII 
+c .. float ASCII 
           elseif(cod2.eq.2)then  
             fdum = 0.d0
             write(nfile,'(a,15a,a)')'VECTORS ',cname,' float'
@@ -990,7 +1419,7 @@ c .. escalar float ASCII
      .          fprop(1,i),fprop(2,i),fprop(3,i)
               endif
             enddo
-c .. escalar double ASCII 
+c .. double ASCII 
           elseif(cod2.eq.3)then
             ddum = 0.d0
             write(nfile,'(a,15a,a)')'VECTORS ',cname,' double'
@@ -1009,18 +1438,23 @@ c ......................................................................
 c 
 c ... campo tensorial ASCII
         elseif(cod1.eq.3) then
+c ... integer ASCII
           if(cod2.eq.1)then
-            print*,'\nnao implementado '
-c .. escalar float ASCII 
+            write(nfile,'(a,15a,a)')'TENSORS ',cname,' int'
+            do i=1,nnode
+              write(nfile,'(9i)')(iprop(j,i),j=1,9)
+            enddo
+c ... float ASCII 
           elseif(cod2.eq.2)then  
-            print*,'\nnao implementado '
-c .. escalar double ASCII 
+            write(nfile,'(a,15a,a)')'TENSORS ',cname,' float'
+            do i=1,nnode
+              write(nfile,'(9e15.5e3)')(fprop(j,i),j=1,9)
+            enddo
+c ... double ASCII 
           elseif(cod2.eq.3)then
             write(nfile,'(a,15a,a)')'TENSORS ',cname,' double'
             do i=1,nnode
-              write(nfile,'(9e15.5e3)')dprop(1,i),dprop(2,i),dprop(3,i)
-     .                                ,dprop(4,i),dprop(5,i),dprop(6,i)
-     .                                ,dprop(7,i),dprop(8,i),dprop(9,i)
+              write(nfile,'(9e15.5e3)')(dprop(j,i),j=1,9)
             enddo
 c ......................................................................
           endif
@@ -1115,23 +1549,27 @@ c ... campo escalar ASCII
         if(cod1.eq.1) then
 c ... escalar int ASCII 
           if(cod2.eq.1)then
-            buffer1= '<DataArray type="Int32"'
-            buffer2= ' Name="' // trim( cname) // '" format="ascii">'
-            buffer=trim(buffer1)//trim(buffer2)
+            write(str1,'(i2)')gdl
+            buffer1= '<DataArray type="Int32" '
+            buffer2= ' NumberOfComponents="'//trim(str1)//'"'
+            buffer3= ' Name="' // trim( cname) // '" format="ascii">'
+            buffer=trim(buffer1)//trim(buffer2)//trim(buffer3)
             write(nfile,'(a)')trim(buffer)
             do i=1,nnode
-              write(nfile,'(i10)') iprop(1,i)
+              write(nfile,'(10i10)') (iprop(j,i),j=1,gdl)
             enddo
 c ... escalar float ASCII 
           elseif(cod2.eq.2)then  
 c ... escalar double ASCII 
           elseif(cod2.eq.3)then  
+            write(str1,'(i2)')gdl
             buffer1= '<DataArray type="Float64" '
-            buffer2= ' Name="' // trim( cname) // '" format="ascii">'
-            buffer=trim(buffer1)//trim(buffer2)
+            buffer2= ' NumberOfComponents="'//trim(str1)//'"'
+            buffer3= ' Name="' // trim( cname) // '" format="ascii">'
+            buffer=trim(buffer1)//trim(buffer2)//trim(buffer3)
             write(nfile,'(a)')trim(buffer)
             do i=1,nnode
-              write(nfile,'(e15.5e3)') dprop(1,i)
+              write(nfile,'(e15.5e3)') (dprop(j,i),j=1,gdl)
             enddo
           endif  
 c ......................................................................
@@ -1140,7 +1578,7 @@ c ... campo vetorial ASCII
         elseif(cod1.eq.2) then
 c ... vetorial int ASCII 
           if(cod2.eq.1)then
-            write(str1,'(i1)')gdl
+            write(str1,'(i2)')gdl
             buffer1= '<DataArray type="Int32" '
             buffer2= ' NumberOfComponents="'//trim(str1)//'"'
             buffer3= ' Name="' // trim(cname) // '" format="ascii">'
@@ -1153,7 +1591,7 @@ c ... vetorial float ASCII
           elseif(cod2.eq.2)then  
 c ... vetorial double ASCII 
           elseif(cod2.eq.3)then
-            write(str1,'(i1)')gdl
+            write(str1,'(i2)')gdl
             buffer1= '<DataArray type="Float64" '
             buffer2= ' NumberOfComponents="'//trim(str1)//'"'
             buffer3= ' Name="' // trim(cname) // '" format="ascii">'
@@ -1164,11 +1602,34 @@ c ... vetorial double ASCII
             enddo
           endif  
 c ......................................................................
-c ......................................................................
 c 
 c ... campo tensorial ASCII
         elseif(cod1.eq.3) then
-          print*,'nao implementado '
+c ... campo tensorial int ASCII 
+          if(cod2.eq.1)then
+            str1 ='9'
+            buffer1= '<DataArray type="Int32" '
+            buffer2= ' NumberOfComponents="'//trim(str1)//'"'
+            buffer3= ' Name="' // trim(cname) // '" format="ascii">'
+            buffer=trim(buffer1)//trim(buffer2)//trim(buffer3)
+            write(nfile,'(a)')trim(buffer)
+            do i=1,nnode
+              write(nfile,'(10i10)') (iprop(j,i),j=1,9)
+            enddo
+c ... campo tensorial float ASCII 
+          elseif(cod2.eq.2)then  
+c ... campo tensorial double ASCII 
+          elseif(cod2.eq.3)then
+            str1 ='9'
+            buffer1= '<DataArray type="Float64" '
+            buffer2= ' NumberOfComponents="'//trim(str1)//'"'
+            buffer3= ' Name="' // trim(cname) // '" format="ascii">'
+            buffer=trim(buffer1)//trim(buffer2)//trim(buffer3)
+            write(nfile,'(a)')trim(buffer)
+            do i=1,nnode
+              write(nfile,'(10e15.5e3)')(dprop(j,i),j=1,9)
+            enddo
+          endif
 c ......................................................................
         endif
         write(nfile,'(a)')'</DataArray>'
@@ -1256,7 +1717,7 @@ c ... Vtk ASCII
       else 
 c ... int      
         if(cod .eq. 1)then
-         write(nfile,*)'SCALARS ',cname,'int',gdl
+          write(nfile,*)'SCALARS ',cname,' int ',gdl
 c          write(nfile,'(a,2x,15a,3a,i)')'SCALARS',cname,'int ',gdl
           write(nfile,'(a)')'LOOKUP_TABLE default'
           do i = 1, numel
@@ -1404,17 +1865,19 @@ c ... legacy binario
         write(nfile) trim(buffer)
         buffer = 'DATASET UNSTRUCTURED_GRID'//lf
         write(nfile) trim(buffer)
-        buffer = 'FIELD FieldData 3'//lf
-        write(nfile) trim(buffer)
-        buffer = 'TIME(s) 1 1 double'//lf
-        write(nfile) trim(buffer)
-        write(nfile) t           
-        buffer = 'TIME(h) 1 1 double'//lf
-        write(nfile) trim(buffer)
-        write(nfile) t/3600.0d0           
-        buffer = 'CYCLE 1 1 int'//lf
-        write(nfile) trim(buffer)
-        write(nfile) istep 
+        if(time) then          
+          buffer = 'FIELD FieldData 3'//lf
+          write(nfile) trim(buffer)
+          buffer = 'TIME(s) 1 1 double'//lf
+          write(nfile) trim(buffer)
+          write(nfile) t           
+          buffer = 'TIME(h) 1 1 double'//lf
+          write(nfile) trim(buffer)
+          write(nfile) t/3600.0d0           
+          buffer = 'CYCLE 1 1 int'//lf
+          write(nfile) trim(buffer)
+          write(nfile) istep 
+        endif
 c ... legacy ascii  
       else
         write(nfile,'(a)') '# vtk DataFile Version 3.0'
@@ -1467,7 +1930,7 @@ c
 c ===
 c ... xml binario
       if(bvtk)then
-        print*,'não implementado.'
+        print*,'head_vtu: nao implementado.'
         stop
 c ... xml ascii  
       else
@@ -1551,6 +2014,8 @@ c **********************************************************************
       lf = char(10)
 c ... xlm BINARY
       if(bvtk)then
+        print*,'cell_data_vtu: nao implementado.'
+        stop
 c ... xlm ASCII 
       else
         write(nfile,'(a)')'<CellData Scalars="scalars">'
@@ -1582,6 +2047,8 @@ c **********************************************************************
       logical bvtk
 c ... xlm BINARY
       if(bvtk)then
+        print*,'cell_data_finalize_vtu: nao implementado.'
+        stop
 c ... xlm ASCII 
       else
         write(nfile,'(a)')'</CellData>'
@@ -1613,6 +2080,8 @@ c **********************************************************************
       logical bvtk
 c ... xlm BINARY
       if(bvtk)then
+        print*,'point_data_finalize_vtu: nao implementado.'
+        stop
 c ... xlm ASCII 
       else
         write(nfile,'(a)')'</PointData>'
@@ -1644,6 +2113,8 @@ c **********************************************************************
       logical bvtk
 c ... xlm BINARY
       if(bvtk)then
+        print*,'finalize_vtu: nao implementado.'
+        stop
 c ... xlm ASCII 
       else
         write(nfile,'(a)') '</Piece>'
@@ -1716,6 +2187,8 @@ c **********************************************************************
       logical bvtk
 c ... xlm BINARY
       if(bvtk)then
+        print*,'point_data_vtu: nao implementado.'
+        stop
 c ... xlm ASCII 
       else
         write(nfile,'(a)')'<PointData>'
@@ -1726,8 +2199,7 @@ c ...
       return
       end
 c **********************************************************************
-c
-      
+c  
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 27/03/2016                                    * 
@@ -1877,7 +2349,7 @@ c ... Calculo do numero de tipo de cada elemento
 c
 c ... total de elemntos e tamnhanho dos dados totais
       if(bvtk)then
-        print*,'nao implementado.'
+        print*,' face_vtu: nao implementado.'
         stop
       else
         write(nfile,'(a)') '<Cells> '
@@ -1892,7 +2364,7 @@ c ... nos dos elementos
       do i = 1, nface
         nnoel = nnoface(tipoface(i))
         if(bvtk)then
-          print*,'nao implementado.'
+          print*,' face_vtu: nao implementado.'
           stop
         else
           write(nfile,'(10i10)') (face(j,i)-1,j=1,nnoel)
@@ -1911,7 +2383,7 @@ c ... offset no arranjo das conectvidade(funcionando para malha
 c                         de um elemento apenas)
       offset = 0
       if(bvtk)then
-        print*,'nao implementado.'
+        print*,' face_vtu: nao implementado.'
         stop
       else
         buffer1 ='<DataArray type="Int64" Name="offsets" '
@@ -1929,7 +2401,7 @@ c .....................................................................
 c
 c ... tipo do face
       if(bvtk)then
-        print*,'nao implementado.'
+        print*,' face_vtu: nao implementado.'
         stop
       else
         buffer1 ='<DataArray type="UInt8" Name="types" '
@@ -1941,7 +2413,7 @@ c ...
       do i = 1, nface
         nnoel = tipofacevtk(tipoface(i))
         if(bvtk)then
-          print*,'nao implementado.'
+          print*,' face_vtu: nao implementado.'
           stop
         else  
           write(nfile,'(i3)')nnoel
@@ -1949,7 +2421,7 @@ c ...
       enddo
 c ......................................................................
       if(bvtk)then
-        print*,'nao implementado.'
+        print*,' face_vtu: nao implementado.'
         stop
       else
         write(nfile,'(a)') '</DataArray>'

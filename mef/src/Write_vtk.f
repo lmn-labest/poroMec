@@ -669,7 +669,7 @@ c ... faces
      .               ,max_no_face,line_face,tria_face
      .               ,quad_face  ,bvtk     ,nelemtload)
       else
-        call face_vtu(ia(i_p)    ,ia(i_b2)
+        call face_vtu(ia(i_p)    ,ia(i_b1)  ,ia(i_b2)
      .               ,max_no_face,line_face,tria_face
      .               ,quad_face  ,bvtk     ,nelemtload)
       endif
@@ -810,12 +810,11 @@ c * 1 - deslocamento do no i- u(1,i), u(2,i) e u(3,i)                 *
 c * 2-  pressao do no i     - u(4,i)                                  *       
 c ********************************************************************* 
        subroutine write_mesh_res_pm(el     ,x     ,u     ,dp  
-     1                           ,dporosity    
-     2                           ,tx     ,txb   ,txe   ,flux    
-     3                           ,nnode  ,numel ,istep ,t 
-     4                           ,nen    ,ndm   ,ndf   ,ntn  
-     5                           ,fileout,bvtk  ,legacy,fprint
-     6                           ,nout)
+     1                           ,dporosity,tx    ,txb   ,txe 
+     2                           ,flux     ,nnode ,numel ,istep 
+     3                           ,t        ,nen    ,ndm  ,ndf
+     4                           ,ntn      ,fileout,prename
+     5                           ,bvtk     ,legacy ,fprint,nout)
 c ===
       use Malloc 
       implicit none
@@ -841,19 +840,23 @@ c ...
       logical fprint(*)
 c ... arquivo      
       integer nout
-      character*80 fileout,name,filein
+      character*80 fileout,name,filein,prename
       logical bvtk,legacy
       integer cod,cod2,gdl
 c =====================================================================
 c
 c ===
+      if(legacy) then
+        fileout = name(prename,istep,2)
+      else  
+        fileout = name(prename,istep,3)
+      endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
      .      ,form='unformatted',convert='big_endian')
       else
         open(unit=nout,file=fileout)
       endif  
-c     print*,fileout,nout
 c =====================================================================
 c
 c === cabecalho
@@ -923,6 +926,12 @@ c ... cod = 1 variaveis interias
      .                    ,nout)
       endif 
       i_p = dealloc('p       ')
+c .....................................................................
+c
+c ...
+      if(legacy .eqv. .false.) then
+        call cell_data_finalize_vtu(bvtk,nout)
+      endif  
 c .....................................................................
 c =====================================================================
 c
@@ -1346,6 +1355,12 @@ c ... cod = 1 variaveis inteiras
      .                    ,nout)
       endif 
       i_p = dealloc('p       ')
+c .....................................................................
+c
+c ...
+      if(legacy .eqv. .false.) then
+        call cell_data_finalize_vtu(bvtk,nout)
+      endif  
 c .....................................................................
 c =====================================================================
 c
