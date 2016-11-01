@@ -3,12 +3,14 @@ c * Metodos iterativos para solucao de sistemas lineares (OpenMP)     *
 c * ----------------------------------------------------------------- *
 c * simetricos:                                                       *
 c * ----------------------------------------------------------------- *
+c *                                                                   *
 c * PCG - gradiente conjugados com precondicionador diagonal          *
 c *                                                                   *
 c * RSQRM - QRM simetrico com precondicionador diagonal a direita     *
 c * ----------------------------------------------------------------- *
 c * nao-simetricos:                                                   *
-c * ----------------------------------------------------------------- *                                                       *
+c * ----------------------------------------------------------------- *
+c *                                                                   *                                                       *
 c * pbicgstab - gradiente bi-conjugados estabilizados  com            * 
 c * precondicionador diagonal                                         *
 c *                                                                   *
@@ -17,16 +19,17 @@ c *                                                                   *
 c * ----------------------------------------------------------------- *
 c ********************************************************************* 
       subroutine pcg_omp(neq   ,nequ,nad,ia ,ja
-     .                  ,ad    ,au  ,al ,m  ,b
-     .                  ,x     ,z   ,r  ,p
-     .                  ,tol,maxit
-     .                  ,matvec,dot
-     .                  ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi ,i_rcvsi,i_dspli,thread_y
-     .                  ,fprint,flog   ,fhist  ,fnew)
+     1                  ,ad    ,au  ,al ,m  ,b
+     2                  ,x     ,z   ,r  ,p
+     3                  ,tol,maxit
+     4                  ,matvec,dot
+     5                  ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     6                  ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     7                  ,fprint,flog   ,fhist  ,fnew
+     8                  ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 23/09/2016                                    * 
+c * Data de modificaco : 31/10/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PCG_OMP : Solucao de sistemas de equacoes pelo metodo dos          *
 c * gradientes conjugados com precondicionador diagonal para matrizes  *
@@ -53,20 +56,22 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * matvec   - nome da funcao externa para o produto matrix-vetor      *
 c * dot      - nome da funcao externa para o produto escalar           *
-c * my_id    -                                                         *
-c * neqf1i   -                                                         *
-c * neqf2i   -                                                         *
-c * neq_doti -                                                         *
-c * i_fmap   -                                                         *
-c * i_xfi    -                                                         *
-c * i_rvcs   -                                                         *
-c * i_dspli  -                                                         *
+c * my_id    - MPI                                                     *
+c * neqf1i   - MPI                                                     *
+c * neqf2i   - MPI                                                     *
+c * neq_doti - MPI                                                     *
+c * i_fmap   - MPI                                                     *
+c * i_xfi    - MPI                                                     *
+c * i_rvcs   - MPI                                                     *
+c * i_dspli  - MPI                                                     *
 c * thread_y - buffer de equacoes para o vetor y (openmp)              *
 c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
 c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  -> x0 igual a zero                              *
 c *            .false. -> x0 dado                                      *
+c * mpi      - true|false                                              *
+c * nprcs    - numero de processos mpi                                 *  
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -75,19 +80,19 @@ c * b(neq) - modificado                                                *
 c * ad(*),al(*),au(*) - inalterados                                    *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
+c ********************************************************************** 
       implicit none
       include 'mpif.h'
       include 'omp_lib.h'
       include 'openmp.fi'
-c ... Mpi      
-      integer ierr
-c .....................................................................      
-      integer neqf1i,neqf2i,neq_doti
+c ... mpi
+      logical mpi        
+      integer neqf1i,neqf2i,neq_doti,nprcs,ierr
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
-c ......................................................................      
+c .....................................................................   
       integer neq,nequ,maxit,i,j,jj,nad
       integer ia(*),ja(*),my_id
       real*8  ad(*),au(*),al(*),b(*),m(*),x(*)
@@ -97,6 +102,10 @@ c ......................................................................
       real*8  time0,time
       real*8  thread_y(*)
       logical flog,fprint,fnew,fhist
+c ...
+      real*8 flop_cg
+      real*8  mflops,vmean
+c .....................................................................
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime() 
@@ -117,8 +126,8 @@ c$omp.private(i,j,jj,conv,alpha,beta,xkx,norm,d,di,tmp)
 c$omp.private(norm_b,norm_r,norm_m_r)
 c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,p,z,r,tol,maxit,thread_y)
 c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti)
-c$omp.shared(flog,fprint,fnew,fhist)
-c$omp.shared(my_id,time,time0)
+c$omp.shared(flog,fprint,fnew,fhist,my_id,time,time0,mpi,mflops)
+c$omp.shared(vmean,nprcs,ierr)
 c$omp.num_threads(nth_solv)                                          
 c ......................................................................
 c
@@ -265,9 +274,23 @@ c ......................................................................
 c$omp single
       time = MPI_Wtime()
       time = time-time0
-c ----------------------------------------------------------------------
+c ......................................................................
+c 
+c ...    
+      if(mpi) then
+        call MPI_barrier(MPI_COMM_WORLD,ierr)
+        call mpi_mean(vmean,time,nprcs) 
+        time   = vmean        
+      endif    
+      mflops = (flop_cg(neq,nad,j,2,mpi)*1.d-06)/time  
+c ......................................................................
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,norm_m_r,time
+       if(mpi) then
+          write(*,1110)tol,conv,j,xkx,norm,norm_r,norm_m_r,mflops,time
+        else
+          write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,norm_m_r
+     .                ,mflops,time
+        endif
       endif
 c ......................................................................
 c
@@ -297,28 +320,40 @@ c ======================================================================
      . 5x,'|| x ||              = ',d20.10/
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'|| b - Ax ||m        = ',d20.10/
+     . 5x,'Mflops               = ',f20.2/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1110 format(' (PCG_OMP_MPI) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||m         = ',d20.6/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'|| b - Ax ||m        = ',d20.10/
+     . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,d20.10
      .        ' iterations !',/)
  1300 format (' PCG_OMP:',5x,'It',i7,5x,2d20.10)
- 1400 format (' PCG_OMP:',1x,'Explicit residual > tol * ||b||m :'
+ 1400 format (' PCG_OMP:',1x,'Explicit residual > tol * ||b||| :'
      .       ,1x,d20.10,1x,d20.10)
-1500  format (5x,i7,5x,2es20.10)
+ 1500 format ( 5x,i7,5x,2es20.10)
       end
 c *********************************************************************  
 c
 c *********************************************************************  
       subroutine rpsqrm_omp(neq   ,nequ   ,nad   ,ia  ,ja
-     .                 ,ad    ,au     ,al    ,m   ,b  ,x  
-     .                 ,t     ,r     ,q   ,d   
-     .                 ,tol   ,maxit
-     .                 ,matvec,dot
-     .                 ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                 ,i_xfi ,i_rcvsi,i_dspli,thread_y
-     .                 ,fprint,flog   ,fhist  ,fnew)
+     1                 ,ad    ,au     ,al    ,m   ,b  ,x  
+     2                 ,t     ,r     ,q   ,d   
+     3                 ,tol   ,maxit
+     4                 ,matvec,dot
+     5                 ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                 ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     7                 ,fprint,flog   ,fhist  ,fnew
+     8                 ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 01/11/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a direita                                                 *
@@ -344,20 +379,22 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * matvec   - nome da funcao externa para o produto matrix-vetor      *
 c * dot      - nome da funcao externa para o produto escalar           *
-c * my_id    -                                                         *
-c * neqf1i   -                                                         *
-c * neqf2i   -                                                         *
-c * neq_doti -                                                         *
-c * i_fmap   -                                                         *
-c * i_xfi    -                                                         *
-c * i_rvcs   -                                                         *
-c * i_dspli  -                                                         *
+c * my_id    - MPI                                                     *
+c * neqf1i   - MPI                                                     *
+c * neqf2i   - MPI                                                     *
+c * neq_doti - MPI                                                     *
+c * i_fmap   - MPI                                                     *
+c * i_xfi    - MPI                                                     *
+c * i_rvcs   - MPI                                                     *
+c * i_dspli  - MPI                                                     *
 c * thread_y - buffer de equacoes para o vetor y (openmp)              *                                                 *
 c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
 c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  -> x0 igual a zero                              *
 c *            .false. -> x0 dado                                      *
+c * mpi      - true|false                                              *
+c * nprcs    - numero de processos mpi                                 *  
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -374,7 +411,9 @@ c **********************************************************************
       include 'mpif.h'
       include 'omp_lib.h'
       include 'openmp.fi'
-      integer neqf1i,neqf2i,neq_doti
+c ... mpi
+      logical mpi        
+      integer neqf1i,neqf2i,neq_doti,nprcs,ierr
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
@@ -389,6 +428,10 @@ c .....................................................................
       real*8 time0,time
       real*8 thread_y(*)
       logical flog,fprint,fnew,fhist
+c ...
+      real*8 flop_sqrm
+      real*8  mflops,vmean
+c .....................................................................
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
@@ -410,7 +453,8 @@ c$omp.private(tau,ro,v0,sigma,vn,cn,tmp1,tmp2)
 c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,t,r,q,d)
 c$omp.shared(tol,maxit,thread_y)
 c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti,flog)
-c$omp.shared(my_id,time,time0,fnew,fhist,fprint)
+c$omp.shared(my_id,time,time0,fnew,fhist,fprint,mpi,mflops)
+c$omp.shared(vmean,nprcs,ierr)
 c$omp.num_threads(nth_solv)                                          
 c ......................................................................
 c
@@ -490,7 +534,7 @@ c
 c ... v(j) = ||r||/tau(j-1)
          vn   = dsqrt(dot(r,r,neq_doti))/tau
 c ... c(j) = 1/sqrt(1+v(j)*v(j) 
-         cn   = 1.0d0/dsqrt(1+vn*vn)
+         cn   = 1.0d0/dsqrt(1.d0+vn*vn)
 c ... tau(j) = tau(j-1)*v(j)*c(j)
          tau = tau*vn*cn
 c .....................................................................
@@ -585,23 +629,34 @@ c$omp do
 c$omp end do
       norm_r = dot(r,r,neq_doti)
       norm_r = dsqrt(norm_r)
-c$omp single
       if( norm_r .gt. conv ) then
-
+c$omp single
          if(my_id .eq.0 )then
            write(*,1400) norm_r,conv
          endif 
-      endif
 c$omp end single
+      endif
 c ......................................................................
+c$omp single
       time = MPI_Wtime()
       time = time-time0
 c ......................................................................
-c
-c ...
-c$omp single
+c 
+c ...    
+      if(mpi) then
+        call MPI_barrier(MPI_COMM_WORLD,ierr)
+        call mpi_mean(vmean,time,nprcs) 
+        time   = vmean        
+      endif    
+      mflops = (flop_sqrm(neq,nad,j,2,mpi)*1.d-06)/time  
+c ......................................................................
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r,time
+        if(mpi) then
+          write(*,1110)tol,conv,j,xkx,norm,norm_r,mflops,time
+        else
+          write(*,1100)tol,conv,neq,nad,j,xkx,norm,norm_r
+     .                ,mflops,time
+        endif
       endif
 c ......................................................................
 c
@@ -631,6 +686,16 @@ c ======================================================================
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
      . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'Mflops               = ',f20.2/
+     . 5x,'CPU time (s)         = ',f20.2/)
+1110  format(' (RPSMRQ_MPI_OMP) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||          = ',d20.6/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)

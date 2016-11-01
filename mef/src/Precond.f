@@ -1559,16 +1559,23 @@ c * CAL_PRECOND : calculo o precondicionador                           *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
-c * ia     - csrc                                                      *
-c * ja     - csrc                                                      *
-c * m      - indefinido                                                *
-c * ad     - coeficientes da diagonal principal                        *
-c * al     - coeficientes da parte inferior da matriz                  *
-c * w(neq) - vetor auxiliar                                            *
-c * precond- codigo para o precondicionador                            *
-c * neq    - numero de equacoes                                        *
-c * nequ   - numero de equacoes no bloco Kuu                           *
-c * my_id  - id do processo do mpi                                     *
+c * ia       - csrc                                                    *
+c * ja       - csrc                                                    *
+c * m        - indefinido                                              *
+c * ad       - coeficientes da diagonal principal                      *
+c * al       - coeficientes da parte inferior da matriz                *
+c * w(neq)   - vetor auxiliar                                          *
+c * precond  - codigo para o precondicionador                          *
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * neqf1i   - MPI                                                     *
+c * neqf2i   - MPI                                                     *
+c * i_fmap   - MPI                                                     *
+c * i_xfi    - MPI                                                     *
+c * i_rvcs   - MPI                                                     *
+c * i_dspli  - MPI                                                     *
+c * novlp    - MPI                                                     *
+c * my_id    - id do processo do mpi                                   *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -1577,11 +1584,22 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c ********************************************************************** 
-      subroutine cal_precond(ia,ja,m,ad,al,w,precond,neq,nequ,my_id)
+      subroutine cal_precond(ia     ,ja     ,m      
+     1                      ,ad     ,al     ,w
+     2                      ,precond,neq    ,nequ
+     3                      ,neqf1i ,neqf2i ,i_fmapi
+     4                      ,i_xfi  ,i_rcvsi,i_dspli
+     5                      ,novlp  ,my_id)
       implicit none
       include 'mpif.h'
       include 'precond.fi'
       include 'time.fi'
+c ... MPI
+      integer neqf1i,neqf2i
+c ... ponteiros  
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical novlp
+c ...
       real*8 m(*),ad(*),al(*),w(*)
       integer ia(*),ja(*),neq,nequ
       integer precond,my_id
@@ -1593,7 +1611,15 @@ c
 c ... precondicionador diagonal:
       else if(precond .eq. 2) then 
         precondtime = Mpi_Wtime() - precondtime  
-        call pre_diag(m,ad,neq,.false.)  
+c ...    precondicionador diagonal:
+        call aequalb(m,ad,neq) 
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi
+     .                             ,i_rcvsi,i_dspli)
+c .....................................................................
+c
+c ...
+        call pre_diag(m,m,neq,.false.)  
         precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
@@ -1615,13 +1641,18 @@ c .....................................................................
 c
 c ... precondicionador modulo da diagonal:
       else if(precond .eq. 5) then
-c ...
+c ...    precondicionador diagonal:
+        call aequalb(m,ad,neq) 
+c ...    Comunicacao da diagonal para o caso non-overlapping:
+        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi
+     .                             ,i_rcvsi,i_dspli)
+c .....................................................................
         precondtime = Mpi_Wtime() - precondtime  
-        call pre_diag(m,ad,neq,.true.)
+        call pre_diag(m,m,neq,.true.)
         precondtime = Mpi_Wtime() - precondtime 
 c .....................................................................
 c
-c ... precondicionador modulo da diagonal:
+c ... precondicionador bloco diagonal:
       else if(precond .eq. 6) then
 c ...
         precondtime = Mpi_Wtime() - precondtime 

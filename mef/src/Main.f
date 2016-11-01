@@ -38,9 +38,10 @@ c
       integer print_nnode
       integer num_pnode
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
-      integer nfiles,ifiles,num_print
-      parameter ( nfiles = 5)
-      logical new_file(nfiles),flag_pnd,fhist_log,print_flag(10)
+      integer nfiles,ifiles,num_print,n_opt_print_flag
+      parameter ( nfiles = 5,n_opt_print_flag = 10)
+      logical new_file(nfiles),flag_pnd,fhist_log
+      logical print_flag(n_opt_print_flag)
       logical legacy_vtk
 c      logical cont1
 c ......................................................................
@@ -120,7 +121,7 @@ c ... sistema de equacoes
 c ... precondicionador
       integer*8 i_m
 c ... arranjos globais (MPI - escrita)
-      integer*8 i_g,i_g1,i_g2
+      integer*8 i_g,i_g1,i_g2,i_g3
 c ... coo
       integer*8 i_lin,i_col,i_acoo
       integer*8 i_linuu,i_coluu,i_acoouu
@@ -160,9 +161,11 @@ c ......................................................................
 c
 c ... Inicializacao MPI:
 c
+      mpi = .false.
       call MPI_INIT( ierr )
       call MPI_COMM_SIZE( MPI_COMM_WORLD, nprcs, ierr )
       call MPI_COMM_RANK( MPI_COMM_WORLD, my_id, ierr )
+      if(nprcs .gt. 1) mpi = .true.
 c ......................................................................
 c
 c ... Inicializacao de variaveis da estrutura interna de macro-comandos:
@@ -181,15 +184,16 @@ c ......................................................................
       alfa    =  1.d0
       beta    =  1.d0
 c ... escrita de variavies no vtk
-c ... malha quadratica(1)
-c ... deslocamento    (2)
-c ... pressao         (3)
-c ... delta pressa    (4)
-c ... stress Total    (5)
-c ... stress Biot     (6)
-c ... stress Terzaghi (7)
-c ... fluxo de darcy  (8)
-c ... delta prosidade (9)
+c ... malha quadratica (1)
+c ... deslocamento     (2)
+c ... pressao          (3)
+c ... delta pressa     (4)
+c ... stress Total     (5)
+c ... stress Biot      (6)
+c ... stress Terzaghi  (7)
+c ... fluxo de darcy   (8)
+c ... delta prosidade  (9)
+c ... stress          (10)
       print_flag(1) = .false. 
       print_flag(2) = .true.
       print_flag(3) = .true.  
@@ -198,7 +202,8 @@ c ... delta prosidade (9)
       print_flag(6) = .false.  
       print_flag(7) = .false.
       print_flag(8) = .false. 
-      print_flag(9) = .false. 
+      print_flag(9) = .false.
+      print_flag(10)= .false. 
 c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
@@ -466,9 +471,9 @@ c .....................................................................
 c 
 c ... desabilita o csrc blocado em problemas mecanicos
       if(fmec) then
-         block_pu     = .false. 
-         block_pu_sym = .false. 
-         n_blocks_pu = 0 
+        block_pu        = .false. 
+        block_pu_sym    = .false. 
+        n_blocks_pu     = 0 
       endif
 c ......................................................................   
 c
@@ -497,7 +502,7 @@ c
 c.... Otimizacao da largura de banda:
 c
       timei = MPI_Wtime()
-      if (nprcs .gt. 1) then
+      if (mpi) then
        call reord(ia(i_ix),ia(i_inum),nno1-nno1a,nnode,numel,nen,reordf)
       else
        call reord(ia(i_ix),ia(i_inum),nnode,nnode,numel,nen,reordf)
@@ -643,6 +648,8 @@ c ......................................................................
 c
 c ... Memoria para o vetor de forcas e solucao:
 c
+c   vetor que usam a subrotina comunicate necessitam ter a dimensao        
+c   neq+neq3+neq4                                                       
 c ......................................................................
       if (ndf .gt. 0) then
          i_x0  = alloc_8('x0      ',    1,neq+neq3+neq4)
@@ -875,27 +882,59 @@ c ... Macro-comando: PGEO
 c
 c ......................................................................
   600 continue
-c ...
-      print*, 'Macro PGEO'
-      ntn   = 6
+c ... numero do tensor de tensoes
+c ... | sxx syy szz sxy  0 0 0|
+      if( ndm .eq. 2) then
+        ntn = 4
+c ... | sxx syy szz  sxy syz sxz |
+      else if(ndm .eq. 3) then
+        ntn = 6
+      endif
+c .....................................................................
+c
 c ...
       print_nnode = nnovG   
       if(print_flag(1)) print_nnode = nnoG     
 c ......................................................................
 c
 c ... Geometria:
-      writetime = writetime + MPI_Wtime()-timei 
-      call write_mesh_geo_pm(ia(i_ix)     ,ia(i_x)    ,ia(i_ie)
+      if(mpi) then       
+        writetime = writetime + MPI_Wtime()-timei 
+        call global_ix(nen+1,numel_nov,i_ix,i_g,'ixg     ')
+        call global_v(ndm   ,nno_pload,i_x ,i_g1,'xg      ')
+c .....................................................................
+c
+c ...
+        if( my_id .eq. 0 ) then
+          print*, 'Macro PGEO'
+          call write_mesh_geo(ia(i_g)    ,ia(i_g1),print_nnode,nelG
+     .                       ,nen        ,ndm     ,prename    ,bvtk
+     .                       ,legacy_vtk ,nplot)
+        endif        
+c .....................................................................
+c
+c ...        
+        i_g1 = dealloc('xg      ')
+        i_g  = dealloc('ixg     ')
+        writetime = writetime + MPI_Wtime()-timei
+c ......................................................................
+c
+c ...
+      else
+        print*, 'Macro PGEO'
+        writetime = writetime + MPI_Wtime()-timei 
+        call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
      .                      ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
      .                      ,ia(i_tx0)    ,ia(i_nload),ia(i_eload)
      .                      ,print_nnode  ,numel      ,ndf     ,ntn
      .                      ,nen          ,ndm        ,prename
      .                      ,bvtk         ,macros     ,legacy_vtk
      .                      ,print_flag(1),nplot      ,nout_face)
-      writetime = writetime + MPI_Wtime()-timei
-c ......................................................................
+        writetime = writetime + MPI_Wtime()-timei
+      endif
+c .....................................................................
       goto 50
-c ----------------------------------------------------------------------
+c .....................................................................
 c
 c ... Macro-comando: 
 c
@@ -1099,6 +1138,16 @@ c
 c ......................................................................
  1600 continue
       if(my_id.eq.0)print*,'Macro PRES'
+c ... print_flag (true| false)
+c     2  - desloc
+c     3  - pressao 
+c     4  - delta pressa 
+c ... 5  - stress Total
+c ... 6  - stress Biot
+c ... 7  - stress Terzaghi
+c ... 8  - fluxo de darcy 
+c ... 9  - delta prosidade
+c
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
       ntn   = 6
 c .....................................................................
@@ -1262,6 +1311,11 @@ c ... Residuo: b = F - K.u(n+1,i)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
+c ... Comunicacao do residuo para o caso non-overlapping:
+      if (novlp) call communicate(ia(i_b),neqf1,neqf2,i_fmap,i_xf,
+     .                            i_rcvs,i_dspl)
+c ......................................................................
+c
 c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
       if(i .eq. 1) resid0 = max(resid0,resid)
@@ -1310,54 +1364,137 @@ c
 c ......................................................................
  1900 continue
       if(my_id.eq.0)print*,'Macro PMECRES'
-c ... calculo da tensoes.
-      ntn   = 6
-c .....................................................................
-      i_tx  = alloc_8('tx      ',  ntn,nnodev)
-      i_ic  = alloc_4('ic      ',    1,nnodev)
+c ... print_flag (true| false)
+c     2  - desloc
+c     10 - stress
+c
+c ... numero do tensor de tensoes
+c ... | sxx syy szz sxy  0 0 0|
+      if( ndm .eq. 2) then
+        ntn = 4
+c ... | sxx syy szz  sxy syz sxz |
+      else if(ndm .eq. 3) then
+        ntn = 6
+      endif
+c ......................................................................
+c
+c ... 
+      i_tx = 1
+      i_g3 = 1
+      if(mpi) then
+c ... comunicao
+        call global_v(ndf   ,nno_pload,i_u   ,i_g ,'dispG   ')
+        call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
+        call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
+        if(print_flag(10)) then
+          call global_v(ntn   ,nno_pload,i_tx0 ,i_g3,'tx0G    ')
+        endif
+c ......................................................................
+c
+c
+c ...
+        if(my_id.eq.0) then
+c ...
+          if(print_flag(10)) then
+            i_tx  = alloc_8('tx      ',  ntn,print_nnode)
+            i_ic  = alloc_4('ic      ',    1,print_nnode)
+            call azero(ia(i_tx)    ,print_nnode*ntn)
+            call mzero(ia(i_ic)    ,print_nnode)
 c .....................................................................
 c
 c ...
-      timei = MPI_Wtime()
-      call tform_mec(ia(i_ix)   ,ia(i_x)  ,ia(i_e)   ,ia(i_ie)
-     .               ,ia(i_ic)  ,ia(i_xl) ,ia(i_ul) 
-     .               ,ia(i_txnl),ia(i_u)  ,ia(i_tx0),ia(i_tx) 
-     .               ,nnodev    ,numel   ,nen       ,nenv
-     .               ,ndm       ,ndf     ,nst       ,ntn
-     .               ,3         ,ilib)
-      tformtime = tformtime + MPI_Wtime()-timei
+            timei = MPI_Wtime()
+            call tform_mec(ia(i_g1) ,ia(i_g2),ia(i_e)   ,ia(i_ie)
+     .                   ,ia(i_ic)  ,ia(i_xl),ia(i_ul) 
+     .                   ,ia(i_txnl),ia(i_g) ,ia(i_g3),ia(i_tx) 
+     .                   ,nnovG     ,nelG    ,nenv      ,nen
+     .                   ,ndm       ,ndf     ,nst  ,ntn
+     .                   ,3         ,ilib)
+            tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+          endif
 c ......................................................................
 c
 c ...
-      fname = name(prename,istep,2)
-      open(nplot,file=fname)
-      call write_mesh_res_mec(ia(i_ix),ia(i_x)  ,ia(i_u),ia(i_tx)
-     .                       ,nnodev  ,numel
-     .                       ,nen     ,ndm      ,ndf   ,ntn
-     .                       ,fname   ,.false.,.true.  ,nplot)
-      close(nplot)  
+          call write_mesh_res_mec(ia(i_g1) ,ia(i_g2) ,ia(i_g),ia(i_tx)
+     .                         ,print_nnode,nelG
+     .                         ,nen        ,ndm ,ndf        ,ntn
+     .                         ,prename    ,istep
+     .                         ,bvtk       ,legacy_vtk,print_flag,nplot)
 c ......................................................................
 c
 c ...
-      i_ic  = dealloc('ic      ')
-      i_tx  = dealloc('tx      ')
+          if(print_flag(10)) then
+            i_ic  = dealloc('ic      ')
+            i_tx  = dealloc('tx      ')
+          endif
+c ......................................................................
+        endif
+c ......................................................................
+c
+c ...
+        if(print_flag(10)) i_g3  = dealloc('tx0G    ')
+        i_g2  = dealloc('xG      ')
+        i_g1  = dealloc('ixG     ')
+        i_g   = dealloc('dispG   ')
+c ......................................................................
+c
+c ...
+      else
+c ...
+        if(print_flag(10)) then
+          i_tx  = alloc_8('tx      ',  ntn,print_nnode)
+          i_ic  = alloc_4('ic      ',    1,print_nnode)
+          call azero(ia(i_tx)    ,print_nnode*ntn)
+          call azero(ia(i_ic)    ,print_nnode)
+c .....................................................................
+c
+c ...
+         
+          timei = MPI_Wtime()
+          call tform_mec(ia(i_ix)  ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     .                  ,ia(i_ic)  ,ia(i_xl) ,ia(i_ul) 
+     .                  ,ia(i_txnl),ia(i_u)  ,ia(i_tx0),ia(i_tx) 
+     .                  ,nnodev    ,numel    ,nenv     ,nen
+     .                  ,ndm       ,ndf      ,nst      ,ntn
+     .                  ,3         ,ilib)
+          tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+        endif
+c ......................................................................
+c
+c ...
+        call write_mesh_res_mec(ia(i_ix) ,ia(i_x)    ,ia(i_u)  ,ia(i_tx)
+     .                       ,print_nnode,numel
+     .                       ,nen        ,ndm        ,ndf      ,ntn
+     .                       ,prename    ,istep
+     .                       ,bvtk       ,legacy_vtk,print_flag,nplot)
+c ......................................................................
+c
+c ...
+        if(print_flag(10)) then
+          i_ic  = dealloc('ic      ')
+          i_tx  = dealloc('tx      ')
+        endif
+c ......................................................................
+      endif
 c ......................................................................
       goto 50     
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando:
 c
 c ......................................................................
  2000 continue
       goto 50
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando:
 c
 c ......................................................................
  2100 continue
       goto 50
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando: 
 c
@@ -1396,7 +1533,8 @@ c ......................................................................
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =2610,end =2610) maxnlit
-      write(*,'(a,i10)')' Set max nonlinear it for ', maxnlit
+      if(my_id .eq. 0) write(*,'(a,i10)')' Set max nonlinear it for '
+     .                      ,maxnlit
       goto 50
  2610 continue
       print*,'Erro na leitura da macro (MAXNLIT) !'
@@ -1471,10 +1609,8 @@ c ... Macro-comando: SETPRINT impressao de grandezas no arquivo vtk
 c
 c ......................................................................
  3200 continue
-      if(my_id.eq.0) then
-        print*, 'Macro SETPRINT'
-        call set_print_vtk(print_flag,nin)
-      endif
+      if(my_id.eq.0) print*, 'Macro SETPRINT'
+      call set_print_vtk(print_flag,my_id,nin)
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -1678,6 +1814,16 @@ c ... arquivo de tempo
      .                   ,omp_elmt ,nth_elmt,omp_solv ,nth_solv
      .                   ,fporomec ,fmec    ,numcolors,prename
      .                   ,my_id    ,nprcs   ,nout)
+c .....................................................................
+c
+c ... media do tempo mpi 
+      if(mpi) then    
+        call mpi_log_mean_time(nnovG,nnoG,nelG
+     .                        ,omp_elmt ,nth_elmt
+     .                        ,omp_solv ,nth_solv
+     .                        ,fmec     ,numcolors,prename
+     .                        ,my_id    ,nprcs   ,nout)
+      endif
 c .....................................................................
 c
 c ... desalocando a memoria do vetor de trabalho  

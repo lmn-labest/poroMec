@@ -20,8 +20,10 @@ c *   matvec_csrcr1                                                    *
 c *   matvec_csrcrsym                                                  *
 c *   matvec_csrcrsym1                                                 *
 c * --------------------------Poromecanico --------------------------- *
-c *   matvec_csrcpm                                                    *
-c *   matvec_csrcsympm                                                 *
+c *   matvec_csrc_pm                                                   *
+c *   matvec_csrcr_sym_pm                                              *
+c *   matvec_csrc_sym_pm                                               *
+c *   matvec_csr_sym_pm                                                *
 c * ------------------------------------------------------------------ *
 c *   saxpb                                                            *
 c *   dot                                                              *
@@ -1384,49 +1386,158 @@ c ......................................................................
 c
 c ... Comunicacao do vetor y no sistema non-overlapping:
 c
-c     if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
-c    .                            i_dspli)
+      if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
+     .                            i_dspli)
 c ......................................................................
       return
       end
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine matvec_csrc_sym_pm(neq ,dum0,ia  ,ja,dum1,dum2,
-     .                             ad  ,al  ,dum3,
-     .                             x   ,y   ,
-     .                             neqf1i   ,neqf2i,
-     .                             i_fmapi  ,i_xfi ,i_rcvsi,
-     .                             i_dspli  ,dum4)
+      subroutine matvec_csrcr_sym_pm(neq    ,dum0  ,ia
+     1                          ,ja         ,iar   ,jar
+     2                          ,ad         ,al    ,ar   
+     3                          ,x          ,y    
+     4                          ,neqf1i     ,neqf2i
+     5                          ,i_fmapi    ,i_xfi ,i_rcvsi
+     6                          ,i_dspli    ,dum4)
 c **********************************************************************
-c *                                                                    *
-c *   MATVEC_CSRC_SYM_PM: produto matriz-vetor y = Ax  (A simetrica),  *
+c * Data de criacao    : 27/10/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ * 
+c * MATVEC_CSRC_csr_sym_pm: produto matriz-vetor y = Ax  (A simetrica),*
+c *                    coef. de A no formato CSRC e grafo simetrico.   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq        - numero de equacoes                                    *
+c * ia(neq+1)  - ia(i) informa a posicao no vetor au do primeiro       *
+c *                   coeficiente nao-nulo da equacao i                *
+c * ja(neq+1)  - ja(k) informa a coluna do coeficiente que ocupa       *
+c *             a posicao k no vetor al                                *
+c * iar(neq+1) - ia(i) informa a posicao no vetor ar do primeiro       *
+c *             coeficiente nao-nulo da equacao i da parte retangular  *
+c * jar(nadr)  - ja(k) informa a coluna do coeficiente que ocupa       *
+c *             a posicao k no vetor ar                                *
+c * ad(neq)    - diagonal da matriz A                                  *
+c * al(nad)    - parte triangular inferior de A no formato CSR         *
+c * ar(nad)    - parte retangular de A no formatp CSR                  *
+c * x(neqovlp) - vetor a ser multiplicado                              *
+c * y(neq)     - nao definido                                          *
+c * neqf1i     - numero de equacoes no buffer de recebimento (MPI)     *
+c * neqf2i     - numero de equacoes no buffer de envio (MPI)           *
+c * i_fmapi    - ponteiro para o mapa de comunicacao  (MPI)            *
+c * i_xfi      - ponteiro para o buffer de valores    (MPI)            *
+c * i_rcvsi    - ponteiro extrutura da comunicacao    (MPI)            *
+c * i_dspli    - ponteiro extrutura da comunicacao    (MPI)            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * y(neq) - vetor contendo o resultado do produto y = Ax              *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'parallel.fi'
+      include 'time.fi'
+      integer neq,ia(*),ja(*),iar(*),jar(*),i,k,jak,dum0
+      real*8  ad(*),al(*),ar(*),x(*),y(*),t,xi,s
+      real*8 dum4   
+      integer neqf1i,neqf2i
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+c ......................................................................
+c
+c ... Comunicacao do vetor x no sistema overlapping:
+c
+      call communicate(x,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli)
+c ......................................................................
+      time0 = MPI_Wtime()
+c
+c ... Loop nas linhas:
+c
+      do 200 i = 1, neq
+c
+c ...    Produto da diagonal de A por x:
+c
+         xi = x(i)
+         t  = ad(i)*xi
+c
+c ...    Loop nos coeficientes nao nulos da linha i:
+c
+         do 100 k = ia(i), ia(i+1)-1
+            jak = ja(k)
+c
+c ...       Produto da linha i pelo vetor x (parte triangular inferior):
+c
+            s = al(k)
+            t   = t + s*x(jak)
+c
+c ...       Produto dos coef. da parte triangular superior por x(i):
+c
+            y(jak) = y(jak) + s*xi
+  100    continue
+c
+         do 110 k = iar(i), iar(i+1)-1
+            jak = jar(k)
+c
+c ...       Produto da linha i pelo vetor x (retangulo a direita):
+c
+            t   = t + ar(k)*x(jak)
+  110    continue
+ 
+c ...    Armazena o resultado em y(i):
+ 
+         y(i) = t
+  200 continue
+      matvectime = matvectime + MPI_Wtime() - time0
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine matvec_csrc_sym_pm(neq      ,dum0  ,ia
+     1                             ,ja       ,dum1  ,dum2
+     2                             ,ad       ,al    ,dum3
+     3                             ,x        ,y   
+     4                             ,neqf1i   ,neqf2i
+     5                             ,i_fmapi  ,i_xfi ,i_rcvsi
+     6                             ,i_dspli  ,dum4)
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ * 
+c * MATVEC_CSRC_SYM_PM: produto matriz-vetor y = Ax  (A simetrica),    *
 c *                   coef. de A no formato CSRC.                      *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq   - numero de equacoes                                       *
-c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
-c *                     coeficiente nao-nulo da linha   i              *
-c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
-c *               a posicao k no vetor au                              *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   al(nad)- parte triangular inferior de A, no formato CSR, ou      *
-c *            parte triangular superior de A, no formato CSC          *
-c *   au(*)  - nao utilizado                                           *
-c *   x(neq) - vetor a ser multiplicado                                *
-c *   y(neq) - nao definido                                            *
-c *   neqf1i - numero de equacoes no buffer de recebimento (MPI)       *
-c *   neqf2i - numero de equacoes no buffer de envio (MPI)             *
-c *   i_fmapi- ponteiro para o mapa de comunicacao  (MPI)              *
-c *   i_xfi  - ponteiro para o buffer de valores    (MPI)              *
-c *   i_rcvsi- ponteiro extrutura da comunicacao    (MPI)              *
-c *   i_dspli- ponteiro extrutura da comunicacao    (MPI)              *
-c *                                                                    *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * neq   - numero de equacoes                                         *
+c * ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro        *
+c *                   coeficiente nao-nulo da linha   i                *
+c * ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor au                                *
+c * ad(neq)- diagonal da matriz A                                      *
+c * al(nad)- parte triangular inferior de A, no formato CSR, ou        *
+c *          parte triangular superior de A, no formato CSC            *
+c * x(neq) - vetor a ser multiplicado                                  *
+c * y(neq) - nao definido                                              *
+c * neqf1i - numero de equacoes no buffer de recebimento (MPI)         *
+c * neqf2i - numero de equacoes no buffer de envio (MPI)               *
+c * i_fmapi- ponteiro para o mapa de comunicacao  (MPI)                *
+c * i_xfi  - ponteiro para o buffer de valores    (MPI)                *
+c * i_rcvsi- ponteiro extrutura da comunicacao    (MPI)                *
+c * i_dspli- ponteiro extrutura da comunicacao    (MPI)                *
+c * ------------------------------------------------------------------ *
 c *   Parametros de saida:                                             *
-c *                                                                    *
+c * ------------------------------------------------------------------ *
 c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       include 'mpif.h'
@@ -1786,4 +1897,167 @@ c ......................................................................
       return
       end
 c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 23/10/2016                                    *
+c * Data de modificaco : 31/10/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * FLOP_DOT : calcula o numero de operacoes de pontos flutuantes      *    
+c * do produto interno                                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * n        - dimensao dos vetores                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      real*8 function flop_dot(n)
+      implicit none
+      integer n
+      flop_dot = 2.d0*n
+      return
+      end
+c ********************************************************************** 
+c
+c **********************************************************************
+c * Data de criacao    : 23/10/2016                                    *
+c * Data de modificaco : 31/10/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * FLOP_CSRC: calcula o numero de operacoes de pontos flutuantes      *    
+c * da op matvec CSRC                                                  *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * nl       - numero de linhas                                        *
+c * nad      - numero de termos fora da diagonal                       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      real*8 function flop_csrc(nl,nad)
+      implicit none
+      integer nl,nad
+      flop_csrc = nl + 4.d0*nad
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 23/10/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * FLOP_CG : calcula o numero de operacoes de pontos flutuantes       *    
+c * do CG                                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacores                                     *
+c * nad      - numero de termos fora da diagonal                       *
+c * it       - numero de iteracoes                                     *
+c * icod     - 1 - CG                                                  *
+c *            2 - PCG                                                 *      
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      real*8 function flop_cg(neq,nad,it,icod,mpi)
+      implicit none
+      include 'mpif.h'      
+      integer neq,nad,it,icod,ierr
+      real*8 flop_csrc,flop_dot,fmatvec,fdot,flops,gflops
+      logical mpi
+c
+      fmatvec = flop_csrc(neq,nad)
+      fdot    = flop_dot(neq)
+c ... CG
+      if(icod .eq. 1) then
+        flops = (fmatvec + 2.d0*fdot + 6.d0*neq + 2.d0)*it     
+c ... PCG
+      elseif(icod .eq. 2) then
+        flops = (fmatvec + 2.d0*fdot + 7.d0*neq + 2.d0)*it 
+      endif
+c .....................................................................
+c
+c ...
+      if(mpi) then
+        call MPI_ALLREDUCE(flops,gflops,1,MPI_REAL8
+     .                    ,MPI_SUM,MPI_COMM_WORLD,ierr)
+        flops = gflops
+      endif
+c .....................................................................
+c
+c ...
+      flop_cg = flops
+c .....................................................................
+c
+c ...      
+      return
+      end
+c ********************************************************************** 
+c
+c **********************************************************************
+c * Data de criacao    : 31/10/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
+c * do SQRM                                                            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacores                                     *
+c * nad      - numero de termos fora da diagonal                       *
+c * it       - numero de iteracoes                                     *
+c * icod     - 1 - SQRM                                                *
+c *            2 - RSQRM                                               *      
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      real*8 function flop_sqrm(neq,nad,it,icod,mpi)
+      implicit none
+      include 'mpif.h'      
+      integer neq,nad,it,icod,ierr
+      real*8 flop_csrc,flop_dot,fmatvec,fdot,flops,gflops
+      logical mpi
+c
+      fmatvec = flop_csrc(neq,nad)
+      fdot    = flop_dot(neq)
+c ... SQRM
+      if(icod .eq. 1) then
+        flops = (fmatvec + 5.d0*fdot + 6.d0*neq + 2.d0)*it     
+c ... RSQRM
+      elseif(icod .eq. 2) then
+        flops = (fmatvec + 5.d0*fdot + 6.d0*neq + 14.d0)*it 
+      endif
+c .....................................................................
+c
+c ...
+      if(mpi) then
+        call MPI_ALLREDUCE(flops,gflops,1,MPI_REAL8
+     .                    ,MPI_SUM,MPI_COMM_WORLD,ierr)
+        flops = gflops
+      endif
+c .....................................................................
+c
+c ...
+      flop_sqrm = flops
+c .....................................................................
+c
+c ...      
+      return
+      end
+c ********************************************************************** 
  

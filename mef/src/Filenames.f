@@ -1,7 +1,7 @@
       character*80 function name(NomeArqDados,NumArq,code)
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 03/04/2016                                   * 
+c * Data de modificaco : 27/10/2016                                   * 
 c * ----------------------------------------------------------------- *
 c * NAME: nomes de aquivos                                            *
 c * ----------------------------------------------------------------- *
@@ -28,7 +28,8 @@ c *  7 ->                                                             *
 c *  8 ->                                                             *
 c *  9 ->                                                             *
 c * 10 ->                                                             * 
-c * 12 ->                                                             * 
+c * 12 -> arquivo do tempos medios(mpi)                               *
+c * 13 -> arquivo de entrada do mpi                                   *
 c * 13 ->                                                             *
 c * 14 -> arquivo de tempos                                           *
 c * 15 -> arquivo do log do solver                                    *
@@ -77,6 +78,16 @@ c ... geom .vtk
 c ... geom .vtu
       else if(code .eq. 8) then
         StrExtensao='_face_bc.vtu'
+c ... log de tempos
+      elseif(code .eq. 12) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_t_mean_'//trim(StrExtensao)//'.txt'
+c ...
+      elseif(code .eq. 13) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_'//trim(StrExtensao)//'.dat'
 c ... log de tempos
       elseif(code .eq. 14) then
         write(StrExtensao,'( I6 )') NumArq

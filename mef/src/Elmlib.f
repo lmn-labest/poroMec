@@ -139,7 +139,7 @@ c **********************************************************************
      .                     ,ma,nlit,ilib)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 30/04/2016                                    * 
+c * Data de modificaco : 27/10/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * ELMLIB: biblioteca de elementos do mecanico                        *
 c * ------------------------------------------------------------------ * 
@@ -175,76 +175,129 @@ c **********************************************************************
       real*8 dt
       logical block_pu
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200,1300) iel
-   10 write(*,2000) iel,nel
+      goto (100,  200, 300
+     1     ,400 , 500, 600
+     2     ,700 , 800, 900
+     3     ,1000,1100,1200
+     4     ,1300,1400,1500
+     5     ,1600,1700,1800
+     6     ,1900,2000,2100) iel
+   10 write(*,6000) iel,nel
       stop
 c ......................................................................
   100 continue
-      go to 10
+      goto 10
       return
 c ......................................................................            
   200 continue
-      go to 10
+      if (ilib .eq. 1) then  
+c     Elemento triangunlar 3 nos (mec-elastico - estado plano de
+c     deformacao)
+        call elmt02_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif   
       return
 c ......................................................................
   300 continue
-      go to 10
+      if (ilib .eq. 1) then  
+c     Elemento triangular 3 nos (mec-elastico - estado plano de tensao)
+        call elmt03_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif   
       return
 c ......................................................................
   400 continue
-      go to 10
+      if (ilib .eq. 1) then  
+c     Elemento quadrilatero de 4 nos (mec-elastico - estado plano de
+c     deformacao)
+        call elmt04_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif   
       return
 c ......................................................................
   500 continue
-      go to 10 
+      if (ilib .eq. 1) then  
+c     Elemento quadrilatero de 4 nos (mec-elastico - estado plano de 
+c     tensao)
+        call elmt05_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif   
       return
 c ......................................................................
   600 continue
       if (ilib .eq. 1) then  
-c     Elemento tetraedro de 4 nos (mec-elastico)
+c     Elemento tetraedrico de 4 nos (mec-elastico)
         call elmt06_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
-      endif 
+      endif
       return
 c ......................................................................
   700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 8 nos (mec-elastico)
         call elmt07_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
-      endif 
+      endif
       return
 c ......................................................................
   800 continue
-      go to 10
+      goto 10
       return
 c ......................................................................            
   900 continue
-      go to 10
+      goto 10
       return 
 c ......................................................................
  1000 continue
-      go to 10
+      goto 10
       return 
 c ......................................................................
  1100 continue
-      go to 10
-      return       
+      goto 10
+      return  
 c ......................................................................
  1200 continue
-      if (ilib .eq. 1) then  
-c     Elemento tetraedro de 10 nos (mec-elastico)
-         call elmt12_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
-      endif 
-      return       
+      goto 10
+      return
 c ......................................................................
  1300 continue
+      goto 10
+      return
+c ......................................................................
+ 1400 continue
+      goto 10
+      return
+c ......................................................................
+ 1500 continue
+      goto 10
+      return     
+c ......................................................................
+ 1600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (mec-elastico)
-         call elmt13_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
-      endif 
+        call elmt16_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif
       return       
-c ......................................................................            
- 2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
-     .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i6,' !')
+c ......................................................................
+ 1700 continue
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 20 nos (mec-elastico)
+        call elmt17_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      endif
+      return       
+c ......................................................................
+ 1800 continue
+      goto 10
+      return 
+c ......................................................................    
+ 1900 continue
+      goto 10
+      return     
+c ......................................................................
+ 2000 continue
+      goto 10
+      return     
+c ......................................................................
+ 2100 continue
+      goto 10
+      return     
+c ......................................................................         
+ 6000 format(1x,'SUBROUTINE ELMLIBPMEC:'
+     .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i10,' !')
        end
 c **********************************************************************
 c

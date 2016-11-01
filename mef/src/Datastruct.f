@@ -48,7 +48,7 @@ c *       = ponteiro da diagonal  (stge = 4)                           *
 c * i_au  - ponteiro para o arranjo au(nad)                            *
 c * i_al  - ponteiro para o arranjo al(nad)                            *
 c * i_ad  - ponteiro para a diagonal                                   *
-c * block_pu = true                                                    *     *
+c * block_pu = true                                                    *    
 c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c *    naduu - numero de coeficientes nao nulos do bloco uu            *
 c *    nadpp - numero de coeficientes nao nulos do bloco pp            *

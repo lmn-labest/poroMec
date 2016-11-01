@@ -1223,7 +1223,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 09/04/2016                                   *
-c * Data de modificaco :                                              * 
+c * Data de modificaco : 16/10/2016                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_MEC: escreve a malha com os resultdados do problema*
 c * mecanico no formato vtk                                           *
@@ -1238,9 +1238,13 @@ c * nnode       - numero de nos de vertices                           *
 c * numel       - numero de elementos                                 *
 c * nen         - numero de nos por elementos                         *
 c * ndm         - numero de dimensoes                                 *
-c * filein      - prefix do arquivo de saida                          *
+c * prename     - prefix do arquivo de saida                          *
+c * istep       - passo tempo                                         *
 c * bvtk        - true BINARY vtk false ASCII vtk                     *
-c * legacy      - true (formato padr√£o .vtk) false (formato xlm .vtu) *
+c * legacy      - true (formato padr„o .vtk) false (formato xlm .vtu)*
+c * fprint      -                                                     *
+c *                 deslocamento    (2)                               *
+c *                 stress Total    (3)                               *
 c * nout        - arquivo de saida                                    *
 c * ----------------------------------------------------------------- *    
 c * Parametros de saida :                                             *
@@ -1250,9 +1254,10 @@ c * OBS:                                                              *
 c * ----------------------------------------------------------------- *
 c ********************************************************************* 
        subroutine write_mesh_res_mec(el     ,x     ,u     ,tx    
-     1                             ,nnode  ,numel  
-     2                             ,nen    ,ndm   ,ndf   ,ntn  
-     3                             ,fileout,bvtk  ,legacy,nout)
+     .                             ,nnode  ,numel  
+     .                             ,nen    ,ndm   ,ndf   ,ntn  
+     .                             ,prename,istep
+     ,                             ,bvtk   ,legacy,fprint,nout)
 c ===
       use Malloc 
       implicit none
@@ -1267,30 +1272,36 @@ c ... locais
       data i_p/1/,i_tensor/1/
       character*15 aux1
       character*30 aux
+c ... tempo
+      integer istep
 c ... variaveis dums
       real*8 ddum
       real*4 fdum
       integer idum 
 c ... arquivo      
       integer nout
-      character*80 fileout,name,filein
-      logical bvtk,legacy
+      character*80 fileout,name,prename
+      logical bvtk,legacy,fprint(*)
       integer cod,cod2,gdl
 c =====================================================================
 c
 c ===
+      if(legacy) then
+        fileout = name(prename,istep,2)
+      else  
+        fileout = name(prename,istep,3)
+      endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
      .      ,form='unformatted',convert='big_endian')
       else
         open(unit=nout,file=fileout)
       endif  
-c     print*,fileout,nout
 c =====================================================================
 c
 c === cabecalho
       if(legacy) then
-        write(aux,'(30a)')'Malha poro mec' 
+        write(aux,'(30a)')'Malha Res' 
         call head_vtk(aux,bvtk,ddum,idum,.false.,nout) 
       else  
         call head_vtu(nnode,numel,bvtk,nout) 
@@ -1325,7 +1336,7 @@ c ... materiais
         ia(i_p+nel-1) = el(nen+1,nel)
       enddo
       write(aux1,'(15a)')'mat' 
-c ... cod = 1 variaveis inteiras
+c ... cod = 1 variaveis interias
       cod = 1
       gdl = 1
       if(legacy) then
@@ -1344,7 +1355,7 @@ c ... elIdG
         ia(i_p+nel-1) = nel
       enddo
       write(aux1,'(15a)')'elIdG' 
-c ... cod = 1 variaveis inteiras
+c ... cod = 1 variaveis interias
       cod = 1
       gdl = 1
       if(legacy) then
@@ -1360,8 +1371,7 @@ c
 c ...
       if(legacy .eqv. .false.) then
         call cell_data_finalize_vtu(bvtk,nout)
-      endif  
-c .....................................................................
+      endif 
 c =====================================================================
 c
 c === nos  
@@ -1392,52 +1402,59 @@ c     cod2 1 int(4bytes)
       i_p = dealloc('p       ')
 c .....................................................................
 c
-c ... desloc     
-      write(aux1,'(15a)')'desloc'
+c ... desloc
+      if(fprint(2)) then     
+        write(aux1,'(15a)')'desloc'
 c ... gdb graus de liberdade
 c     cod  1 escalar
 c     cod2 3 real(8bytes) 
-      gdl =  ndf
-      cod =  2
-      cod2 = 3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,u,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,u,nnode,aux1,ndm,gdl,cod
-     .                    ,cod2,bvtk,nout)
+        gdl =  ndf
+        cod =  2
+        cod2 = 3
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,u,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,u,nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        endif
       endif
 c .....................................................................
 c
 c ...
-c
-c ... gerando o tensor completo 
-      if( ntn .eq. 6 ) then
-        i_tensor = alloc_8('tensor  ',9 ,nnode)
-        ntn1     = 9
-        call make_full_tensor(tx,ia(i_tensor),nnode,6, ntn1 )
-      endif
+      if(fprint(10))then
+c ... gerando o tensor completo
+        if ( ntn .eq. 4 ) then
+          i_tensor = alloc_8('tensor  ',9 ,nnode)
+          ntn1     = 9
+          call make_full_tensor(tx,ia(i_tensor),nnode,4, ntn1 ) 
+        else if( ntn .eq. 6 ) then
+          i_tensor = alloc_8('tensor  ',9 ,nnode)
+          ntn1     = 9
+          call make_full_tensor(tx,ia(i_tensor),nnode,6, ntn1 )
+        endif
 c .....................................................................
 c    
 c ...
-      write(aux1,'(15a)')'stress'           
+        write(aux1,'(15a)')'stress'           
 c ... gdb graus de liberdade
 c     cod  3 tensor     
 c     cod2 3 real(8bytes) 
-      gdl  =  ntn1            
-      cod  =  3
-      cod2 =  3
-      if(legacy) then
-        call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
-     .                    ,cod ,cod2,bvtk,nout)
-      else
-        call point_prop_vtu(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
-     .                     ,cod ,cod2,bvtk,nout)
-      endif
+        gdl  =  ntn1            
+        cod  =  3
+        cod2 =  3
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                      ,cod ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,ia(i_tensor),nnode,aux1,ndm,gdl
+     .                       ,cod ,cod2,bvtk,nout)
+        endif
 c .....................................................................
 c
 c ...
-      i_tensor = dealloc('tensor  ')
+        i_tensor = dealloc('tensor  ')
+      endif
 c .....................................................................
 c    
 c ...      

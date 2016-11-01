@@ -93,16 +93,16 @@ c ... PCG
 c ...
         i_z = alloc_8('zsolver ',1,neq)
         i_r = alloc_8('rsolver ',1,neq)
-        i_s = alloc_8('psolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neqovlp)
 c ......................................................................
 c
 c ... calculo do precondicionador
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
-c .....................................................................
-c          
-c ...    Comunicacao da diagonal para o caso non-ovelapping:
-        if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                               i_rcvsi,i_dspli)
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
@@ -116,22 +116,24 @@ c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
         else
 c ... omp
           if(omp_solv) then
-            call call_cg_omp(neq      ,nequ    ,nad   ,ip      ,ja
-     .                   ,ad       ,al     ,m      ,b       ,x   
-     .                   ,ia(i_z)  ,ia(i_r),ia(i_s) 
-     .                   ,tol      ,maxit  ,precond,iparam ,fhist_solv 
-     .                   ,my_id    ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                   ,i_xfi ,i_rcvsi   ,i_dspli,ia(i_threads_y))  
+            call call_cg_omp(neq   ,nequ    ,nad   ,ip      ,ja
+     1                   ,ad       ,al     ,m      ,b       ,x   
+     2                   ,ia(i_z)  ,ia(i_r),ia(i_s) 
+     3                   ,tol      ,maxit  ,precond,iparam ,fhist_solv 
+     4                   ,my_id    ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     5                   ,i_xfi ,i_rcvsi   ,i_dspli,ia(i_threads_y)
+     6                   ,nprcs   ,ovlp    ,mpi)  
 c .....................................................................
 c
 c ... sequencial (cg, pcg e iccg)
           else
-            call call_cg(neq      ,nequ    ,nad   ,ip      ,ja
-     .                   ,ad       ,al     ,m      ,b       ,x   
-     .                   ,ia(i_z)  ,ia(i_r),ia(i_s) 
-     .                   ,tol      ,maxit  ,precond,iparam ,fhist_solv 
-     .                   ,my_id    ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                   ,i_xfi ,i_rcvsi   ,i_dspli)  
+            call call_cg(neq      ,nequ   ,nad    ,ip      ,ja
+     1                   ,ad      ,al     ,m      ,b       ,x   
+     2                   ,ia(i_z) ,ia(i_r),ia(i_s) 
+     3                   ,tol     ,maxit  ,precond,iparam ,fhist_solv 
+     4                   ,my_id   ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     5                   ,i_xfi   ,i_rcvsi,i_dspli
+     6                   ,nprcs   ,ovlp   ,mpi)  
 c .....................................................................
 c
           endif      
@@ -172,10 +174,7 @@ c ...
          else                           
            m(1:neq) = 1.d0  
          endif           
-c ...    Comunicacao da diagonal para o caso non-overlapping:
-         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                               i_rcvsi,i_dspli)
-c .....................................................................
+c ......................................................................
 c
 c ...
          i_g = alloc_8('gsolver ',neq    ,ngram+1)         
@@ -191,29 +190,29 @@ c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
 c ... omp
            if(omp_solv) then
              call gmres_omp(neq,nequ,nad,ip,ja 
-     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     .                 ,tol    ,maxit   
+     1                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     2                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     3                 ,tol    ,maxit   
 c ... matvec comum:
-     .                 ,matvec_csrc_pm_omp,dot_par_omp 
-     .                 ,neqovlp 
-     .                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .                 ,i_xfi  ,i_rcvsi,i_dspli  
-     .                 ,ia(i_threads_y),.true.)
+     1                 ,matvec_csrc_pm_omp,dot_par_omp 
+     2                 ,neqovlp 
+     3                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     4                 ,i_xfi  ,i_rcvsi,i_dspli  
+     5                 ,ia(i_threads_y),.true.)
 c .....................................................................
 c
 c ... sequencial
            else 
              call gmres2(neq,nequ,nad,ip,ja 
-     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     .                 ,tol    ,maxit   
+     1                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     2                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     3                 ,tol    ,maxit   
 c ... matvec comum:
-     .                 ,matvec_csrc_pm  ,dot_par 
-     .                 ,neqovlp 
-     .                 ,my_id   ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .                 ,i_xfi   ,i_rcvsi,i_dspli  
-     .                 ,.true.)
+     1                 ,matvec_csrc_pm  ,dot_par 
+     2                 ,neqovlp 
+     3                 ,my_id   ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     4                 ,i_xfi   ,i_rcvsi,i_dspli  
+     5                 ,.true.)
            endif
 c .....................................................................
 c
@@ -222,29 +221,29 @@ c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
 c ... omp
            if(omp_solv) then
              call gmres_omp(neq,nequ,nad,ip,ja 
-     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     .                 ,tol    ,maxit   
+     1                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     2                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     3                 ,tol    ,maxit   
 c ... matvec comum:
-     .                 ,matvec_csrc_sym_pm_omp,dot_par_omp 
-     .                 ,neqovlp 
-     .                 ,my_id   ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                 ,i_xfi   ,i_rcvsi,i_dspli 
-     .                 ,ia(i_threads_y),.true.)
+     1                 ,matvec_csrc_sym_pm_omp,dot_par_omp 
+     2                 ,neqovlp 
+     3                 ,my_id   ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     4                 ,i_xfi   ,i_rcvsi,i_dspli 
+     5                 ,ia(i_threads_y),.true.)
 c .....................................................................
 c
 c ... sequencial
            else 
              call gmres2(neq,nequ,nad,ip,ja 
-     .                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     .                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     .                 ,tol    ,maxit   
+     1                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
+     2                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
+     3                 ,tol    ,maxit   
 c ... matvec comum:
-     .                 ,matvec_csrc_sym_pm,dot_par 
-     .                 ,neqovlp
-     .                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .                 ,i_xfi  ,i_rcvsi,i_dspli 
-     .                 ,.true.)
+     1                 ,matvec_csrc_sym_pm,dot_par 
+     2                 ,neqovlp
+     3                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     4                 ,i_xfi  ,i_rcvsi,i_dspli 
+     5                 ,.true.)
            endif 
 c .....................................................................
          endif
@@ -290,12 +289,12 @@ c ... alocacao dos arronjos auxiliares (6neq)
 c .....................................................................
 c
 c ... calculo do precondicionador
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
-c .....................................................................
-c
-c ...    Comunicacao da diagonal para o caso non-overlapping:
-         if (novlp) call communicate(m,neqf1i,neqf2i,i_fmapi,i_xfi,
-     .                               i_rcvsi,i_dspli)
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
@@ -303,27 +302,27 @@ c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
 c ... omp
            if(omp_solv) then
              call pbicgstab_omp(neq   ,nequ,nad    ,ip   ,ja      
-     .                     ,ad     ,al     ,al     ,m      ,b      ,x  
-     .                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .                     ,tol    ,maxit 
+     1                     ,ad     ,al     ,al     ,m      ,b      ,x  
+     2                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     3                     ,tol    ,maxit 
 c ... matvec comum:
-     .                     ,matvec_csrc_pm_omp,dot_par_omp 
-     .                     ,my_id  ,neqf1i  ,neqf2i  ,neq_doti   
-     .                     ,i_fmapi,i_xfi  ,i_rcvsi,i_dspli
-     .                     ,ia(i_threads_y),.true.)
+     1                     ,matvec_csrc_pm_omp,dot_par_omp 
+     2                     ,my_id  ,neqf1i  ,neqf2i  ,neq_doti   
+     3                     ,i_fmapi,i_xfi  ,i_rcvsi,i_dspli
+     4                     ,ia(i_threads_y),.true.)
 c .....................................................................
 c
 c ... sequencial
            else 
              call pbicgstab(neq   ,nequ   ,nad  ,ip     ,ja      
-     .                ,ad     ,al     ,al   ,m      ,b      ,x  
-     .                ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),ia(i_y)
-     .                ,tol    ,maxit 
+     1                ,ad     ,al     ,al   ,m      ,b      ,x  
+     2                ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z),ia(i_y)
+     3                ,tol    ,maxit 
 c ... matvec comum:
-     .                ,matvec_csrc_pm ,dot_par 
-     .                ,my_id    ,neqf1i,neqf2i ,neq_doti 
-     .                ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
-     .                ,.true.  ,.true.,.true.)
+     1                ,matvec_csrc_pm ,dot_par 
+     2                ,my_id    ,neqf1i,neqf2i ,neq_doti 
+     3                ,i_fmapi ,i_xfi  ,i_rcvsi,i_dspli
+     4                ,.true.  ,.true.,.true.)
            endif 
 c .....................................................................
 c
@@ -332,24 +331,24 @@ c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
 c ... omp
            if(omp_solv) then
              call pbicgstab_omp(neq   ,nequ,nad    ,ip   ,ja      
-     .                     ,ad     ,al     ,al     ,m      ,b      ,x  
-     .                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .                     ,tol    ,maxit 
+     1                     ,ad     ,al     ,al     ,m      ,b      ,x  
+     2                     ,ia(i_c),ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     3                     ,tol    ,maxit 
 c ... matvec comum:
-     .                     ,matvec_csrc_sym_pm_omp,dot_par_omp 
-     .                     ,my_id  ,neqf1i  ,neqf2i  ,neq_doti   
-     .                     ,i_fmapi,i_xfi  ,i_rcvsi,i_dspli
-     .                     ,ia(i_threads_y),.true.)
+     1                     ,matvec_csrc_sym_pm_omp,dot_par_omp 
+     2                     ,my_id  ,neqf1i  ,neqf2i  ,neq_doti   
+     3                     ,i_fmapi,i_xfi  ,i_rcvsi,i_dspli
+     4                     ,ia(i_threads_y),.true.)
 c .....................................................................
 c
 c ... sequencial (bigstab, pbigstab e icbigstab)
            else
              call call_bicgstab(neq      ,nequ   ,nad    ,ip,ja
-     .                    ,ad       ,al  ,m      ,b      ,x ,ia(i_y)
-     .                    ,ia(i_c)  ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)   
-     ,                    ,tol      ,maxit  ,precond
-     .                    ,my_id    ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .                    ,i_xfi    ,i_rcvsi,i_dspli) 
+     1                    ,ad       ,al  ,m      ,b      ,x ,ia(i_y)
+     2                    ,ia(i_c)  ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)   
+     3                    ,tol      ,maxit  ,precond
+     4                    ,my_id    ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     5                    ,i_xfi    ,i_rcvsi,i_dspli) 
            endif      
 c .....................................................................
          endif
@@ -413,21 +412,21 @@ c ......................................................................
 c
 c ...
            call pcg_block_it(neq     ,nequ       ,neqp  
-     .                    ,nad       ,naduu     ,nadpp
-     .                    ,ip        ,ja     
-     .                    ,ip(nequ+2),ja(naduu+1)
-     .                    ,ip(neq+3) ,ja(naduu+nadpp+1)         
-     .                    ,ad        ,ad(nequ+1)
-     .                    ,al        ,al(naduu+1),al(naduu+nadpp+1)  
-     .                    ,m         ,m(nequ+1)  ,b               ,x
-     .                    ,ia(i_z)   ,ia(i_r),ia(i_s) 
-     .                    ,ia(i_d)   ,ia(i_c),ia(i_h),ia(i_g)
-     .                    ,ia(i_y)   ,ia(i_a)
-     .                    ,tol       ,ctol   ,maxit    ,cmaxit
-     .                    ,alfap     ,alfau 
-     .                    ,.true.    ,istep
-     .                    ,my_id     ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .                    ,i_xfi     ,i_rcvsi,i_dspli) 
+     1                    ,nad       ,naduu     ,nadpp
+     2                    ,ip        ,ja     
+     3                    ,ip(nequ+2),ja(naduu+1)
+     4                    ,ip(neq+3) ,ja(naduu+nadpp+1)         
+     5                    ,ad        ,ad(nequ+1)
+     6                    ,al        ,al(naduu+1),al(naduu+nadpp+1)  
+     7                    ,m         ,m(nequ+1)  ,b               ,x
+     8                    ,ia(i_z)   ,ia(i_r),ia(i_s) 
+     9                    ,ia(i_d)   ,ia(i_c),ia(i_h),ia(i_g)
+     1                    ,ia(i_y)   ,ia(i_a)
+     2                    ,tol       ,ctol   ,maxit    ,cmaxit
+     3                    ,alfap     ,alfau 
+     4                    ,.true.    ,istep
+     5                    ,my_id     ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                    ,i_xfi     ,i_rcvsi,i_dspli) 
 c ......................................................................
 c
 c ... 
@@ -485,34 +484,37 @@ c ... alocacao dos arronjos auxiliares (8neq)
 c ....................................................................
 c
 c ... calculo do precondicionador
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
-c ......................................................................
-c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
-         if(block_pu) then
+        if(block_pu) then
            call pbicgstabl2(neq     ,nequ   ,nad,ip ,ja 
-     .          ,ad      ,al     ,al ,m  ,b  ,x   
-     .          ,ia(i_c) ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .          ,ia(i_y) ,ia(i_a),ia(i_d),ia(i_b),ia(i_g)
-     .          ,tol     ,maxit  
+     1          ,ad      ,al     ,al ,m  ,b  ,x   
+     2          ,ia(i_c) ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     3          ,ia(i_y) ,ia(i_a),ia(i_d),ia(i_b),ia(i_g)
+     4          ,tol     ,maxit  
 c ... matvec comum:
-     .          ,matvec_csrc_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     1          ,matvec_csrc_pm,dot_par 
+     2          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     3          ,i_xfi ,i_rcvsi,i_dspli
+     4          ,.true.,.true. ,.true.)
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
-         else
+        else
            call call_bicgstabl2(neq      ,nequ   ,nad  ,ip     ,ja
-     .                  ,ad       ,al    ,m      ,b    ,x    
-     .                  ,ia(i_c) ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     .                  ,ia(i_y) ,ia(i_a),ia(i_d),ia(i_b),ia(i_g)
-     .                  ,tol      ,maxit ,precond
-     .                  ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli)
+     1                  ,ad       ,al    ,m      ,b    ,x    
+     2                  ,ia(i_c) ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)
+     3                  ,ia(i_y) ,ia(i_a),ia(i_d),ia(i_b),ia(i_g)
+     4                  ,tol      ,maxit ,precond
+     5                  ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
+     6                  ,i_xfi    ,i_rcvsi,i_dspli)
         endif
 c ......................................................................
 c
@@ -557,17 +559,22 @@ c ...
 c .....................................................................
 c
 c ... calculo do precondicionador
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
 c ...
         call call_minres(neq      ,nequ  ,nad   ,ip      ,ja
-     .               ,ad       ,al    ,m     ,b       ,x    
-     .               ,ia(i_c)  ,ia(i_h),ia(i_r),ia(i_s),ia(i_z),ia(i_y) 
-     .               ,ia(i_a)  ,ia(i_g)  
-     .               ,tol      ,maxit ,precond,iparam,fhist_solv 
-     .               ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .               ,i_xfi    ,i_rcvsi,i_dspli)
+     1               ,ad       ,al    ,m     ,b       ,x    
+     2               ,ia(i_c)  ,ia(i_h),ia(i_r),ia(i_s),ia(i_z),ia(i_y) 
+     3               ,ia(i_a)  ,ia(i_g)  
+     4               ,tol      ,maxit ,precond,iparam,fhist_solv 
+     5               ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     6               ,i_xfi    ,i_rcvsi,i_dspli)
 c .....................................................................
 c
 c ...
@@ -606,18 +613,23 @@ c ...
         i_y = alloc_8('ysolver ',1,neq)
 c .....................................................................
 c
-c ...
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
+c ... calculo do precondicionador
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
 c ...   
         call call_cr(neq      ,nequ  ,nad,ip      ,ja
-     .              ,ad       ,al    ,m     ,b       ,x    
-     .              ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
-     .              ,ia(i_y)  
-     .              ,tol      ,maxit ,precond,iparam  ,fhist_solv 
-     .              ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .              ,i_xfi    ,i_rcvsi,i_dspli)
+     1              ,ad       ,al    ,m     ,b       ,x    
+     2              ,ia(i_c),ia(i_h),ia(i_r) ,ia(i_s),ia(i_z)
+     3              ,ia(i_y)  
+     4              ,tol      ,maxit ,precond,iparam  ,fhist_solv 
+     5              ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     6              ,i_xfi    ,i_rcvsi,i_dspli)
 c .....................................................................
 c
 c ...
@@ -654,18 +666,23 @@ c ...
         i_y = alloc_8('ysolver ',1,neq)
 c .....................................................................
 c
-c ...
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
+c ... calculo do precondicionador
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
 c ...
         call call_symmlq(neq      ,nequ  ,nad   ,ip      ,ja
-     .                  ,ad       ,al    ,m     ,b       ,x    
-     .                  ,ia(i_c)  ,ia(i_h)      ,ia(i_r),ia(i_s)
-     .                  ,ia(i_z)  ,ia(i_y) 
-     .                  ,tol      ,maxit ,precond,iparam ,fhist_solv
-     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli)
+     1                  ,ad       ,al    ,m     ,b       ,x    
+     2                  ,ia(i_c)  ,ia(i_h)      ,ia(i_r),ia(i_s)
+     3                  ,ia(i_z)  ,ia(i_y) 
+     4                  ,tol      ,maxit ,precond,iparam ,fhist_solv
+     5                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     6                  ,i_xfi    ,i_rcvsi,i_dspli)
 c .....................................................................
 c
 c ...
@@ -701,32 +718,39 @@ c
 c ...
         i_z = alloc_8('zsolver ',1,neq)
         i_h = alloc_8('hsolver ',1,neq)
-        i_r = alloc_8('rsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neqovlp)
         i_s = alloc_8('psolver ',1,neq)
 c .....................................................................
 c
-c ...
-        call cal_precond(ip,ja,m,ad,al,ia(i_z),precond,neq,nequ,my_id)
+c ... calculo do precondicionador
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_z)
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp ,my_id)
 c .....................................................................
 c
 c ...
         if(omp_solv)then
           call call_sqrm_omp(neq  ,nequ  ,nad   ,ip      ,ja
-     .                    ,ad     ,al    ,m     ,b       ,x    
-     .                    ,ia(i_z),ia(i_h),ia(i_r) ,ia(i_s)     
-     .                    ,tol    ,maxit ,precond,iparam ,fhist_solv
-     .                    ,my_id  ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                    ,i_xfi  ,i_rcvsi,i_dspli,ia(i_threads_y))
+     1                    ,ad     ,al    ,m     ,b       ,x    
+     2                    ,ia(i_z),ia(i_h),ia(i_r) ,ia(i_s)     
+     3                    ,tol    ,maxit ,precond,iparam ,fhist_solv
+     4                    ,my_id  ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     5                    ,i_xfi  ,i_rcvsi,i_dspli,ia(i_threads_y)
+     6                    ,nprcs  ,ovlp   ,mpi) 
 c .....................................................................
 c
 c ...
         else
-          call call_sqrm(neq      ,nequ  ,nad    ,ip      ,ja
-     .                ,ad       ,al    ,m      ,b       ,x    
-     .                ,ia(i_z),ia(i_h),ia(i_r) ,ia(i_s) 
-     .                ,tol      ,maxit ,precond,iparam  ,fhist_solv
-     .                ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                ,i_xfi    ,i_rcvsi,i_dspli) 
+          call call_sqrm(neq    ,nequ  ,nad     ,ip      ,ja
+     1                ,ad       ,al    ,m       ,b       ,x    
+     2                ,ia(i_z),ia(i_h),ia(i_r)  ,ia(i_s) 
+     3                ,tol      ,maxit ,precond ,iparam  ,fhist_solv
+     4                ,my_id    ,neqf1i,neqf2i  ,neq_doti,i_fmapi
+     5                ,i_xfi    ,i_rcvsi,i_dspli
+     6                ,nprcs    ,ovlp   ,mpi) 
        endif
 c .....................................................................
 c
@@ -789,14 +813,17 @@ c *          - iparam(2) - numero de inversos da diagonal simples      *
 c *          - iparam(3) - numero de termos nos bloco                  *
 c *          - iparam(4) - tamanho do bloco                            *
 c * fhist_log- log do residuo por iteracao                             *
-c * my_id    -                                                         *
-c * neqf1i   -                                                         *
-c * neqf2i   -                                                         *
-c * neq_doti -                                                         *
-c * i_fmap   -                                                         *
-c * i_xfi    -                                                         *
-c * i_rvcs   -                                                         *
-c * i_dspli  -                                                         *
+c * my_id    - MPI                                                     *
+c * neqf1i   - MPI                                                     *
+c * neqf2i   - MPI                                                     *
+c * neq_doti - MPI                                                     *
+c * i_fmap   - MPI                                                     *
+c * i_xfi    - MPI                                                     *
+c * i_rvcs   - MPI                                                     *
+c * i_dspli  - MPI                                                     *
+c * mpi      - true|false                                              *
+c * ovlp     - overllaping                                             *
+c * nprcs    - numero de processos mpi                                 *  
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -808,18 +835,20 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
       subroutine call_cg(neq      ,nequ  ,nad   ,ia      ,ja
-     .                  ,ad       ,al    ,m     ,b       ,x    
-     .                  ,z        ,r     ,s    
-     ,                  ,tol      ,maxit ,precond,iparam ,fhist_log
-     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli)
+     1                  ,ad       ,al    ,m     ,b       ,x    
+     2                  ,z        ,r     ,s    
+     3                  ,tol      ,maxit ,precond,iparam ,fhist_log
+     4                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     5                  ,i_xfi    ,i_rcvsi,i_dspli
+     6                  ,nprcs    ,ovlp   ,mpi    )
       implicit none
       include 'time.fi'
 c ... mpi
       integer my_id
-      integer neqf1i,neqf2i
+      integer neqf1i,neqf2i,nprcs
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
 c .....................................................................
       integer neq,nequ,nad,neq_doti 
       integer ia(*),ja(*)
@@ -835,7 +864,7 @@ c ... precondicionador
       real*8 m(*)
 c ...
       external dot_par
-      external matvec_csrc_sym_pm  
+      external matvec_csrc_sym_pm,matvec_csrcr_sym_pm  
       external ildlt_solv,illt_solv  
 c ......................................................................
 
@@ -854,16 +883,35 @@ c .....................................................................
 c
 c ... pcg - cg com precondicionador diagonal
       else if(precond .eq. 2 .or. precond .eq. 5 ) then
-c ...  
-        call pcg(neq    ,nequ   ,nad,ia   ,ja
-     .          ,ad     ,al     ,al ,m    ,b
-     .          ,x      ,z      ,r  ,s
-     .          ,tol    ,maxit
+c ... overllaping
+         if(ovlp) then  
+           call pcg(neq    ,nequ   ,nad,ia   ,ja
+     1             ,ad     ,al     ,al ,m    ,b
+     2             ,x      ,z      ,r  ,s
+     3             ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,fhist_log,.true.)
+     4             ,matvec_csrcr_sym_pm,dot_par 
+c
+     5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6             ,i_xfi ,i_rcvsi,i_dspli
+     7             ,.true.,.true. ,fhist_log,.true.
+     8             ,nprcs ,mpi)
+c .....................................................................
+c
+c ...non-overllaping
+         else 
+           call pcg(neq    ,nequ   ,nad,ia   ,ja
+     1             ,ad     ,al     ,al ,m    ,b
+     2             ,x      ,z      ,r  ,s
+     3             ,tol    ,maxit
+c ... matvec comum:
+     4             ,matvec_csrc_sym_pm,dot_par 
+c
+     5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6             ,i_xfi ,i_rcvsi,i_dspli
+     7             ,.true.,.true. ,fhist_log,.true.
+     8             ,nprcs ,mpi)
+         endif
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LDLT(0) imcompleto
@@ -889,7 +937,7 @@ c ... matvec comum:
      .           ,matvec_csrc_sym_pm,dot_par,illt_solv
      .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .           ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,fhist_log,.true.)
+     .           ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ... bpcg - cg com bloco diagonal 
@@ -946,14 +994,14 @@ c *          - iparam(2) - numero de inversos da diagonal simples      *
 c *          - iparam(3) - numero de termos nos bloco                  *
 c *          - iparam(4) - tamanho do bloco                            *
 c * fhist_log- log do residuo por iteracao                             *
-c * my_id    -                                                         *
-c * neqf1i   -                                                         *
-c * neqf2i   -                                                         *
-c * neq_doti -                                                         *
-c * i_fmap   -                                                         *
-c * i_xfi    -                                                         *
-c * i_rvcs   -                                                         *
-c * i_dspli  -                                                         *
+c * my_id    - MPI                                                     *
+c * neqf1i   - MPI                                                     *
+c * neqf2i   - MPI                                                     *
+c * neq_doti - MPI                                                     *
+c * i_fmap   - MPI                                                     *
+c * i_xfi    - MPI                                                     *
+c * i_rvcs   - MPI                                                     *
+c * i_dspli  - MPI                                                     *
 c * thread_y - buffer de equacoes para o vetor y (openmp)              *  
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
@@ -966,18 +1014,20 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
       subroutine call_cg_omp(neq      ,nequ  ,nad   ,ia      ,ja
-     .                  ,ad       ,al    ,m     ,b       ,x    
-     .                  ,z        ,r     ,s    
-     ,                  ,tol      ,maxit ,precond,iparam ,fhist_log
-     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli,thread_y)
+     1                  ,ad       ,al    ,m     ,b       ,x    
+     2                  ,z        ,r     ,s    
+     3                  ,tol      ,maxit ,precond,iparam ,fhist_log
+     4                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     5                  ,i_xfi    ,i_rcvsi,i_dspli,thread_y
+     6                  ,nprcs    ,ovlp   ,mpi    )
       implicit none
       include 'time.fi'
 c ... mpi
       integer my_id
-      integer neqf1i,neqf2i
+      integer neqf1i,neqf2i,nprcs
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
 c .....................................................................
       integer neq,nequ,nad,neq_doti 
       integer ia(*),ja(*)
@@ -995,7 +1045,7 @@ c ... precondicionador
       real*8 m(*)
 c ...
       external dot_par_omp
-      external matvec_csrc_sym_pm_omp
+      external matvec_csrc_sym_pm_omp,matvec_csrcr_sym_pm_omp  
       external ildlt_solv,illt_solv  
 c ......................................................................
 
@@ -1005,15 +1055,35 @@ c ... cg
 c
 c ... pcg - cg com precondicionador diagonal
       else if(precond .eq. 2 .or. precond .eq. 5 ) then
-        call pcg_omp(neq    ,nequ   ,nad,ia   ,ja
-     .          ,ad     ,al     ,al ,m    ,b 
-     .          ,x      ,z      ,r  ,s
-     .          ,tol    ,maxit
+c ... overllaping
+        if(ovlp) then  
+          call pcg_omp(neq    ,nequ   ,nad,ia   ,ja
+     1                ,ad     ,al     ,al ,m    ,b 
+     2                ,x      ,z      ,r  ,s
+     3                ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm_omp,dot_par_omp
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli,thread_y
-     .          ,.true.,.true. ,fhist_log,.true.)
+     4                ,matvec_csrcr_sym_pm_omp,dot_par_omp
+c             
+     5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     7                ,.true.,.true. ,fhist_log,.true.
+     8                ,nprcs ,mpi)
+c .....................................................................
+c
+c ...non-overllaping
+        else 
+          call pcg_omp(neq    ,nequ   ,nad,ia   ,ja
+     1                ,ad     ,al     ,al ,m    ,b 
+     2                ,x      ,z      ,r  ,s
+     3                ,tol    ,maxit
+c ... matvec comum:
+     4                ,matvec_csrc_sym_pm_omp,dot_par_omp
+c             
+     5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     7                ,.true.,.true. ,fhist_log,.true.
+     8                ,nprcs ,mpi)
+        endif
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LDLT(0) imcompleto
@@ -1278,9 +1348,9 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 28/10/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * CALL_SQRM:chama a versao do CR                                     *    
+c * CALL_SQRM:chama a versao do metodo QMR simetrico                   *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1314,14 +1384,17 @@ c *          - iparam(2) - numero de inversos da diagonal simples      *
 c *          - iparam(3) - numero de termos nos bloco                  *
 c *          - iparam(4) - tamanho do bloco                            *
 c * fhist_log- log do residuo por iteracao                             *
-c * my_id    -                                                         *
-c * neqf1i   -                                                         *
-c * neqf2i   -                                                         *
-c * neq_doti -                                                         *
-c * i_fmap   -                                                         *
-c * i_xfi    -                                                         *
-c * i_rvcs   -                                                         *
-c * i_dspli  -                                                         *
+c * my_id    - MPI                                                     *
+c * neqf1i   - MPI                                                     *
+c * neqf2i   - MPI                                                     *
+c * neq_doti - MPI                                                     *
+c * i_fmap   - MPI                                                     *
+c * i_xfi    - MPI                                                     *
+c * i_rvcs   - MPI                                                     *
+c * i_dspli  - MPI                                                     *
+c * mpi      - true|false                                              *
+c * ovlp     - overllaping                                             *
+c * nprcs    - numero de processos mpi                                 *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -1332,18 +1405,20 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
-      subroutine call_sqrm(neq      ,nequ  ,nad   ,ia      ,ja
-     .                    ,ad       ,al    ,m     ,b       ,x    
-     .                    ,c        ,h     ,r     ,s    
-     .                    ,tol      ,maxit ,pc    ,iparam ,fhist_log
-     .                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                    ,i_xfi    ,i_rcvsi,i_dspli)
+      subroutine call_sqrm(neq      ,nequ  ,nad      ,ia      ,ja
+     1                    ,ad       ,al    ,m        ,b       ,x    
+     2                    ,c        ,h     ,r        ,s    
+     3                    ,tol      ,maxit ,pc       ,iparam ,fhist_log
+     4                    ,my_id    ,neqf1i,neqf2i   ,neq_doti,i_fmapi
+     5                    ,i_xfi    ,i_rcvsi,i_dspli
+     6                    ,nprcs    ,ovlp   ,mpi    )
       implicit none
 c ... mpi
       integer my_id
-      integer neqf1i,neqf2i
+      integer neqf1i,neqf2i,nprcs
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
 c .....................................................................
       integer neq,nequ,nad,neq_doti 
       integer ia(*),ja(*)
@@ -1359,31 +1434,48 @@ c ... precondicionador
       real*8 m(*)
 c ...
       external dot_par
-      external matvec_csrc_sym_pm  
+      external matvec_csrc_sym_pm,matvec_csrcr_sym_pm  
       external ildlt_solv,illt_solv  
 c ......................................................................
 c
       if(pc .eq. 1 ) then
         call sqrm(neq    ,nequ   ,nad    ,ia    ,ja
-     .           ,ad     ,al     ,al     ,m     ,b   ,x 
-     .           ,c      ,h      ,r      ,s 
-     .           ,tol   ,maxit
-     .           ,matvec_csrc_sym_pm,dot_par
-     .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .           ,i_xfi ,i_rcvsi,i_dspli
-     .           ,.true.,.true. ,fhist_log,.true.)
+     1           ,ad     ,al     ,al     ,m     ,b   ,x 
+     2           ,c      ,h      ,r      ,s 
+     3           ,tol   ,maxit
+     4           ,matvec_csrc_sym_pm,dot_par
+     5           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6           ,i_xfi ,i_rcvsi,i_dspli
+     7           ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ...
        else if(pc .eq. 2 .or. pc .eq. 5 .or.  pc .eq. 7) then
-         call rpsqrm(neq    ,nequ   ,nad    ,ia    ,ja
-     .             ,ad     ,al     ,al      ,m     ,b   ,x 
-     .             ,c      ,h      ,r       ,s 
-     .             ,tol   ,maxit
-     .             ,matvec_csrc_sym_pm,dot_par
-     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .             ,i_xfi ,i_rcvsi,i_dspli
-     .             ,.true.,.true. ,fhist_log,.true.)
+c ... overllaping
+         if(ovlp) then
+           call rpsqrm(neq    ,nequ   ,nad    ,ia    ,ja
+     1                ,ad     ,al     ,al      ,m    ,b   ,x 
+     2                ,c      ,h      ,r       ,s 
+     3                ,tol   ,maxit
+     4                ,matvec_csrcr_sym_pm,dot_par
+     5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                ,i_xfi ,i_rcvsi,i_dspli
+     7                ,.true.,.true. ,fhist_log,.true.
+     8                ,nprcs ,mpi)
+c .....................................................................
+c
+c ...non-overllaping
+         else 
+           call rpsqrm(neq    ,nequ   ,nad    ,ia    ,ja
+     1                ,ad     ,al     ,al      ,m     ,b   ,x 
+     2                ,c      ,h      ,r       ,s 
+     3                ,tol   ,maxit
+     4                ,matvec_csrc_sym_pm,dot_par
+     5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                ,i_xfi ,i_rcvsi,i_dspli
+     7                ,.true.,.true. ,fhist_log,.true.
+     8                ,nprcs ,mpi)
+          endif
 c .....................................................................
         endif
 c .....................................................................
@@ -1393,9 +1485,9 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 01/11/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * CALL_SQRM_OMP:chama a versao do SQRM                               *    
+c * CALL_SQRM_OMP:chama a versao do metodo QMR simetrico               *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1437,7 +1529,10 @@ c * i_fmap   -                                                         *
 c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
-c * thread_y - buffer de equacoes para o vetor y (openmp)              *      
+c * thread_y - buffer de equacoes para o vetor y (openmp)              * 
+c * mpi      - true|false                                              *
+c * ovlp     - overllaping                                             *
+c * nprcs    - numero de processos mpi                                 *     
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -1449,17 +1544,19 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
       subroutine call_sqrm_omp(neq      ,nequ  ,nad   ,ia      ,ja
-     .                    ,ad       ,al    ,m     ,b       ,x    
-     .                    ,c        ,h     ,r     ,s    
-     .                    ,tol      ,maxit ,pc    ,iparam ,fhist_log
-     .                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                    ,i_xfi    ,i_rcvsi,i_dspli,thread_y)
+     1                    ,ad       ,al    ,m     ,b       ,x    
+     2                    ,c        ,h     ,r     ,s    
+     3                    ,tol      ,maxit ,pc    ,iparam ,fhist_log
+     4                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     5                    ,i_xfi    ,i_rcvsi,i_dspli,thread_y
+     6                    ,nprcs    ,ovlp   ,mpi    )
       implicit none
 c ... mpi
       integer my_id
-      integer neqf1i,neqf2i
+      integer neqf1i,neqf2i,nprcs
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
 c .....................................................................
       integer neq,nequ,nad,neq_doti 
       integer ia(*),ja(*)
@@ -1477,7 +1574,7 @@ c ... precondicionador
       real*8 m(*)
 c ...
       external dot_par_omp
-      external matvec_csrc_sym_pm_omp
+      external matvec_csrc_sym_pm_omp,matvec_csrcr_sym_pm_omp
       external ildlt_solv,illt_solv  
 c ......................................................................
 c
@@ -1486,17 +1583,34 @@ c
 c .....................................................................
 c
 c ...
-       else if(pc .eq. 2 .or. pc .eq. 5 .or.  pc .eq. 7) then
-         call rpsqrm_omp(neq    ,nequ   ,nad    ,ia    ,ja
-     .             ,ad     ,al     ,al      ,m     ,b   ,x 
-     .             ,c      ,h      ,r       ,s 
-     .             ,tol   ,maxit
-     .             ,matvec_csrc_sym_pm_omp,dot_par_omp
-     .             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .             ,i_xfi ,i_rcvsi,i_dspli,thread_y
-     .             ,.true.,.true. ,fhist_log,.true.)
+      else if(pc .eq. 2 .or. pc .eq. 5 .or.  pc .eq. 7) then
+c ... overllaping
+        if(ovlp) then
+          call rpsqrm_omp(neq    ,nequ   ,nad    ,ia    ,ja
+     1             ,ad     ,al     ,al      ,m     ,b   ,x 
+     2             ,c      ,h      ,r       ,s 
+     3             ,tol   ,maxit
+     4             ,matvec_csrcr_sym_pm_omp,dot_par_omp
+     5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6             ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     7             ,.true.,.true. ,fhist_log,.true.
+     8             ,nprcs ,mpi)
 c .....................................................................
+c
+c ...non-overllaping
+        else 
+          call rpsqrm_omp(neq    ,nequ   ,nad    ,ia    ,ja
+     1             ,ad     ,al     ,al      ,m     ,b   ,x 
+     2             ,c      ,h      ,r       ,s 
+     3             ,tol   ,maxit
+     4             ,matvec_csrc_sym_pm_omp,dot_par_omp
+     5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6             ,i_xfi ,i_rcvsi,i_dspli,thread_y
+     7             ,.true.,.true. ,fhist_log,.true.
+     8             ,nprcs ,mpi)
         endif
+c .....................................................................
+      endif
 c .....................................................................
       return
       end    
@@ -1682,7 +1796,7 @@ c * ad(*),al(*),au(*) - inalterados                                    *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * Arranjos jat,iat e kat são utilizados na retrosubstituizao do      *
+c * Arranjos jat,iat e kat sao utilizados na retrosubstituizao do      *
 c * solver iLDLt                                                       *
 c **********************************************************************  
       subroutine call_bicgstab(neq      ,nequ  ,nad   ,ia      ,ja
@@ -1822,7 +1936,7 @@ c * ad(*),al(*),au(*) - inalterados                                    *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * Arranjos jat,iat e kat são utilizados na retrosubstituizao do      *
+c * Arranjos jat,iat e kat sao utilizados na retrosubstituizao do      *
 c * solver iLDLt                                                       *
 c **********************************************************************  
       subroutine call_bicgstabl2(neq    ,nequ  ,nad  ,ia     ,ja
@@ -2060,7 +2174,11 @@ c
 c ...                         
       else
         print*,'Erro na leitura da macro set solver !'
-        stop
+        print*,'Solver disponiveis:'
+        do i = 1, nmc
+          if(my_id.eq.0) print*,'Solver: ',macros(i)
+        enddo
+        call stop_mef()
       endif 
 c .....................................................................
 c

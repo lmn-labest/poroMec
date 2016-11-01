@@ -969,12 +969,12 @@ c **********************************************************************
       subroutine tform_mec(ix    ,x    ,e   ,ie
      .                    ,ic    ,xl   ,ul  
      .                    ,pl    ,u    ,tx0 ,t   
-     .                    ,nnodev,numel,nen ,nenv
+     .                    ,nnodev,numel,nenv,nen
      .                    ,ndm   ,ndf  ,nst ,ntn  
      .                    ,isw   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 31/10/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
 c * ------------------------------------------------------------------ * 

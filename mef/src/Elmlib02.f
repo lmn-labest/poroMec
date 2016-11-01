@@ -1,6 +1,9 @@
 c *********************************************************************
 c * Biblioteca de elementos mecanicos                                 * 
 c * ----------------------------------------------------------------- *
+c *********************************************************************
+c * Biblioteca de elementos mecanicos                                 * 
+c * ----------------------------------------------------------------- *
 c * Elastico-estatico:                                                *
 c * ----------------------------------------------------------------- *
 c * ------------------ Elementos lineares --------------------------- *
@@ -22,11 +25,25 @@ c * estatico                                                          *
 c *                                                                   *
 c * ELMT07_MEC- hexaedros de  8 nos para o problema mecanico  elastico* 
 c * estatico                                                          *
+c *                                                                   *
 c * ------------------ Elementos quadraticos ------------------------ *
-c * ELMT12_MEC- tetraedros de 10 nos para o problema mecanico elastico*
+c *                                                                   *
+c * ELMT12_MEC- triangulo de 6 nos para o problema mecanico elastico  *
+c * estatico (Estado plano de deformacao) (NAO IMPLEMENTADO)          *
+c *                                                                   *
+c * ELMT13_MEC- triangulo de 6 nos para o problema mecanico elastico  *
+c * estatico (Estado plano de deformacao) (NAO IMPLEMENTADO)          *
+c *                                                                   *
+c * ELMT14_MEC- quadrilateros de 8 nos para o problema mecanico       * 
+c * elastico estatico (Estado plano de deformacao) (NAO IMPLEMENTADO) *
+c *                                                                   *
+c * ELMT15_MEC- quadrilateros de 8 nos para o problema mecanico       *
+c * elastico estatico (Estado plano de tensao) (NAO IMPLEMENTADO)     *
+c *                                                                   *
+c * ELMT16_MEC- tetraedros de 10 nos para o problema mecanico elastico*
 c * estatico                                                          *
 c *                                                                   *
-c * ELMT13_MEC- hexaedros de 20 nos para o problema mecanico  elastico* 
+c * ELMT17_MEC- hexaedros de 20 nos para o problema mecanico  elastico* 
 c * estatico                                                          *
 c *                                                                   *
 c * ----------------------------------------------------------------- *
@@ -244,7 +261,7 @@ c ... Cargas distribuidas no volume e no contorno:
 c
 c ......................................................................
  400  continue
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 1 2 |
 c             2 | no 2 3 |
 c             3 | no 3 4 |     
@@ -534,7 +551,7 @@ c ... Cargas distribuidas no volume e no contorno:
 c
 c ......................................................................
  400  continue
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 1 2 |
 c             2 | no 2 3 |
 c             3 | no 3 4 |     
@@ -879,7 +896,8 @@ c.......................................................................
             wt1 = 0.5d0*det
             do 455 i = 1, 2
               no      = quad_side_node4(i,j)
-c             l1  = (no-1)*3+1
+c              l1  = (no-1)*3+1
+c              wt1   = h(i)*w
               l1    = 2*no-1
               l2    = l1 + 1
               p(l1) = p(l1) - face_f(1)*wt1
@@ -1141,7 +1159,7 @@ c ... Cargas distribuidas no volume e no contorno:
 c
 c ......................................................................
  400  continue
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 1 2 |
 c             2 | no 2 3 |
 c             3 | no 3 4 |     
@@ -1391,6 +1409,7 @@ c ...
       a         = (ym*a1)/(a3*a2)
       b         = ps/a1
       c         = 0.5d0*(a2/a1)
+c .....................................................................
 c
 c ... Matriz Jacobiana:
       call jtetra4(x,hx,hy,hz,det,.true.,nel)
@@ -1432,6 +1451,7 @@ c
 c ......................................................................
  400  continue
 c ... peso proprio
+      density   = e(3) 
       if( density .eq. 0.0d0) goto 430
       density   = e(3)*1.0d-06 
 c .....................................................................
@@ -1465,7 +1485,7 @@ c
 c .....................................................................
 c
  430  continue
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 2 3 4  |
 c             2 | no 1 4 3  |
 c             3 | no 1 2 4  |     
@@ -1808,6 +1828,7 @@ c
 c ......................................................................
  400  continue
 c ... peso proprio  
+      density   = e(3) 
       if( density .eq. 0.0d0) goto 430
       density   = e(3)*1.0d-06 
 c .....................................................................
@@ -1858,7 +1879,7 @@ c
 c .....................................................................
 c
  430  continue 
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 1 2 3 4 |
 c             2 | no 5 6 7 8 |
 c             3 | no 1 5 6 2 |     
@@ -2004,12 +2025,12 @@ c ......................................................................
 c ......................................................................
       end
 c **********************************************************************
-      subroutine elmt12_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      subroutine elmt16_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
 c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 13/10/2016                                    * 
 c * ------------------------------------------------------------------ *      
-c * ELMT12_MEC : Elemento tetraedrico de 10 nos para problemas         *  
+c * ELMT16_MEC : Elemento tetraedrico de 10 nos para problemas         *  
 c * mecanico elasticos                                                 *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -2238,7 +2259,7 @@ c ...
 c .....................................................................
 c
 c ... tensao nodal total
-      do 310 i = 1, 4
+      do 310 i = 1, 10
 c       tp = (i-1)*6 + 1
         tp  = 6*i - 5
 c ... calculo do determinante
@@ -2263,6 +2284,7 @@ c
 c ......................................................................
  400  continue
 c ... peso proprio
+      density   = e(3) 
       if( density .eq. 0.0d0) goto 430
       density   = e(3)*1.0d-06 
 c .....................................................................
@@ -2313,7 +2335,7 @@ c
 c .....................................................................
 c
  430  continue  
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 2 3 4  8  9 10 |
 c             2 | no 1 4 3  7  9  6 |
 c             3 | no 1 2 4  5 10  7 |     
@@ -2416,7 +2438,7 @@ c ...
 c .....................................................................
 c  
 c ...
-        txi(1:6)= 0.d0
+        txi(1:4)= 0.d0
         do 515 j = 1,   4
           txi(1) = txi(1) + h(j)*txn(1,j)
           txi(2) = txi(2) + h(j)*txn(2,j) 
@@ -2458,12 +2480,12 @@ c ......................................................................
 c ....................................................................
       end
 c *********************************************************************
-      subroutine elmt13_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
+      subroutine elmt17_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
 c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *       
-c * ELMT013_MEC: Elemento hexaedricos de 20 nos para problemas         *  
+c * ELMT017_MEC: Elemento hexaedricos de 20 nos para problemas         *  
 c * mecanico estaico-elasticos                                         *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -2700,7 +2722,7 @@ c ...
 c .....................................................................
 c
 c ... tensao nodal total
-      do 310 i = 1, 8
+      do 310 i = 1, 20
 c       tp = (i-1)*6 + 1
         tp  = 6*i - 5
 c ... calculo do terminante
@@ -2725,6 +2747,7 @@ c
 c ......................................................................
  400  continue
 c ... peso proprio
+      density   = e(3)
       if( density .eq. 0.0d0) goto 430
       density   = e(3)*1.0d-06 
 c .....................................................................
@@ -2779,7 +2802,7 @@ c
 c .....................................................................
 c
   430 continue
-c ... forca distribuida no contorno
+c ... forca e fluxo distribuida no contorno
 c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
 c             2 | no 5 6 7 8 13 14 15 16 |
 c             3 | no 1 5 6 2 17 13 18  9 |     
@@ -2934,4 +2957,3 @@ c ......................................................................
 c ....................................................................
       end
 c *********************************************************************
- 
