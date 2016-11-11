@@ -1179,7 +1179,7 @@ c ... ponteiros
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
       integer neq,nequ,nad
-      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nad1
+      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
       real*8  ad(*),au(*),al(*),m(*),b(*),x(*)
       real*8  g(neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
       real*8  xkx,econv,norm,dot,r,aux1,aux2,beta
@@ -1468,7 +1468,7 @@ c ... ponteiros
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
       integer neq,nequ,nad
-      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nad1
+      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
       real*8  ad(*),au(*),al(*),m(*),b(*),x(*)
       real*8  g(neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
       real*8  xkx,econv,norm,dot,r,aux1,aux2,beta,inorm

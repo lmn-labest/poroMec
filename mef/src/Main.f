@@ -43,7 +43,6 @@ c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)
       logical new_file(nfiles),flag_pnd,fhist_log
       logical print_flag(n_opt_print_flag)
       logical legacy_vtk
-c      logical cont1
 c ......................................................................
 c
 c ... Variaveis de controle de solucao:
@@ -109,7 +108,7 @@ c ... Ponteiros:
 c
 c ... malha
       integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_e,i_x,i_xq,i_inum
-      integer*8 i_ic
+      integer*8 i_ic,i_fnno
 c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl
 c ... forcas e graus de liberdade 
@@ -121,7 +120,7 @@ c ... sistema de equacoes
 c ... precondicionador
       integer*8 i_m
 c ... arranjos globais (MPI - escrita)
-      integer*8 i_g,i_g1,i_g2,i_g3
+      integer*8 i_g,i_g1,i_g2,i_g3,i_g4
 c ... coo
       integer*8 i_lin,i_col,i_acoo
       integer*8 i_linuu,i_coluu,i_acoouu
@@ -270,7 +269,8 @@ c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
 c ... campo gravitacional (Padrao)
       gravity(1)  =   0.0d0
       gravity(2)  =   0.0d0
-      gravity(3)  = -9.81d0
+c     gravity(3)  = -9.81d0
+      gravity(3)  = -10.0d0
       gravity_mod = dsqrt(gravity(1)*gravity(1)
      .                   +gravity(2)*gravity(2)
      .                   +gravity(3)*gravity(3))
@@ -434,7 +434,7 @@ c.... Leitura de dados:
      3         ,i_ie       ,i_inum  ,i_e    ,i_x
      4         ,i_id       ,i_nload ,i_eload,i_f  
      5         ,i_u        ,i_u0    ,i_tx0  ,i_dp
-     6         ,i_dporosity  
+     6         ,i_fnno   
      7         ,fstress0   ,fporomec,fmec   ,print_flag(1)
      8         ,nin ) 
 c    -----------------------------------------------------------------
@@ -442,7 +442,7 @@ c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | dporosity |                                                
+c    | dp | fnno |                                               
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -527,8 +527,8 @@ c ... primero numera os deslocamento e depois as pressoes
           call numeqpmec1(ia(i_id),ia(i_inum),ia(i_id),
      .                    nnode,nnodev,ndf,neq,nequ,neqp)
         else
-c ... primero numera os deslocamento e pressoes ao mesmo tempo
-          call numeqpmec2(ia(i_id),ia(i_inum),ia(i_id),
+c ... numera os deslocamento e pressoes ao mesmo tempo
+          call numeqpmec2(ia(i_id),ia(i_inum),ia(i_id),ia(i_fnno),
      .                    nnode,nnodev,ndf,neq)
           nequ = 0
           neqp = 0
@@ -613,11 +613,12 @@ c ... poromecanico
          sal = 'al' 
          sad = 'ad' 
          call datastruct_pm(ia(i_ix),ia(i_id),ia(i_inum),nnode,nnodev
-     .                     ,numel,nen,ndf,nst,neq,nequ,neqp,stge,unsym
-     .                     ,nad  ,naduu,nadpp,nadpu
-     .                     ,i_ia ,i_ja,i_au  ,i_al,i_ad 
-     .                     ,sia  ,sja ,sau   ,sal ,sad    
-     .                     ,ovlp ,n_blocks_pu,block_pu ,block_pu_sym) 
+     1                     ,numel   ,nen     ,ndf       ,nst
+     2                     ,neq     ,nequ    ,neqp      ,stge ,unsym 
+     3                     ,nad     ,naduu   ,nadpp   ,nadpu,nadr
+     4                     ,i_ia ,i_ja,i_au  ,i_al,i_ad 
+     5                     ,sia  ,sja ,sau   ,sal ,sad    
+     6                     ,ovlp ,n_blocks_pu,block_pu ,block_pu_sym) 
 c .....................................................................
 c
 c ... mec
@@ -628,11 +629,11 @@ c ... mec
          sal = 'al' 
          sad = 'ad'  
          call datastruct(ia(i_ix),ia(i_id),ia(i_inum),nnode
-     .                  ,numel   ,nen     ,ndf       ,nst
-     .                  ,neq     ,stge    ,unsym     ,nad  ,nad1
-     .                  ,i_ia    ,i_ja    ,i_au      ,i_al ,i_ad 
-     .                  ,sia     ,sja     ,sau       ,sal  ,sad         
-     .                  ,ovlp     )
+     1                  ,numel   ,nen     ,ndf       ,nst
+     2                  ,neq     ,stge    ,unsym     ,nad  ,nadr
+     3                  ,i_ia    ,i_ja    ,i_au      ,i_al ,i_ad 
+     4                  ,sia     ,sja     ,sau       ,sal  ,sad         
+     5                  ,ovlp     )
       endif
       dstime = MPI_Wtime()-timei
 c
@@ -683,6 +684,11 @@ c .....................................................................
          endif       
       endif
 c ......................................................................
+c
+c ...
+      print_nnode = nnovG   
+      if(print_flag(1)) print_nnode = nnoG     
+c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -714,29 +720,29 @@ c
 c ... Cargas nodais e valores prescritos no tempo t+dt:
       timei = MPI_Wtime()
       call pload_pm(ia(i_id),ia(i_f),ia(i_u),ia(i_b0),ia(i_nload)
-     .            ,nnode,nnodev,ndf)
+     .             ,ia(i_fnno),nnode,ndf)
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
 c ... forcas internas devidos as tensoes inicias tensoes
       if(fstress0 .and. fcstress0) then
-          timei = MPI_Wtime()
-          call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)  
-     .                 ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     .                 ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
-     .                 ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
-     .                 ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     .                 ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
-     .                 ,numel       ,nen          ,nenv     ,ndf 
-     .                 ,ndm         ,nst          
-     .                 ,neq         ,nequ         ,neqp 
-     .                 ,nad         ,naduu        ,nadpp    ,nadpu 
-     .                 ,.false.     ,.true.       ,unsym 
-     .                 ,stge        ,5            ,ilib     ,i
-     .                 ,ia(i_colorg),ia(i_elcolor),numcolors,.true.
-     .                 ,block_pu    ,n_blocks_pu)
-          elmtime = elmtime + MPI_Wtime()-timei
-          fcstress0= .false.
+        timei = MPI_Wtime()
+        call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)  
+     1               ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2               ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
+     3               ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
+     4               ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     5               ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
+     6               ,numel       ,nen          ,nenv     ,ndf 
+     7               ,ndm         ,nst          
+     8               ,neq         ,nequ         ,neqp 
+     9               ,nad         ,naduu        ,nadpp    ,nadpu,nadr
+     1               ,.false.     ,.true.       ,unsym 
+     2               ,stge        ,5            ,ilib     ,i
+     3               ,ia(i_colorg),ia(i_elcolor),numcolors,.true.
+     4               ,block_pu    ,n_blocks_pu)
+        elmtime = elmtime + MPI_Wtime()-timei
+        fcstress0= .false.
       endif 
 c .....................................................................      
 c
@@ -744,19 +750,19 @@ c ... forcas de volume e superficie do tempo t+dt e graus de liberade
 c     do passo t:  
       timei = MPI_Wtime()
       call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
-     .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja) 
-     .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
-     .             ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
-     .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     .             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
-     .             ,numel       ,nen          ,nenv     ,ndf 
-     .             ,ndm         ,nst          
-     .             ,neq         ,nequ         ,neqp 
-     .             ,nad         ,naduu        ,nadpp    ,nadpu 
-     .             ,.false.     ,.true.       ,unsym 
-     .             ,stge,4      ,ilib         ,i
-     .             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
-     .             ,block_pu    ,n_blocks_pu)
+     1             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja) 
+     2             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
+     3             ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
+     4             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     5             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
+     6             ,numel       ,nen          ,nenv     ,ndf 
+     7             ,ndm         ,nst          
+     8             ,neq         ,nequ         ,neqp 
+     9             ,nad         ,naduu        ,nadpp    ,nadpu,nadr 
+     1             ,.false.     ,.true.       ,unsym 
+     2             ,stge        ,4            ,ilib     ,i
+     3             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
+     4             ,block_pu    ,n_blocks_pu)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -768,7 +774,7 @@ c .....................................................................
 c
 c ... Preditor: du(n+1,0) = u(n+1) - u(n)  
       timei = MPI_Wtime()
-      call predict_pm(nnode,nnodev,ndf,ia(i_u),ia(i_u0))
+      call delta_predict_pm(nnode,ndf,ia(i_u),ia(i_u0),ia(i_fnno))
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -787,21 +793,26 @@ c
 c ... Residuo: b = F - K.du(n+1,i)
       timei = MPI_Wtime()
       call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
-     .             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     .             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
-     .             ,ia(i_u)     ,ia(i_dp)     ,ia(i_tx0)
-     .             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     .             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl)
-     .             ,numel       ,nen          ,nenv     ,ndf
-     .             ,ndm         ,nst          
-     .             ,neq         ,nequ         ,neqp
-     .             ,nad         ,naduu        ,nadpp    ,nadpu
-     .             ,.true.      ,.true.       ,unsym
-     .             ,stge        ,2            ,ilib     ,i
-     .             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
-     .             ,block_pu,n_blocks_pu)
+     1             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
+     3             ,ia(i_u)     ,ia(i_dp)     ,ia(i_tx0)
+     4             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     5             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl)
+     6             ,numel       ,nen          ,nenv     ,ndf
+     7             ,ndm         ,nst          
+     8             ,neq         ,nequ         ,neqp
+     1             ,nad         ,naduu        ,nadpp    ,nadpu,nadr
+     2             ,.true.      ,.true.       ,unsym
+     3             ,stge        ,2            ,ilib     ,i
+     4             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
+     5             ,block_pu,n_blocks_pu)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
+c
+c ... Comunicacao do residuo para o caso non-overlapping:
+      if (novlp) call communicate(ia(i_b),neqf1,neqf2,i_fmap,i_xf,
+     .                            i_rcvs,i_dspl)
+c ......................................................................
 c
 c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
@@ -816,25 +827,24 @@ c ......................................................................
 c
 c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
       timei = MPI_Wtime()
-      call get_res(ia(i_u),ia(i_x0),ia(i_id),nnode,nnodev,ndf)
       call solv_pm(neq  ,nequ    ,neqp  
-     .         ,nad     ,naduu   ,nadpp      
-     .         ,ia(i_ia),ia(i_ja),ia(i_ad)   ,ia(i_al)
-     .         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
-     .         ,ngram   ,block_pu,n_blocks_pu,solver,istep
-     .         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
-     .         ,fmec    ,fporomec,fhist_log
-     .         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
-     .         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
+     1         ,nad     ,naduu   ,nadpp      
+     2         ,ia(i_ia),ia(i_ja),ia(i_ad)   ,ia(i_al)
+     3         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
+     4         ,ngram   ,block_pu,n_blocks_pu,solver,istep
+     5         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
+     6         ,fmec    ,fporomec,fhist_log
+     7         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
+     8         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
 c .....................................................................
 c
 c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
       timei = MPI_Wtime()
-      call update_pm(nnode,nnodev,ndf,ia(i_id),ia(i_u),ia(i_x0))
+      call delta_update_pm(nnode   ,ndf
+     1                    ,ia(i_id),ia(i_u)
+     2                    ,ia(i_x0),ia(i_fnno))
       vectime = vectime + MPI_Wtime()-timei
-c     call update2(nnode,ndf,ia(i_id),ia(i_u),ia(i_u),ia(i_u)
-c    .            ,ia(i_x0)  ,0.d0,0.0d0,0.d0)
 c .....................................................................
 c
 c ...
@@ -857,8 +867,9 @@ c     dp(n+1) = p(n) - p(0)
       timei = MPI_Wtime()
 c     call update_res(nnode  ,nnodev  ,ndf
 c    .               ,ia(i_u),ia(i_u0),ia(i_dp),ia(i_pres0))
-      call update_res_v2(nnode  ,nnodev  ,ndf
-     .                  ,ia(i_u),ia(i_u0),ia(i_dp))
+      call update_res_v2(nnode   ,ndf
+     1                  ,ia(i_u) ,ia(i_u0)
+     2                  ,ia(i_dp),ia(i_fnno))
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
       goto 50 
@@ -891,11 +902,6 @@ c ... | sxx syy szz  sxy syz sxz |
         ntn = 6
       endif
 c .....................................................................
-c
-c ...
-      print_nnode = nnovG   
-      if(print_flag(1)) print_nnode = nnoG     
-c ......................................................................
 c
 c ... Geometria:
       if(mpi) then       
@@ -1153,63 +1159,151 @@ c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
 c .....................................................................
 c
 c ...
-      print_nnode = nnovG   
-      if(print_flag(1)) print_nnode = nnoG     
+      i_tx   = 1
+      i_txe  = 1
+      i_txb  = 1
+      i_flux = 1
+      i_ic   = 1
 c ......................................................................
 c
 c ...
-      i_tx  = alloc_8('tx      ',  ntn,nnodev)
-      i_txe = alloc_8('txe     ',  ntn,nnodev)
-      i_txb = alloc_8('txb     ',  ntn,nnodev)
-      i_flux= alloc_8('flux    ',  ndm,nnodev)
-      i_ic  = alloc_4('ic      ',    1,nnodev)
+      if(mpi) then
+c ... comunicao
+        call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
+        call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
+        call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
+        call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
+        if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
+          call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
+        endif
+c ......................................................................
+c
+c ...
+        if(my_id.eq.0) then
+c ...
+          i_ic        = alloc_4('ic      ',    1,print_nnode)
+          i_tx        = alloc_8('tx      ',  ntn,print_nnode)
+          i_txe       = alloc_8('txe     ',  ntn,print_nnode)
+          i_txb       = alloc_8('txb     ',  ntn,print_nnode)
+          i_flux      = alloc_8('flux    ',  ndm,print_nnode)          
+          i_dporosity = alloc_8('dporo   ',    1,print_nnode)
 c .....................................................................
 c
 c ...
-      if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
-     .  .or. print_flag(8)) then
-        timei = MPI_Wtime()
-        call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1               ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2               ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
-     3               ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
-     4               ,nnodev     ,numel   ,nen       ,nenv
-     5               ,ndm        ,ndf     ,nst       ,ntn
-     6               ,3          ,ilib)
-        tformtime = tformtime + MPI_Wtime()-timei
-      endif
+          if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
+     .       .or. print_flag(8)) then
+            timei = MPI_Wtime()
+            call tform_pm(ia(i_g1)   ,ia(i_g2)  ,ia(i_e)  ,ia(i_ie)
+     1                   ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2                   ,ia(i_txl)  ,ia(i_g)  ,ia(i_g3) ,ia(i_g4)
+     3                   ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
+     4                   ,print_nnode,nelG    ,nen       ,nenv
+     5                   ,ndm        ,ndf     ,nst       ,ntn
+     6                   ,3          ,ilib)
+            tformtime = tformtime + MPI_Wtime()-timei
+          endif
+c ......................................................................
+c
+c ... 
+          if(print_flag(9))then
+            timei = MPI_Wtime()
+            call delta_porosity(ia(i_g1) ,ia(i_g2)  ,ia(i_e),ia(i_ie)
+     1            ,ia(i_ic) ,ia(i_xl) ,ia(i_ul)     ,ia(i_dpl)
+     2            ,ia(i_pl) ,ia(i_g)  ,ia(i_g3)     ,ia(i_dporosity)
+     3            ,print_nnode,nelG     ,nen        ,nenv
+     4            ,ndm        ,ndf      ,nst       
+     5            ,7          ,ilib)
+            tformtime = tformtime + MPI_Wtime()-timei
+          endif
 c ......................................................................
 c
 c ...
-      if(print_flag(9))then
-        timei = MPI_Wtime()
-        call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1                   ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2                   ,ia(i_pl) ,ia(i_u)  ,ia(i_dp) ,ia(i_dporosity)
-     3                   ,nnodev   ,numel    ,nen      ,nenv
-     4                   ,ndm      ,ndf      ,nst       
-     5                   ,7        ,ilib)
-        tformtime = tformtime + MPI_Wtime()-timei
-      endif
-c ......................................................................
-c
-c ...
-      call write_mesh_res_pm(ia(i_ix),ia(i_x)    ,ia(i_u)  ,ia(i_dp)
-     1               ,ia(i_dporosity),ia(i_tx)   ,ia(i_txb),ia(i_txe)
-     2               ,ia(i_flux)     ,print_nnode,numel    ,istep   
-     3               ,t              ,nen        ,ndm      ,ndf   
-     4               ,ntn            ,fname      ,prename   
-     5               ,bvtk           ,legacy_vtk ,print_flag
+          call write_mesh_res_pm(ia(i_g1),ia(i_g2) ,ia(i_g)  ,ia(i_g3)
+     1               ,ia(i_dporosity)  ,ia(i_tx)   ,ia(i_txb),ia(i_txe)
+     2               ,ia(i_flux)       ,print_nnode,nelG     ,istep   
+     3               ,t                ,nen        ,ndm      ,ndf   
+     4               ,ntn              ,fname      ,prename   
+     5               ,bvtk             ,legacy_vtk ,print_flag
      6               ,nplot)
-      close(nplot)  
 c ......................................................................
 c
 c ...
-      i_ic  = dealloc('ic      ')
-      i_flux= dealloc('flux    ')
-      i_txe = dealloc('txb     ')
-      i_txe = dealloc('txe     ')
-      i_tx  = dealloc('tx      ')
+          i_dporosity= dealloc('dporo   ')     
+          i_flux     = dealloc('flux    ')
+          i_txe      = dealloc('txb     ')
+          i_txe      = dealloc('txe     ')
+          i_tx       = dealloc('tx      ')
+          i_ic       = dealloc('ic      ')
+        endif
+c ......................................................................
+c
+c ...
+          if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
+            i_g4  = dealloc('tx0G    ')
+          endif
+          i_g3  = dealloc('dpG     ')
+          i_g2  = dealloc('xG      ')
+          i_g1  = dealloc('ixG     ')
+          i_g   = dealloc('upG     ')
+c >......................................................................  
+c
+c ...
+      else
+c ...
+        i_ic        = alloc_4('ic      ',    1,print_nnode)
+        i_tx        = alloc_8('tx      ',  ntn,print_nnode)
+        i_txe       = alloc_8('txe     ',  ntn,print_nnode)
+        i_txb       = alloc_8('txb     ',  ntn,print_nnode)
+        i_flux      = alloc_8('flux    ',  ndm,print_nnode)
+        i_dporosity = alloc_8('dporo   ',    1,print_nnode)
+c .....................................................................
+c
+c ...
+        if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
+     .     .or. print_flag(8)) then
+          timei = MPI_Wtime()
+          call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     1                 ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2                 ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
+     3                 ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
+     4                 ,print_nnode,numel   ,nen       ,nenv
+     5                 ,ndm        ,ndf     ,nst       ,ntn
+     6                 ,3          ,ilib)
+          tformtime = tformtime + MPI_Wtime()-timei
+        endif
+c ......................................................................
+c
+c ...
+        if(print_flag(9))then
+          timei = MPI_Wtime()
+          call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     1                    ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2                    ,ia(i_pl) ,ia(i_u)  ,ia(i_dp) ,ia(i_dporosity)
+     3                    ,print_nnode,numel  ,nen      ,nenv
+     4                    ,ndm        ,ndf    ,nst       
+     5                    ,7          ,ilib)
+          tformtime = tformtime + MPI_Wtime()-timei
+        endif
+c ......................................................................
+c
+c ...
+        call write_mesh_res_pm(ia(i_ix),ia(i_x)    ,ia(i_u)  ,ia(i_dp)
+     1                 ,ia(i_dporosity),ia(i_tx)   ,ia(i_txb),ia(i_txe)
+     2                 ,ia(i_flux)     ,print_nnode,numel    ,istep   
+     3                 ,t              ,nen        ,ndm      ,ndf   
+     4                 ,ntn            ,fname      ,prename   
+     5                 ,bvtk           ,legacy_vtk ,print_flag
+     6                 ,nplot)
+c ......................................................................
+c
+c ...
+          i_dporosity= dealloc('dporo   ')
+          i_flux     = dealloc('flux    ')
+          i_txe      = dealloc('txb     ')
+          i_txe      = dealloc('txe     ')
+          i_tx       = dealloc('tx      ')
+          i_ic       = dealloc('ic      ')
+      endif
 c ......................................................................
       goto 50     
 c ......................................................................
@@ -1244,16 +1338,16 @@ c ... forcas internas devidos as tensoes inicias tensoes
       if(fstress0 .and. fcstress0) then
           timei = MPI_Wtime()
           call pform_mec(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
-     .                 ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     .                 ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
-     .                 ,ia(i_u0)    ,ia(i_tx0)
-     .                 ,ia(i_xl)    ,ia(i_ul)     ,ia(i_pl)
-     .                 ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
-     .                 ,numel       ,nen          ,nenv     ,ndf 
-     .                 ,ndm         ,nst          ,neq      ,nad        
-     .                 ,.false.     ,.true.       ,unsym 
-     .                 ,stge        ,5            ,ilib     ,i
-     .                 ,ia(i_colorg),ia(i_elcolor),numcolors,.true.)
+     1                 ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2                 ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
+     3                 ,ia(i_u0)    ,ia(i_tx0)
+     4                 ,ia(i_xl)    ,ia(i_ul)     ,ia(i_pl)
+     5                 ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
+     6                 ,numel       ,nen          ,nenv     ,ndf 
+     7                 ,ndm         ,nst          ,neq      ,nad,nadr   
+     8                 ,.false.     ,.true.       ,unsym 
+     9                 ,stge        ,5            ,ilib     ,i
+     1                 ,ia(i_colorg),ia(i_elcolor),numcolors,.true.)
           elmtime = elmtime + MPI_Wtime()-timei
           fcstress0= .false.
       endif 
@@ -1262,17 +1356,16 @@ c
 c ... forcas de volume e superficie do tempo t+dt :  
       timei = MPI_Wtime()
       call pform_mec(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
-     .              ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     .              ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
-     .              ,ia(i_u0)    ,ia(i_tx0)
-     .              ,ia(i_xl)    ,ia(i_ul)     ,ia(i_pl)
-     .              ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
-     .              ,numel       ,nen          ,nenv     ,ndf 
-     .              ,ndm         ,nst          
-     .              ,neq         ,nad           
-     .              ,.false.     ,.true.       ,unsym 
-     .              ,stge,4      ,ilib         ,i
-     .              ,ia(i_colorg),ia(i_elcolor),numcolors,.false.)
+     1              ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2              ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
+     3              ,ia(i_u0)    ,ia(i_tx0)
+     4              ,ia(i_xl)    ,ia(i_ul)     ,ia(i_pl)
+     5              ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
+     6              ,numel       ,nen          ,nenv     ,ndf 
+     7              ,ndm         ,nst          ,neq      ,nad,nadr  
+     8              ,.false.     ,.true.       ,unsym 
+     9              ,stge,4      ,ilib         ,i
+     1              ,ia(i_colorg),ia(i_elcolor),numcolors,.false.)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -1297,17 +1390,16 @@ c
 c ... Residuo: b = F - K.u(n+1,i)
       timei = MPI_Wtime()
       call pform_mec(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
-     .              ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     .              ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
-     .              ,ia(i_u)     ,ia(i_tx0)
-     .              ,ia(i_xl)    ,ia(i_ul)     ,ia(i_pl)
-     .              ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl)
-     .              ,numel       ,nen          ,nenv     ,ndf
-     .              ,ndm         ,nst          
-     .              ,neq         ,nad        
-     .              ,.true.      ,.true.       ,unsym
-     .              ,stge        ,2            ,ilib     ,i
-     .              ,ia(i_colorg),ia(i_elcolor),numcolors,.false.)
+     1              ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2              ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
+     3              ,ia(i_u)     ,ia(i_tx0)
+     4              ,ia(i_xl)    ,ia(i_ul)     ,ia(i_pl)
+     5              ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl)
+     6              ,numel       ,nen          ,nenv     ,ndf
+     7              ,ndm         ,nst          ,neq      ,nad ,nadr    
+     8              ,.true.      ,.true.       ,unsym
+     9              ,stge        ,2            ,ilib     ,i
+     1              ,ia(i_colorg),ia(i_elcolor),numcolors,.false.)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -1390,7 +1482,6 @@ c ... comunicao
           call global_v(ntn   ,nno_pload,i_tx0 ,i_g3,'tx0G    ')
         endif
 c ......................................................................
-c
 c
 c ...
         if(my_id.eq.0) then
@@ -1810,7 +1901,7 @@ c ... arquivo de tempo
       call write_log_file(nnode    ,numel   ,numel_nov,numel_ov,ndf 
      .                   ,neq      ,nequ    ,neqp     ,neq1    ,neq2
      .                   ,neq32    ,neq4    ,neq1a    ,neqf1   ,neqf2 
-     .                   ,nad      ,naduu   ,nadpp    ,nadpu   ,nad1
+     .                   ,nad      ,naduu   ,nadpp    ,nadpu   ,nadr
      .                   ,omp_elmt ,nth_elmt,omp_solv ,nth_solv
      .                   ,fporomec ,fmec    ,numcolors,prename
      .                   ,my_id    ,nprcs   ,nout)

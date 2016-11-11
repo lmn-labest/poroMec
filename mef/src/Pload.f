@@ -1,7 +1,7 @@
-      subroutine pload_pm(id,f,u,b,nload,nnode,nnodev,ndf)
+      subroutine pload_pm(id,f,u,b,nload,fnno,nnode,ndf)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 08/11/2016                                    * 
 c * ------------------------------------------------------------------ *      
 c * PLOADPM: Monta o vetor de forcas poro mecanico                     *
 c * ------------------------------------------------------------------ *      
@@ -12,6 +12,7 @@ c * f(ndf,nnode)    - cargas concentradas e incognitas prescritas      *
 c * u(ndf,nnode)    - graus de liberdade                               *
 c * b(neq) - nao definido                                              *
 c * nload(ndf,nnode) - numero da carga nodal                           *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
 c * nnode  - numero de nos acessados na particao                       *
 c * nnodev - numero de nos de vertices acessados na particao           *
 c * ndf    - numero de graus de liberdade por no                       *
@@ -26,7 +27,7 @@ c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'transiente.fi'
-      integer id(ndf,*),nload(ndf,*),nnode,nnodev,ndf,i,j,k,nc
+      integer id(ndf,*),nload(ndf,*),nnode,nnodev,ndf,i,j,k,nc,fnno(*)
       real*8  f(ndf,*),u(ndf,*),b(*),c,vc(3)
 c.......................................................................
 c
@@ -44,11 +45,13 @@ c
 c ......................................................................
 c
 c ...
-      do 120 i = 1, nnodev
-        nc = nload(ndf,i)
-        if(nc .gt. 0) then
-          call tload(nc,t,u(ndf,i),c,vc)
-          f(ndf,i) = c
+      do 120 i = 1, nnode
+        if(fnno(i) .eq. 1) then
+          nc = nload(ndf,i)
+          if(nc .gt. 0) then
+            call tload(nc,t,u(ndf,i),c,vc)
+            f(ndf,i) = c
+          endif
         endif
   120 continue
 c.......................................................................  
@@ -68,13 +71,15 @@ c
 c ......................................................................
 c
 c ...
-      do 220 i = 1, nnodev
-         k = id(ndf,i)
-         if (k .gt. 0) then
-           b(k)     = f(ndf,i)
-         else
-           u(ndf,i) = f(ndf,i)
-         endif
+      do 220 i = 1, nnode
+        if(fnno(i) .eq. 1) then
+           k = id(ndf,i)
+           if (k .gt. 0) then
+             b(k)     = f(ndf,i)
+           else
+             u(ndf,i) = f(ndf,i)
+           endif
+        endif  
   220 continue
 c.......................................................................  
       return
@@ -441,21 +446,23 @@ c .......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine update_res_v2(nnode,nnodev,ndf,u,u0,dp)
+      subroutine update_res_v2(nnode,ndf
+     1                        ,u    ,u0
+     2                        ,dp   ,fnno)
 c **********************************************************************
 c * Data de criacao    : 28/03/2016                                    *
-c * Data de modificaco :                                               * 
+c * Data de modificaco : 08/11/2016                                    * 
 c * ------------------------------------------------------------------ *     
 c * UPDATE_RES_V2 : atualiza os resultados                             *
 c * ------------------------------------------------------------------ *  
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *  
 c * nnode         - numero de nos acessados na particao                *
-c * nnodev        - numero de nos de vertices acessados na particao    *
 c * ndf           - numero de graus de liberdade por no                *
 c * u0(ndf,nnode) - pressoes e deslocamentos em t                      *
-c * u(ndf,nnode) - delta de pressoes e deslocamentos em t+dt           * 
+c * u(ndf,nnode)  - delta de pressoes e deslocamentos em t+dt          * 
 c * dp(nnodev)    - nao definido                                       *
+c * fnno          - identifica dos nos de vertices ( 1 - vertice | 0 ) *
 c * ------------------------------------------------------------------ *        
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *          
@@ -469,8 +476,8 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
-      integer nnode,nnodev,ndf
-      integer i,j
+      integer nnode,ndf
+      integer i,j,fnno(*)
       real*8  u(ndf,*),u0(ndf,*),dp(*)
 c ......................................................................
       do 110 i = 1, nnode 
@@ -478,15 +485,22 @@ c ......................................................................
            u(j,i)  = u0(j,i) + u(j,i)
            u0(j,i) = u(j,i)
   100   continue
+        if(fnno(i) .eq. 1 ) then
+          dp(i)     = dp(i)     + u(ndf,i) 
+          u(ndf,i)  = u0(ndf,i) + u(ndf,i)
+          u0(ndf,i) = u(ndf,i)
+        endif
   110 continue
 c .......................................................................
 c
 c ...
-      do 120 i = 1, nnodev
-         dp(i)     = dp(i) + u(ndf,i) 
-         u(ndf,i)  = u0(ndf,i) + u(ndf,i)
-         u0(ndf,i) = u(ndf,i)
-  120 continue
+c     do 120 i = 1, nnode
+c        if(fnno(i) .eq. 1 ) then
+c          dp(i)     = dp(i)     + u(ndf,i) 
+c          u(ndf,i)  = u0(ndf,i) + u(ndf,i)
+c          u0(ndf,i) = u(ndf,i)
+c         endif
+c 120 continue
 c .......................................................................
       return
       end

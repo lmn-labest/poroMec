@@ -1,8 +1,10 @@
-      subroutine datastruct_pm(ix,id,num,nnode,nnodev,numel,nen,ndf,nst
-     .               ,neq,nequ,neqp,stge
-     .               ,unsym,nad,naduu,nadpp,nadpu
-     .               ,i_ia,i_ja,i_au,i_al,i_ad,ija,ja,au
-     .               ,al,ad,ovlp,n_blocks_up,block_pu ,block_pu_sym)
+      subroutine datastruct_pm(ix   ,id   ,num  ,nnode    ,nnodev
+     1                        ,numel,nen  ,ndf  ,nst
+     2                        ,neq  ,nequ ,neqp ,stge     ,unsym
+     3                        ,nad  ,naduu,nadpp,nadpu    ,nadr
+     4                        ,i_ia ,i_ja      ,i_au      ,i_al ,i_ad
+     5                        ,ija  ,ja        ,au        ,al   ,ad
+     6                        ,ovlp ,n_blocks_up,block_pu ,block_pu_sym)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 26/06/2016                                    * 
@@ -28,6 +30,11 @@ c * neqp  - numero de equacoes de  pressao                             *
 c * stge  - estrutura de dados, 1 = CSR, 2 = ARESTAS, 3 = EBE,         *
 c *                             4 = skyline                            *
 c * unsym - flag para matrizes nao simetricas                          *
+c * nad   - nao definido                                               *
+c * naduu - nao definido                                               *
+c * nadpp - nao definido                                               *
+c * nadpu - nao definido                                               *
+c * nadr  - nao definido                                               *
 c * n_blocks_up = numero de blocos                                     *
 c *               1 - ( [Kuu  Kpp]  )                                  *
 c *               2 - ( [Kuu, Kpp] e [kpu] )                           *
@@ -54,7 +61,15 @@ c *    naduu - numero de coeficientes nao nulos do bloco uu            *
 c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
 c *    nadpu - numero de coeficientes nao nulos do bloco pu            *
 c * block_pu_sym = true | false; block_pu = false                      *                                    *
-c *    nad   - numero de coeficientes nao nulos                        *
+c * nad   - numero de termos nao nulos fora diagonal principal         *
+c * naduu - numero de termos nao nulos fora diagonal principal bloco   *
+c *         kuu                                                        *
+c * nadpp - numero de termos nao nulos fora diagonal principal bloco   *
+c *         kpp                                                        *
+c * nadpu - numero de termos nao nulos fora diagonal principal bloco   *
+c *         kuu                                                        *
+c * nadr  - numero de termos nao nulos na parte retangular             *
+c *         ( MPI em overllaping )                                     *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -80,7 +95,7 @@ c **********************************************************************
       implicit none
       integer ix(nen+1,*),id(ndf,*),num(*),nnode,nnodev
       integer numel,nen,ndf,nst,neq, n_blocks_up
-      integer stge,nad,nnzr,naduu,nadpp,nadpu,nequ,neqp
+      integer stge,nad,nadr,naduu,nadpp,nadpu,nequ,neqp
 c ... ponteiros      
       integer*8 i_ia,i_ja,i_au,i_al,i_ad
       integer*8 i_bd,i_lde
@@ -113,15 +128,17 @@ c        --------------------------
 c
 c ...    estrutura de dados do csr:
 c
-         call csrstruct_pm(id,ix,num,nnode,nnodev
-     .                    ,numel,nen,ndf,neq,nequ,neqp
-     .                    ,i_ia,i_ja,nad,naduu,nadpp,nadpu
-     .                    ,.true.,.false.,.false.,ovlp,ija,ja
-     .                    ,n_blocks_up,block_pu ,block_pu_sym)
+         call csrstruct_pm(id         ,ix       ,num    ,nnode,nnodev
+     1                    ,numel      ,nen      ,ndf
+     2                    ,neq        ,nequ     ,neqp
+     3                    ,i_ia       ,i_ja
+     4                    ,nad        ,naduu    ,nadpp  ,nadpu,nadr
+     5                    ,.true.     ,.false.  ,.false.,ovlp ,ija,ja
+     6                    ,n_blocks_up,block_pu ,block_pu_sym)
 c     
 c ...    matriz de coeficientes:
 c
-         i_al = alloc_8(al,1,nad+nadpu)
+         i_al = alloc_8(al,1,nad+nadpu+nadr)
          i_au = i_al
          if(unsym) i_au = alloc_8(au,1,nad+nadpu) 
          i_ad = alloc_8(ad,1,neq)         
@@ -233,13 +250,13 @@ c
 c ... 
         if(unsym) then
           call csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i_ia,i_ja
-     .                  ,nad,nnzr,.true.,.true.,.true.,ovlp,ija,ja)
+     .                  ,nad,nadr,.true.,.true.,.true.,ovlp,ija,ja)
 c .....................................................................
 c
 c ...
         else
           call csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i_ia,i_ja
-     .                  ,nad,nnzr ,.false.,.true.,.true.,ovlp,ija,ja)
+     .                  ,nad,nadr ,.false.,.true.,.true.,ovlp,ija,ja)
         endif
 c .....................................................................
 c     
@@ -256,54 +273,59 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine datastruct(ix   ,id  ,num  ,nnode
-     .                     ,numel,nen ,ndf  ,nst
-     .                     ,neq  ,stge,unsym,nad   ,nad1
-     .                     ,i_ia ,i_ja,i_au ,i_al  ,i_ad
-     .                     ,ija  ,ja  
-     .                     ,au   ,al    ,ad
-     .                     ,ovlp)
+     1                     ,numel,nen ,ndf  ,nst
+     2                     ,neq  ,stge,unsym,nad   ,nadr
+     3                     ,i_ia ,i_ja,i_au ,i_al  ,i_ad
+     4                     ,ija  ,ja  
+     5                     ,au   ,al    ,ad
+     6                     ,ovlp)
 c **********************************************************************
-c *                                                                    *
-c *   DATASTRUCT: monta a estrutura de dados para a matriz de          *
-c *               coeficientes do sistema de equacoes de acordo com    *
-c *               o formato especificado.                              *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    ix(nen+1,numel) - conetividades nodais                          *
-c *    id(ndf,nnode)   - numeracao global das equacoes                 *
-c *    num(nnode)      - arranjo auxiliar temporario                   *
-c *    nnode - numero de nos total da particao                         *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    nst   - nen*ndf                                                 *
-c *    neq   - numero de equacoes                                      *
-c *    stge  - estrutura de dados, 1 = CSR, 2 = ARESTAS, 3 = EBE,      *
-c *                                4 = skyline                         *
-c *    unsym - flag para matrizes nao simetricas                       *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    i_ia  - ponteiro para o arranjo ia(neq+1) do CSR (stge = 1)     *
-c *            ponteiro para o arranjo edge(2,nedge)    (stge = 2)     *
-c *            nao definido (stge = 3)                                 *
-c *            i_ja         (stge = 4)                                 *
-c *    i_ja  - ponteiro para o arranjo ja do CSR        (stge = 1)     *
-c *            ponteiro para o arranjo ipedg(nnode+1)   (stge = 2)     *
-c *            nao definido (stge = 3)                                 *
-c *            ponteiro da diagonal  (stge = 4)                        *
-c *    i_au  - ponteiro para o arranjo au(nad)                         *
-c *    i_al  - ponteiro para o arranjo al(nad)                         *
-c *    i_ad  - ponteiro para a diagonal                                *
-c *    nad   - numero de posicoes da matriz de coeficientes            *
-c *    nad1  - numero de posicoes da matriz de coeficientes da parte   *
-c *            retangular                                              *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * DATASTRUCT: monta a estrutura de dados para a matriz de            *
+c *             coeficientes do sistema de equacoes de acordo com      *
+c *             o formato especificado.                                *
+c * ------------------------------------------------------------------ *                                                             *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * id(ndf,nnode)   - numeracao global das equacoes                    *
+c * num(nnode)      - arranjo auxiliar temporario                      *
+c * nnode - numero de nos total da particao                            *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * nst   - nen*ndf                                                    *
+c * neq   - numero de equacoes                                         *
+c * stge  - estrutura de dados, 1 = CSR, 2 = ARESTAS, 3 = EBE,         *
+c *                             4 = skyline                            *
+c * unsym - flag para matrizes nao simetricas                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * i_ia  - ponteiro para o arranjo ia(neq+1) do CSR (stge = 1)        *
+c *         ponteiro para o arranjo edge(2,nedge)    (stge = 2)        *
+c *         nao definido (stge = 3)                                    *
+c *         i_ja         (stge = 4)                                    *
+c * i_ja  - ponteiro para o arranjo ja do CSR        (stge = 1)        *
+c *         ponteiro para o arranjo ipedg(nnode+1)   (stge = 2)        *
+c *         nao definido (stge = 3)                                    *
+c *         ponteiro da diagonal  (stge = 4)                           *
+c * i_au  - ponteiro para o arranjo au(nad)                            *
+c * i_al  - ponteiro para o arranjo al(nad)                            *
+c * i_ad  - ponteiro para a diagonal                                   *
+c * nad   - numero de posicoes da matriz de coeficientes               *
+c * nadr  - numero de posicoes da matriz de coeficientes da parte      *
+c *         retangular                                                 *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       use Malloc
       implicit none
       integer ix(nen+1,*),id(ndf,*),num(*),nnode,numel,nen,ndf,nst,neq
-      integer stge,nad,nad1
+      integer stge,nad,nadr
 c ... ponteiros      
       integer*8 i_ia,i_ja,i_au,i_al,i_ad
       integer*8 i_bd,i_lde
@@ -320,7 +342,7 @@ c ......................................................................
       i_bd    = 1
       i_lde   = 1
       nad     = 0
-      nad1    = 1
+      nadr    = 1
       nedge   = 0
       nste    = 0
       bdfl    = .false.
@@ -335,15 +357,15 @@ c
 c ...    estrutura de dados do csr:
 c
          call csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i_ia,i_ja,nad,
-c     .                 nad1, lower ,  diag , upper,right)
+c     .                 nadr, lower ,  diag , upper,right)
 c ... matvec novo:
-     .                  nad1,.true.,.false.,.false.,ovlp,ija,ja)
+     .                  nadr,.true.,.false.,.false.,ovlp,ija,ja)
 c ... matvec antigo:
-c     .                  nad1,.false.,.false.,.true.,.false.)
+c     .                  nadr,.false.,.false.,.true.,.false.)
 c     
 c ...    matriz de coeficientes:
 c
-         i_al = alloc_8(al,1,nad+nad1)
+         i_al = alloc_8(al,1,nad+nadr)
          i_au = i_al
          if(unsym) i_au = alloc_8(au,1,nad) 
          i_ad = alloc_8(ad,1,neq)         
@@ -454,13 +476,13 @@ c
 c ... 
         if(unsym) then
           call csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i_ia,i_ja
-     .                  ,nad,nad1,.true.,.true.,.true.,ovlp,ija,ja)
+     .                  ,nad,nadr,.true.,.true.,.true.,ovlp,ija,ja)
 c .....................................................................
 c
 c ...
         else
           call csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i_ia,i_ja
-     .                  ,nad,nad1 ,.false.,.true.,.true.,ovlp,ija,ja)
+     .                  ,nad,nadr ,.false.,.true.,.true.,ovlp,ija,ja)
         endif
 c .....................................................................
 c     

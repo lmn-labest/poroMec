@@ -34,7 +34,7 @@ c *      i_dspl    - ponteiro para o arranjo dspl(nprcs)               *
 c *      ovlp      - flag para o metodo utilizado, ovlp ou novlp       *
 c *      nno_pload - numero de nos com forcas externas                 *
 c *      neq_dot   - numero de eqs no produto interno                  *
-c *      nad1      -  numero de coeficientes da matriz overlaing       *
+c *      nadr      -  numero de coeficientes da matriz overlaing       *
 c *                                                                    *
 c **********************************************************************
 c ... nos
@@ -70,7 +70,7 @@ c ... equacoes
 c .....................................................................
 c
 c ... coeficeintes da matriz a
-      integer nad1t,nad1 
+      integer nad1t,nadr 
 c .....................................................................
 c
       integer mdp,mcw,nprcs,ierr,nviz1,nviz2,min,my_id

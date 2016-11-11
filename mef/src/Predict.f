@@ -114,14 +114,32 @@ c ......................................................................
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine predict_pm(nnode,nnodev,ndf,u,u0)
+      subroutine delta_predict_pm(nnode,ndf,u,u0,fnno)
 c **********************************************************************
-c *                                                                    *
-c *   PREDICT _PM                                                      *
-c *                                                                    *
+c * Data de criacao    : 70/00/0000                                    *
+c * Data de modificaco : 08/11/2016                                    *
+c * ------------------------------------------------------------------ *
+c * DELTA_PREDIT_PM :  calculo o incremento inicial                    *                                                            *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * nnode - numero total de nos                                        *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * u     - deslocamento e pressoes do tempo n+1                       *
+c * u0    - deslocamento e pressoes do tempo n                         *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * u     - delta de deslocamentos e pressao                           *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * Note que caso os deslocamentos ou pressao forem prescritos         *
+c * com variacao temporal du inicial sera diferente de zero            * 
 c **********************************************************************
       implicit none
-      integer nnode,nnodev,ndf,i,j
+      integer nnode,ndf,i,j,fnno(*)
       real*8 u(ndf,*),u0(ndf,*),b
 c ......................................................................      
 c
@@ -130,28 +148,41 @@ c ...
         do 100 j = 1, ndf - 1
           u(j,i) = u(j,i) - u0(j,i)
   100   continue
+        if(fnno(i) .eq. 1 ) u(ndf,i) = u(ndf,i) - u0(ndf,i)  
   110 continue
 c .....................................................................
-c
-c ...
-      do 120 i = 1, nnodev
-        u(ndf,i) = u(ndf,i) - u0(ndf,i)  
-  120 continue
-c ......................................................................    
       return
       end
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine update_pm(nnode,nnodev,ndf,id,u,x)
+      subroutine delta_update_pm(nnode,ndf,id,du,x,fnno)
 c **********************************************************************
-c *                                                                    *
-c *   UPDATEPM :  atualizacao do graus de liberdade do poro mecanico   *
-c *                                                                    *
+c * Data de criacao    : 70/00/0000                                    *
+c * Data de modificaco : 08/11/2016                                    *
+c * ------------------------------------------------------------------ *
+c * DELTA_UPDATE_PM :  atualizacao os incrementos do graus de liberdade*
+c * do poro                                                            *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * nnode - numero total de nos                                        *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * id    - numeracao nodal das equacoes                               *
+c * du    - incremento deslocamentos e pressoes i                      *
+c * x     - solucao do sistemas de equacoes                            *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c  * du    - incremento deslocamentos e pressoes da iteracao i + 1     *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       integer nnode,nnodev,ndf,k
-      integer id(ndf,*)
-      real*8  u(ndf,*),x(*)
+      integer id(ndf,*),fnno(*)
+      real*8  du(ndf,*),x(*)
 c ......................................................................
 c
 c ... atualizacao dos incrementos dos deslocamentos
@@ -159,17 +190,19 @@ c ... atualizacao dos incrementos dos deslocamentos
         do 100 j = 1, ndf-1
           k = id(j,i)
           if (k .gt. 0) then
-            u(j,i) =  u(j,i) + x(k)
+            du(j,i) =  du(j,i) + x(k)
           endif
   100   continue
   110 continue
 c ......................................................................
 c
 c ... atualizao da deltap
-      do 120 i = 1, nnodev
-        k = id(ndf,i)
-        if (k .gt. 0) then
-          u(ndf,i) = u(ndf,i) + x(k)
+      do 120 i = 1, nnode
+        if(fnno(i) .eq. 1 ) then
+          k = id(ndf,i)
+          if (k .gt. 0) then
+            du(ndf,i) = du(ndf,i) + x(k)
+          endif
         endif
   120 continue
 c ......................................................................

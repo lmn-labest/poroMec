@@ -241,13 +241,13 @@ c *    ia(neq+2:2*neq+2) - apontador dos coeficientes da parte         *
 c *                        retangular da matriz                        *
 c *    ja(nad)    - ja(k) informa a coluna do coeficiente que ocupa    *
 c *                 a posicao k no vetor a                             *
-c *    ja(nad+1:nad+nad1) - colunas da parte retangular da matriz      *
+c *    ja(nad+1:nad+nadr) - colunas da parte retangular da matriz      *
 c *                         em particoes overlapping                   *
 c *    au(nad)      - parte triangular superior da matriz global       *
 c *                 armazenada no formato CSR                          *
 c *    al(nad)      - parte triangular inferior da matriz global       *
 c *                 armazenada no formato CSR                          *
-c *    al(nad+1:nad+nad1) - parte retangular da matriz para particoes  *
+c *    al(nad+1:nad+nadr) - parte retangular da matriz para particoes  *
 c *                         overlapping                                *
 c *    ad(*)      - diagonal da matriz de coeficientes                 *
 c *    b(neq)     - vetor de forcas                                    *
@@ -296,8 +296,8 @@ c
 c ...     Monta a parte retangular da matriz para particoes overlapping:
                if (ovlp) then 
                   do 101 kk = ia(neq+k+1), ia(neq+k+2)-1
-                     if (l.eq.ja(nad+kk)) al(nad+kk) = al(nad+kk)+s(i,j)
-  101             continue
+                    if (l.eq.ja(nad+kk)) al(nad+kk) = al(nad+kk)+s(i,j) 
+  101             continue        
 c ......................................................................         
                endif
   110       continue

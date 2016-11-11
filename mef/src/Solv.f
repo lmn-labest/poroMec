@@ -2015,10 +2015,10 @@ c .....................................................................
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine get_res(u,x,id,nnode,nnodev,ndf)
+      subroutine get_res(u,x,id,fnno,nnode,ndf)
       implicit none
-      integer nnode,nnodev,ndf
-      integer id(ndf,*),i,j,k
+      integer nnode,ndf
+      integer id(ndf,*),fnno(*),i,j,k
       real*8 u(ndf,*),x(*)
 c ... loop nos
       do i = 1, nnode
@@ -2028,14 +2028,11 @@ c ... loop nos
             x(k) = u(j,i)
           endif
         enddo
-      enddo
-c .....................................................................
-c
-c ... loop nos vertices
-      do i = 1, nnodev
-        k    = id(ndf,i)
-        if( k .gt. 0 ) then
-          x(k) = u(ndf,i)
+        if(fnno(i) .eq. 1) then
+          k    = id(ndf,i)
+          if( k .gt. 0 ) then
+            x(k) = u(ndf,i)
+          endif
         endif
       enddo
 c .....................................................................

@@ -1,92 +1,99 @@
       subroutine pform_pm(ix      ,iq         ,ie       ,e
-     .                   ,x       ,id         ,ia       ,ja
-     .                   ,au      ,al         ,ad       ,b
-     .                   ,u       ,dp         ,tx0
-     .                   ,xl      ,ul         ,dpl      ,pl   
-     .                   ,sl      ,ld         ,txnl
-     .                   ,numel   ,nen        ,nenv     ,ndf 
-     .                   ,ndm     ,nst      
-     .                   ,neq     ,nequ       ,neqp 
-     .                   ,nad     ,nadu       ,nadp     ,nadpu
-     .                   ,lhs     ,rhs        ,unsym 
-     .                   ,stge    ,isw        ,ilib     ,nlit
-     .                   ,i_colorg,i_elcolor  ,numcolors,fstress0 
-     .                   ,block_pu,n_blocks_pu)
+     1                   ,x       ,id         ,ia       ,ja
+     2                   ,au      ,al         ,ad       ,b
+     3                   ,u       ,dp         ,tx0
+     4                   ,xl      ,ul         ,dpl      ,pl   
+     5                   ,sl      ,ld         ,txnl
+     6                   ,numel   ,nen        ,nenv     ,ndf 
+     7                   ,ndm     ,nst      
+     8                   ,neq     ,nequ       ,neqp 
+     9                   ,nad     ,nadu       ,nadp     ,nadpu,nadr
+     1                   ,lhs     ,rhs        ,unsym 
+     2                   ,stge    ,isw        ,ilib     ,nlit
+     3                   ,i_colorg,i_elcolor  ,numcolors,fstress0 
+     4                   ,block_pu,n_blocks_pu)
 c **********************************************************************
+c * Data de criacao    : 12/12/2015                                    *
+c * Data de modificaco : 10/11/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * PFORM_PM:                                                          *
+c * ------------------------------------------------------------------ *                                                             *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * iq(7,numel)     - cargas nos elementos                             *
+c * ie(numat)       - tipo de elemento                                 *
+c * e(10,numat)     - constantes fisicas dos materiais                 *
+c * x(ndm,nnode)    - coordenadas nodais                               *
+c * id(ndf,nnode)   - numeracao global das equacoes                    *
+c * ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro         *
+c *             coeficiente nao-nulo da equacao i, no formato CSR      *
+c * ja(nad)   - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor a, no formato CSR (stge = 1)      *
+c *           - ponteiro da diagonal do skyline (stge = 4)             *
+c * ad(neq)   - nao definido                                           *
+c * au(nad)   - nao definido                                           *
+c * al(nad)   - nao definido                                           *
+c * b(neq)    - vetor de forcas nodais equivalentes                    *
+c * u(ndf,nnode) - solucao (com valores prescritos)                    *
+c * dp(nnodev)   - delta p ( p(n  ,0  ) - p(0) )                       *
+c * xl(ndm,nen)  - nao definido                                        *
+c * ul(nst)      - nao definido                                        *
+c * dpl(nst)     - nao definido                                        *
+c * pl(nst)      - nao definido                                        *
+c * sl(nst,nst)  - nao definido                                        *
+c * ld(nst)      - nao definido                                        *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * nenv  - numero de nos de vertice por elemento                      *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * ndm   - dimensao                                                   *
+c * nst   - nen*ndf                                                    *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes em kuu                                  *   
+c * nad   - numero de posicoes no CSR (storage = 1)                    *
+c * nadu  - numero de posicoes no CSR (storage = 1)                    *
+c * nadp  - numero de posicoes no CSR (storage = 1)                    *
+c * nadpu - numero de posicoes no CSR (storage = 1,block_pu = true)    *
+c * nadr  - numero de termos nao nulos na parte retangular             *
+c *         ( MPI em overllaping )                                     *      
+c * lhs   - flag para montagem de ad (letf hand side)                  *
+c * rhs   - flag para correcao de b  (right hand side)                 *
+c * unsym - flag para matrizes nao simetricas                          *
+c * stge  - = 1, armazenamento CSR                                     *
+c *         = 2, armazenamento por arestas                             *
+c *         = 3, armazenamento EBE                                     *
+c *         = 4, armazenamento SKYLINE                                 *
+c *         = 0, nao monta matriz                                      *
+c * isw   - codigo de instrucao para as rotinas de elemento            *
+c * ilib  - determina a biblioteca do elemento                         *
+c *               false- aramzenamento em unico bloco                  *      
+c * block_pu    - true - armazenamento em blocos Kuu,Kpp e kpu         *
+c *               false- aramzenamento em unico bloco                  *      
+c * n_block_pu  - numeros de blocos                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c *  b(neq) - vetor de forcas corrigido     (rhs = true)               *
+c * ad(neq) - coeficientes da diagonal      (lhs = true)               *
+c * au(nad) - parte triangular sup. de A (lhs = true)                  *
+c * al(nad) - parte triangular inf. de A (lhs = true, unsym = true)    *
 c *                                                                    *
-c *   PFORMPMEC:                                                       *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    ix(nen+1,numel) - conetividades nodais                          *
-c *    iq(7,numel)     - cargas nos elementos                          *
-c *    ie(numat)       - tipo de elemento                              *
-c *    e(10,numat)     - constantes fisicas dos materiais              *
-c *    x(ndm,nnode)    - coordenadas nodais                            *
-c *    id(ndf,nnode)   - numeracao global das equacoes                 *
-c *    ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro      *
-c *                coeficiente nao-nulo da equacao i, no formato CSR   *
-c *    ja(nad)   - ja(k) informa a coluna do coeficiente que ocupa     *
-c *                a posicao k no vetor a, no formato CSR (stge = 1)   *
-c *              - ponteiro da diagonal do skyline (stge = 4)          *
-c *    ad(neq)   - nao definido                                        *
-c *    au(nad)   - nao definido                                        *
-c *    al(nad)   - nao definido                                        *
-c *    b(neq)    - vetor de forcas nodais equivalentes                 *
-c *    u(ndf,nnode) - solucao (com valores prescritos)                 *
-c *    dp(nnodev)   - delta p ( p(n  ,0  ) - p(0) )                    *
-c *    xl(ndm,nen)  - nao definido                                     *
-c *    ul(nst)      - nao definido                                     *
-c *    dpl(nst)     - nao definido                                     *
-c *    pl(nst)      - nao definido                                     *
-c *    sl(nst,nst)  - nao definido                                     *
-c *    ld(nst)      - nao definido                                     *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
-c *    nenv  - numero de nos de vertice por elemento                   *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    ndm   - dimensao                                                *
-c *    nst   - nen*ndf                                                 *
-c *    neq   - numero de equacoes                                      *
-c *    nequ  - numero de equacoes em kuu                               *   
-c *    nad   - numero de posicoes no CSR (storage = 1)                 *
-c *    nadu  - numero de posicoes no CSR (storage = 1)                 *
-c *    nadp  - numero de posicoes no CSR (storage = 1)                 *
-c *    nadpu - numero de posicoes no CSR (storage = 1,block_pu = true) *      
-c *    lhs   - flag para montagem de ad (letf hand side)               *
-c *    rhs   - flag para correcao de b  (right hand side)              *
-c *    unsym - flag para matrizes nao simetricas                       *
-c *    stge  - = 1, armazenamento CSR                                  *
-c *            = 2, armazenamento por arestas                          *
-c *            = 3, armazenamento EBE                                  *
-c *            = 4, armazenamento SKYLINE                              *
-c *            = 0, nao monta matriz                                   *
-c *    isw   - codigo de instrucao para as rotinas de elemento         *
-c *    ilib  - determina a biblioteca do elemento                      *
-c *                  false- aramzenamento em unico bloco         'dd   *      
-c *    block_pu    - true - armazenamento em blocos Kuu,Kpp e kpu      *
-c *                  false- aramzenamento em unico bloco               *      
-c *    n_block_pu  - numeros de blocos                                 *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *     b(neq) - vetor de forcas corrigido     (rhs = true)            *
-c *    ad(neq) - coeficientes da diagonal      (lhs = true)            *
-c *    au(nad) - parte triangular sup. de A (lhs = true)               *
-c *    al(nad) - parte triangular inf. de A (lhs = true, unsym = true) *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       include 'openmp.fi'
       include 'omp_lib.h'
       include 'transiente.fi'
       include 'termprop.fi'
-      integer numel,nen,nenv,ndf,ndm,nst,nad,nadu,nadp,nadpu
+      integer numel,nen,nenv,ndf,ndm,nst,nad,nadu,nadp,nadpu,nadr
       integer stge,isw,numat,nlit
       integer neq,nequ,neqp,n_blocks_pu
       integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
       integer ia(*),ja(*)
-      integer iel,ma,nel,no,i,j,k,kk,nad1,ilib
+      integer iel,ma,nel,no,i,j,k,kk,ilib
       integer i_colorg(2,*),i_elcolor(*),numcolors
       integer ic,jc
       real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
@@ -100,7 +107,7 @@ c ... Zera a matriz de coeficientes:
 c
       if(lhs) then
         call azero(au,nad)
-        call azero(al,nad+nadpu)
+        call azero(al,nad+nadpu+nadr)
         call azero(ad,neq)      
       endif
 c ..................................................................... 
@@ -251,11 +258,11 @@ c
 c ...... Chama biblioteca de elementos:
           call elmlib_pm(el,iq(1,nel),xl ,ul,dpl  ,pl ,sl ,txnl
      .                  ,dt,ndm     ,nst ,nel     ,iel,isw
-     .                  ,ma,nlit    ,ilib,block_pu)
+     .                  ,ma,nlit    ,ilib,block_pu)        
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-          call assbly_pm(sl      ,pl         ,ld
+          call assbly_pm(sl      ,pl      ,ld
      .               ,ia      ,ja         ,au
      .               ,al      ,ad         ,b    ,nst
      .               ,neq     ,nequ       ,neqp
@@ -480,12 +487,12 @@ c **********************************************************************
       subroutine delta_porosity(ix    ,x    ,e   ,ie
      1                         ,ic    ,xl   ,ul  ,dpl
      2                         ,pl    ,u    ,dp  ,dporosity
-     3                         ,nnodev,numel,nen ,nenv
+     3                         ,nnode ,numel,nen ,nenv
      4                         ,ndm   ,ndf  ,nst   
      5                         ,isw   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 10/11/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * DELTA_PORISITY: calculo da porosidade                              *                                                   *
 c * ------------------------------------------------------------------ * 
@@ -528,12 +535,11 @@ c * Calcula as tensoes apenas nos vertices                             *
 c **********************************************************************
       use Malloc
       implicit none
-c     include 'mpif.h'
       include 'parallel.fi'
       include 'termprop.fi'
-      integer nnodev,numel,nen,nenv,ndf,nst,ndm,ntn
+      integer nnode,numel,nen,nenv,ndf,nst,ndm,ntn
 c ......................................................................      
-      integer ix(nen+1,*),ie(*),ic(nnodev)
+      integer ix(nen+1,*),ie(*),ic(nnode)
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw
       real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv)
@@ -546,7 +552,7 @@ c ...
 c ......................................................................
 c
 c ...
-      do 30 i = 1, nnodev
+      do 30 i = 1, nnode
         ic(i)        = 0
         dporosity(i) = 0.d0
    30 continue
@@ -561,7 +567,7 @@ c ...
   300   continue
 c .......................................................................
 c
-c ... loop nos arranjos locais ( apenas nos de vertices)
+c ... loop nos arranjos locais 
         do 400 i = 1, nen
           no = ix(i,nel)
 c ... loop nos deslocamentos
@@ -602,7 +608,7 @@ c ...... media do vetor global
         do 800 i = 1, nenv
            no = ix(i,nel)
            if (no .le. 0) go to 800
-           ic(no) = ic(no) + 1
+           ic(no)        = ic(no) + 1
            dporosity(no) = dporosity(no) + pl(i)
   800   continue
   900 continue
@@ -611,7 +617,7 @@ c
 c ... Comunica vetor de contagem de elementos por no'
 c     if (novlp) call allgatheri(ic,i_xfi)
 c .......................................................................
-      do 1000 i = 1, nnodev
+      do 1000 i = 1, nnode
         dporosity(i) = dporosity(i)/ic(i)
  1000 continue
 c ......................................................................
@@ -656,7 +662,7 @@ c      include 'openmp.fi'
       integer numel,nen,nenv,ndf,ndm,nst,nad,nadpu,stge,isw,numat,nlit
       integer neq,nequ
       integer ix(nen+1,*),iq(7,*),ie(*)
-      integer iel,ma,nel,no,i,j,k,kk,nad1,ilib
+      integer iel,ma,nel,no,i,j,k,kk,nadr,ilib
       real*8  e(prop,*),x(ndm,*)
       real*8  xl(ndm,nenv),el(prop),dtc,dtc_min
 c ... 
@@ -712,19 +718,19 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine pform_mec(ix      ,iq         ,ie       ,e
-     .                    ,x       ,id         ,ia       ,ja
-     .                    ,au      ,al         ,ad       ,b
-     .                    ,u       ,tx0
-     .                    ,xl      ,ul         ,pl   
-     .                    ,sl      ,ld         ,txnl
-     .                    ,numel   ,nen        ,nenv     ,ndf 
-     .                    ,ndm     ,nst        ,neq      ,nad 
-     .                    ,lhs     ,rhs        ,unsym 
-     .                    ,stge    ,isw        ,ilib     ,nlit
-     .                    ,i_colorg,i_elcolor  ,numcolors,fstress0)
+     1                    ,x       ,id         ,ia       ,ja
+     2                    ,au      ,al         ,ad       ,b
+     3                    ,u       ,tx0
+     4                    ,xl      ,ul         ,pl   
+     5                    ,sl      ,ld         ,txnl
+     6                    ,numel   ,nen        ,nenv     ,ndf 
+     7                    ,ndm     ,nst        ,neq      ,nad  ,nadr 
+     8                    ,lhs     ,rhs        ,unsym 
+     9                    ,stge    ,isw        ,ilib     ,nlit
+     1                    ,i_colorg,i_elcolor  ,numcolors,fstress0)
 c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 10/11/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * PFORM_MEC:                                                         *
 c * ------------------------------------------------------------------ *      
@@ -761,9 +767,8 @@ c * nst   - nen*ndf                                                    *
 c * neq   - numero de equacoes                                         *
 c * nequ  - numero de equacoes em kuu                                  *
 c * nad   - numero de posicoes no CSR (storage = 1)                    *
-c * nadu  - numero de posicoes no CSR (storage = 1)                    *
-c * nadp  - numero de posicoes no CSR (storage = 1)                    *
-c * nadpu - numero de posicoes no CSR (storage = 1,block_pu = true)    *   
+c * nadr  - numero de termos nao nulos na parte retangular             *
+c *         ( MPI em overllaping )                                     *
 c * lhs   - flag para montagem de ad (letf hand side)                  *
 c * rhs   - flag para correcao de b  (right hand side)                 *
 c * unsym - flag para matrizes nao simetricas                          *
@@ -790,12 +795,12 @@ c **********************************************************************
       include 'omp_lib.h'
       include 'transiente.fi'
       include 'termprop.fi'
-      integer numel,nen,nenv,ndf,ndm,nst,nad,nadu,nadp,nadpu
+      integer numel,nen,nenv,ndf,ndm,nst,nad,nadr
       integer stge,isw,numat,nlit
-      integer neq,nequ,neqp,n_blocks_pu
+      integer neq
       integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
       integer ia(*),ja(*)
-      integer iel,ma,nel,no,i,j,k,kk,nad1,ilib
+      integer iel,ma,nel,no,i,j,k,kk,ilib
       integer i_colorg(2,*),i_elcolor(*),numcolors
       integer ic,jc
       real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
@@ -809,7 +814,7 @@ c ... Zera a matriz de coeficientes:
 c
       if(lhs) then
         call azero(au,nad)
-        call azero(al,nad)
+        call azero(al,nad+nadr)
         call azero(ad,neq)      
       endif
 c ..................................................................... 
@@ -967,11 +972,11 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine tform_mec(ix    ,x    ,e   ,ie
-     .                    ,ic    ,xl   ,ul  
-     .                    ,pl    ,u    ,tx0 ,t   
-     .                    ,nnodev,numel,nenv,nen
-     .                    ,ndm   ,ndf  ,nst ,ntn  
-     .                    ,isw   ,ilib)
+     1                    ,ic    ,xl   ,ul  
+     2                    ,pl    ,u    ,tx0 ,t   
+     3                    ,nnodev,numel,nenv,nen
+     4                    ,ndm   ,ndf  ,nst ,ntn  
+     5                    ,isw   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
 c * Data de modificaco : 31/10/2016                                    * 
@@ -1196,7 +1201,7 @@ c     include 'termprop.fi'
 c     integer numel,nen,ndf,ndm,nst,neq,nad,stge,isw,numat,nlit,npi
 c     integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(ndf,nen)
 c     integer ia(*),ja(*)
-c     integer iel,ma,nel,no,i,j,k,nad1,ilib
+c     integer iel,ma,nel,no,i,j,k,nadr,ilib
 c     integer i_colorg(2,*),i_elcolor(*),numcolors
 c     integer ic,jc
 c     real*8  e(prop,*),x(ndm,*),ad(neq),au(*),al(*),b(neq),du(*)
@@ -1207,16 +1212,16 @@ c     real*8  tx(npi,*),eps(npi,*),u0(ndf*nen,*),txp(npi,*)
 c     logical lhs,rhs,unsym,flaghidr
 c ----------------------------------------------------------------------
 c ... Verifica se a matriz eh retangular e calc. o no. de coeficientes:
-c     nad1 = 0
-c     if(stge .eq. 1) nad1 = ja(nad+1)
-c     if(nad1 .gt. 0) nad1 = ia(2*neq+2)-1
+c     nadr = 0
+c     if(stge .eq. 1) nadr = ja(nad+1)
+c     if(nadr .gt. 0) nadr = ia(2*neq+2)-1
 c ......................................................................      
 c
 c.... Zera a matriz de coeficientes:
 c
 c     if(lhs) then
 c        call azero(au,nad)
-c        call azero(al,nad+nad1)
+c        call azero(al,nad+nadr)
 c        call azero(ad,neq)      
 c     endif
 c ----------------------------------------------------------------------

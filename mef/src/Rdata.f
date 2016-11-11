@@ -1,24 +1,24 @@
-      subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat   
+      subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat
      1                  ,nen     ,nenv
      2                  ,ndf     ,ndm       ,nst    ,i_ix 
      3                  ,i_ie    ,i_inum    ,i_e    ,i_x 
      4                  ,i_id    ,i_nload   ,i_eload,i_f
      5                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
-     6                  ,i_dporo       
+     6                  ,i_fnno
      7                  ,fstress0,fporomec  ,fmec   ,print_quad
      8                  ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 25/10/2016                                    *
-c * ------------------------------------------------------------------ *    
+c * Data de modificaco : 08/11/2016                                    *
+c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * nin     - arquivo de entrada                                       *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * nnode - numero total de nos                                        *
 c * nnodev- numero de nos dos vertices                                 *
 c * numel - numero de elementos                                        *
@@ -41,22 +41,22 @@ c * i_u     - ponteiro para o arranjo u (poro_mecanico)                *
 c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
 c * i_tx0   - ponteiro para o arranjo tx(poro_mecanico)                *
 c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
-c * i_dporo - ponteiro para o arranjo deltaPorosity(poro_mecanico)     *
+c * i_fnno     - ponteiro para o arranjo fnno                          *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *
-c * print_quad - escrita da malha com elmentos quadraticos(true|false) *              
-c * ------------------------------------------------------------------ * 
+c * print_quad - escrita da malha com elmentos quadraticos(true|false) *
+c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * ix    - conetividades nodais dos elementos                         *
 c * id    - restricoes nodais                                          *
 c * ie    - tipo de elemento                                           *
 c * e     - constantes fisicas                                         *
 c * x     - coordenadas nodais                                         *
 c * f     - forcas e prescricoes nodais                                *
-c * u0    - condicoes de contorno e inicial                            * 
+c * u0    - condicoes de contorno e inicial                            *
 c * tx0   - tensoes inicias                                            *
 c * dp    - delta P ( apenas alocado)                                  *
-c * dporo - delta Porosity ( apenas alocado)                           *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
 c * nload(i,j) - numero identificador da carga na direcao i do no j    *
 c * load(1,n)  - tipo da carga n                                       *
 c * load(2,n)  - numero de termos da carga n                           *
@@ -64,21 +64,21 @@ c * fload(i,j,k) - coeficiente i do termo j da carga k                 *
 c **********************************************************************
       use Malloc
       implicit none
-c ......................................................................      
+c ......................................................................
       include 'elementos.fi'
       include 'load.fi'
       include 'string.fi'
       include 'parallel.fi'
       include 'termprop.fi'
-c ......................................................................      
+c ......................................................................
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst,ntn
       integer maxgrade
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
-      integer*8 i_u,i_u0,i_tx0,i_dp,i_dporo
+      integer*8 i_u,i_u0,i_tx0,i_dp
       integer*8 i_ix,i_id,i_ie
-      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_aux
-c ......................................................................      
+      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
+c ......................................................................
       integer nin
       integer j,nmc,totnel,nmacros,itmp
       character*15 macro(36),rc
@@ -179,7 +179,7 @@ c ......................................................................
 c   
 c     Alocacao de arranjos na memoria: poromecanico
 c     ---------------------------------------------------------------
-c     | ix | ie | e | x | dp | eload |
+c     | ix | ie | e | x | eload |
 c     ---------------------------------------------------------------
 c
       if(fporomec) then
@@ -187,22 +187,18 @@ c
         i_ie    = alloc_4('ie      ',    1,numat)
         i_eload = alloc_4('eload   ',    7,numel)
         i_e     = alloc_8('e       ', prop,numat)
-        i_dp    = alloc_8('dpres   ',    1,nnodev)
-        i_dporo = alloc_8('dporo   ',    1,nnodev)
         i_x     = alloc_8('x       ',  ndm,nnodev)
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
         call azero(ia(i_e),numat*10)
         call mzero(ia(i_eload),numel*7)
-        call azero(ia(i_dp)   ,nnodev)
-        call azero(ia(i_dporo),nnodev)
         call azero(ia(i_x),nnodev*ndm)        
       endif 
 c ......................................................................
       totnel  = 0            
       nmacros = 0
-c ......................................................................   
-c ...                                                                   
+c ......................................................................
+c ...
 c     Alocacao de arranjos na memoria:
 c     ---------------------------------------------------------------
 c     | id  nload | inum | e | x | f | u | u0 | tx0 |
@@ -223,6 +219,12 @@ c     ---------------------------------------------------------------
         call azero(ia(i_u)    ,nnode*ndf)
         call azero(ia(i_u0)   ,nnode*ndf)
         call azero(ia(i_tx0)  ,nnode*ntn)
+c ...
+        if(fporomec) then
+          i_dp    = alloc_8('dpres   ',    1,nnode)
+          call azero(ia(i_dp)   ,nnode)
+        endif    
+c .....................................................................
       endif
 c .....................................................................
 c
@@ -235,13 +237,13 @@ c ...
   200 continue
       go to 100
   300 continue
-c ......................................................................      
+c ......................................................................
 c
 c ... Controle de Macros (PRE-processador):
 c
       nmacros = nmacros + 1
       write(macros(nmacros),'(15a)') rc
-c ......................................................................      
+c ......................................................................
       go to (400, 450, 500,    ! materials ,bar2         ,tria3
      .       550, 600, 650,    !quad4      ,tetra4       ,hexa8
      .       700, 750, 800,    !hexa20     ,tetra10      ,
@@ -261,7 +263,7 @@ c
   400 continue
       call mate(ia(i_ie),ia(i_e),numat,nin)
       go to 100
-c ......................................................................      
+c ......................................................................
 c
 c ... Conetividades bar2:    
 c
@@ -271,7 +273,7 @@ c
       nbar2(2) = totnel+1
       totnel   = totnel + nbar2(1)      
       go to 100
-c ......................................................................      
+c ......................................................................
 c
 c ... Conetividades tria3:          
 c
@@ -287,13 +289,13 @@ c
 c ... transforma os elementos lineares em quadraticos (3 nos)
 c     if( nen .eq. 3) then
 c     endif
-c ...                                                                   
+c ...
 c .....................................................................
       if(my_id .eq. 0) print*,'load.'
       go to 50
-c ......................................................................      
+c ......................................................................
 c
-c ... Conetividades quad4:          
+c ... Conetividades quad4:
 c
   550 continue
       if(my_id .eq. 0) print*,'load quad4 ...'
@@ -310,9 +312,9 @@ c     endif
 c .....................................................................
       if(my_id .eq. 0) print*,'load.'
       go to 50  
-c ......................................................................      
+c ......................................................................
 c
-c ... Conetividades tetra4:          
+c ... Conetividades tetra4:
 c
   600 continue
       if(my_id .eq. 0) print*,'load tetra4 ...'
@@ -357,9 +359,9 @@ c .....................................................................
 c .....................................................................
       if(my_id .eq. 0) print*,'load.'
       go to 50
-c ......................................................................      
+c ......................................................................
 c
-c ... Conetividades hexa8:          
+c ... Conetividades hexa8:
 c
   650 continue
       if(my_id .eq. 0) print*,'load hexa8 ...'
@@ -378,7 +380,7 @@ c ... transforma os elementos lineares em quadraticos (20 nos)
           itmp = nen*(ndf-1) + nenv   
         endif
         nst   = max(nst,itmp) 
-        el_quad   = .true.
+        el_quad      = .true.
         mk_el_quad   = .true.
 c .....................................................................
 c
@@ -404,9 +406,9 @@ c .....................................................................
 c .....................................................................
       if(my_id .eq. 0) print*,'load.'
       go to 50
-c ......................................................................      
+c ......................................................................
 c
-c ... Conetividades hexa20:          
+c ... Conetividades hexa20:
 c
   700 continue
       if(my_id .eq. 0) print*,'load hexa20 ...'
@@ -414,7 +416,11 @@ c
       el_quad    = .true.
       nhexa20(1) = 0
       nenv       = 8
-      itmp       = 20*ndf
+      if(fmec) then
+        itmp =  nen*ndf 
+      else if(fporomec) then
+        itmp = nen*(ndf-1) + nenv   
+      endif
       nst        = max(nst,itmp) 
       call elconn(ia(i_ix),nen+1,20,nhexa20(1),numel,nin)
       nhexa20(2)  = totnel+1
@@ -422,9 +428,9 @@ c
 c ......................................................................
       if(my_id .eq. 0) print*,'load.'
       go to 50
-c ......................................................................      
+c ......................................................................
 c
-c ... Conetividades tetra10:                                                           
+c ... Conetividades tetra10:
 c
   750 continue
       if(my_id .eq. 0) print*,'load tetra10 ...'
@@ -432,7 +438,11 @@ c
       el_quad     = .true.
       ntetra10(1) = 0
       nenv        = 4
-      itmp        = 10*ndf
+      if(fmec) then
+        itmp =  nen*ndf 
+      else if(fporomec) then
+        itmp = nen*(ndf-1) + nenv   
+      endif
       nst         = max(nst,itmp) 
       call elconn(ia(i_ix),nen+1,10,ntetra10(1),numel,nin)
       ntetra10(2)  = totnel+1
@@ -440,13 +450,13 @@ c
 c ......................................................................
       if(my_id .eq. 0) print*,'load.'
       go to 50
-c ......................................................................         
+c ......................................................................
 c
-c ...                                                                         
+c ...
 c      
   800 continue
-      go to 100                                      
-c ......................................................................    
+      go to 100
+c ......................................................................
 c
 c ... Coordenadas:
 c
@@ -455,7 +465,7 @@ c
       call coord(ia(i_x),nnodev,ndm,nin)
       if(my_id .eq. 0) print*,'load.'
       go to 100
-c ......................................................................      
+c ......................................................................
 c
 c ... constrainpmec - restricoes nodais (deslocamentos + pressao)
 c
@@ -463,8 +473,8 @@ c
       if(my_id .eq. 0) print*,'load constrainpmec ...'
       if(f_read_el) then
         call bound(ia(i_id),nnodev,ndf,nin,1)
-c ...
-        if(el_quad) then
+c ... malha quadratica gerada internamente
+        if(mk_el_quad) then
           call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf-1,ndf,nen)
         endif
 c ......................................................................
@@ -473,7 +483,7 @@ c ......................................................................
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
-c ......................................................................      
+c ......................................................................
 c
 c ... constraindisp - restricoes nodais (deslocamentos)
 c
@@ -481,8 +491,8 @@ c
       if(my_id .eq. 0) print*,'load constraindisp ...'
       if(f_read_el) then
         call bound(ia(i_id),nnodev,ndf,nin,1)
-c ...
-        if(el_quad) then
+c ... malha quadratica gerada internamente
+        if(mk_el_quad) then
           call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf,ndf,nen)
         endif
 c ......................................................................
@@ -491,7 +501,7 @@ c ......................................................................
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
-c ......................................................................      
+c ......................................................................
 c
 c ... nodalforces - forcas nodais:
 c
@@ -499,8 +509,8 @@ c
       if(f_read_el) then
         if(my_id .eq. 0) print*,'load nodalforces ...'
         call forces(ia(i_f),nnodev,ndf,nin)
-c ...
-        if(el_quad) then
+c ... malha quadratica gerada internamente
+        if(mk_el_quad) then
           call mk_forces_quad(ia(i_id),ia(i_f),ia(i_ix),numel,ndf,nen)
         endif
 c ......................................................................
@@ -509,9 +519,9 @@ c ......................................................................
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
-c ......................................................................      
+c ......................................................................
 c
-c ... elmtloads - cargas nos elementos                                                    
+c ... elmtloads - cargas nos elementos
 c
  1050 continue
       if(my_id .eq. 0) print*,'load elmtloads ...'
@@ -522,7 +532,7 @@ c
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
-c ......................................................................      
+c ......................................................................
 c
 c ... nodalloads - nos com cargas variaveis no tempo:
 c
@@ -533,22 +543,22 @@ c
         print*,'MACRO: nodalloads !! elementos nao lidos'
       endif
       goto 100
-c ......................................................................      
+c ......................................................................
 c
-c ...                                                               
+c ...
 c
  1150 continue
       goto 100
 c ......................................................................
 c
-c ...                                                                           
-c      
+c ...
+c
  1200 continue
       go to 100
 c ......................................................................
 c
-c ...                                                                                      
-c      
+c ...
+c
  1250 continue
       go to 100
 c ......................................................................
@@ -562,17 +572,17 @@ c
       goto 100
 c ......................................................................
 c
-c ...                                                                     
+c ...
 c
  1350 continue
       goto 100
 c ......................................................................
 c
-c ...                                     
+c ...
 c
  1400 continue
       goto 100
-c ......................................................................      
+c ......................................................................
 c
 c ... initialdisp - deslocamentos iniciais:
 c
@@ -583,9 +593,9 @@ c     else
 c       print*,'MACRO: initialdisp !! elementos nao lidos'
 c     endif
       go to 100
-c ......................................................................      
+c ......................................................................
 c
-c ... intialpres                             
+c ... intialpres
 c
  1500 continue
       if(my_id .eq. 0) print*,'load intialpres ...'
@@ -595,17 +605,18 @@ c
         print*,'MACRO: initialpres !! elementos nao lidos'
       endif
       if(my_id .eq. 0) print*,'load.'
-      go to 100                                                       
+      go to 100 
 c ......................................................................
 c
-c ...                                                                                       
+c ...
 c      
  1550 continue
       if(my_id .eq. 0) print*,'load initialstress ...'
       if(f_read_el) then
         fstress0 = .true.  
         call init_poro_mec(ia(i_tx0),nnodev,ntn,1,ntn,nin)
-        if(el_quad) then
+c ... malha quadratica gerada internamente
+        if(mk_el_quad) then
           call mk_initial_quad(ia(i_tx0),ia(i_ix),numel,ntn,nen)
         endif
       else
@@ -625,7 +636,7 @@ c
 c ......................................................................
 c
 c ... (insert) Desvia leitura para arquivo auxiliar:
-c      
+c
  1650 continue
       nmacros = nmacros - 1
       naux = nin
@@ -641,7 +652,7 @@ c
 c ......................................................................
 c
 c ... (return) Retorna leitura para arquivo de dados basico:
-c      
+c
  1700 continue
       nmacros = nmacros - 1
       close(nincl)
@@ -649,8 +660,8 @@ c
       go to 100
 c ......................................................................
 c
-c ... tria3ov                               
-c      
+c ... tria3ov
+c
  1750 continue
       if(my_id .eq. 0) print*,'load tria3ov ...'
       ntria3(3) = 0
@@ -658,11 +669,11 @@ c
       ntria3(4) = totnel+1
       totnel    = totnel + ntria3(3)
       if(my_id .eq. 0) print*,'load.'
-      go to 50                  
+      go to 50
 c ......................................................................  
 c
-c ... quad4ov                               
-c      
+c ... quad4ov
+c
  1800 continue
       if(my_id .eq. 0) print*,'load quad4ov ...'
       nquad4(3) = 0
@@ -670,8 +681,8 @@ c
       nquad4(4) = totnel+1
       totnel     = totnel + nquad4(3)
       if(my_id .eq. 0) print*,'load.'
-      go to 50                                   
-c ......................................................................    
+      go to 50
+c ......................................................................
 c
 c ... tetra4ov                              
 c      
@@ -683,7 +694,7 @@ c
       totnel     = totnel + ntetra4(3)
       if(my_id .eq. 0) print*,'load.'
       go to 50                   
-c ......................................................................  
+c ......................................................................
 c
 c ... hexa8ov                              
 c      
@@ -695,7 +706,7 @@ c
       totnel    = totnel + nhexa8(3)
       if(my_id .eq. 0) print*,'load.'
       go to 50                  
-c ...................................................................... 
+c ......................................................................
 c
 c ... tetra10ov                            
 c      
@@ -719,19 +730,19 @@ c
       totnel    = totnel + nhexa20(3)
       if(my_id .eq. 0) print*,'load.'
       go to 50                                
-c ......................................................................   
+c ......................................................................
 c
-c ...                                      
+c ...
 c      
  2050 continue
-      go to 100                  
+      go to 100
 c ...................................................................... 
 c
-c ...                                      
+c ... 
 c      
  2100 continue
       go to 100                  
-c ......................................................................        
+c ......................................................................
 c
 c ... End:
 c
@@ -747,9 +758,22 @@ c
 c
 c ... Inicializa as condicoes de contorno no vetor u:
 c
-      if(ndf .gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
+      if(ndf.gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
       call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
 c .....................................................................
+c
+c ... 
+      i_fnno  = alloc_4('ffno    ',    1,nnode)
+c ... identifica os nos de vertices( Necessario para o mpi)
+      if(mk_el_quad) then
+        call count_node_vertice(ia(i_ix),ia(i_fnno)
+     .                         ,nnodev,nnode,numel,nenv,nen,.false.)
+c ... identifica e conta os nos de vertices( Necessario para o mpi)
+      else
+        call count_node_vertice(ia(i_ix),ia(i_fnno)
+     .                         ,nnodev,nnode,numel,nenv,nen,.true.)   
+      endif
+c ......................................................................
 c
 c ... escrita de todes os nohs
       if(el_quad) then
@@ -773,13 +797,15 @@ c ...
             i_u     =  locate('u       ')
             i_u0    =  locate('u0      ')
             i_tx0   =  locate('tx0     ')
+            if(fporomec) then
+              i_dp    = alloc_8('dpres   ',    1,nnode)
+            endif
 c ...
             i_ix    = locate('ix      ')
             i_ie    = locate('ie      ')
-            i_e     = locate('e       ')
-            i_dp    = locate('dpres   ')
-            i_dporo = locate('dporo   ')
             i_eload = locate('eload   ')
+            i_e     = locate('e       ')
+            i_fnno  = locate('ffno    ')
 c .....................................................................
 c
 c ...
@@ -804,7 +830,7 @@ c ......................................................................
       endif  
 c ......................................................................
       return
-c ......................................................................      
+c ......................................................................
       end
       subroutine elconn(ix,nen1,nen,nel,numel,nin)
 c **********************************************************************
@@ -884,7 +910,7 @@ c         call readmacro(nin,.true.)
 c         write(string,'(12a)') (word(j),j=1,12)   
 c  100 continue
 c      return
-c ......................................................................                        
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura das coordenadas !'
       stop             
@@ -904,15 +930,15 @@ c **********************************************************************
 c ......................................................................
       call readmacro(nin,.true.)
       write(string,'(12a)') (word(j),j=1,12)
-c .....................................................         
+c .....................................................
       do 110 while(string .ne. 'end')
          read(string,*,err = 200,end = 200) ma
          if(ma .lt. 1 .or. ma .gt. numat) goto 200
-c .....................................................            
+c .....................................................
          call readmacro(nin,.false.)
          write(string,'(12a)') (word(m),m=1,12)
          read(string,*,err = 200,end = 200) ie(ma)
-c .....................................................     
+c .....................................................
          call readmacro(nin,.false.)
          write(string,'(30a)') (word(m),m=1,30)
          i = 0
@@ -927,13 +953,13 @@ c ... formato necessário ao funcionamento em linux:
             if(i .gt. prop) goto 200
             read(string,*,err = 200,end = 200) e(i,ma)
             call readmacro(nin,.false.)
-            write(string,'(30a)') (word(m),m=1,30)               
+            write(string,'(30a)') (word(m),m=1,30)
   100    continue
          call readmacro(nin,.true.)
          write(string,'(12a)') (word(j),j=1,12)
   110 continue
       return
-c ......................................................................                        
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura dos materiais !'
       stop             
@@ -964,7 +990,7 @@ c ......................................................................
          write(string,'(12a)') (word(i),i=1,12)
   100 continue
       return
-c ......................................................................      
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura das forcas nodais !'
       stop             
@@ -995,7 +1021,7 @@ c ......................................................................
          write(string,'(12a)') (word(i),i=1,12)
   100 continue
       return
-c ......................................................................      
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura das forcas nodais !'
       stop             
@@ -1013,11 +1039,11 @@ c **********************************************************************
 c ......................................................................
       call readmacro(nin,.true.)
       write(string,'(12a)') (word(j),j=1,12)
-c .....................................................         
+c .....................................................
       do 110 while(string .ne. 'end')
          read(string,*,err = 200,end = 200) j
          if(j .lt. 1 .or. j .gt. nnode) goto 200
-c .....................................................            
+c .....................................................
          call readmacro(nin,.false.)
          write(string,'(30a)') (word(k),k=1,30)
          i = 0
@@ -1032,13 +1058,13 @@ c ... formato necessário ao funcionamento em linux:
             if(i .gt. ndf) goto 200
             read(string,*,err = 200,end = 200) id(i,j)
             call readmacro(nin,.false.)
-            write(string,'(30a)') (word(k),k=1,30)               
+            write(string,'(30a)') (word(k),k=1,30)
   100    continue
          call readmacro(nin,.true.)
          write(string,'(12a)') (word(j),j=1,12)
   110 continue
       return
-c ......................................................................                        
+c ......................................................................
   200 continue
       if    (code .eq. 1) then
          print*,'*** Erro na leitura das restricoes !'
@@ -1047,8 +1073,8 @@ c ......................................................................
       elseif(code .eq. 3) then
          print*,'*** Erro na leitura das cargas nos elementos !'
       endif
-      stop             
-      end            
+      stop
+      end
       subroutine bound0(id,nnode,ndf,nin)
 c **********************************************************************
 c *                                                                    *
@@ -1074,7 +1100,7 @@ c ......................................................................
          write(string,'(12a)') (word(i),i=1,12)
   100 continue
       return
-c ......................................................................      
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura das restricoes nodais !'
       stop             
@@ -1114,7 +1140,7 @@ c ...    tipo da carga:
          read(string,*,err = 200,end = 200) load(1,i)
          load(2,i) = 1
 c .....................................................................
-c   
+c
 c ...   
          if     (load(1,i) .eq. 1) then
 c ...       valor da carga:            
@@ -1122,7 +1148,7 @@ c ...       valor da carga:
             write(string,'(30a)') (word(j),j=1,30)
             read(string,*,err = 200,end = 200) fload(1,1,i)
 c .....................................................................
-c      
+c
 c ...       u(t) = a.t + b 
          elseif (load(1,i) .eq. 2) then
 c ...       valor de b:            
@@ -1134,7 +1160,7 @@ c ...       valor de a:
             write(string,'(30a)') (word(j),j=1,30)
             read(string,*,err = 200,end = 200) fload(2,1,i)
 c .....................................................................
-c      
+c
 c ...       -kdu/dx = -H.(u-uext) 
          elseif (load(1,i) .eq. 3) then
 c ...       valor de uext:            
@@ -1146,7 +1172,7 @@ c ...       valor de H:
             write(string,'(30a)') (word(j),j=1,30)
             read(string,*,err = 200,end = 200) fload(2,1,i)
 c .....................................................................
-c      
+c
          elseif (load(1,i) .eq. 6) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
@@ -1164,7 +1190,7 @@ c ...       numero de parcelas:
                read(string,*,err = 200,end = 200) fload(3,k,i)
             enddo            
 c .....................................................................
-c      
+c
 c ...       kdu/dx = emiss * const(Stef-Boltz) *(u4-uext4)+H(uext-u)
          elseif (load(1,i) .eq. 7) then
 c ...       Emissividade:            
@@ -1194,8 +1220,8 @@ c ...       valor de uext:
                read(string,*,err = 200,end = 200) fload(k,3,i)
             enddo   
 c .....................................................................
-c   
-c ...   
+c
+c ...
          elseif (load(1,i) .eq. 8) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
@@ -1210,7 +1236,7 @@ c ...       numero de parcelas:
                read(string,*,err = 200,end = 200) fload(k,2,i)
             enddo     
 c .....................................................................
-c      
+c
 c ... forca distribuida constante no contorno
          elseif (load(1,i) .eq. 40) then
 c ...       numero de parcelas:            
@@ -1227,7 +1253,7 @@ c ...       numero de parcelas:
          write(string,'(12a)') (word(j),j=1,12)
   100 continue
       return
-c ......................................................................      
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura das cargas !'
       stop
@@ -1284,7 +1310,7 @@ c ...       valor da propriedade no ponto j:
       write(string,'(12a)') (word(j),j=1,12)
   100 continue
       return
-c ......................................................................      
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura das propriedades variaveis !'
       stop
@@ -1307,7 +1333,7 @@ c ......................................................................
             endif
   100    continue
   200 continue
-c ......................................................................  
+c ......................................................................
       return
       end      
       subroutine initc(nnode,ndf,id,u0,u)
@@ -1328,7 +1354,7 @@ c ......................................................................
             endif
   100    continue
   200 continue
-c ......................................................................  
+c ......................................................................
       return
       end   
       subroutine parameters(nnode,numel,numat,nen,ndf,ndm,nin)
@@ -1347,15 +1373,15 @@ c **********************************************************************
       data macro/'nnode ','numel ','numat '
      .          ,'maxno ','ndf   ','dim   '/
       data nmc /6/
-c ......................................................................  
-      flag(1:nmc) = .false.          
+c ......................................................................
+      flag(1:nmc) = .false.
       n   = 0
       call readmacro(nin,.true.)
-      write(string,'(6a)') (word(j),j=1,6)                        
+      write(string,'(6a)') (word(j),j=1,6)
       do while (strl .ne. 0)
          if     (string .eq. 'nnode') then
             call readmacro(nin,.false.)
-            write(string,'(12a)') (word(j),j=1,12)            
+            write(string,'(12a)') (word(j),j=1,12)
             read(string,*,err = 100,end = 100) nnode
             flag(1) = .true.
             n = n + 1
@@ -1373,29 +1399,29 @@ c ......................................................................
             n = n + 1
          elseif (string .eq. 'maxno') then
             call readmacro(nin,.false.)
-            write(string,'(12a)') (word(j),j=1,12)           
+            write(string,'(12a)') (word(j),j=1,12)
             read(string,*,err = 100,end = 100) nen
             flag(4) = .true.
             n = n + 1
          elseif (string .eq. 'ndf') then
             call readmacro(nin,.false.)
-            write(string,'(12a)') (word(j),j=1,12)            
+            write(string,'(12a)') (word(j),j=1,12)
             read(string,*,err = 100,end = 100) ndf
             flag(5) = .true.
             n = n + 1
          elseif (string .eq. 'dim') then
             call readmacro(nin,.false.)
-            write(string,'(12a)') (word(j),j=1,12)         
+            write(string,'(12a)') (word(j),j=1,12)
             read(string,*,err = 100,end = 100) ndm
             flag(6) = .true.
             n = n + 1
          endif
          call readmacro(nin,.false.)
-         write(string,'(6a)') (word(j),j=1,6)                 
+         write(string,'(6a)') (word(j),j=1,6)
       end do
       if(n .lt. nmc) goto 110
       return
-c ......................................................................                        
+c ......................................................................
   100 continue
       print*,'*** Erro na leitura das variaveis de controle !'
       stop       
@@ -1405,7 +1431,7 @@ c ......................................................................
           if(flag(i) .eqv. .false.) print *,"falta a macro ",macro(i)
         enddo
       stop       
-c ......................................................................                  
+c ......................................................................
       end
       subroutine readmacro(nin,newline)
 c **********************************************************************
@@ -1431,25 +1457,25 @@ c ......................................................................
          line_col = 1
          read(nin,'(500a1)',err = 200,end = 200) (line(j),j=1,maxstrl)
       endif
-c ......................................................................      
+c ......................................................................
       do j = 1, maxstrl
          word(j) = ' '
       enddo
       strl = 0
       if(line_col .gt. maxstrl) return
-c ......................................................................      
+c ......................................................................
       do while (line(line_col) .eq. ' ')
          line_col = line_col + 1
          if (line_col .gt. maxstrl) return         
       end do
-c ......................................................................      
+c ......................................................................
       do while ( (line(line_col) .ne. ' ') .and.
      .           (line(line_col) .ne. CHAR(13)) )
          strl = strl + 1
          line_col = line_col + 1
          if (line_col .gt. maxstrl) goto 100
       end do
-c ......................................................................      
+c ......................................................................
   100 continue      
       k = line_col-strl
       do j = 1, strl
@@ -1457,19 +1483,19 @@ c ......................................................................
          k = k + 1
       end do      
       return
-c ......................................................................      
+c ......................................................................
   200 continue
       print*,'*** Erro na leitura do arquivo de dados !'
       stop             
-c ......................................................................      
+c ......................................................................
       end 
-c ======================================================================      
+c ======================================================================
 c
 c ======================================================================
 c
 c     Leitura da estrutura de dados do paralelo
 c
-c ======================================================================      
+c ======================================================================
       subroutine read_par(nin,nnode,numel)
 c **********************************************************************
 c *                                                                    *
@@ -1719,7 +1745,7 @@ c **********************************************************************
 c * Data de criacao    : 28/03/2016                                    *
 c * Data de modificaco : 09/04/2016                                    * 
 c * ------------------------------------------------------------------ *
-c * MK_BOUND_QUAD: gera as restricoes nos deslocamente nos pontos      *  
+c * MK_BOUND_QUAD: gera as restricoes nos deslocamente nos pontos      *
 c *              intermediarios                                        *
 c * ------------------------------------------------------------------ *
 c * Parâmetros de entrada:                                             *
@@ -1733,10 +1759,10 @@ c * ------------------------------------------------------------------ *
 c * Parâmetros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * id(ndf1,*)  - restricoes atualizadas                               *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * mecanico     : ndf1 = x, y e z  |  ndf2 = x, y e z                 *  
+c * mecanico     : ndf1 = x, y e z  |  ndf2 = x, y e z                 *
 c * poromecanico : ndf1 = x, y,e z  |  ndf2 = x, y, z e p              *
 c **********************************************************************
       subroutine mk_bound_quad(id,el,numel,ndf1,ndf2,nen)
@@ -1781,20 +1807,20 @@ c ...
 c     do i = 1, 27
 c       print*,i,id(1:4,i)
 c     enddo
-c .....................................................................  
+c .....................................................................
       return
       end
 c *********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/03/2016                                    *
-c * Data de modificaco :                                               * 
+c * Data de modificaco :                                               *
 c * ------------------------------------------------------------------ *
 c * MK_FORCES_QUAD: gera as valores das cargas  nos pontos             *
 c * intermediarios                                                     *
 c * ------------------------------------------------------------------ *
 c * Parâmetros de entrada:                                             *
-c * ------------------------------------------------------------------ *                                                                  *
+c * ------------------------------------------------------------------ *
 c * id(ndf,*)  - restricoes atualizadas                                *
 c * f (ndf,*)  - valor das cargas nos vertices                         *
 c * el(nen+1,*)- conectividade nodal                                   *
@@ -1803,11 +1829,11 @@ c * ndf        - grau de liberdade                                     *
 c * nen        - numero de nos elementos quadraticos                   *
 c * ------------------------------------------------------------------ *
 c * Parâmetros de saida:                                               *
-c * ------------------------------------------------------------------ *                                          *
+c * ------------------------------------------------------------------ *
 c * id(ndf,*)  - restricoes atualizadas                                *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
-c * ------------------------------------------------------------------ *                                                                    *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       subroutine mk_forces_quad(id,f,el,numel,ndf,nen)
       implicit none
@@ -1852,14 +1878,14 @@ c ...
 c     do i = 1, 70
 c       print*,i,f(1:4,i)
 c     enddo
-c .....................................................................  
+c .....................................................................
       return
       end
 c *********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/03/2016                                    *
-c * Data de modificaco :                                               * 
+c * Data de modificaco :                                               *
 c * ------------------------------------------------------------------ *
 c * MK_INITIAL_QUAD:gera os valores iniciais nos pontos intermediarios *
 c * ------------------------------------------------------------------ *
@@ -1874,9 +1900,9 @@ c * ------------------------------------------------------------------ *
 c * Parâmetros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * f(ndf,*)   - valor das cargas atualizadas                          *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c *  OBS:                                                              *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       subroutine mk_initial_quad(f,el,numel,ndf,nen)
       implicit none
@@ -1918,7 +1944,7 @@ c ...
 c     do i = 1, 70
 c       print*,i,f(1:4,i)
 c     enddo
-c .....................................................................  
+c .....................................................................
       return
       end
 c **********************************************************************
@@ -1926,7 +1952,7 @@ c
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
 c * Data de modificaco : 23/10/2016                                   *
-c * ------------------------------------------------------------------* 
+c * ------------------------------------------------------------------*
 c * read_config : leitura das configuracoes basicas de excucao        *
 c * ------------------------------------------------------------------*
 c * Parametros de entrada :                                           *
@@ -1939,15 +1965,15 @@ c * nth_solv  - numero de threads usado do solver                     *
 c * reord     - reordanaco do sistema de equacao                      *
 c * bvtk      - saida binario para o vtk legacy                       *
 c * mpi       - true|fasle                                            *
-c * nprcs     - numero de processos do MPI                            *       
+c * nprcs     - numero de processos do MPI                            *
 c * nin       - arquivo de entrada                                    *
 c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
-c * ----------------------------------------------------------------- * 
+c * ----------------------------------------------------------------- *
 c * OBS:                                                              *
-c * ----------------------------------------------------------------- * 
+c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine read_config(maxmem  
      .                      ,omp_elmt,omp_solver
@@ -1971,7 +1997,7 @@ c *********************************************************************
      .           'nth_elmt       ','nth_solver     ','reord          ',
      .           'bvtk           '/
 c .....................................................................
-c      
+c
 c ... arquivo de config
       call readmacro(nin,.false.)
       write(fname,'(80a)') (word(j),j=1,strl)
@@ -2005,7 +2031,7 @@ c ...
          elseif (string .eq. macro(3)) then
             i = 3
             call readmacro(nincl,.false.)
-            write(string,'(15a)') (word(j),j=1,15)           
+            write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) omp_solver
 c .....................................................................
 c
@@ -2013,7 +2039,7 @@ c ...
          elseif (string .eq. macro(4)) then
             i = 4
             call readmacro(nincl,.false.)
-            write(string,'(15a)') (word(j),j=1,15)            
+            write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) nth_elmt
 c .....................................................................
 c
@@ -2021,7 +2047,7 @@ c ...
           elseif (string .eq. macro(5)) then
             i = 5
             call readmacro(nincl,.false.)
-            write(string,'(15a)') (word(j),j=1,15)            
+            write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) nth_solver
 c .....................................................................
 c
@@ -2029,22 +2055,22 @@ c ...
          elseif (string .eq. macro(6)) then
             i = 6
             call readmacro(nincl,.false.)
-            write(string,'(15a)') (word(j),j=1,15)            
-            read(string,*,err = 100,end = 100) reord          
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) reord
 c .....................................................................
 c
 c ... 
           elseif (string .eq. macro(7)) then
             i = 7
             call readmacro(nincl,.false.)
-            write(string,'(15a)') (word(j),j=1,15)            
-            read(string,*,err = 100,end = 100) bvtk          
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) bvtk
           endif 
 c .....................................................................
 c
 c ... 
          call readmacro(nincl,.true.)
-         write(string,'(15a)') (word(j),j=1,15)                 
+         write(string,'(15a)') (word(j),j=1,15)
       end do
 c ......................................................................
 c
@@ -2058,14 +2084,14 @@ c ......................................................................
  200  continue
       print*, trim(fname), ' arquivo nao existente !'
       stop      
-c ......................................................................                  
+c ......................................................................
       end
 c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 13/10/2016                                   *
 c * Data de modificaco : 23/10/2016                                   *
-c * ------------------------------------------------------------------* 
+c * ------------------------------------------------------------------*
 c * read_solver_config : leitura das configuracoes basicas do solver  *
 c * ------------------------------------------------------------------*
 c * Parametros de entrada :                                           *
@@ -2088,7 +2114,7 @@ c * solver    - solver ( 1 - CG)                                      *
 c * tol       - tolerancia do solver                                  *
 c * maxit     - numero de iteracoes                                   *
 c * precond   - precondicionador ( 1 - NONE; 2 - Diag )               *
-c * nkrylov   - numero de base de krylov                              *      
+c * nkrylov   - numero de base de krylov                              *
 c * fhist_log - escreve o historico de iteracao do solver             *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
@@ -2186,8 +2212,8 @@ c ... alphap
             i = 7
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
-            read(string,*,err = 100,end = 100) alfap    
-            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpap  :',alfap  
+            read(string,*,err = 100,end = 100) alfap
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpap  :',alfap
 c .....................................................................
 c
 c ... alphau 
@@ -2195,8 +2221,8 @@ c ... alphau
             i = 8
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
-            read(string,*,err = 100,end = 100) alfau    
-            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpau  :',alfau  
+            read(string,*,err = 100,end = 100) alfau
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpau  :',alfau
 c .....................................................................
 c
 c ... alphau 
@@ -2204,8 +2230,8 @@ c ... alphau
             i = 9
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
-            read(string,*,err = 100,end = 100) ctol     
-            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'ctol   :',ctol   
+            read(string,*,err = 100,end = 100) ctol
+            if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'ctol   :',ctol
 c .....................................................................
 c
 c ... alphau 
@@ -2213,15 +2239,15 @@ c ... alphau
             i = 10
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
-            read(string,*,err = 100,end = 100) cmaxit     
-            if(my_id.eq.0) write(*,'(a10,1x,i9)')'cmaxit :',cmaxit   
+            read(string,*,err = 100,end = 100) cmaxit
+            if(my_id.eq.0) write(*,'(a10,1x,i9)')'cmaxit :',cmaxit
 c .....................................................................
          endif
 c .....................................................................
 c
 c ... 
          call readmacro(nincl,.true.)
-         write(string,'(15a)') (word(j),j=1,15)                 
+         write(string,'(15a)') (word(j),j=1,15)
       end do
 c ......................................................................
 c
@@ -2244,14 +2270,14 @@ c ......................................................................
  200  continue
       print*, trim(fname), ' arquivo nao existente !'
       call stop_mef()    
-c ......................................................................                  
+c ......................................................................
       end
 c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 27/09/2016                                    *
-c * Data de modificaco : 31/10/2016                                    * 
-c * ------------------------------------------------------------------ *      
+c * Data de modificaco : 31/10/2016                                    *
+c * ------------------------------------------------------------------ *
 c * SET_PRINT_VTK : leitualeitura das configuracoes basicas de excucao *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada :                                            *
@@ -2262,9 +2288,9 @@ c * nin       - arquivo de entrada                                     *
 c * -----------------------------------------------------------------  *
 c * Parametros de saida :                                              *
 c * -----------------------------------------------------------------  *
-c * fprint -                                                           * 
+c * fprint -                                                           *
 c *          quadratic       (1)                                       *
-c *          deslocamento    (2)                                       * 
+c *          deslocamento    (2)                                       *
 c *          pressao         (3)                                       *
 c *          delta pressa    (4)                                       *
 c *          stress Total    (5)                                       *
@@ -2342,18 +2368,18 @@ c ... fdarcy
           fprint(8) = .true.
 c .....................................................................
 c
-c ... delta  
+c ... delta porosidade
         elseif (string .eq. macro(9)) then
           fprint(9) = .true.
 c .....................................................................
 c
-c ... delta  
+c ... stress 
         elseif (string .eq. macro(10)) then
           fprint(10) = .true.
         endif
 c .....................................................................
         call readmacro(nin,.false.)
-        write(string,'(15a)') (word(j),j=1,15)                 
+        write(string,'(15a)') (word(j),j=1,15)
       end do
 c .....................................................................
 c
@@ -2370,8 +2396,8 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 23/10/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
-c * ------------------------------------------------------------------ *      
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
 c * READ_GRAVITY : leitura do campo de gravidade                       *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada :                                            *
@@ -2382,11 +2408,11 @@ c * nin       - arquivo de entrada                                     *
 c * -----------------------------------------------------------------  *
 c * Parametros de saida :                                              *
 c * -----------------------------------------------------------------  *
-c * g      - gravidade                                                 *   
+c * g      - gravidade                                                 *
 c * mg     - modulo da gravidade                                       *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       subroutine read_gravity(g,mg,nin)
       include 'string.fi'
@@ -2440,5 +2466,65 @@ c
 c ...
       end
 c **********************************************************************
-
+c
+c **********************************************************************
+c * Data de criacao    : 09/10/2016                                    *
+c * Data de modificaco : 08/11/2016                                    *
+c * ------------------------------------------------------------------ *
+c * COUNT_NODE_VERTICE : conta o numero de nos de vertices             *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix    - conectividade                                              *
+c * fnno  - nao definido                                               *
+c * nnodev- nao definido                                               *
+c * nnode - numero total de nos                                        *
+c * numel - numero de elementos                                        *
+c * numat - numero de materiais                                        *
+c * maxnov- numero max. de nos geometicos por elemento                 *
+c * maxno - numero max. de nos por elemento                            *
+c * fcount- true : conta os numeros de vertices                        * 
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * fnno  - (1 - no de vertice : 0 - no intermediario)                 *
+c * nnodev- numero de nos dos vertices(fcount = .true.)                *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine count_node_vertice(ix,fnno,nnodev,nnode,numel
+     .                             ,maxnov,maxno,fcount)
+      implicit none
+      integer ix(maxno+1,*),nnodev,nnode,numel,maxnov,maxno
+      integer fnno(*),i,j,no
+      logical fcount
+c ...
+      fnno(1:nnode) = 0
+c .....................................................................
+c
+c ...
+      do i = 1, numel
+        do j = 1, maxnov
+          no = ix(j,i)
+          if( no .ne. 0) then
+            if(fnno(no) .eq. 0) fnno(no) = 1
+          endif
+        enddo
+      enddo
+c .....................................................................
+c
+c ... conta o numero de vertices
+      if(fcount) then
+        nnodev = 0
+        do i = 1, nnode
+          if(fnno(i) .eq. 1) then
+            nnodev = nnodev + 1
+          endif
+        enddo
+      endif  
+c ......................................................................
+      return
+      end
+c **********************************************************************
 

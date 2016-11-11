@@ -15,14 +15,16 @@ c *   csriaup2                                                         *
 c *   csrjaup2                                                         *
 c *                                                                    *
 c **********************************************************************
-      subroutine csrstruct_pm(id,ix,num,nnode,nnodev,numel,nen,ndf
-     .                    ,neq ,nequ,neqp
-     .                    ,i2  ,i3   ,nad,naduu,nadpp,nadpu
-     .                    ,lower,diag,upper,right,ija,ja
-     ,                    ,n_blocks_up,block_pu ,block_pu_sym)
+      subroutine csrstruct_pm(id ,ix  ,num ,nnode,nnodev
+     1                     ,numel,nen  ,ndf
+     2                     ,neq  ,nequ,neqp
+     3                     ,i2   ,i3   
+     4                     ,nad  ,naduu,nadpp,nadpu,nadr
+     5                     ,lower,diag,upper,right,ija,ja
+     6                     ,n_blocks_up,block_pu ,block_pu_sym)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 26/06/2016                                    * 
+c * Data de modificaco : 08/11/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * CSRSTRUCT_PM: monta os arranjos ia e ja do formato CSR.            *
 c * ------------------------------------------------------------------ * 
@@ -44,7 +46,8 @@ c * i3    - nao definido                                               *
 c * nad   - nao definido                                               *
 c * naduu - nao definido                                               *
 c * nadpp - nao definido                                               *
-c * nad   - nao definido                                               *
+c * nadpu - nao definido                                               *
+c * nadr  - nao definido                                               *
 c * lower = .true.  -> inclui a parte triangular inferior no csr       *
 c * diag  = .true.  -> inclui a diagonal no csr                        *
 c * upper = .true.  -> inclui a parte triangular superior no csr       *
@@ -66,7 +69,15 @@ c *    nad   - numero de coeficientes nao nulos dos blocos uu e pp     *
 c *    naduu - numero de coeficientes nao nulos do bloco uu            *
 c *    nadpp - numero de coeficientes nao nulos do bloco pp            *
 c * block_pu_sym = true | false; block_pu = false                      *
-c *    nad   - numero de coeficientes nao nulos                        *
+c * nad   - numero de termos nao nulos fora diagonal principal         *
+c * naduu - numero de termos nao nulos fora diagonal principal bloco   *
+c *         kuu                                                        *
+c * nadpp - numero de termos nao nulos fora diagonal principal bloco   *
+c *         kpp                                                        *
+c * nadpu - numero de termos nao nulos fora diagonal principal bloco   *
+c *         kuu                                                        *
+c * nadr  - numero de termos nao nulos na parte retangular             *
+c *         ( MPI em overllaping )                                     *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -92,7 +103,7 @@ c **********************************************************************
       implicit none
       integer id(ndf,*),ix(nen+1,*),num(*)
       integer nnode,nnodev,numel,nen,ndf,neq,nequ,neqp
-      integer nad,naduu,nadpp,nadpu,nad1,n_blocks_up
+      integer nad,nadr,naduu,nadpp,nadpu,n_blocks_up
       logical block_pu,block_pu_sym
 c ... ponteiros      
       integer*8 i0,i1,i2,i3
@@ -135,7 +146,7 @@ c                                equacao i do bloco Kpu
 c ... blocos [ Kuu, Kpp]  e [Kup]
           call csriaup(id,num,ia(i0),ia(i1),ia(i2),ia(i2+neq+1) 
      .                ,nnode,ndf,neq 
-     .                ,nequ,neqp,nad,nadpu,nad1,lower,diag,upper 
+     .                ,nequ,neqp,nad,nadpu,nadr,lower,diag,upper 
      .                ,right)
 c ......................................................................     
 c
@@ -222,7 +233,7 @@ c
         n = neq + 1
         if (right) n = 2*n
         i2 = alloc_4(ija,1,n)
-        call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nad1,
+        call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
      .             lower,diag,upper,right)
 c ......................................................................     
 c
@@ -231,7 +242,7 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-        i3 = alloc_4(ja,1,nad+nad1)
+        i3 = alloc_4(ja,1,nad+nadr)
         call csrja2(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf
      .             ,neq,nequ,nad,lower,diag,upper,right)
         call sortgraph(ia(i2),ia(i3),neq)
@@ -256,7 +267,7 @@ c
         n = neq + 1
         if (right) n = 2*n
         i2 = alloc_4(ija,1,n)
-        call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nad1,
+        call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
      .             lower,diag,upper,right)
 c ......................................................................     
 c
@@ -265,7 +276,7 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-        i3 = alloc_4(ja,1,nad+nad1)
+        i3 = alloc_4(ja,1,nad+nadr)
         call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
      .             diag,upper,right)
         call sortgraph(ia(i2),ia(i3),neq)
@@ -295,7 +306,7 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i2,i3,nad,
-     .                     nad1,lower,diag,upper,right,ija,ja)
+     .                     nadr,lower,diag,upper,right,ija,ja)
 c **********************************************************************
 c *                                                                    *
 c *   CSRSTRUCT: monta os arranjos ia e ja do formato CSR.             *
@@ -319,13 +330,13 @@ c *                                                                    *
 c *    i2    - ponteiro para o arranjo ia(neq+1)                       *
 c *    i3    - ponteiro para o arranjo ja(nad)                         *
 c *    nad   - numero de coeficientes nao nulos                        *
-c *    nad1  - numero de coeficientes nao nulos da parte retangular    *                                              *
+c *    nadr  - numero de coeficientes nao nulos da parte retangular    *                                              *
 c *                                                                    *
 c **********************************************************************
       use Malloc
       implicit none
       integer id(ndf,*),ix(nen+1,*),num(*)
-      integer nnode,numel,nen,ndf,neq,nad,nad1
+      integer nnode,numel,nen,ndf,neq,nad,nadr
 c ... ponteiros      
       integer*8 i0,i1,i2,i3
 c .....................................................................      
@@ -350,7 +361,7 @@ c
       n = neq + 1
       if (right) n = 2*n
       i2 = alloc_4(ija,1,n)
-      call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nad1,
+      call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
      .           lower,diag,upper,right)
 c ......................................................................     
 c
@@ -359,7 +370,7 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-      i3 = alloc_4(ja,1,nad+nad1)
+      i3 = alloc_4(ja,1,nad+nadr)
       call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
      .           diag,upper,right)
       call sortgraph(ia(i2),ia(i3),neq)
@@ -376,7 +387,7 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine csria(id,num,ip,ips,ia,nnode,ndf,neq,nad,nad1,lower,
+      subroutine csria(id,num,ip,ips,ia,nnode,ndf,neq,nad,nadr,lower,
      .                 diag,upper,right)
 c **********************************************************************
 c *                                                                    *
@@ -404,7 +415,7 @@ c *    nad   - numero de coeficientes nao nulos                        *
 c *                                                                    *
 c **********************************************************************
       implicit none
-      integer nnode,ndf,neq,nad,nad1
+      integer nnode,ndf,neq,nad,nadr
       integer id(ndf,nnode),ip(nnode+1),ips(*),ia(*),num(nnode)
       integer i,j,k,ii,jj,kk,neqi,neqj,no
       logical lower,diag,upper,right
@@ -481,8 +492,8 @@ c ----------------------------------------------
          if (right) ia(i+neq+2) = ia(i+neq+2) + ia(i+neq+1)         
   210 continue
       nad  = ia(neq+1)-1
-      nad1 = 0
-      if (right) nad1 = ia(2*neq+2)-1      
+      nadr = 0
+      if (right) nadr = ia(2*neq+2)-1      
 c ......................................................................      
       return
       end
@@ -778,7 +789,7 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine csriaup(id,num,ip,ips,ia,iaup,nnode,ndf,neq,nequ,
-     .                   neqp,nad,nadup,nad1,lower,diag,upper,right)
+     .                   neqp,nad,nadup,nadr,lower,diag,upper,right)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 12/12/2015                                    * 
@@ -816,7 +827,7 @@ c * ------------------------------------------------------------------ *
 c * Kuu e Kpp juntos e Kpu separado                                    *
 c **********************************************************************
       implicit none
-      integer nnode,ndf,neq,nequ,neqp,nad,nadup,nad1
+      integer nnode,ndf,neq,nequ,neqp,nad,nadup,nadr
       integer id(ndf,*),ip(*),ips(*),ia(*),iaup(*),num(*)
       integer i,j,k,ii,jj,kk,neqi,neqj,no
       logical lower,diag,upper,right
@@ -925,8 +936,8 @@ c        if (right) ia(i+neq+2) = ia(i+neq+2) + ia(i+neq+1)
   210 continue
       nad  = ia(neq+1)-1
 c ... overllaping
-c     nad1 = 0
-c     if (right) nad1 = ia(2*neq+2)-1
+c     nadr = 0
+c     if (right) nadr = ia(2*neq+2)-1
 c ...................................................................... 
 c
 c ... Inicializa o arranjo iaup:

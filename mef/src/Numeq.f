@@ -73,39 +73,41 @@ c
       return
       end
 c **********************************************************************
-      subroutine numeqpmec2(id,num,idr,nnode,nnodev,ndf,neq)
+      subroutine numeqpmec2(id,num,idr,fnno,nnode,nnodev,ndf,neq)
 c **********************************************************************
-c *                                                                    *
-c *   Subroutine NUMEQPMEC2                                            *
-c *                                                                    *
-c *   Numeracao das equacoes problema poro-mecanico                    *
-c *                                                                    *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    ix(nen+1,numel) - conetividades nodais dos elementos            *
-c *    id(ndf,nnode)   - condicoes nodais (0 = livre, 1 = restringido) *
-c *    num(nnode)      - numeracao original dos nos                    *
-c *                      num(i) e o numero original do no i            *
-c *    idr(ndf,nnode)  - nao definido                                  *
-c *    nnode - numero de nos                                           *
-c *    nnodev- numero de nos dos vertives                              *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    nst   - numero max. de graus de liberdade por elemento          *
-c *    neq   - nao definido                                            *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    idr   - numeracao nodal das equacoes                            *
-c *    neq   - numero de equacoes                                      *
-c *                                                                    *
-c *  OBS: numera simultaniamente os deslocamentos e as pressoes        *
+c * Data de criacao    : 10/01/2016                                    *
+c * Data de modificaco : 08/11/2016                                    *
+c * ------------------------------------------------------------------ *
+c * NUMEQPMEC2 : Numeracao das equacoes problema poro-mecanico         *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix(nen+1,numel) - conetividades nodais dos elementos               *
+c * id(ndf,nnode)   - condicoes nodais (0 = livre, 1 = restringido)    *
+c * num(nnode)      - numeracao original dos nos                       *
+c *                   num(i) e o numero original do no i               *
+c * idr(ndf,nnode)  - nao definido                                     *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
+c * nnode - numero de nos                                              *
+c * nnodev- numero de nos dos vertives                                 *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * nst   - numero max. de graus de liberdade por elemento             *
+c * neq   - nao definido                                               *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * idr   - numeracao nodal das equacoes                               *
+c * neq   - numero de equacoes                                         *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * numera simultaniamente os deslocamentos e as pressoes              *
 c **********************************************************************
       implicit none
       integer nnode,nnodev,ndf,neq
-      integer id(ndf,*),idr(ndf,*)
+      integer id(ndf,*),idr(ndf,*),fnno(*)
       integer num(*),i,j,k,n,ndfn
 c ......................................................................
 c
@@ -115,10 +117,10 @@ c
       do 110 i = 1, nnode
          n = num(i)
 c ...
-         if( n .gt. nnodev) then
-           ndfn = ndf - 1 
-         else
+         if(fnno(n)  .eq. 1 )then
            ndfn = ndf 
+         else
+           ndfn = ndf - 1 
          endif
 c .....................................................................
 c
