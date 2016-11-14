@@ -263,14 +263,13 @@ c     blocada, i.e., graus de liberda juntos
       block_pu     = .false.
       block_pu_sym = .false.
 c
-      resid0       =  0.d0
+      resid0  =  0.d0
 c ... ilib    =  1 define a biblioteca padrão ( default = poromec )
       ilib    =  1
 c ... campo gravitacional (Padrao)
       gravity(1)  =   0.0d0
       gravity(2)  =   0.0d0
-c     gravity(3)  = -9.81d0
-      gravity(3)  = -10.0d0
+      gravity(3)  = -9.81d0
       gravity_mod = dsqrt(gravity(1)*gravity(1)
      .                   +gravity(2)*gravity(2)
      .                   +gravity(3)*gravity(3))
@@ -1734,22 +1733,21 @@ c ... codigo para o arquivo up_node.txt
       ifiles = 1
 c .....................................................................
       call global_v(ndf,nno_pload,i_u,i_g1,'dispG   ')
-c     call global_v(  1,nno_pload,i_dp,i_g1,'dispG   ')
       string = 'DeslocAndPress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           call printnode(ia(i_g1),ia(i_no+j-1),ndf            ,istep,dt
-     .                  ,string  ,prename     ,ia(i_nfile+j-1)
-     .                  ,code    ,new_file(ifiles))
+     1                  ,string  ,prename     ,ia(i_nfile+j-1)
+     2                  ,code    ,new_file(ifiles))
         enddo
         new_file(ifiles) = .false.
       endif
-      if( nprcs .gt. 1) then
+      if(mpi) then
         i_g1      = dealloc('dispG   ')
       endif
       call MPI_barrier(MPI_COMM_WORLD,ierr)
       goto 50
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando:                                                    
 c ......................................................................
@@ -1759,26 +1757,38 @@ c ......................................................................
         if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
         call stop_mef()
       endif
+c .....................................................................
+c
+c ... comunicao
+      call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
+      call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
+      call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
+      call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
+      call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
+c .....................................................................
+c
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
       ntn   = 6
 c .....................................................................
-      i_tx  = alloc_8('tx      ',  ntn,nnodev)
-      i_txe = alloc_8('txe     ',  ntn,nnodev)
-      i_txb = alloc_8('txb     ',  ntn,nnodev)
-      i_flux= alloc_8('flux    ',  ndm,nnodev)
-      i_ic  = alloc_4('ic      ',    1,nnodev)
+      i_tx  = alloc_8('tx      ',  ntn,nnode)
+      i_txe = alloc_8('txe     ',  ntn,nnode)
+      i_txb = alloc_8('txb     ',  ntn,nnode)
+      i_flux= alloc_8('flux    ',  ndm,nnode)
+      i_ic  = alloc_4('ic      ',    1,nnode)
 c .....................................................................
 c
 c ...
-      timei = MPI_Wtime()
-      call tform_pm(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     .             ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     .             ,ia(i_txl),ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
-     .             ,ia(i_tx) ,ia(i_txb),ia(i_txe),ia(i_flux)
-     .             ,nnodev   ,numel    ,nen      ,nenv
-     .             ,ndm      ,ndf      ,nst      ,ntn
-     .             ,3        ,ilib)
-      tformtime = tformtime + MPI_Wtime()-timei
+      if(my_id .eq. 0 ) then
+        timei = MPI_Wtime()
+        call tform_pm(ia(i_g1)   ,ia(i_g2)  ,ia(i_e)  ,ia(i_ie)
+     1               ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2               ,ia(i_txl)  ,ia(i_g)  ,ia(i_g3) ,ia(i_g4)
+     3               ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
+     4               ,print_nnode ,nelG     ,nen      ,nenv
+     5               ,ndm         ,ndf      ,nst      ,ntn
+     6               ,3           ,ilib)
+        tformtime = tformtime + MPI_Wtime()-timei
+      endif
 c ......................................................................
 c
 c ... codigo para o arquivo stress_node.txt      
@@ -1788,8 +1798,8 @@ c ... codigo para o arquivo stress_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           call printnode(ia(i_tx),ia(i_no+j-1),ntn            ,istep,dt
-     .                 ,string   ,prename     ,ia(i_nfile+j-1)
-     .                 ,code     ,new_file(ifiles))
+     1                 ,string   ,prename     ,ia(i_nfile+j-1)
+     2                 ,code     ,new_file(ifiles))
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1802,8 +1812,8 @@ c ... codigo para o arquivo stressE_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           call printnode(ia(i_txe),ia(i_no+j-1),ntn            ,istep,dt
-     .                 ,string   ,prename     ,ia(i_nfile+j-1)
-     .                 ,code     ,new_file(ifiles))
+     1                 ,string   ,prename     ,ia(i_nfile+j-1)
+     2                 ,code     ,new_file(ifiles))
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1816,8 +1826,8 @@ c ... codigo para o arquivo stressB_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           call printnode(ia(i_txb),ia(i_no+j-1),ntn            ,istep,dt
-     .                 ,string   ,prename     ,ia(i_nfile+j-1)
-     .                 ,code     ,new_file(ifiles))
+     1                 ,string   ,prename     ,ia(i_nfile+j-1)
+     2                 ,code     ,new_file(ifiles))
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1830,8 +1840,8 @@ c ... codigo para o arquivo flux_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           call printnode(ia(i_flux),ia(i_no+j-1),ndm          ,istep,dt
-     .                 ,string   ,prename     ,ia(i_nfile+j-1)
-     .                 ,code     ,new_file(ifiles))
+     1                 ,string   ,prename     ,ia(i_nfile+j-1)
+     2                 ,code     ,new_file(ifiles))
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1844,8 +1854,18 @@ c ...
       i_txe = dealloc('txe     ')
       i_tx  = dealloc('tx      ')
 c ......................................................................
+c
+c ...
+      if(mpi) then
+        i_g4      = dealloc('tx0G    ')
+        i_g3      = dealloc('dpG     ')
+        i_g2      = dealloc('xG      ')
+        i_g1      = dealloc('ixG     ')
+        i_g       = dealloc('upG     ')
+      endif
+      call MPI_barrier(MPI_COMM_WORLD,ierr)
       goto 50
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando: CONFIG
 c
