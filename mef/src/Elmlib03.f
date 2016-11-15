@@ -153,10 +153,8 @@ c ......................................................................
   100 continue
 c ...
       fluid_d   = e(7)*1.0d-06
-
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
-
 c ... matriz constitutiva:
       ym       = e(1)
       ps       = e(2)
@@ -948,7 +946,6 @@ c ...
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
-
 c ... matriz constitutiva:
       ym       = e(1)
       ps       = e(2)
@@ -968,7 +965,6 @@ c
 c ...
       volum = hexa_vol(x)
       l_c   = volum**(1.0d0/3.d0)
-      l_c   = 1.0 
 c ...
       dt_c  = ((l_c*l_c)/perm) 
      .      * ( imod_biot+( coef_biot*coef_biot*a3*a2 )/( ym*a1 ) )

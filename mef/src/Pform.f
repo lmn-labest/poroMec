@@ -628,43 +628,56 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine deltat_critico(ix,iq,ie,e,x,xl,numel,nen,nenv,ndf
-     .                         ,ndm,nst,isw,ilib)
+      subroutine deltat_critico(ix   ,iq ,ie  ,e
+     1                         ,x    ,xl
+     2                         ,numel,nen,nenv,ndf
+     3                         ,ndm  ,nst,isw ,ilib
+     4                         ,my_id,mpi)
 c **********************************************************************
-c *                                                                    *
-c *   PFORMPMEC:                                                       *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    ix(nen+1,numel) - conetividades nodais                          *
-c *    iq(7,numel)     - cargas nos elementos                          *
-c *    ie(numat)       - tipo de elemento                              *
-c *    e(10,numat)     - constantes fisicas dos materiais              *
-c *    x(ndm,nnode)    - coordenadas nodais                            *
-c *    xl(ndm,nen)     - nao definido                                  *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
-c *    nenv  - numero de nos de vertice por elemento                   *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    ndm   - dimensao                                                *
-c *    nst   - nen*ndf                                                 *
-c *    isw   - codigo de instrucao para as rotinas de elemento         *
-c *    ilib  - determina a biblioteca do elemento                      *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/11/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
+c * do SQRM                                                            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * iq(7,numel)     - cargas nos elementos                             *
+c * ie(numat)       - tipo de elemento                                 *
+c * e(10,numat)     - constantes fisicas dos materiais                 *
+c * x(ndm,nnode)    - coordenadas nodais                               *
+c * xl(ndm,nen)     - nao definido                                     *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * nenv  - numero de nos de vertice por elemento                      *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * ndm   - dimensao                                                   *
+c * nst   - nen*ndf                                                    *
+c * isw   - codigo de instrucao para as rotinas de elemento            *
+c * ilib  - determina a biblioteca do elemento                         *   
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
-c      include 'openmp.fi'
+      include 'mpif.h' 
       include 'omp_lib.h'
       include 'transiente.fi'
       include 'termprop.fi'
+c ... mpi
+      integer ierr
+      logical mpi,my_id
+c ...
       integer numel,nen,nenv,ndf,ndm,nst,nad,nadpu,stge,isw,numat,nlit
       integer neq,nequ
       integer ix(nen+1,*),iq(7,*),ie(*)
       integer iel,ma,nel,no,i,j,k,kk,nadr,ilib
       real*8  e(prop,*),x(ndm,*)
-      real*8  xl(ndm,nenv),el(prop),dtc,dtc_min
+      real*8  xl(ndm,nenv),el(prop),dtc,dtc_min,g_dtc_min
 c ... 
       logical ldum
       integer idum
@@ -707,9 +720,20 @@ c ......................................................................
 c ......................................................................
 c
 c ...
+      if(mpi) then
+        call MPI_Allreduce(dtc_min,g_dtc_min,1,MPI_REAL8
+     .                    ,MPI_MIN,MPI_COMM_WORLD,ierr)
+      else
+        g_dtc_min = dtc_min
+      endif
+c ......................................................................
+c
+c ...
       if( dtc_min .lt. dt ) then
-        print*,'Delta critico:',dtc_min
-        print*,'Delta t      :',dt
+        if(my_id .eq. 0 ) then
+          print*,'Delta critico:',g_dtc_min
+          print*,'Delta t      :',dt
+        endif
       endif 
 c ......................................................................
       return

@@ -1526,7 +1526,7 @@ c      include 'mpif.h'
       include 'parallel.fi'
       include 'elementos.fi'
       integer nin,nnode,numel,i,j,k
-      character*320 comando,string
+      character*500 comando,string
 c ...................................................................... 
       read(nin,*) string,nnovG      
       read(nin,*) string,nnoG      

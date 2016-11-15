@@ -994,12 +994,12 @@ c ......................................................................
         goto 5000
       endif
       call read_solver_config_pm(solver   ,solvtol
-     .                          ,maxit    ,precond
-     .                          ,ngram    ,fhist_log
-     .                          ,prename  ,log_hist_solv
-     .                          ,alfap    ,alfau
-     .                          ,ctol     ,cmaxit
-     .                          ,nprcs    ,my_id,nin)
+     1                          ,maxit    ,precond
+     2                          ,ngram    ,fhist_log
+     3                          ,prename  ,log_hist_solv
+     4                          ,alfap    ,alfau
+     5                          ,ctol     ,cmaxit
+     6                          ,nprcs    ,my_id,nin)
       goto 50
 c ......................................................................
 c
@@ -1009,10 +1009,11 @@ c ......................................................................
  1200 continue
       if(my_id.eq.0) print*, 'Macro DELTATC'
       if(fporomec) then
-          call deltat_critico(ia(i_ix),ia(i_eload),ia(i_ie),ia(i_e)
-     .                       ,ia(i_x), ia(i_xl)
-     .                       ,numel,nen,nenv,ndf
-     .                       ,ndm,nst,1,ilib)
+        call deltat_critico(ia(i_ix)   ,ia(i_eload),ia(i_ie),ia(i_e)
+     1                     ,ia(i_x)    ,ia(i_xl)
+     2                     ,numel      ,nen         ,nenv,ndf
+     3                     ,ndm  ,nst  ,1           ,ilib
+     4                     ,my_id,mpi)
       endif
       goto 50
 c ----------------------------------------------------------------------
