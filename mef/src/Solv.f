@@ -479,8 +479,8 @@ c ... alocacao dos arronjos auxiliares (8neq)
         i_y = alloc_8('ysolver ',1,neq)
         i_a = alloc_8('asolver ',1,neq)
         i_d = alloc_8('dsolver ',1,neq)
-        i_g = alloc_8('gsolver ',1,neq)
-        i_b = alloc_8('bsolver ',1,neq)
+        i_g = alloc_8('gsolver ',1,neqovlp)
+        i_b = alloc_8('bsolver ',1,neqovlp)
 c ....................................................................
 c
 c ... calculo do precondicionador
@@ -494,27 +494,25 @@ c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
         if(block_pu) then
-           call pbicgstabl2(neq     ,nequ   ,nad,ip ,ja 
-     1          ,ad      ,al     ,al ,m  ,b  ,x   
+           call call_bicgstabl2_v2(neq   ,nequ   ,nad,ip ,ja 
+     1          ,ad      ,al     ,m      ,b      ,x   
      2          ,ia(i_c) ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)
      3          ,ia(i_y) ,ia(i_a),ia(i_d),ia(i_b),ia(i_g)
-     4          ,tol     ,maxit  
-c ... matvec comum:
-     1          ,matvec_csrc_pm,dot_par 
-     2          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     3          ,i_xfi ,i_rcvsi,i_dspli
-     4          ,.true.,.true. ,.true.)
+     4          ,tol     ,maxit  ,precond
+     5          ,my_id ,neqf1i   ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi  ,i_dspli)
 c .....................................................................
 c
 c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
         else
-           call call_bicgstabl2(neq      ,nequ   ,nad  ,ip     ,ja
-     1                  ,ad       ,al    ,m      ,b    ,x    
-     2                  ,ia(i_c) ,ia(i_h),ia(i_r),ia(i_s),ia(i_z)
-     3                  ,ia(i_y) ,ia(i_a),ia(i_d),ia(i_b),ia(i_g)
-     4                  ,tol      ,maxit ,precond
-     5                  ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
-     6                  ,i_xfi    ,i_rcvsi,i_dspli)
+           call call_bicgstabl2(neq       ,nequ   ,nad  ,ip     ,ja
+     1                  ,ad       ,al     ,m      ,b    ,x    
+     2                  ,ia(i_c) ,ia(i_h) ,ia(i_r),ia(i_s),ia(i_z)
+     3                  ,ia(i_y) ,ia(i_a) ,ia(i_d),ia(i_b),ia(i_g)
+     4                  ,tol      ,maxit  ,precond
+     5                  ,my_id    ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                  ,i_xfi    ,i_rcvsi,i_dspli
+     7                  ,nprcs    ,ovlp   ,mpi)  
         endif
 c ......................................................................
 c
@@ -872,13 +870,13 @@ c ... cg
       if(precond .eq. 1) then
 c ...  
         call cg(neq    ,nequ   ,nad,ia   ,ja
-     .         ,ad     ,al     ,al ,b    ,x
-     .         ,z      ,r      ,s  ,tol  ,maxit
+     1         ,ad     ,al     ,al ,b    ,x
+     2         ,z      ,r      ,s  ,tol  ,maxit
 c ... matvec comum:
-     .         ,matvec_csrc_sym_pm,dot_par 
-     .         ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .         ,i_xfi ,i_rcvsi,i_dspli
-     .         ,.true.,.true. ,fhist_log ,.true.)
+     3         ,matvec_csrc_sym_pm,dot_par 
+     4         ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     5         ,i_xfi ,i_rcvsi,i_dspli
+     6         ,.true.,.true. ,fhist_log ,.true.)
 c .....................................................................
 c
 c ... pcg - cg com precondicionador diagonal
@@ -917,40 +915,40 @@ c
 c ... iccg - cg com precondicionador LDLT(0) imcompleto
       elseif(precond .eq. 3 ) then
         call iccg(neq      ,nequ  ,nad   ,ia      ,ja
-     .           ,ad       ,al    ,al    ,m       ,b    
-     .           ,x        ,z     ,r     ,s   
-     .           ,tol      ,maxit
+     1           ,ad       ,al    ,al    ,m       ,b    
+     2           ,x        ,z     ,r     ,s   
+     3           ,tol      ,maxit
 c ... matvec comum:
-     .           ,matvec_csrc_sym_pm,dot_par,ildlt_solv 
-     .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .           ,i_xfi ,i_rcvsi,i_dspli
-     .           ,.true.,.true. ,fhist_log,.true.)
+     4           ,matvec_csrc_sym_pm,dot_par,ildlt_solv 
+     5           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6           ,i_xfi ,i_rcvsi,i_dspli
+     7           ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LLT(0) imcompleto
       elseif(precond .eq. 4 ) then
         call iccg(neq      ,nequ  ,nad   ,ia      ,ja
-     .           ,ad       ,al    ,al    ,m       ,b    
-     .           ,x        ,z     ,r     ,s   
-     .           ,tol      ,maxit
+     1           ,ad       ,al    ,al    ,m       ,b    
+     2           ,x        ,z     ,r     ,s   
+     3           ,tol      ,maxit
 c ... matvec comum:
-     .           ,matvec_csrc_sym_pm,dot_par,illt_solv
-     .           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .           ,i_xfi ,i_rcvsi,i_dspli
-     .           ,.true.,.true. ,fhist_log,.true.)
+     4           ,matvec_csrc_sym_pm,dot_par,illt_solv
+     5           ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6           ,i_xfi ,i_rcvsi,i_dspli
+     7           ,.true.,.true. ,fhist_log,.true.)
 c .....................................................................
 c
 c ... bpcg - cg com bloco diagonal 
       elseif(precond .eq. 6 ) then
         call bpcg(neq      ,nequ  ,nad   ,ia      ,ja
-     .           ,ad       ,al    ,al    ,m       ,b    
-     .           ,x        ,z     ,r     ,s   
-     .           ,tol      ,maxit 
+     1           ,ad       ,al    ,al    ,m       ,b    
+     2           ,x        ,z     ,r     ,s   
+     3           ,tol      ,maxit 
 c ... matvec comum:
-     .           ,matvec_csrc_sym_pm,dot_par
-     .           ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     .           ,i_xfi ,i_rcvsi,i_dspli
-     .           ,.true.,.true. ,fhist_log ,.true.)
+     4           ,matvec_csrc_sym_pm,dot_par
+     5           ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     6           ,i_xfi ,i_rcvsi,i_dspli
+     7           ,.true.,.true. ,fhist_log ,.true.)
       endif  
 c .....................................................................
       return
@@ -1164,11 +1162,11 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
       subroutine call_symmlq(neq      ,nequ  ,nad   ,ia      ,ja
-     .                  ,ad       ,al    ,m     ,b       ,x    
-     .                  ,c        ,h     ,r     ,s       ,z  ,y 
-     .                  ,tol      ,maxit ,precond,iparam ,fhist_log
-     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli)
+     1                  ,ad       ,al    ,m     ,b       ,x    
+     2                  ,c        ,h     ,r     ,s       ,z  ,y 
+     3                  ,tol      ,maxit ,precond,iparam ,fhist_log
+     4                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     5                  ,i_xfi    ,i_rcvsi,i_dspli)
       implicit none
 c ... mpi
       integer my_id
@@ -1197,28 +1195,28 @@ c
 c ...   
         if(precond .eq. 1 ) then
           call symmlq(neq  ,nequ   ,nad  ,ia     ,ja
-     .          ,ad     ,al     ,al      ,b      ,x
-     .          ,c      ,h      ,r       ,s      
-     .          ,tol    ,maxit
+     1          ,ad     ,al     ,al      ,b      ,x
+     2          ,c      ,h      ,r       ,s      
+     3          ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi,i_dspli
+     7          ,.true.,.true.,.true.)
 c .....................................................................
 c
 c ... precondicionador diagonal:
         else if(precond .eq. 2 .or. precond .eq. 5 
-     .         .or. precond .eq. 7) then
+     1         .or. precond .eq. 7) then
           call psymmlq(neq  ,nequ   ,nad ,ia   ,ja
-     .          ,ad     ,al  ,al     ,b  ,m    ,x
-     .          ,c      ,h   ,r      ,s  ,z    ,y      
-     .          ,tol    ,maxit
+     1          ,ad     ,al  ,al     ,b  ,m    ,x
+     2          ,c      ,h   ,r      ,s  ,z    ,y      
+     3          ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi,i_dspli
+     7          ,.true.,.true.,.true.)
 c .....................................................................
         endif
 c .....................................................................
@@ -1285,11 +1283,11 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
       subroutine call_cr(neq      ,nequ  ,nad   ,ia      ,ja
-     .                  ,ad       ,al    ,m     ,b       ,x    
-     .                  ,c        ,h     ,r     ,s       ,z  ,y 
-     .                  ,tol      ,maxit ,precond,iparam ,fhist_log
-     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli)
+     1                  ,ad       ,al    ,m     ,b       ,x    
+     2                  ,c        ,h     ,r     ,s       ,z  ,y 
+     3                  ,tol      ,maxit ,precond,iparam ,fhist_log
+     4                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     5                  ,i_xfi    ,i_rcvsi,i_dspli)
       implicit none
 c ... mpi
       integer my_id
@@ -1317,28 +1315,28 @@ c ......................................................................
 c
       if(precond .eq. 1 ) then
         call cr(neq  ,nequ   ,nad        ,ia     ,ja
-     .          ,ad     ,al     ,al      ,b      ,x
-     .          ,c      ,h      ,r       ,s      ,z
-     .          ,tol    ,maxit
+     1          ,ad     ,al     ,al      ,b      ,x
+     2          ,c      ,h      ,r       ,s      ,z
+     3          ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi,i_dspli
+     7          ,.true.,.true.,.true.)
 c .....................................................................
 c
 c ...
        else if(precond .eq. 2 
-     .         .or. precond .eq. 5 .or.  precond .eq. 7) then
+     1         .or. precond .eq. 5 .or.  precond .eq. 7) then
          call pcr(neq  ,nequ   ,nad    ,ia    ,ja
-     .          ,ad     ,al    ,al     ,b     ,m  ,x
-     .          ,c      ,h     ,r      ,s     ,z  ,y  
-     .          ,tol    ,maxit
+     1          ,ad     ,al    ,al     ,b     ,m  ,x
+     2          ,c      ,h     ,r      ,s     ,z  ,y  
+     3          ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi,i_dspli
+     7          ,.true.,.true.,.true.)
 c .....................................................................
         endif
 c .....................................................................
@@ -1675,12 +1673,12 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
       subroutine call_minres(neq      ,nequ  ,nad   ,ia      ,ja
-     .                  ,ad       ,al    ,m     ,b       ,x    
-     .                  ,c        ,h     ,r     ,s       ,z  ,y 
-     .                  ,a        ,g  
-     .                  ,tol      ,maxit ,precond,iparam ,fhist_log
-     .                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     .                  ,i_xfi    ,i_rcvsi,i_dspli)
+     1                  ,ad       ,al    ,m     ,b       ,x    
+     2                  ,c        ,h     ,r     ,s       ,z  ,y 
+     3                  ,a        ,g  
+     4                  ,tol      ,maxit ,precond,iparam ,fhist_log
+     5                  ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     6                  ,i_xfi    ,i_rcvsi,i_dspli)
       implicit none
 c ... mpi
       integer my_id
@@ -1713,29 +1711,29 @@ c
 c ...
       if(precond .eq. 1 ) then
         call minres(neq    ,nequ,nad  ,ia  ,ja
-     .          ,ad     ,al     ,al     ,b   ,x
-     .          ,c      ,h      ,r      ,s   ,z  ,y
-     .          ,tol    ,maxit
+     1          ,ad     ,al     ,al     ,b   ,x
+     2          ,c      ,h      ,r      ,s   ,z  ,y
+     3          ,tol    ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi,i_dspli
+     7          ,.true.,.true.,.true.)
 c .....................................................................
 c
 c ...
       else if(precond .eq. 2 .or. precond .eq. 5
-     .          .or. precond .eq. 7) then
+     1          .or. precond .eq. 7) then
         call pminres(neq      ,nequ   ,nad   ,ia     ,ja
-     .          ,ad     ,al     ,al     ,b      ,x    ,m
-     .          ,c      ,h      ,r      ,s      ,z
-     .          ,y      ,a      ,g
-     .          ,tol    ,maxit  ,nrestart
+     1          ,ad     ,al     ,al     ,b      ,x    ,m
+     2          ,c      ,h      ,r      ,s      ,z
+     3          ,y      ,a      ,g
+     4          ,tol    ,maxit  ,nrestart
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true.,.true.)
+     5          ,matvec_csrc_sym_pm,dot_par 
+     6          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7          ,i_xfi ,i_rcvsi,i_dspli
+     8          ,.true.,.true.,.true.)
 c .....................................................................
       endif
 c .....................................................................
@@ -1796,15 +1794,13 @@ c * ad(*),al(*),au(*) - inalterados                                    *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * Arranjos jat,iat e kat sao utilizados na retrosubstituizao do      *
-c * solver iLDLt                                                       *
 c **********************************************************************  
       subroutine call_bicgstab(neq      ,nequ  ,nad   ,ia      ,ja
-     .                        ,ad       ,al    ,m     ,b       ,x    
-     .                        ,c        ,h     ,r     ,s       ,z  ,y   
-     .                        ,tol      ,maxit ,precond
-     .                        ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
-     .                        ,i_xfi    ,i_rcvsi,i_dspli)
+     1                        ,ad       ,al    ,m     ,b       ,x    
+     2                        ,c        ,h     ,r     ,s       ,z  ,y   
+     3                        ,tol      ,maxit ,precond
+     4                        ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
+     5                        ,i_xfi    ,i_rcvsi,i_dspli)
       implicit none
       include 'time.fi'
 c ... mpi
@@ -1834,41 +1830,41 @@ c ... bicgstab
       if(precond .eq. 1) then
 c ...  
         call bicgstab(neq   ,nequ   ,nad    ,ia   ,ja      
-     .                ,ad    ,al     ,al    ,b    ,x  
-     .                ,c     ,h      ,r     ,s    ,z
-     .                ,tol   ,maxit 
+     1                ,ad    ,al     ,al    ,b    ,x  
+     2                ,c     ,h      ,r     ,s    ,z
+     3                ,tol   ,maxit 
 c ... matvec comum:
-     .                ,matvec_csrc_sym_pm,dot_par 
-     .                ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
-     .                ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
-     .                ,.true.       ,.true. ,.true.)
+     4                ,matvec_csrc_sym_pm,dot_par 
+     5                ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
+     6                ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
+     7                ,.true.       ,.true. ,.true.)
 c .....................................................................
 c
 c ... pbicgstab - bicgstab com precondicionador diagonal
       else if(precond .eq. 2 .or. precond .eq. 5) then
 c ...  
         call pbicgstab(neq   ,nequ   ,nad    ,ia   ,ja      
-     .                ,ad    ,al     ,al     ,m    ,b      ,x  
-     .                ,c     ,h      ,r      ,s    ,z      ,y
-     .                ,tol   ,maxit 
+     1                ,ad    ,al     ,al     ,m    ,b      ,x  
+     2                ,c     ,h      ,r      ,s    ,z      ,y
+     3                ,tol   ,maxit 
 c ... matvec comum:
-     .                ,matvec_csrc_sym_pm,dot_par 
-     .                ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
-     .                ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
-     .                ,.true.       ,.true. ,.true.)
+     4                ,matvec_csrc_sym_pm,dot_par 
+     5                ,my_id        ,neqf1i  ,neqf2i  ,neq_doti   
+     6                ,i_fmapi      ,i_xfi  ,i_rcvsi,i_dspli
+     7                ,.true.       ,.true. ,.true.)
 c .....................................................................
 c
 c ...  icbicgstab - bicgstab com precondicionador LDLT(0) imcompleto
       elseif(precond .eq. 3 ) then
         call icbicgstab(neq      ,nequ  ,nad   ,ia      ,ja
-     .          ,ad       ,al    ,al    ,m     ,b       ,x    
-     .          ,c        ,h     ,r     ,s     ,z       ,y
-     .          ,tol      ,maxit
+     1          ,ad       ,al    ,al    ,m     ,b       ,x    
+     2          ,c        ,h     ,r     ,s     ,z       ,y
+     3          ,tol      ,maxit
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6          ,i_xfi ,i_rcvsi,i_dspli
+     7          ,.true.,.true. ,.true.)
 c .....................................................................
 c
 c ...
@@ -1883,9 +1879,166 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 14/04/2016                                    *
-c * Data de modificaco : 23/05/2016                                    * 
+c * Data de modificaco : 11/11/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_BICGSTABCGL2 : chama a versao do bicgstabl2 desejada          *    
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * nequ     - numero de equacoes no bloco Kuu                         *
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * al(*)    - parte triangular inferior de A                          *
+c * b(neq)   - vetor de forcas                                         *
+c * m(*)     - precondicionador                                        *
+c * x(neq)   - chute inicial                                           *
+c * c(neq)   - arranjo local de trabalho                               *
+c * h(neq)   - arranjo local de trabalho                               *
+c * r(neq)   - arranjo local de trabalho                               *
+c * s(neq)   - arranjo local de trabalho                               *
+c * z(neq)   - arranjo local de trabalho                               *
+c * y(neq)   - arranjo local de trabalho                               *
+c * a(neq)   - arranjo local de trabalho                               *
+c * d(neq)   - arranjo local de trabalho                               *
+c * e(neq)   - arranjo local de trabalho                               *
+c * g(neq)   - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * precond  - precondicionador                                        *
+c *            1 - nenhum                                              *
+c *            2 - diag                                                *
+c *            3 - iLDLt                                               *
+c *            4 -                                                     *
+c *            5 - modulo da diagonal                                  *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * mpi      - true|false                                              *
+c * ovlp     - overllaping                                             *
+c * nprcs    - numero de processos mpi                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*),au(*) - inalterados                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************  
+      subroutine call_bicgstabl2(neq    ,nequ   ,nad  ,ia        ,ja
+     1                        ,ad       ,al     ,m      ,b       ,x    
+     2                        ,c        ,h      ,r      ,s       ,z     
+     3                        ,y        ,a      ,d      ,e       ,g 
+     4                        ,tol      ,maxit  ,precond
+     5                        ,my_id    ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                        ,i_xfi    ,i_rcvsi,i_dspli
+     7                        ,nprcs    ,ovlp   ,mpi) 
+      implicit none
+      include 'time.fi'
+c ... mpi
+      integer my_id
+      integer neqf1i,neqf2i,nprcs
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
+c .....................................................................
+c .....................................................................
+      integer neq,nequ,nad,neq_doti 
+      integer ia(*),ja(*)
+      real*8  ad(*),al(*),x(*),b(*)
+c ... arranjos auxiliares
+      real*8 z(*),r(*),s(*),c(*),h(*),y(*),a(*),d(*),g(*),e(*)
+c ...
+      real*8  tol
+      integer maxit  
+c ... precondicionador
+      logical diag
+      integer precond
+      real*8  m(*)
+c ...
+      external dot_par
+      external matvec_csrc_sym_pm,matvec_csrcr_sym_pm        
+c ......................................................................
+
+c ... bicgstabl2
+      if(precond .eq. 1) then
+c ...  
+        call bicgstabl2(neq     ,nequ   ,nad,ia ,ja 
+     1          ,ad      ,al     ,al     ,b  ,x   
+     2          ,c       ,h      ,r      ,s  ,z
+     3          ,y       ,a 
+     4          ,tol     ,maxit  
+c ... matvec comum:
+     5          ,matvec_csrc_sym_pm,dot_par 
+     6          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7          ,i_xfi ,i_rcvsi,i_dspli
+     8          ,.true.,.true. ,.true.)
+c .....................................................................
+c
+c ... pbicgstabl2 - bicgstabl2 com precondicionador diagonal
+      else if(precond .eq. 2 .or. precond .eq. 5 ) then
+c ... overllaping
+         if(ovlp) then
+           call pbicgstabl2(neq     ,nequ   ,nad,ia ,ja 
+     1          ,ad      ,al     ,al ,m  ,b  ,x   
+     2          ,c       ,h      ,r      ,s      ,z      
+     3          ,y       ,a      ,d      ,e      ,g      
+     4          ,tol     ,maxit  
+c ... matvec comum:
+     5          ,matvec_csrcr_sym_pm,dot_par 
+     6          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7          ,i_xfi ,i_rcvsi,i_dspli
+     8          ,.true.,.true. ,.true.
+     9          ,nprcs ,mpi)
+c .....................................................................
+c
+c ...non-overllaping
+         else 
+           call pbicgstabl2(neq     ,nequ   ,nad,ia ,ja 
+     1          ,ad      ,al     ,al ,m  ,b  ,x   
+     2          ,c       ,h      ,r      ,s      ,z      
+     3          ,y       ,a      ,d      ,e      ,g      
+     4          ,tol     ,maxit  
+c ... matvec comum:
+     5          ,matvec_csrc_sym_pm,dot_par 
+     6          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7          ,i_xfi ,i_rcvsi,i_dspli
+     8          ,.true.,.true. ,.true.
+     9          ,nprcs ,mpi)
+         endif
+c .....................................................................
+c
+c ...
+      elseif(precond .eq. 3 ) then
+        print*,'iLDLt nao implementado para bicgstab(2)!!!'
+        stop
+c ...
+      elseif(precond .eq. 4 ) then
+        print*,'iLLt nao implementado para bicgstab(2)!!!'
+        stop
+      endif  
+c .....................................................................
+      return
+      end    
+c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 15/11/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * CALL_BICGSTABCGL2_V2 : chama a versao do bicgstabl2 com bloco pu   * 
+c * desejada                                                           *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1936,16 +2089,16 @@ c * ad(*),al(*),au(*) - inalterados                                    *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * Arranjos jat,iat e kat sao utilizados na retrosubstituizao do      *
+c * Arranjos jat,iat e kat sao utilizados na retrosubstituicao do      *
 c * solver iLDLt                                                       *
 c **********************************************************************  
-      subroutine call_bicgstabl2(neq    ,nequ  ,nad  ,ia     ,ja
-     .                        ,ad       ,al    ,m      ,b      ,x    
-     .                        ,c        ,h     ,r      ,s      ,z       
-     .                        ,y        ,a     ,d      ,e      ,g 
-     .                        ,tol      ,maxit ,precond
-     .                        ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
-     .                        ,i_xfi    ,i_rcvsi,i_dspli)
+      subroutine call_bicgstabl2_v2(neq    ,nequ  ,nad  ,ia        ,ja
+     1                        ,ad       ,al    ,m      ,b       ,x    
+     2                        ,c        ,h     ,r      ,s       ,z     
+     3                        ,y        ,a     ,d      ,e       ,g 
+     4                        ,tol      ,maxit ,precond
+     5                        ,my_id    ,neqf1i,neqf2i,neq_doti,i_fmapi
+     6                        ,i_xfi    ,i_rcvsi,i_dspli)
       implicit none
       include 'time.fi'
 c ... mpi
@@ -1968,36 +2121,36 @@ c ... precondicionador
       real*8  m(*)
 c ...
       external dot_par
-      external matvec_csrc_sym_pm        
+      external matvec_csrc_pm        
 c ......................................................................
 
 c ... bicgstabl2
       if(precond .eq. 1) then
 c ...  
         call bicgstabl2(neq     ,nequ   ,nad,ia ,ja 
-     .          ,ad      ,al     ,al     ,b  ,x   
-     .          ,c       ,h      ,r      ,s  ,z
-     .          ,y       ,a 
-     .          ,tol     ,maxit  
+     1          ,ad      ,al     ,al     ,b  ,x   
+     2          ,c       ,h      ,r      ,s  ,z
+     3          ,y       ,a 
+     4          ,tol     ,maxit  
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     6          ,matvec_csrc_pm,dot_par 
+     7          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     8          ,i_xfi ,i_rcvsi,i_dspli
+     9          ,.true.,.true. ,.true.)
 c .....................................................................
 c
 c ... pbicgstabl2 - bicgstabl2 com precondicionador diagonal
       else if(precond .eq. 2 .or. precond .eq. 5 ) then
          call pbicgstabl2(neq     ,nequ   ,nad,ia ,ja 
-     .          ,ad      ,al     ,al ,m  ,b  ,x   
-     .          ,c       ,h      ,r      ,s      ,z      
-     .          ,y       ,a      ,d      ,e      ,g      
-     .          ,tol     ,maxit  
+     1          ,ad      ,al     ,al ,m  ,b  ,x   
+     2          ,c       ,h      ,r      ,s      ,z      
+     3          ,y       ,a      ,d      ,e      ,g      
+     4          ,tol     ,maxit  
 c ... matvec comum:
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     .          ,i_xfi ,i_rcvsi,i_dspli
-     .          ,.true.,.true. ,.true.)
+     5          ,matvec_csrc_pm,dot_par 
+     6          ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7          ,i_xfi ,i_rcvsi,i_dspli
+     8          ,.true.,.true. ,.true.)
 c .....................................................................
 c
 c ...
@@ -2013,7 +2166,6 @@ c .....................................................................
       return
       end    
 c *********************************************************************
-c
 c *********************************************************************
       subroutine get_res(u,x,id,fnno,nnode,ndf)
       implicit none

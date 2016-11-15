@@ -482,9 +482,9 @@ c ...
          d =  di
          if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ......................................................................
-         if( jj .eq.500) then
+         if(jj.eq.500) then
            jj = 0
-           if(my_id .eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
+           if(my_id.eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
          jj = jj + 1
 c ......................................................................
@@ -2343,17 +2343,18 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine pbicgstabl2(neq     ,nequ  ,nad,ia ,ja 
-     .                     ,ad      ,au    ,al  ,m  ,b  ,x   
-     .                     ,t       ,v     ,r  ,u   ,r0
-     .                     ,w       ,s     ,p  ,h   ,z
-     .                     ,tol     ,maxit  
-     .                     ,matvec  ,dot    
-     .                     ,my_id   ,neqf1i,neqf2i 
-     .                     ,neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli
-     .                     ,fprint  ,flog   ,fnew)
+     1                     ,ad      ,au    ,al  ,m  ,b  ,x   
+     2                     ,t       ,v     ,r  ,u   ,r0
+     3                     ,w       ,s     ,h  ,p   ,z
+     4                     ,tol     ,maxit  
+     5                     ,matvec  ,dot    
+     6                     ,my_id   ,neqf1i,neqf2i 
+     7                     ,neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli
+     8                     ,fprint  ,flog   ,fnew
+     9                     ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 01/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 11/11/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PBICGSTABl2  : Solucao de sistemas de equacoes pelo metodo dos     * 
 c * gradientes biconjugados para matrizes nao-simetricas com           *
@@ -2396,6 +2397,8 @@ c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
 c * fnew     - .true.  x0 igual a zero                                 *
 c *            .false. x0 dado                                         *
+c * mpi      - true|false                                              *
+c * nprcs    - numero de processos mpi                                 * 
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -2409,7 +2412,9 @@ c * A(M-1)y=b precondicionador a direita                               *        
 c **********************************************************************
       implicit none
       include 'mpif.h'
-      integer neqf1i,neqf2i,neq_doti
+c ... mpi
+      logical mpi        
+      integer neqf1i,neqf2i,neq_doti,nprcs,ierr
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
@@ -2426,6 +2431,10 @@ c .....................................................................
       real*8  breaktol,btol
       parameter (btol = 1.d-32)
       logical flog,fprint,fnew
+c ...
+      real*8 flop_bicgstab2
+      real*8 mflops,vmean
+c .....................................................................
       external matvec,dot
 c ======================================================================
       time0 = MPI_Wtime()
@@ -2633,7 +2642,7 @@ c ... u(j+1) = u(j) - w1 * v(i) - w2 * w(i)
 c .......................................................................
 c
 c ...
-         if( jj .eq.500) then
+         if(jj.eq.500) then
            jj = 0
            if(my_id.eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
@@ -2680,10 +2689,23 @@ c ...
       time = MPI_Wtime()
       time = time-time0
 c .......................................................................
+c 
+c ...    
+      if(mpi) then
+        call MPI_barrier(MPI_COMM_WORLD,ierr)
+        call mpi_mean(vmean,time,nprcs) 
+        time   = vmean        
+      endif    
+      mflops = (flop_bicgstab2(neq,nad,j,2,mpi)*1.d-06)/time  
+c ......................................................................
 c
 c ...
       if(my_id .eq.0 .and. fprint )then
-        write(*,1100)tol,conv,neq,nad,j,xkx,norm,morm_r,time
+        if(mpi) then
+          write(*,1110)tol,conv,j,xkx,norm,morm_r,mflops,time
+        else
+          write(*,1100)tol,conv,neq,nad,j,xkx,norm,morm_r,mflops,time
+        endif
       endif
 c .......................................................................
 c
@@ -2709,6 +2731,15 @@ c ======================================================================
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
      . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 1110 format('  (PBICGSTAB_MPI(2)) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||m         = ',d20.6/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)

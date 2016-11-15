@@ -2060,4 +2060,60 @@ c ...
       return
       end
 c ********************************************************************** 
+c
+c **********************************************************************
+c * Data de criacao    : 15/11/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * FLOP_BICGSTAB(2) : calcula o numero de operacoes de pontos         *
+c * flutuantes do BICGSTAB(2)                                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacores                                     *
+c * nad      - numero de termos fora da diagonal                       *
+c * it       - numero de iteracoes                                     *
+c * icod     - 1 - BICGSTAB2                                           *
+c *            2 - PBICGSTAB2                                          *      
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      real*8 function flop_bicgstab2(neq,nad,it,icod,mpi)
+      implicit none
+      include 'mpif.h'      
+      integer neq,nad,it,icod,ierr
+      real*8 flop_csrc,flop_dot,fmatvec,fdot,flops,gflops
+      logical mpi
+c
+      fmatvec = flop_csrc(neq,nad)
+      fdot    = flop_dot(neq)
+c ... BICGSTAB2
+      if(icod .eq. 1) then
+        flops = 0.d0    
+c ... PBICGSTAB2
+      elseif(icod .eq. 2) then
+        flops = (4.d0*fmatvec + 10.d0*fdot + 23.d0*neq + 17.d0)*it 
+      endif
+c .....................................................................
+c
+c ...
+      if(mpi) then
+        call MPI_ALLREDUCE(flops,gflops,1,MPI_REAL8
+     .                    ,MPI_SUM,MPI_COMM_WORLD,ierr)
+        flops = gflops
+      endif
+c .....................................................................
+c
+c ...
+      flop_bicgstab2 = flops
+c .....................................................................
+c
+c ...      
+      return
+      end
+c ********************************************************************** 
  
