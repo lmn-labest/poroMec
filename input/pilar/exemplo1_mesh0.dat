@@ -2,7 +2,7 @@ gravity 0.0d0 0.0d0 -10.d0
 mesh
 nnode 44 numel 10 ndf 4 numat 1 maxno 20 dim 3
 materials
-1   13  1.668d+07 0.3369d+00 1.0787d-09 5.6902d+10 9.989d-01 0.0d+00 1.0d+03
+1   17  1.668d+07 0.3369d+00 1.0787d-09 5.6902d+10 9.989d-01 0.0d+00 1.0d+03
 end materials
 insert exemplo1_mesh0_coor.dat
 insert exemplo1_mesh0_elem.dat
@@ -107,8 +107,6 @@ end loads
 end mesh
 setpnode node.dat
 pgeo
-maxit 80000
-solvtol 1.d-14
 maxnlit 5
 dt 3.6d+3
 pup

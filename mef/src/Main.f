@@ -540,19 +540,19 @@ c
 c ... Front Mpi
       timei = MPI_Wtime()
       call init_front(i_noLG,i_noGL,nno1,nno2,nno3,nnofi
-     .                ,nno_pload
-     .                ,nnovG,nnoG,nelG,nnodev,nnode
-     .                ,numel,ovlp,novlp,nprcs,nviz1
-     .                ,nviz2,i_rreqs,i_sreqs,i_rcvs0i,i_dspl0i
-     .                ,i_fmap0i,mpi)
+     1                ,nno_pload
+     2                ,nnovG,nnoG,nelG,nnodev,nnode
+     3                ,numel,ovlp,novlp,nprcs,nviz1
+     4                ,nviz2,i_rreqs,i_sreqs,i_rcvs0i,i_dspl0i
+     5                ,i_fmap0i,mpi)
 c
 c.... Mapa de equacoes de fronteira:
 c
       if (ndf  .gt. 0) call frontb(ndf,ia(i_id),neq,neq1
-     .                ,neq2,neq3,neq4,neq1a,neqf1,neqf2,neq32
-     .                ,neq_dot
-     .                ,i_fmap,i_rcvs,i_dspl,i_xf
-     .                ,'fmap     ','rcvs    ','dspl    ','xf      ',0)
+     1                ,neq2,neq3,neq4,neq1a,neqf1,neqf2,neq32
+     2                ,neq_dot
+     3                ,i_fmap,i_rcvs,i_dspl,i_xf
+     4                ,'fmap     ','rcvs    ','dspl    ','xf      ',0)
       frontime = MPI_Wtime()-timei
 c -------------------------------------------------------------------
 c | noLG | noGL | elLG | fmap | rcvs | dspl | fmapt | rcvst | dsplt |
@@ -913,8 +913,8 @@ c ...
         if( my_id .eq. 0 ) then
           print*, 'Macro PGEO'
           call write_mesh_geo(ia(i_g)    ,ia(i_g1),print_nnode,nelG
-     .                       ,nen        ,ndm     ,prename    ,bvtk
-     .                       ,legacy_vtk ,nplot)
+     1                       ,nen        ,ndm     ,prename    ,bvtk
+     2                       ,legacy_vtk ,nplot)
         endif        
 c .....................................................................
 c
@@ -929,12 +929,12 @@ c ...
         print*, 'Macro PGEO'
         writetime = writetime + MPI_Wtime()-timei 
         call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
-     .                      ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
-     .                      ,ia(i_tx0)    ,ia(i_nload),ia(i_eload)
-     .                      ,print_nnode  ,numel      ,ndf     ,ntn
-     .                      ,nen          ,ndm        ,prename
-     .                      ,bvtk         ,macros     ,legacy_vtk
-     .                      ,print_flag(1),nplot      ,nout_face)
+     1                      ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
+     2                      ,ia(i_tx0)    ,ia(i_nload),ia(i_eload)
+     3                      ,print_nnode  ,numel      ,ndf     ,ntn
+     4                      ,nen          ,ndm        ,prename
+     5                      ,bvtk         ,macros     ,legacy_vtk
+     6                      ,print_flag(1),nplot      ,nout_face)
         writetime = writetime + MPI_Wtime()-timei
       endif
 c .....................................................................
@@ -1544,11 +1544,11 @@ c ...
          
           timei = MPI_Wtime()
           call tform_mec(ia(i_ix)  ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     .                  ,ia(i_ic)  ,ia(i_xl) ,ia(i_ul) 
-     .                  ,ia(i_txnl),ia(i_u)  ,ia(i_tx0),ia(i_tx) 
-     .                  ,nnodev    ,numel    ,nenv     ,nen
-     .                  ,ndm       ,ndf      ,nst      ,ntn
-     .                  ,3         ,ilib)
+     1                  ,ia(i_ic)  ,ia(i_xl) ,ia(i_ul) 
+     2                  ,ia(i_txnl),ia(i_u)  ,ia(i_tx0),ia(i_tx) 
+     3                  ,nnodev    ,numel    ,nenv     ,nen
+     5                  ,ndm       ,ndf      ,nst      ,ntn
+     6                  ,3         ,ilib)
           tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
         endif
@@ -1556,10 +1556,10 @@ c ......................................................................
 c
 c ...
         call write_mesh_res_mec(ia(i_ix) ,ia(i_x)    ,ia(i_u)  ,ia(i_tx)
-     .                       ,print_nnode,numel
-     .                       ,nen        ,ndm        ,ndf      ,ntn
-     .                       ,prename    ,istep
-     .                       ,bvtk       ,legacy_vtk,print_flag,nplot)
+     1                       ,print_nnode,numel
+     2                       ,nen        ,ndm        ,ndf      ,ntn
+     3                       ,prename    ,istep
+     4                       ,bvtk       ,legacy_vtk,print_flag,nplot)
 c ......................................................................
 c
 c ...
@@ -1878,11 +1878,11 @@ c ......................................................................
         goto 5000
       endif
       call read_config(maxmem
-     .                ,omp_elmt ,omp_solv
-     .                ,nth_elmt ,nth_solv
-     .                ,reordf   ,bvtk 
-     .                ,mpi      ,nprcs
-     .                ,nin)
+     1                ,omp_elmt ,omp_solv
+     2                ,nth_elmt ,nth_solv
+     3                ,reordf   ,bvtk 
+     4                ,mpi      ,nprcs
+     5                ,nin)
       goto 50
 c ----------------------------------------------------------------------
 c
