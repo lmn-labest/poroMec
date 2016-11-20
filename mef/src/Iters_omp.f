@@ -225,7 +225,7 @@ c ...
 c$omp master
          if( jj .eq.1000) then
            jj = 0
-           write(*,1300),j,dsqrt(dabs(d)),conv 
+           if(my_id .eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
          jj = jj + 1
 c$omp end master
@@ -265,7 +265,7 @@ c$omp end do
       norm_r = dsqrt(norm_r)
       if( norm_m_r .gt. conv ) then
 c$omp single
-         if(my_id .eq.0 )then
+         if(my_id .eq.0)then
            write(*,1400) norm_m_r,conv
          endif 
 c$omp end single
@@ -598,7 +598,7 @@ c ......................................................................
 c$omp master
          if( jj .eq. 1000) then
            jj = 0
-           write(*,1300),j,norm_r,conv 
+           if(my_id .eq.0) write(*,1300),j,norm_r,conv 
          endif  
          jj = jj + 1
 c$omp end master

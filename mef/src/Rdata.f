@@ -1951,7 +1951,7 @@ c **********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
-c * Data de modificaco : 23/10/2016                                   *
+c * Data de modificaco : 19/11/2016                                   *
 c * ------------------------------------------------------------------*
 c * read_config : leitura das configuracoes basicas de excucao        *
 c * ------------------------------------------------------------------*
@@ -1964,6 +1964,7 @@ c * omp_solv  - flag do openmp na fase do solver                      *
 c * nth_solv  - numero de threads usado do solver                     *
 c * reord     - reordanaco do sistema de equacao                      *
 c * bvtk      - saida binario para o vtk legacy                       *
+c * legacy    - saida legacy do vtk
 c * mpi       - true|fasle                                            *
 c * nprcs     - numero de processos do MPI                            *
 c * nin       - arquivo de entrada                                    *
@@ -1976,26 +1977,27 @@ c * OBS:                                                              *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine read_config(maxmem  
-     .                      ,omp_elmt,omp_solver
-     .                      ,nth_elmt,nth_solver
-     .                      ,reord   ,bvtk    
-     .                      ,mpi     ,nprcs
-     .                      ,nin)
+     1                      ,omp_elmt,omp_solver
+     2                      ,nth_elmt,nth_solver
+     3                      ,reord   
+     4                      ,bvtk    ,legacy    
+     5                      ,mpi     ,nprcs
+     6                      ,nin)
       implicit none
       include 'string.fi'
-      character*15 string,macro(7)
+      character*15 string,macro(9)
       character*80 fname
       integer*8 maxmem
       integer nth_elmt,nth_solver
-      logical omp_elmt,omp_solver,reord,bvtk
+      logical omp_elmt,omp_solver,reord,bvtk,legacy
       integer i,j,nmacro
       integer nin,nprcs
       logical mpi
       integer nincl /7/
-      data nmacro /7/
+      data nmacro /9/
       data macro/'memory         ','omp_elmt       ','omp_solver     ',
      .           'nth_elmt       ','nth_solver     ','reord          ',
-     .           'bvtk           '/
+     .           'binary_vtk     ','legacy_vtk     ','               '/
 c .....................................................................
 c
 c ... arquivo de config
@@ -2065,8 +2067,17 @@ c ...
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) bvtk
+c .....................................................................
+c
+c ... 
+          elseif (string .eq. macro(8)) then
+            i = 8
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) legacy
           endif 
 c .....................................................................
+
 c
 c ... 
          call readmacro(nincl,.true.)
@@ -2080,10 +2091,10 @@ c ...
 c ......................................................................
  100  continue
       print*,'*** Erro na leitura das config !',macro(i)
-      stop                          
+      call stop_mef()                          
  200  continue
       print*, trim(fname), ' arquivo nao existente !'
-      stop      
+      call stop_mef()      
 c ......................................................................
       end
 c *********************************************************************

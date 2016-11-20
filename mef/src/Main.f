@@ -275,9 +275,11 @@ c ... campo gravitacional (Padrao)
      .                   +gravity(3)*gravity(3))
 c ...
       flag_macro_mesh = .false.
-c ... 
-      bvtk       = .false.
-      legacy_vtk = .false.
+c ... sai da paraview
+c     bvtk = true vtk binario
+c     leagacy_vtk = true (.vtk) | false (.vtu) 
+      bvtk       = .true.
+      legacy_vtk = .true.
 c ... OpenMP
       omp_elmt = .false.
       omp_solv = .false.
@@ -1880,9 +1882,10 @@ c ......................................................................
       call read_config(maxmem
      1                ,omp_elmt ,omp_solv
      2                ,nth_elmt ,nth_solv
-     3                ,reordf   ,bvtk 
-     4                ,mpi      ,nprcs
-     5                ,nin)
+     3                ,reordf   
+     4                ,bvtk     ,legacy_vtk 
+     5                ,mpi      ,nprcs
+     6                ,nin)
       goto 50
 c ----------------------------------------------------------------------
 c

@@ -40,6 +40,7 @@ c ... locais
       character*15 aux1
       character*30 aux
 c ... variaveis dums
+      integer idum
       real*8 ddum
       real*4 fdum
 c ... arquivo      
@@ -61,13 +62,12 @@ c ===
       else
         open(unit=nout,file=fileout)
       endif  
-c     print*,fileout,nout
 c =====================================================================
 c
 c === cabecalho
       if(legacy) then
         write(aux,'(30a)')"Malha poro mec" 
-        call head_vtk(aux,bvtk,nout) 
+        call head_vtk(aux,bvtk,ddum,idum,.false.,nout)
       else  
         call head_vtu(nnode,numel,bvtk,nout) 
       endif  
