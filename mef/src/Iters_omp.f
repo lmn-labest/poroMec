@@ -342,7 +342,7 @@ c ======================================================================
 c *********************************************************************  
 c
 c *********************************************************************  
-      subroutine rpsqrm_omp(neq   ,nequ   ,nad   ,ia  ,ja
+      subroutine rpsqmr_omp(neq   ,nequ   ,nad   ,ia  ,ja
      1                 ,ad    ,au     ,al    ,m   ,b  ,x  
      2                 ,t     ,r     ,q   ,d   
      3                 ,tol   ,maxit
@@ -512,7 +512,7 @@ c ... sigma = ( q(j-1),t)
          sigma = dot(q,t,neq_doti)
          if( sigma .eq. 0.0) then
 c$omp single
-           print*,"RSQRM_OMP fail (sigma)!"
+           print*,"RSQMR_OMP fail (sigma)!"
 c$omp end single
            call stop_mef()  
          endif  
@@ -562,7 +562,7 @@ c
 c ... 
          if( ro .eq. 0.0) then
 c$omp single
-           print*,"RSQRM_OMP fail (ro)!"
+           print*,"RSQMR_OMP fail (ro)!"
 c$omp end single
            call stop_mef()  
          endif  
@@ -664,7 +664,7 @@ c ... Controle de flops
       if(flog) then
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
-     .       'RPSMRQ_OMP: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
+     .       'RPSQMR_OMP: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
      .      ,' tol ',tol,' time ',time
         endif
       endif
@@ -677,7 +677,7 @@ c
 c ======================================================================
  1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Diagonal coefficient ' 
      . '- equacao ',i9)
- 1100 format(' (RPSMRQ_OMP) solver:'/
+ 1100 format(' (RPSQMR_OMP) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
      . 5x,'Number of equations  = ',i20/
@@ -688,7 +688,7 @@ c ======================================================================
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
-1110  format(' (RPSMRQ_MPI_OMP) solver:'/
+1110  format(' (RPSQMR_MPI_OMP) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
      . 5x,'Number of iterations = ',i20/
@@ -699,10 +699,10 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
- 1300 format (' RPSMRQ_OMP:',5x,'It',i7,5x,2d20.10)
- 1400 format (' RPSMRQ_OMP:',1x,'Explicit residual > tol * ||b|| :'
+ 1300 format (' RPSQMR_OMP:',5x,'It',i7,5x,2d20.10)
+ 1400 format (' RPSQMR_OMP:',1x,'Explicit residual > tol * ||b|| :'
      .       ,1x,d20.10,1x,d20.10)
- 1500 format ( 'RPSMRQ_OMP: ',5x,i7,5x,2es20.10)
+ 1500 format ( 'RPSQMR_OMP: ',5x,i7,5x,2es20.10)
       end
 c **********************************************************************
 c

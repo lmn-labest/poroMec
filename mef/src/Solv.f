@@ -13,8 +13,8 @@ c *   pminres                                                          *
 c *   cr                                                               * 
 c *   pcr                                                              * 
 c *   sqrm                                                             *
-c *   rsqrm                                                            *
-c *   lsqrm                                                            *
+c *   rsqmr                                                            *
+c *   lsqmr                                                            *
 c *   bicgstab                                                         *
 c *   pbicgstab                                                        * 
 c *   icbicgstab                                                       *                
@@ -731,7 +731,7 @@ c .....................................................................
 c
 c ...
         if(omp_solv)then
-          call call_sqrm_omp(neq  ,nequ  ,nad   ,ip      ,ja
+          call call_sqmr_omp(neq  ,nequ  ,nad   ,ip      ,ja
      1                    ,ad     ,al    ,m     ,b       ,x    
      2                    ,ia(i_z),ia(i_h),ia(i_r) ,ia(i_s)     
      3                    ,tol    ,maxit ,precond,iparam ,fhist_solv
@@ -742,7 +742,7 @@ c .....................................................................
 c
 c ...
         else
-          call call_sqrm(neq    ,nequ  ,nad     ,ip      ,ja
+          call call_sqmr(neq    ,nequ  ,nad     ,ip      ,ja
      1                ,ad       ,al    ,m       ,b       ,x    
      2                ,ia(i_z),ia(i_h),ia(i_r)  ,ia(i_s) 
      3                ,tol      ,maxit ,precond ,iparam  ,fhist_solv
@@ -1348,7 +1348,7 @@ c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
 c * Data de modificaco : 28/10/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * CALL_SQRM:chama a versao do metodo QMR simetrico                   *    
+c * CALL_SQMR:chama a versao do metodo QMR simetrico                   *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1403,7 +1403,7 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
-      subroutine call_sqrm(neq      ,nequ  ,nad      ,ia      ,ja
+      subroutine call_sqmr(neq      ,nequ  ,nad      ,ia      ,ja
      1                    ,ad       ,al    ,m        ,b       ,x    
      2                    ,c        ,h     ,r        ,s    
      3                    ,tol      ,maxit ,pc       ,iparam ,fhist_log
@@ -1437,7 +1437,7 @@ c ...
 c ......................................................................
 c
       if(pc .eq. 1 ) then
-        call sqrm(neq    ,nequ   ,nad    ,ia    ,ja
+        call sqmr(neq    ,nequ   ,nad    ,ia    ,ja
      1           ,ad     ,al     ,al     ,m     ,b   ,x 
      2           ,c      ,h      ,r      ,s 
      3           ,tol   ,maxit
@@ -1451,7 +1451,7 @@ c ...
        else if(pc .eq. 2 .or. pc .eq. 5 .or.  pc .eq. 7) then
 c ... overllaping
          if(ovlp) then
-           call rpsqrm(neq    ,nequ   ,nad    ,ia    ,ja
+           call rpsqmr(neq    ,nequ   ,nad    ,ia    ,ja
      1                ,ad     ,al     ,al      ,m    ,b   ,x 
      2                ,c      ,h      ,r       ,s 
      3                ,tol   ,maxit
@@ -1464,7 +1464,7 @@ c .....................................................................
 c
 c ...non-overllaping
          else 
-           call rpsqrm(neq    ,nequ   ,nad    ,ia    ,ja
+           call rpsqmr(neq    ,nequ   ,nad    ,ia    ,ja
      1                ,ad     ,al     ,al      ,m     ,b   ,x 
      2                ,c      ,h      ,r       ,s 
      3                ,tol   ,maxit
@@ -1485,7 +1485,7 @@ c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
 c * Data de modificaco : 01/11/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * CALL_SQRM_OMP:chama a versao do metodo QMR simetrico               *    
+c * CALL_SQMR_OMP:chama a versao do metodo QMR simetrico               *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1541,7 +1541,7 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************  
-      subroutine call_sqrm_omp(neq      ,nequ  ,nad   ,ia      ,ja
+      subroutine call_sqmr_omp(neq      ,nequ  ,nad   ,ia      ,ja
      1                    ,ad       ,al    ,m     ,b       ,x    
      2                    ,c        ,h     ,r     ,s    
      3                    ,tol      ,maxit ,pc    ,iparam ,fhist_log
@@ -1577,14 +1577,14 @@ c ...
 c ......................................................................
 c
       if(pc .eq. 1 ) then
-        print*,"SQRM: openmp nao disponivel !!"  
+        print*,"SQMR: openmp nao disponivel !!"  
 c .....................................................................
 c
 c ...
       else if(pc .eq. 2 .or. pc .eq. 5 .or.  pc .eq. 7) then
 c ... overllaping
         if(ovlp) then
-          call rpsqrm_omp(neq    ,nequ   ,nad    ,ia    ,ja
+          call rpsqmr_omp(neq    ,nequ   ,nad    ,ia    ,ja
      1             ,ad     ,al     ,al      ,m     ,b   ,x 
      2             ,c      ,h      ,r       ,s 
      3             ,tol   ,maxit
@@ -1597,7 +1597,7 @@ c .....................................................................
 c
 c ...non-overllaping
         else 
-          call rpsqrm_omp(neq    ,nequ   ,nad    ,ia    ,ja
+          call rpsqmr_omp(neq    ,nequ   ,nad    ,ia    ,ja
      1             ,ad     ,al     ,al      ,m     ,b   ,x 
      2             ,c      ,h      ,r       ,s 
      3             ,tol   ,maxit
@@ -2233,7 +2233,7 @@ c **********************************************************************
       character*8 macros(12),string
       integer solver,nin,my_id
       integer i,nmc 
-      data macros/'cg      ','sqrm    ','symmlq  '
+      data macros/'cg      ','sqmr    ','symmlq  '
      .           ,'cr      ','minres  ','bicgsl2 '
      .           ,'bicgs   ','gmres   ','pardiso '
      .           ,'block_it','        ','        '/

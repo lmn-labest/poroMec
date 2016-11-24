@@ -5438,7 +5438,7 @@ c ======================================================================
 c *********************************************************************
 c
 c *********************************************************************  
-      subroutine sqrm(neq   ,nequ   ,nad   ,ia  ,ja
+      subroutine sqmr(neq   ,nequ   ,nad   ,ia  ,ja
      .                 ,ad    ,au     ,al    ,m   ,b  ,x  
      .                 ,t     ,r     ,q   ,d   
      .                 ,tol   ,maxit
@@ -5450,7 +5450,7 @@ c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *   
-c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
+c * RPSQMR : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a direita                                                 *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -5725,7 +5725,7 @@ c ======================================================================
 c **********************************************************************
 c
 c *********************************************************************  
-      subroutine lpsqrm(neq   ,nequ   ,nad   ,ia  ,ja
+      subroutine lpsqmr(neq   ,nequ   ,nad   ,ia  ,ja
      .                 ,ad    ,au     ,al    ,m   ,b  ,x  
      .                 ,t     ,r     ,q   ,d   
      .                 ,tol   ,maxit
@@ -5870,7 +5870,7 @@ c
 c ... sigma = ( q(j-1),t)
          sigma = dot(q,t,neq_doti)
          if( sigma .eq. 0.0) then
-           print*,"lSQRM fail (sigma)!"
+           print*,"lSQMR fail (sigma)!"
            stop  
          endif  
 c .....................................................................
@@ -5914,7 +5914,7 @@ c ......................................................................
 c
 c ... 
          if( ro .eq. 0.0) then
-           print*,"lSQRM fail (ro)!"
+           print*,"lSQMR fail (ro)!"
            stop  
          endif  
 c .....................................................................
@@ -5992,16 +5992,16 @@ c ... Controle de flops
       if(flog) then
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
-     .       'LPSMRQ: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
+     .       'LPSQMR: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
      .      ,' tol ',tol,' time ',time
         endif
       endif
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Coeficiente da diagonal ' 
+ 1000 format (//,5x,'SUBROTINA LPSQMR:',/,5x,'Coeficiente da diagonal ' 
      . '- equacao ',i9,d20.10)
- 1100 format(' (LPSMRQ) solver:'/
+ 1100 format(' (LPSQMR) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||M(-1)b||     = ',d20.6/
      . 5x,'Number of equations  = ',i20/
@@ -6014,15 +6014,15 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,
      .        ' iterations !',/)
- 1300 format (' LPSMRQ:',5x,'It',i7,5x,2d20.10)
- 1400 format (' LPSMRQ:',1x,'Residuo exato > 3.16d0*conv '
+ 1300 format (' LPSQMR:',5x,'It',i7,5x,2d20.10)
+ 1400 format (' LPSQMR:',1x,'Residuo exato > 3.16d0*conv '
      .       ,1x,d20.10,1x,d20.10)
  1500 format ( 5x,i7,5x,2es20.10)
       end
 c ********************************************************************* 
 c
 c *********************************************************************  
-      subroutine rpsqrm(neq   ,nequ   ,nad   ,ia  ,ja
+      subroutine rpsqmr(neq   ,nequ   ,nad   ,ia  ,ja
      1                 ,ad    ,au     ,al    ,m   ,b  ,x  
      2                 ,t     ,r      ,q     ,d   
      3                 ,tol   ,maxit
@@ -6180,7 +6180,7 @@ c
 c ... sigma = ( q(j-1),t)
          sigma = dot(q,t,neq_doti)
          if( sigma .eq. 0.0d0) then
-           print*,"RSQRM fail (sigma)!"
+           print*,"RSQMR fail (sigma)!"
            call stop_mef()  
          endif  
 c .....................................................................
@@ -6224,7 +6224,7 @@ c ......................................................................
 c
 c ... 
          if(ro .eq. 0.d0) then
-           print*,"RSQRM fail (ro)!"
+           print*,"RSQMR fail (ro)!"
            call stop_mef()  
          endif  
 c .....................................................................
@@ -6316,16 +6316,16 @@ c ... Controle de flops
       if(flog) then
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
-     .       'RPSMRQ: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
+     .       'RPSQMR: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
      .      ,' tol ',tol,' time ',time
         endif
       endif
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Diagonal coefficient ' 
+ 1000 format (//,5x,'SUBROTINA LPSQMR:',/,5x,'Diagonal coefficient ' 
      . '- equation ',i9,d20.10)
- 1100 format(' (RPSMRQ) solver:'/
+ 1100 format(' (RPSQMR) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
      . 5x,'Number of equations  = ',i20/
@@ -6336,7 +6336,7 @@ c ======================================================================
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
- 1110 format(' (RPSMRQ_MPI) solver:'/
+ 1110 format(' (RPSQMR_MPI) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
      . 5x,'Number of iterations = ',i20/
@@ -6347,8 +6347,8 @@ c ======================================================================
      . 5x,'CPU time (s)         = ',f20.2/)
  1200 format (' *** WARNING: No convergence reached after ',i9,d20.10
      .        ' iterations !',/)
- 1300 format (' RPSMRQ:',5x,'It',i7,5x,2d20.10)
- 1400 format (' RPSMRQ:',1x,'Explicit residual > tol * ||b|| :'
+ 1300 format (' RPSQMR:',5x,'It',i7,5x,2d20.10)
+ 1400 format (' RPSQMR:',1x,'Explicit residual > tol * ||b|| :'
      .       ,1x,d20.10,1x,d20.10)
  1500 format ( 5x,i7,5x,2es20.10)
       end

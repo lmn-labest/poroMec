@@ -237,7 +237,7 @@ c ... unsym   =  true -> matriz de coeficientes nao-simetrica
 c ... solver  =  1 (pcg)       , 2 (gmres)       , 3 (gauss / LDU)
 c                4 (bicgstab)  , 5 (block_pcg_it), 6 (bicgstabl2) 
 c                7 (minres)    , 8 (pcr)         , 9 (symmlq)
-c               10 (pardiso)   ,11 (sqrm)
+c               10 (pardiso)   ,11 (sqmr)
 c ... stge    =  1 (csr), 2 (edges), 3 (ebe), 4 (skyline), 6 (csr3)
       unsym   = .false.
       solver  =  11
