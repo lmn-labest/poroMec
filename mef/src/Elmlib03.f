@@ -403,10 +403,8 @@ c ...
       gl(3)     =  gravity(3)
 c ... 
       fluid_d   = e(7)*1.0d-06
-
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
-
 c ... matriz constitutiva:
       ym        = e(1)
       ps        = e(2)

@@ -120,7 +120,7 @@ c ... sistema de equacoes
 c ... precondicionador
       integer*8 i_m
 c ... arranjos globais (MPI - escrita)
-      integer*8 i_g,i_g1,i_g2,i_g3,i_g4
+      integer*8 i_g,i_g1,i_g2,i_g3,i_g4,i_g5,i_g6,i_g7,i_g8,i_g9
 c ... coo
       integer*8 i_lin,i_col,i_acoo
       integer*8 i_linuu,i_coluu,i_acoouu
@@ -1154,7 +1154,7 @@ c ... 5  - stress Total
 c ... 6  - stress Biot
 c ... 7  - stress Terzaghi
 c ... 8  - fluxo de darcy 
-c ... 9  - delta prosidade
+c ... 9  - delta porosidade
 c
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
       ntn   = 6
@@ -1166,111 +1166,136 @@ c ...
       i_txb  = 1
       i_flux = 1
       i_ic   = 1
+      i_g    = 1
+      i_g1   = 1
+      i_g2   = 1
+      i_g3   = 1
+      i_g4   = 1
+      i_g5   = 1
+      i_g6   = 1
+      i_g7   = 1
+      i_g8   = 1
 c ......................................................................
+c
+c ...
+      i_ic        = alloc_4('ic      ',    1,nnode)
+      i_tx        = alloc_8('tx      ',  ntn,nnode)
+      i_txe       = alloc_8('txe     ',  ntn,nnode)
+      i_txb       = alloc_8('txb     ',  ntn,nnode)
+      i_flux      = alloc_8('flux    ',  ndm,nnode)
+      i_dporosity = alloc_8('dporo   ',    1,nnode)
+c .....................................................................
 c
 c ...
       if(mpi) then
-c ... comunicao
-        call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
-        call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
-        call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
-        call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
-        if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
-          call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
-        endif
-c ......................................................................
-c
 c ...
-        if(my_id.eq.0) then
-c ...
-          i_ic        = alloc_4('ic      ',    1,print_nnode)
-          i_tx        = alloc_8('tx      ',  ntn,print_nnode)
-          i_txe       = alloc_8('txe     ',  ntn,print_nnode)
-          i_txb       = alloc_8('txb     ',  ntn,print_nnode)
-          i_flux      = alloc_8('flux    ',  ndm,print_nnode)          
-          i_dporosity = alloc_8('dporo   ',    1,print_nnode)
-c .....................................................................
-c
-c ...
-          if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
-     .       .or. print_flag(8)) then
-            timei = MPI_Wtime()
-            call tform_pm(ia(i_g1)   ,ia(i_g2)  ,ia(i_e)  ,ia(i_ie)
-     1                   ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2                   ,ia(i_txl)  ,ia(i_g)  ,ia(i_g3) ,ia(i_g4)
-     3                   ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
-     4                   ,print_nnode,nelG    ,nen       ,nenv
-     5                   ,ndm        ,ndf     ,nst       ,ntn
-     6                   ,3          ,ilib)
-            tformtime = tformtime + MPI_Wtime()-timei
-          endif
-c ......................................................................
-c
-c ... 
-          if(print_flag(9))then
-            timei = MPI_Wtime()
-            call delta_porosity(ia(i_g1) ,ia(i_g2)  ,ia(i_e),ia(i_ie)
-     1            ,ia(i_ic) ,ia(i_xl) ,ia(i_ul)     ,ia(i_dpl)
-     2            ,ia(i_pl) ,ia(i_g)  ,ia(i_g3)     ,ia(i_dporosity)
-     3            ,print_nnode,nelG     ,nen        ,nenv
-     4            ,ndm        ,ndf      ,nst       
-     5            ,7          ,ilib)
-            tformtime = tformtime + MPI_Wtime()-timei
-          endif
-c ......................................................................
-c
-c ...
-          call write_mesh_res_pm(ia(i_g1),ia(i_g2) ,ia(i_g)  ,ia(i_g3)
-     1               ,ia(i_dporosity)  ,ia(i_tx)   ,ia(i_txb),ia(i_txe)
-     2               ,ia(i_flux)       ,print_nnode,nelG     ,istep   
-     3               ,t                ,nen        ,ndm      ,ndf   
-     4               ,ntn              ,fname      ,prename   
-     5               ,bvtk             ,legacy_vtk ,print_flag
-     6               ,nplot)
-c ......................................................................
-c
-c ...
-          i_dporosity= dealloc('dporo   ')     
-          i_flux     = dealloc('flux    ')
-          i_txe      = dealloc('txb     ')
-          i_txe      = dealloc('txe     ')
-          i_tx       = dealloc('tx      ')
-          i_ic       = dealloc('ic      ')
-        endif
-c ......................................................................
-c
-c ...
-          if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
-            i_g4  = dealloc('tx0G    ')
-          endif
-          i_g3  = dealloc('dpG     ')
-          i_g2  = dealloc('xG      ')
-          i_g1  = dealloc('ixG     ')
-          i_g   = dealloc('upG     ')
-c >......................................................................  
-c
-c ...
-      else
-c ...
-        i_ic        = alloc_4('ic      ',    1,print_nnode)
-        i_tx        = alloc_8('tx      ',  ntn,print_nnode)
-        i_txe       = alloc_8('txe     ',  ntn,print_nnode)
-        i_txb       = alloc_8('txb     ',  ntn,print_nnode)
-        i_flux      = alloc_8('flux    ',  ndm,print_nnode)
-        i_dporosity = alloc_8('dporo   ',    1,print_nnode)
-c .....................................................................
-c
-c ...
-        if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
+        if(print_flag(5) .or. print_flag(6) .or. print_flag(7) 
      .     .or. print_flag(8)) then
           timei = MPI_Wtime()
           call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
      1                 ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2                 ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) ,ia(i_tx0)
-     3                 ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
-     4                 ,print_nnode,numel   ,nen       ,nenv
-     5                 ,ndm        ,ndf     ,nst       ,ntn
-     6                 ,3          ,ilib)
+     2                 ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) 
+     3                 ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
+     5                 ,nnode      ,numel   ,nen       ,nenv
+     6                 ,ndm        ,ndf     ,nst       ,ntn
+     7                 ,3          ,ilib    ,i_xf      ,novlp)
+          tformtime = tformtime + MPI_Wtime()-timei
+        endif
+c ......................................................................
+c
+c ... 
+        if(print_flag(9))then
+          timei = MPI_Wtime()
+          call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e),ia(i_ie)
+     1            ,ia(i_ic) ,ia(i_xl) ,ia(i_ul)  ,ia(i_dpl)
+     2            ,ia(i_pl) ,ia(i_u)  ,ia(i_dp)  ,ia(i_dporosity)
+     3            ,ia(i_fnno)
+     3            ,nnode      ,numel    ,nen      ,nenv
+     4            ,ndm        ,ndf      ,nst       
+     5            ,7          ,ilib     ,i_xf     ,novlp)
+          tformtime = tformtime + MPI_Wtime()-timei
+        endif
+c ......................................................................
+c
+c ... comunicao ( nno_pload = no1 + no2 )
+        call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
+        call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
+        call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
+        call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
+        call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
+c ... tensao e fluxo 
+        if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
+          if(novlp) then
+            call global_v(ntn,nnode,i_tx ,i_g5 ,'txG     ')
+            call global_v(ntn,nnode,i_txb,i_g6 ,'txbG    ')
+            i_g7        = alloc_8('txeG    ',ntn,nnovG)
+            call global_v(ndm,nnode,i_flux,i_g8,'fluxG   ')
+          else          
+            call global_v(ntn,nno_pload,i_tx ,i_g5,'txG     ')
+            call global_v(ntn,nno_pload,i_txb,i_g6,'txbG    ')
+            i_g7        = alloc_8('txeG    ',ntn,nnovG)
+            call global_v(ndm,nno_pload,i_flux,i_g8,'fluxG   ')
+          endif
+c ... add tensao incial
+          call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
+          call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
+          call effective_stress(ia(i_g7),ia(i_g5),ia(i_g) 
+     .                         ,nnovG   ,ntn     ,ndf,ndm)
+c ......................................................................
+        endif
+c ... delta porosidade 
+        if(print_flag(9)) then
+          if(novlp) then
+            call global_v(1,nnode,i_dporosity,i_g9 ,'dporoG  ')
+          else          
+            call global_v(1,nno_pload,i_dporosity,i_g9 ,'dporoG  ')
+          endif
+        endif
+c ......................................................................
+c ...
+        if(my_id .eq. 0) then
+          call write_mesh_res_pm(ia(i_g1),ia(i_g2) ,ia(i_g)  ,ia(i_g3)
+     1               ,ia(i_g9)         ,ia(i_g5)   ,ia(i_g6) ,ia(i_g7)
+     2               ,ia(i_g8)         ,print_nnode,nelG     ,istep   
+     3               ,t                ,nen        ,ndm      ,ndf   
+     4               ,ntn              ,fname      ,prename   
+     5               ,bvtk             ,legacy_vtk ,print_flag
+     6               ,nplot)
+        endif
+c ......................................................................
+c
+c ...
+          if(print_flag(9)) then
+            i_g9  = dealloc('dporoG  ')
+          endif
+c
+          if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
+            i_g8  = dealloc('fluxG   ')
+            i_g7  = dealloc('txeG    ')
+            i_g6  = dealloc('txbG    ')
+            i_g5  = dealloc('txG     ')
+          endif
+c
+          i_g4  = dealloc('tx0G    ')
+          i_g3  = dealloc('dpG     ')
+          i_g2  = dealloc('xG      ')
+          i_g1  = dealloc('ixG     ')
+          i_g   = dealloc('upG     ')
+c .......................................................................  
+c
+c ...
+      else
+c ...
+        if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
+     .     .or. print_flag(8)) then
+          timei = MPI_Wtime()
+          call tform_pm(ia(i_ix)   ,ia(i_x)   ,ia(i_e)   ,ia(i_ie)
+     1                 ,ia(i_ic)   ,ia(i_xl)  ,ia(i_ul)  ,ia(i_dpl)
+     2                 ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp) 
+     3                 ,ia(i_tx)   ,ia(i_txb) ,ia(i_flux),ia(i_fnno) 
+     4                 ,nnode      ,numel     ,nen       ,nenv
+     5                 ,ndm        ,ndf       ,nst       ,ntn
+     6                 ,3          ,ilib      ,i_xf      ,novlp)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
 c ......................................................................
@@ -1281,11 +1306,19 @@ c ...
           call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
      1                    ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
      2                    ,ia(i_pl) ,ia(i_u)  ,ia(i_dp) ,ia(i_dporosity)
-     3                    ,print_nnode,numel  ,nen      ,nenv
+     3                    ,ia(i_fnno)  
+     3                    ,nnode      ,numel  ,nen      ,nenv
      4                    ,ndm        ,ndf    ,nst       
-     5                    ,7          ,ilib)
+     5                    ,7          ,ilib   ,i_xf     ,novlp)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
+c ......................................................................
+c
+c ... add tensao incial
+        call vsum(ia(i_tx),ia(i_tx0) ,nnodev*ntn,ia(i_txb))
+        call vsum(ia(i_txb),ia(i_tx0),nnodev*ntn,ia(i_txb))
+        call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
+     .                       ,nnodev  ,ntn     ,ndf,ndm)
 c ......................................................................
 c
 c ...
@@ -1298,14 +1331,17 @@ c ...
      6                 ,nplot)
 c ......................................................................
 c
-c ...
-          i_dporosity= dealloc('dporo   ')
-          i_flux     = dealloc('flux    ')
-          i_txe      = dealloc('txb     ')
-          i_txe      = dealloc('txe     ')
-          i_tx       = dealloc('tx      ')
-          i_ic       = dealloc('ic      ')
+
       endif
+c ......................................................................
+c
+c ...
+      i_dporosity= dealloc('dporo   ')
+      i_flux     = dealloc('flux    ')
+      i_txb      = dealloc('txb     ')
+      i_txe      = dealloc('txe     ')
+      i_tx       = dealloc('tx      ')
+      i_ic       = dealloc('ic      ')
 c ......................................................................
       goto 50     
 c ......................................................................
@@ -1762,14 +1798,6 @@ c ......................................................................
       endif
 c .....................................................................
 c
-c ... comunicao
-      call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
-      call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
-      call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
-      call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
-      call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
-c .....................................................................
-c
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
       ntn   = 6
 c .....................................................................
@@ -1781,18 +1809,48 @@ c .....................................................................
 c .....................................................................
 c
 c ...
-      if(my_id .eq. 0 ) then
-        timei = MPI_Wtime()
-        call tform_pm(ia(i_g1)   ,ia(i_g2)  ,ia(i_e)  ,ia(i_ie)
-     1               ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2               ,ia(i_txl)  ,ia(i_g)  ,ia(i_g3) ,ia(i_g4)
-     3               ,ia(i_tx)   ,ia(i_txb),ia(i_txe),ia(i_flux)
-     4               ,print_nnode ,nelG     ,nen      ,nenv
-     5               ,ndm         ,ndf      ,nst      ,ntn
-     6               ,3           ,ilib)
-        tformtime = tformtime + MPI_Wtime()-timei
-      endif
+      timei = MPI_Wtime()
+      call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+     1             ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
+     2             ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) 
+     3             ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
+     5             ,nnode      ,numel   ,nen       ,nenv
+     6             ,ndm        ,ndf     ,nst       ,ntn
+     7             ,3          ,ilib    ,i_xf      ,novlp)
+      tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
+c
+c ... comunicao
+      if(mpi) then
+        call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
+        call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
+        call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
+        call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
+        call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
+        if(novlp) then
+          call global_v(ntn,nnode,i_tx ,i_g5 ,'txG     ')
+          call global_v(ntn,nnode,i_txb,i_g6 ,'txbG    ')
+          i_g7        = alloc_8('txeG    ',ntn,nnovG)
+          call global_v(ndm,nnode,i_flux,i_g8,'fluxG   ')
+        else          
+          call global_v(ntn,nno_pload,i_tx ,i_g5,'txG     ')
+          call global_v(ntn,nno_pload,i_txb,i_g6,'txbG    ')
+          i_g7        = alloc_8('txeG    ',ntn,nnovG)
+          call global_v(ndm,nno_pload,i_flux,i_g8,'fluxG   ')
+        endif
+c ... add tensao incial
+        call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
+        call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
+        call effective_stress(ia(i_g7),ia(i_g5),ia(i_g) 
+     .                       ,nnovG   ,ntn     ,ndf,ndm)
+      else
+        call vsum(ia(i_tx),ia(i_tx0),nnovG*ntn,ia(i_tx))
+        call vsum(ia(i_txb),ia(i_tx0),nnovG*ntn,ia(i_txb))
+        call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
+     .                       ,nnovG   ,ntn     ,ndf,ndm)      
+      endif
+c .....................................................................
+c
 c
 c ... codigo para o arquivo stress_node.txt      
       code   = 31
@@ -1800,9 +1858,15 @@ c ... codigo para o arquivo stress_node.txt
       string = 'stressTotal'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
-          call printnode(ia(i_tx),ia(i_no+j-1),ntn            ,istep,dt
-     1                 ,string   ,prename     ,ia(i_nfile+j-1)
-     2                 ,code     ,new_file(ifiles))
+          if(mpi) then
+           call printnode(ia(i_g5),ia(i_no+j-1),ntn          ,istep,dt
+     1                   ,string   ,prename     ,ia(i_nfile+j-1)
+     2                   ,code     ,new_file(ifiles))
+          else
+            call printnode(ia(i_tx),ia(i_no+j-1),ntn          ,istep,dt
+     1                   ,string   ,prename     ,ia(i_nfile+j-1)
+     2                   ,code     ,new_file(ifiles))
+          endif  
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1814,9 +1878,15 @@ c ... codigo para o arquivo stressE_node.txt
       string = 'stressE'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
-          call printnode(ia(i_txe),ia(i_no+j-1),ntn            ,istep,dt
+         if(mpi) then
+           call printnode(ia(i_g7),ia(i_no+j-1),ntn          ,istep,dt
      1                 ,string   ,prename     ,ia(i_nfile+j-1)
      2                 ,code     ,new_file(ifiles))
+         else
+           call printnode(ia(i_txe),ia(i_no+j-1),ntn          ,istep,dt
+     1                 ,string   ,prename     ,ia(i_nfile+j-1)
+     2                 ,code     ,new_file(ifiles))
+          endif
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1828,9 +1898,15 @@ c ... codigo para o arquivo stressB_node.txt
       string = 'stressBiot'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
-          call printnode(ia(i_txb),ia(i_no+j-1),ntn            ,istep,dt
-     1                 ,string   ,prename     ,ia(i_nfile+j-1)
-     2                 ,code     ,new_file(ifiles))
+          if(mpi) then
+            call printnode(ia(i_g6),ia(i_no+j-1),ntn         ,istep,dt
+     1                   ,string   ,prename     ,ia(i_nfile+j-1)
+     2                   ,code     ,new_file(ifiles))
+          else
+            call printnode(ia(i_txb),ia(i_no+j-1),ntn         ,istep,dt
+     1                   ,string   ,prename     ,ia(i_nfile+j-1)
+     2                   ,code     ,new_file(ifiles))
+          endif
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1842,9 +1918,15 @@ c ... codigo para o arquivo flux_node.txt
       string = 'stressFlux'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
-          call printnode(ia(i_flux),ia(i_no+j-1),ndm          ,istep,dt
+          if(mpi) then
+            call printnode(ia(i_g8),ia(i_no+j-1),ntn         ,istep,dt
+     1                     ,string   ,prename     ,ia(i_nfile+j-1)
+     2                     ,code     ,new_file(ifiles))
+          else
+            call printnode(ia(i_flux),ia(i_no+j-1),ndm        ,istep,dt
      1                 ,string   ,prename     ,ia(i_nfile+j-1)
      2                 ,code     ,new_file(ifiles))
+          endif
         enddo
         new_file(ifiles) = .false.
       endif
@@ -1860,6 +1942,10 @@ c ......................................................................
 c
 c ...
       if(mpi) then
+        i_g8      = dealloc('fluxG   ')
+        i_g7      = dealloc('txeG    ')
+        i_g6      = dealloc('txbG    ')
+        i_g5      = dealloc('txG     ')
         i_g4      = dealloc('tx0G    ')
         i_g3      = dealloc('dpG     ')
         i_g2      = dealloc('xG      ')

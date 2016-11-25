@@ -280,16 +280,16 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine tform_pm(ix    ,x    ,e   ,ie
-     1                   ,ic    ,xl   ,ul  ,dpl
-     2                   ,pl    ,u    ,dp  ,tx0
-     3                   ,t     ,tb   ,te  ,flux
-     4                   ,nnodev,numel,nen ,nenv
-     5                   ,ndm   ,ndf  ,nst ,ntn  
-     6                   ,isw   ,ilib)
+      subroutine tform_pm(ix    ,x    ,e    ,ie
+     1                   ,ic    ,xl   ,ul   ,dpl
+     2                   ,pl    ,u    ,dp   
+     3                   ,t     ,tb   ,flux ,fnno
+     5                   ,nnode ,numel,nen  ,nenv
+     6                   ,ndm   ,ndf  ,nst  ,ntn  
+     7                   ,isw   ,ilib ,i_xfi,novlp)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 09/04/2016                                    * 
+c * Data de modificaco : 24/11/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
 c * ------------------------------------------------------------------ * 
@@ -306,11 +306,12 @@ c * pl(ntn*nen)      - nao definido                                    *
 c * dpl(nst)         - nao definido                                    *
 c * u(ndf,nnode)     - solucao corrente                                *
 c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
-c * tx0(ntn,nnodev)  - tensao inicial                                  *
 c * t(ntn,nnodev)    - nao definido                                    *
 c * tb(ntn,nnodev)   - nao definido                                    *
 c * te(ntn,nnodev)   - nao definido                                    *
 c * flux(ndm,nnodev) - nao definido                                    *
+c * fnno             -  identifica dos nos de vertices                 *
+c *                     ( 1 - vertice | 0 )                            *
 c * nnodev           - numero de nos de vertices                       *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
@@ -320,11 +321,13 @@ c * nst              - nst = nen*ndf                                   *
 c * ndm              - dimensao                                        *
 c * ndf              - numero max. de graus de liberdade por no        *
 c * ntn              - numero max. de derivadas por no                 *
-c * ovlp             - chave indicativa de overlapping                 *
 c * nprcs            - numero de processos                             *
 c * isw              - codigo de instrucao para as rotinas             *
 c *                    de elemento                                     *
 c * ilib             - determina a biblioteca do elemento              *
+c * i_xf             - buffer de comunicao para o numero de elementos  *
+c *                    conectidos aos nos                              *
+c * novlp            - chave indicativa de non-overlapping             * 
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -339,18 +342,21 @@ c * Calcula as tensoes apenas nos vertices                             *
 c **********************************************************************
       use Malloc
       implicit none
-c     include 'mpif.h'
-      include 'parallel.fi'
+      include 'mpif.h'
       include 'termprop.fi'
-      integer nnodev,numel,nen,nenv,ndf,nst,ndm,ntn
+c ... mpi
+      integer*8 i_xfi
+      logical novlp
+c ...
+      integer nnode,numel,nen,nenv,ndf,nst,ndm,ntn
 c ......................................................................      
-      integer ix(nen+1,*),ie(*),ic(nnodev)
+      integer ix(nen+1,*),ie(*),ic(*),fnno(*)
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw,desloc1,desloc2
       real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv*(2*ntn+ndm))
       real*8  x(ndm,*),e(prop,*)
-      real*8  u(ndf,*),el(prop),dp(*),tx0(ntn,*)
-      real*8  t(ntn,*),tb(ntn,*),te(ntn,*),flux(ndm,*)
+      real*8  u(ndf,*),el(prop),dp(*)
+      real*8  t(ntn,*),tb(ntn,*),flux(ndm,*)
 c ...
       logical ldum
       integer idum
@@ -366,7 +372,7 @@ c     p(2*nenv*ntn+1:nenv*(2*ntn+ndm)) - flux de darcy
 c ......................................................................
 c
 c ...
-      do 30 i = 1, nnodev
+      do 30 i = 1, nnode        
         ic(i) = 0
 c ... tensao
         do 10 j = 1, ntn
@@ -451,30 +457,26 @@ c ... tensao efetiva de biot
 c .......................................................................
 c
 c ... Comunica vetor de contagem de elementos por no'
-c     if (novlp) call allgatheri(ic,i_xfi)
+      if (novlp) call allgatheri(ic,i_xfi)
 c .......................................................................
-      do 1000 i = 1, nnodev
+      do 1000 i = 1, nnode
+c ... no de vertice
+        if(fnno(i) .eq. 1) then
 c ... tensao
-        do 1010 j = 1, ntn
+          do 1010 j = 1, ntn
 c ... tensao total            
-         t(j,i)  = t(j,i)/ic(i)  + tx0(j,i)
+            t(j,i)  = t(j,i)/ic(i) 
 c ... tensao biot           
-         tb(j,i) = tb(j,i)/ic(i) + tx0(j,i)
-         te(j,i) = t(j,i)
- 1010   continue 
-c ......................................................................
-c
-c ... tensao efetiva
-        do 1020 j = 1, 3  
-          te(j,i) = te(j,i) + u(4,i)
- 1020   continue 
+            tb(j,i) = tb(j,i)/ic(i)
+ 1010     continue 
 c ......................................................................
 c
 c ... fluxo
-        do 1030 j = 1, ndm
-          flux(j,i) = flux(j,i)/ic(i)
- 1030   continue 
+          do 1030 j = 1, ndm
+            flux(j,i) = flux(j,i)/ic(i)
+ 1030     continue 
 c ......................................................................
+        endif
  1000 continue
 c ......................................................................
 c
@@ -487,14 +489,15 @@ c **********************************************************************
       subroutine delta_porosity(ix    ,x    ,e   ,ie
      1                         ,ic    ,xl   ,ul  ,dpl
      2                         ,pl    ,u    ,dp  ,dporosity
-     3                         ,nnode ,numel,nen ,nenv
-     4                         ,ndm   ,ndf  ,nst   
-     5                         ,isw   ,ilib)
+     3                         ,fnno
+     4                         ,nnode ,numel,nen ,nenv
+     5                         ,ndm   ,ndf  ,nst   
+     6                         ,isw   ,ilib ,i_xfi    ,novlp)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 10/11/2016                                    * 
+c * Data de modificaco : 24/11/2016                                    * 
 c * ------------------------------------------------------------------ * 
-c * DELTA_PORISITY: calculo da porosidade                              *                                                   *
+c * DELTA_PORISITY: calculo da porosidade                              *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -510,6 +513,8 @@ c * dpl(nst)         - nao definido                                    *
 c * u(ndf,nnode)     - solucao corrente                                *
 c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
 c * dpososity(nnodev)- nao definido                                    *
+c * fnno             -  identifica dos nos de vertices                 *
+c *                     ( 1 - vertice | 0 )                            *
 c * nnodev           - numero de nos de vertices                       *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
@@ -519,11 +524,13 @@ c * nst              - nst = nen*ndf                                   *
 c * ndm              - dimensao                                        *
 c * ndf              - numero max. de graus de liberdade por no        *
 c * ntn              - numero max. de derivadas por no                 *
-c * ovlp             - chave indicativa de overlapping                 *
 c * nprcs            - numero de processos                             *
 c * isw              - codigo de instrucao para as rotinas             *
 c *                    de elemento                                     *
 c * ilib             - determina a biblioteca do elemento              *
+c * i_xf             - buffer de comunicao para o numero de elementos  *
+c *                    conectidos aos nos                              *
+c * novlp            - chave indicativa de non-overlapping             * 
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -535,11 +542,15 @@ c * Calcula as tensoes apenas nos vertices                             *
 c **********************************************************************
       use Malloc
       implicit none
-      include 'parallel.fi'
+      include 'mpif.h'
       include 'termprop.fi'
+c ... mpi
+      integer*8 i_xfi
+      logical novlp
+c ...
       integer nnode,numel,nen,nenv,ndf,nst,ndm,ntn
 c ......................................................................      
-      integer ix(nen+1,*),ie(*),ic(nnode)
+      integer ix(nen+1,*),ie(*),ic(*),fnno(*)
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw
       real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv)
@@ -615,10 +626,12 @@ c ...... media do vetor global
 c .......................................................................
 c
 c ... Comunica vetor de contagem de elementos por no'
-c     if (novlp) call allgatheri(ic,i_xfi)
+      if (novlp) call allgatheri(ic,i_xfi)
 c .......................................................................
       do 1000 i = 1, nnode
-        dporosity(i) = dporosity(i)/ic(i)
+        if(fnno(i) .eq. 1 ) then
+          dporosity(i) = dporosity(i)/ic(i)
+        endif
  1000 continue
 c ......................................................................
 c
@@ -1152,6 +1165,44 @@ c ......................................................................
       end      
 c **********************************************************************
 c
+c **********************************************************************
+c * Data de criacao    : 24/11/2016                                    *
+c * Data de modificaco : 00/00/0006                                    * 
+c * ------------------------------------------------------------------ * 
+c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * txe              - nao definido                                    *
+c * t                - tensao total                                    *
+c * u                - pressao u(4,i)                                  *
+c * nnode            - numero de nos                                   *
+c * ntn              - numero de tensoes                               *
+c * ndf              - graus de liberade                               *
+c * ndm              - numero de dimensao                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * te(ntn   ,nnode ) - tensoes efetiva                                *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine effective_stress(txe  ,tx ,u
+     .                     ,nnode,ntn,ndf
+     .                     ,ndm)
+      implicit none
+      integer ntn,ndf,ndm,i,j,nnode
+      real*8 txe(ntn,*),tx(ntn,*),u(ndf,*)
+c ...
+      do i = 1, nnode
+        do j = 1, ndm
+          txe(j,i) =  tx(j,i) + u(ndf,i) 
+        enddo
+      enddo
+c ......................................................................
+      return
+      end  
 c **********************************************************************
 c     subroutine pform(ix,iq,ie,e,x,id,ia,ja,au,al,ad,b,u,u0,ut,v,a,du,
 c    .         hi,tx,txp,eps,w,xl,ul,vl,zl,wl,pl,sl,tl,ld,numel,nen,ndf,
