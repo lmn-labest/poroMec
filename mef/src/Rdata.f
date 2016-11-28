@@ -106,7 +106,7 @@ c ......................................................................
 c ......................................................................
 c
 c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
-      if(my_id .eq. 0) print*,'load parameters ...'
+      if(my_id .eq. 0) print*,'loading parameters ...'
       call parameters(nnodev,numel,numat,nen,ndf,ndm,nin)
       if(my_id .eq. 0) print*,'load.'
       nnode  = nnodev
@@ -278,7 +278,7 @@ c
 c ... Conetividades tria3:          
 c
   500 continue
-      if(my_id .eq. 0) print*,'load tria3 ...'
+      if(my_id .eq. 0) print*,'loading tria3 ...'
       f_read_el = .true.
       ntria3(1) = 0
       nenv      = 3
@@ -298,7 +298,7 @@ c
 c ... Conetividades quad4:
 c
   550 continue
-      if(my_id .eq. 0) print*,'load quad4 ...'
+      if(my_id .eq. 0) print*,'loading quad4 ...'
       f_read_el = .true.
       nquad4(1) = 0
       nenv      = 4
@@ -317,7 +317,7 @@ c
 c ... Conetividades tetra4:
 c
   600 continue
-      if(my_id .eq. 0) print*,'load tetra4 ...'
+      if(my_id .eq. 0) print*,'loading tetra4 ...'
       f_read_el  = .true.
       ntetra4(1) = 0
       nenv       = 4
@@ -364,7 +364,7 @@ c
 c ... Conetividades hexa8:
 c
   650 continue
-      if(my_id .eq. 0) print*,'load hexa8 ...'
+      if(my_id .eq. 0) print*,'loading hexa8 ...'
       f_read_el = .true.
       nhexa8(1) = 0
       nenv      = 8
@@ -411,7 +411,7 @@ c
 c ... Conetividades hexa20:
 c
   700 continue
-      if(my_id .eq. 0) print*,'load hexa20 ...'
+      if(my_id .eq. 0) print*,'loading hexa20 ...'
       f_read_el  = .true.
       el_quad    = .true.
       nhexa20(1) = 0
@@ -433,7 +433,7 @@ c
 c ... Conetividades tetra10:
 c
   750 continue
-      if(my_id .eq. 0) print*,'load tetra10 ...'
+      if(my_id .eq. 0) print*,'loading tetra10 ...'
       f_read_el   = .true.
       el_quad     = .true.
       ntetra10(1) = 0
@@ -461,7 +461,7 @@ c
 c ... Coordenadas:
 c
   850 continue
-      if(my_id .eq. 0) print*,'load coordinates ...'
+      if(my_id .eq. 0) print*,'loading coordinates ...'
       call coord(ia(i_x),nnodev,ndm,nin)
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -470,7 +470,7 @@ c
 c ... constrainpmec - restricoes nodais (deslocamentos + pressao)
 c
   900 continue
-      if(my_id .eq. 0) print*,'load constrainpmec ...'
+      if(my_id .eq. 0) print*,'loading constrainpmec ...'
       if(f_read_el) then
         call bound(ia(i_id),nnodev,ndf,nin,1)
 c ... malha quadratica gerada internamente
@@ -479,7 +479,7 @@ c ... malha quadratica gerada internamente
         endif
 c ......................................................................
       else
-        print*,'MACRO: constrainpmec !! elementos nao lidos'
+        print*,'MACRO: constrainpmec !! Unread Elements'
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -488,7 +488,7 @@ c
 c ... constraindisp - restricoes nodais (deslocamentos)
 c
   950 continue
-      if(my_id .eq. 0) print*,'load constraindisp ...'
+      if(my_id .eq. 0) print*,'loading constraindisp ...'
       if(f_read_el) then
         call bound(ia(i_id),nnodev,ndf,nin,1)
 c ... malha quadratica gerada internamente
@@ -497,7 +497,7 @@ c ... malha quadratica gerada internamente
         endif
 c ......................................................................
       else
-        print*,'MACRO: constraindisp !! elementos nao lidos'
+        print*,'MACRO: constraindisp !! Unread Elements'
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -507,7 +507,7 @@ c ... nodalforces - forcas nodais:
 c
  1000 continue
       if(f_read_el) then
-        if(my_id .eq. 0) print*,'load nodalforces ...'
+        if(my_id .eq. 0) print*,'loading nodalforces ...'
         call forces(ia(i_f),nnodev,ndf,nin)
 c ... malha quadratica gerada internamente
         if(mk_el_quad) then
@@ -515,7 +515,7 @@ c ... malha quadratica gerada internamente
         endif
 c ......................................................................
       else
-        print*,'MACRO: nodalforces !! elementos nao lidos'
+        print*,'MACRO: nodalforces !! Unread Elements'
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -524,11 +524,11 @@ c
 c ... elmtloads - cargas nos elementos
 c
  1050 continue
-      if(my_id .eq. 0) print*,'load elmtloads ...'
+      if(my_id .eq. 0) print*,'loading elmtloads ...'
       if(f_read_el) then
         call bound(ia(i_eload),numel,7,nin,3) 
       else
-        print*,'MACRO: elmtloads !! elementos nao lidos'
+        print*,'MACRO: elmtloads !! Unread Elements'
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -540,7 +540,7 @@ c
       if(f_read_el) then
         call bound(ia(i_nload),nnodev,ndf,nin,2) 
       else
-        print*,'MACRO: nodalloads !! elementos nao lidos'
+        print*,'MACRO: nodalloads !! Unread Elements'
       endif
       goto 100
 c ......................................................................
@@ -566,7 +566,7 @@ c
 c ... Definicao das cargas variaveis no tempo:
 c
  1300 continue
-      if(my_id .eq. 0) print*,'load loads ...'
+      if(my_id .eq. 0) print*,'loading loads ...'
       call rload(nin)
       if(my_id .eq. 0) print*,'load.'
       goto 100
@@ -598,11 +598,11 @@ c
 c ... intialpres
 c
  1500 continue
-      if(my_id .eq. 0) print*,'load intialpres ...'
+      if(my_id .eq. 0) print*,'loading intialpres ...'
       if(f_read_el) then
         call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)
       else
-        print*,'MACRO: initialpres !! elementos nao lidos'
+        print*,'MACRO: initialpres !! Unread Elements'
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100 
@@ -611,7 +611,7 @@ c
 c ...
 c      
  1550 continue
-      if(my_id .eq. 0) print*,'load initialstress ...'
+      if(my_id .eq. 0) print*,'loading initialstress ...'
       if(f_read_el) then
         fstress0 = .true.  
         call init_poro_mec(ia(i_tx0),nnodev,ntn,1,ntn,nin)
@@ -620,7 +620,7 @@ c ... malha quadratica gerada internamente
           call mk_initial_quad(ia(i_tx0),ia(i_ix),numel,ntn,nen)
         endif
       else
-        print*,'MACRO: initialstress !! elementos nao lidos'
+        print*,'MACRO: initialstress !! Unread Elements'
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -629,7 +629,7 @@ c
 c ... Paralelo:                                         
 c      
  1600 continue
-      if(my_id .eq. 0) print*,'load read_par...'
+      if(my_id .eq. 0) print*,'loading read_par...'
       call read_par(nin,nnode,numel) 
       if(my_id .eq. 0) print*,'load.'
       go to 100 
@@ -646,9 +646,8 @@ c
       nin = nincl
       go to 100
  1651 continue
-      print*, trim(fname), ' arquivo nao existente !'
-      stop
-
+      print*,'File ',trim(fname),' not found !'
+      call stop_mef()
 c ......................................................................
 c
 c ... (return) Retorna leitura para arquivo de dados basico:
@@ -663,7 +662,7 @@ c
 c ... tria3ov
 c
  1750 continue
-      if(my_id .eq. 0) print*,'load tria3ov ...'
+      if(my_id .eq. 0) print*,'loading tria3ov ...'
       ntria3(3) = 0
       call elconn(ia(i_ix),nen+1,3,ntria3(3),numel,nin)
       ntria3(4) = totnel+1
@@ -675,7 +674,7 @@ c
 c ... quad4ov
 c
  1800 continue
-      if(my_id .eq. 0) print*,'load quad4ov ...'
+      if(my_id .eq. 0) print*,'loading quad4ov ...'
       nquad4(3) = 0
       call elconn(ia(i_ix),nen+1,4,nquad4(3),numel,nin)
       nquad4(4) = totnel+1
@@ -687,7 +686,7 @@ c
 c ... tetra4ov                              
 c      
  1850 continue
-      if(my_id .eq. 0) print*,'load tetra4ov ...'
+      if(my_id .eq. 0) print*,'loading tetra4ov ...'
       ntetra4(3) = 0
       call elconn(ia(i_ix),nen+1,4,ntetra4(3),numel,nin)
       ntetra4(4) = totnel+1
@@ -699,7 +698,7 @@ c
 c ... hexa8ov                              
 c      
  1900 continue
-      if(my_id .eq. 0) print*,'load hexa8ov ...'
+      if(my_id .eq. 0) print*,'loading hexa8ov ...'
       nhexa8(3) = 0
       call elconn(ia(i_ix),nen+1,8,nhexa8(3),numel,nin)
       nhexa8(4) = totnel+1
@@ -711,7 +710,7 @@ c
 c ... tetra10ov                            
 c      
  1950 continue
-      if(my_id .eq. 0) print*,'load tetra10ov ...'
+      if(my_id .eq. 0) print*,'loading tetra10ov ...'
       ntetra10(3) = 0
       call elconn(ia(i_ix),nen+1,10,ntetra10(3),numel,nin)
       ntetra10(4) = totnel+1
@@ -723,7 +722,7 @@ c
 c ... hexa20ov                             
 c      
  2000 continue
-      if(my_id .eq. 0) print*,'load hexa20ov ...'
+      if(my_id .eq. 0) print*,'loading hexa20ov ...'
       nhexa20(3) = 0
       call elconn(ia(i_ix),nen+1,20,nhexa20(3),numel,nin)
       nhexa20(4) = totnel+1

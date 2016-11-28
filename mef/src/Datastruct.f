@@ -12,7 +12,7 @@ c * ------------------------------------------------------------------ *
 c * DATASTRUCT: monta a estrutura de dados para a matriz de            *
 c *               coeficientes do sistema de equacoes de acordo com    *
 c *               o formato especificado.                              *
-c * ------------------------------------------------------------------ *                                                             *
+c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel) - conetividades nodais                             *

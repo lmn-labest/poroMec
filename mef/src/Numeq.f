@@ -1,32 +1,31 @@
       subroutine numeqpmec1(id,num,idr,nnode,nnodev,ndf,neq,nequ,neqp)
 c **********************************************************************
-c *                                                                    *
-c *   Subroutine NUMEQPMEC1                                            *
-c *                                                                    *
-c *   Numeracao das equacoes problema poro-mecanico                    *
-c *                                                                    *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    ix(nen+1,numel) - conetividades nodais dos elementos            *
-c *    id(ndf,nnode)   - condicoes nodais (0 = livre, 1 = restringido) *
-c *    num(nnode)      - numeracao original dos nos                    *
-c *                      num(i) e o numero original do no i            *
-c *    idr(ndf,nnode)  - nao definido                                  *
-c *    nnode - numero de nos                                           *
-c *    nnodev- numero de nos dos vertives                              *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - nao definido                                            *
-c *    nequ  - nao definido                                            *
-c *    neqp  - nao definido                                            *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    idr   - numeracao nodal das equacoes                            *
-c *    neq   - numero de equacoes                                      *
-c *    nequ  - numero de equacoes em kuu                               *
-c *    neqp  - numero de equacoes em kpp                               *
-c *                                                                    *
+c * Data de criacao    : 10/01/2016                                    *
+c * Data de modificaco : 08/11/2016                                    *
+c * ------------------------------------------------------------------ *
+c * Subroutine NUMEQPMEC1 : Numeracao das equacoes problema            * 
+c * poro-mecanico                                                      *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * id(ndf,nnode)   - condicoes nodais (0 = livre, 1 = restringido)    *
+c * num(nnode)      - numeracao original dos nos                       *
+c *                   num(i) e o numero original do no i               *
+c * idr(ndf,nnode)  - nao definido                                     *
+c * nnode - numero de nos                                              *
+c * nnodev- numero de nos dos vertives                                 *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - nao definido                                               *
+c * nequ  - nao definido                                               *
+c * neqp  - nao definido                                               *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * idr   - numeracao nodal das equacoes                               *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes em kuu                                  *
+c * neqp  - numero de equacoes em kpp                                  *
+c * ------------------------------------------------------------------ *
 c *  OBS: numera primeiro os deslocamentos                             *
 c **********************************************************************
       implicit none
@@ -82,7 +81,6 @@ c * NUMEQPMEC2 : Numeracao das equacoes problema poro-mecanico         *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
-c * ix(nen+1,numel) - conetividades nodais dos elementos               *
 c * id(ndf,nnode)   - condicoes nodais (0 = livre, 1 = restringido)    *
 c * num(nnode)      - numeracao original dos nos                       *
 c *                   num(i) e o numero original do no i               *
@@ -90,10 +88,7 @@ c * idr(ndf,nnode)  - nao definido                                     *
 c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
 c * nnode - numero de nos                                              *
 c * nnodev- numero de nos dos vertives                                 *
-c * numel - numero de elementos                                        *
-c * nen   - numero de nos por elemento                                 *
 c * ndf   - numero max. de graus de liberdade por no                   *
-c * nst   - numero max. de graus de liberdade por elemento             *
 c * neq   - nao definido                                               *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
@@ -159,12 +154,8 @@ c *    num(nnode)      - numeracao original dos nos                    *
 c *                      num(i) e o numero original do no i            *
 c *    idr(ndf,nnode)  - nao definido                                  *
 c *    nnode - numero de nos                                           *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
 c *    ndf   - numero max. de graus de liberdade por no                *
-c *    nst   - numero max. de graus de liberdade por elemento          *
 c *    neq   - nao definido                                            *
-c *    elflag- TRUE -> numera as equacoes por elemento                 *
 c *                                                                    *
 c *   Parametros de saida:                                             *
 c *                                                                    *
@@ -279,5 +270,59 @@ c
   210    continue
   220 continue
 c ......................................................................              
+      return
+      end
+      subroutine numeq_pmec_e(id,fnno,nnode,ndf,my_id)
+c **********************************************************************
+c * Data de criacao    : 28/11/2016                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * NUMEQ_PMEC_E : Calcula o numero de equacoes                        *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - nao definido                                               *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * neq   - numero de equacoes                                         *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      implicit none
+      integer nnode,ndf,neq,my_id
+      integer fnno(*),id(ndf,*),i,j,k,n,ndfn
+c ......................................................................
+c
+c.... Numeracao nodal das equacoes:
+c
+      neq = 0
+      do 110 i = 1, nnode
+c ...
+         if(fnno(i)  .eq. 1 )then
+           ndfn = ndf 
+         else
+           ndfn = ndf - 1 
+         endif
+c .....................................................................
+c
+c ...
+         do 100 j = 1, ndfn
+           k = id(j,i)
+           if (k .eq. 0) then
+             neq = neq + 1
+           endif
+  100    continue
+c .....................................................................
+  110 continue
+c ...................................................................... 
+c
+c ...
+      if( my_id .eq. 0 ) print*,'Neq:', neq 
+c ...................................................................... 
       return
       end

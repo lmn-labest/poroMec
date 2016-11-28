@@ -65,7 +65,7 @@ c
 c ... Variaveis do sistema de equacoes:
       integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
       integer n_blocks_pu
-      logical block_pu,block_pu_sym
+      logical block_pu,block_pu_sym,fneqs
       character*8 sia,sja,sau,sal,sad
 c .....................................................................
 c
@@ -139,13 +139,20 @@ c
 c ... Macro-comandos disponiveis:
 c
       data nmc /40/
-      data macro/'loop    ','hextotet','mesh    ','solv    ','dt      ',
-     .'pgeo    ','        ','block_pu','gravity ','        ','solver  ',
-     .'deltatc ','pcoo    ','        ','        ','pres    ','        ',
-     .'solvm   ','pmecres ','        ','        ','        ','        ',
-     .'        ','        ','maxnlit ','        ','nltol   ','        ',
-     .'        ','setpnode','setprint','        ','        ','pnup    ',
-     .'pnsf    ','config  ','        ','        ','stop    '/
+      data macro/'loop    ','hextotet','mesh    '
+     1          ,'solv    ','dt      ','pgeo    '
+     2          ,'        ','block_pu','gravity '
+     3          ,'        ','solver  ','deltatc '
+     4          ,'pcoo    ','        ','        '
+     5          ,'pres    ','        ','solvm   '
+     6          ,'pmecres ','        ','        '
+     7          ,'        ','        ','        '
+     8          ,'        ','maxnlit ','        '
+     9          ,'nltol   ','        ','        '
+     1          ,'setpnode','setprint','        '
+     2          ,'        ','pnup    ','pnsf    '
+     3          ,'config  ','neqs    ','        '
+     4          ,'stop    '/
 c ......................................................................
 c
 c ... Arquivos de entrada e saida:
@@ -285,6 +292,8 @@ c ... OpenMP
       omp_solv = .false.
       nth_elmt = 1
       nth_solv = 1
+c ... calculo do numero de equacoes
+      fneqs = .false.
 c ......................................................................
 c
 c ... Abertura de arquivos:    
@@ -296,7 +305,7 @@ c ... intervace de linha de comando
           call getarg(1,arg)
           filein = arg
         else
-          print*, 'Arquivo de dados:'
+          print*, 'Input file:'
           read(*,'(a)') filein
         endif 
       endif      
@@ -304,7 +313,7 @@ c ... intervace de linha de comando
          open(nin, file= filein, status= 'old', err=15, action= 'read')
          goto 20
    15    continue
-         print*, 'Arquivo nao existente !'
+         print*,'File ',trim(filein),' not found !'
          nargs = 0
          goto 10   
       else
@@ -322,7 +331,7 @@ c ...    Testa se todos abriram sem erro:
          call MPI_ALLREDUCE(openflag,totfiles,1,MPI_INTEGER,MPI_SUM,
      .                      MPI_COMM_WORLD,ierr)
          if (totfiles .ne. nprcs) then
-            if (my_id .eq. 0) print*, '*** Erro na abertura de arquivos'
+            if (my_id .eq. 0) print*,'File ',trim(fname),' not found !'
             call stop_mef()
          endif
       endif
@@ -334,7 +343,7 @@ c ... interface de linha de comando
           call getarg(2,arg)
           prename = arg
         else
-          print*, 'Arquivo de saida: '
+          print*, 'Output file: '
           read(*,'(a)') prename
         endif
 c ... log do solver 
@@ -371,10 +380,20 @@ c ......................................................................
    60 continue
       goto 50
    70 continue
-      goto (100,200,300,400,500,600,700,800,900,1000,1100,1200,1300,
-     .     1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,2500,
-     .     2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,
-     ,     3800,3900,5000) j
+      goto (100 , 200, 300 !'loop    ','hextotet','mesh    '
+     1     ,400 , 500, 600 !'solv    ','dt      ','pgeo    '
+     2     ,700 , 800, 900 !'        ','block_pu','gravity '
+     3     ,1000,1100,1200 !'        ','solver  ','deltatc '
+     4     ,1300,1400,1500 !'pcoo    ','        ','        '
+     5     ,1600,1700,1800 !'pres    ','        ','solvm   '
+     6     ,1900,2000,2100 !'pmecres ','        ','        '
+     7     ,2200,2300,2400 !'        ','        ','        '
+     8     ,2500,2600,2700 !'        ','maxnlit ','        '
+     9     ,2800,2900,3000 !'nltol   ','        ','        '
+     1     ,3100,3200,3300 !'setpnode','setprint','        '
+     2     ,3400,3500,3600 !'        ','pnup    ','pnsf    '
+     3     ,3700,3800,3900 !'config  ','neqs    ','        '
+     4     ,5000) j        !'stop    ' 
 c ......................................................................
 c
 c ... Execucao dos macro-comandos:
@@ -398,7 +417,7 @@ c ... Macro-comando LOOP:
       lmacro(nmacro) = mc
       goto 110
   120 continue
-      print*,'Erro na leitura da macro (LOOP) !'
+      print*,'Error reading macro (LOOP) !'
       goto 5000            
 c ......................................................................
 c
@@ -511,7 +530,14 @@ c
       reordtime = MPI_Wtime()-timei
 c ......................................................................
 c
-c.... Numeracao nodal das equacoes:
+c ... calcula o numero de equacoes
+      if(fneqs) then 
+        call numeq_pmec_e(ia(i_id),ia(i_fnno),nnode,ndf,my_id) 
+        goto 5000 
+      endif
+c ......................................................................
+c
+c ... Numeracao nodal das equacoes:
 c
       timei = MPI_Wtime()
 c ... mecanico
@@ -886,7 +912,7 @@ c ......................................................................
       read(string,*,err = 510,end = 510) dt
       goto 50
   510 continue
-      print*,'Erro na leitura da macro (DT) !'
+      print*,'Error reading macro (DT) !'
       goto 5000      
 c ----------------------------------------------------------------------
 c
@@ -956,7 +982,7 @@ c ......................................................................
   800 continue
       if(my_id.eq.0)print*, 'Macro Block_pu'
       if(flag_macro_mesh) then
-        print*,'Macro so pode ser utilizada antes da macro mesh'
+        print*,'This macro can only be used before macro mesh'
         goto 5000
       endif
       block_pu = .true.
@@ -966,7 +992,7 @@ c ... n_blocks_pu
       read(string,*,err =801,end =801) n_blocks_pu   
       goto 50
   801 continue
-      print*,'Erro na leitura da macro (BLOCK_PU) n_blocks_pu   !'
+      print*,'Error reading macro (BLOCK_PU) n_blocks_pu   !'
       goto 5000
 c ......................................................................
 c
@@ -992,7 +1018,7 @@ c ......................................................................
  1100 continue
       if(my_id.eq.0)print*, 'Macro SOLVER'
       if(flag_macro_mesh) then
-        print*,'Macro so pode ser utilizada antes da macro mesh'
+        print*,'This macro can only be used before macro mesh'
         goto 5000
       endif
       call read_solver_config_pm(solver   ,solvtol
@@ -1666,7 +1692,7 @@ c ......................................................................
      .                      ,maxnlit
       goto 50
  2610 continue
-      print*,'Erro na leitura da macro (MAXNLIT) !'
+      print*,'Error reading macro (MAXNLIT) !'
       goto 5000
 c ----------------------------------------------------------------------
 c
@@ -1688,7 +1714,7 @@ c ......................................................................
       write(*,'(a,d10.2)')' Set noliner tol for ',tol
       goto 50
  2810 continue
-      print*,'Erro na leitura da macro (NLTOL) !'
+      print*,'Error reading macro (NLTOL) !'
       goto 5000
 c ----------------------------------------------------------------------
 c
@@ -1719,7 +1745,7 @@ c ......................................................................
         goto 3120
 c ... problema no arquivo auxiliar        
  3110   continue
-        print*,'Erro na leitura da macro (SETPNODE)'
+        print*,'Error reading macro (SETPNODE)'
         flag_pnd = .false.
         goto 3130
 c ... leitura normal 
@@ -1764,7 +1790,7 @@ c ......................................................................
  3500 continue
       if(my_id.eq.0) print*, 'Macro PNUP'      
       if(flag_pnd.eqv..false.) then
-        if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
+        if(my_id.eq.0)print*,'No node to print for PNUP!'  
         call stop_mef()
       endif
 c ... codigo para o arquivo up_node.txt      
@@ -1793,7 +1819,7 @@ c ......................................................................
  3600 continue
       if(my_id.eq.0) print*, 'Macro PNSF'
       if(flag_pnd.eqv..false.) then
-        if(my_id.eq.0)print*,'Nemhum no de impressao para PNUP!'  
+        if(my_id.eq.0)print*,'No node to print for PNSF!'   
         call stop_mef()
       endif
 c .....................................................................
@@ -1962,7 +1988,7 @@ c ......................................................................
  3700 continue
       if(my_id .eq. 0 )print*, 'Macro CONFIG    '
       if(flag_macro_mesh) then
-        print*,'Macro so pode ser utilizada antes da macro mesh'
+        print*,'This macro can only be used before macro mesh'
         goto 5000
       endif
       call read_config(maxmem
@@ -1975,10 +2001,12 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: 
+c ... Macro-comando: NEQS
 c
 c ......................................................................
  3800 continue
+      if(my_id .eq. 0 )print*, 'Macro NEQS'
+      fneqs = .true.
       goto 50
 c ----------------------------------------------------------------------
 c

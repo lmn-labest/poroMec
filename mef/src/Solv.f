@@ -367,7 +367,7 @@ c ... PCG_BLOCK_IT
       else if (solver .eq. 5) then
 c ...
          if(omp_solv) then 
-           print*,"PCG_BOLCK_IT: openmp nao disponivel !!"
+           print*,"PCG_BOLCK_IT: Openmp not available !!"
          endif 
 c .....................................................................
 c
@@ -452,7 +452,7 @@ c ... BICGSTAB(2):
       else if(solver .eq. 6 ) then
 c ...
          if(omp_solv) then 
-           print*,"BICGSTAB(2): openmp nao disponivel !!"
+           print*,"BICGSTAB(2): Openmp not available !!"
          endif 
 c .....................................................................
 c
@@ -533,7 +533,7 @@ c ... MINRES:
       else if(solver .eq. 7 ) then
 c ...
          if(omp_solv) then 
-           print*,"MINRES: openmp nao disponivel !!"
+           print*,"MINRES: Openmp not available !!"
          endif 
 c .....................................................................
 c
@@ -590,7 +590,7 @@ c ... CR - Conjugate Residual
       else if(solver .eq. 8 ) then
 c ...
          if(omp_solv) then 
-           print*,"CR: openmp nao disponivel !!"
+           print*,"CR: Openmp not available !!"
          endif 
 c .....................................................................
 c
@@ -643,7 +643,7 @@ c ... SYMMLQ:
       else if(solver .eq. 9 ) then
 c ...
          if(omp_solv) then 
-           print*,"SYMMLQ: openmp nao disponivel !!"
+           print*,"SYMMLQ: Openmp not available !!"
          endif 
 c .....................................................................
 c
@@ -1049,7 +1049,7 @@ c ......................................................................
 
 c ... cg
       if(precond .eq. 1) then
-        print*,"CG: openmp nao disponivel !!"  
+        print*,"CG: Openmp not available !!"  
 c
 c ... pcg - cg com precondicionador diagonal
       else if(precond .eq. 2 .or. precond .eq. 5 ) then
@@ -1086,17 +1086,17 @@ c .....................................................................
 c
 c ... iccg - cg com precondicionador LDLT(0) imcompleto
       elseif(precond .eq. 3 ) then
-        print*,"ICCG: openmp nao disponivel !!" 
+        print*,"ICCG: Openmp not available !!" 
 c .....................................................................
 c
 c ... iccg - cg com precondicionador LLT(0) imcompleto
       elseif(precond .eq. 4 ) then
-        print*,"ICCG: openmp nao disponivel !!" 
+        print*,"ICCG: Openmp not available !!" 
 c .....................................................................
 c
 c ... bpcg - cg com bloco diagonal 
       elseif(precond .eq. 6 ) then
-        print*,"BCCG: openmp nao disponivel !!" 
+        print*,"BCCG: Openmp not available !!" 
       endif  
 c .....................................................................
       return
@@ -1577,7 +1577,7 @@ c ...
 c ......................................................................
 c
       if(pc .eq. 1 ) then
-        print*,"SQMR: openmp nao disponivel !!"  
+        print*,"SQMR: Openmp not available !!"  
 c .....................................................................
 c
 c ...
@@ -1869,7 +1869,7 @@ c .....................................................................
 c
 c ...
       elseif(precond .eq. 4 ) then
-        print*,'iLLt nao implementado para bicgstab!!!'
+        print*,'iLLt Not implemented for bicgstab!!!'
         stop
       endif  
 c .....................................................................
@@ -2021,11 +2021,11 @@ c .....................................................................
 c
 c ...
       elseif(precond .eq. 3 ) then
-        print*,'iLDLt nao implementado para bicgstab(2)!!!'
+        print*,'iLDLt not implemented for bicgstab(2)!!!'
         stop
 c ...
       elseif(precond .eq. 4 ) then
-        print*,'iLLt nao implementado para bicgstab(2)!!!'
+        print*,'iLLt not implemented for bicgstab(2)!!!'
         stop
       endif  
 c .....................................................................
@@ -2155,11 +2155,11 @@ c .....................................................................
 c
 c ...
       elseif(precond .eq. 3 ) then
-        print*,'iLDLt nao implementado para bicgstab(2)!!!'
+        print*,'iLDLt not implemented for bicgstab(2)!!!'
         stop
 c ...
       elseif(precond .eq. 4 ) then
-        print*,'iLLt nao implementado para bicgstab(2)!!!'
+        print*,'iLLt not implemented for bicgstab(2)!!!'
         stop
       endif  
 c .....................................................................
@@ -2322,8 +2322,8 @@ c .....................................................................
 c
 c ...                         
       else
-        print*,'Erro na leitura da macro set solver !'
-        print*,'Solver disponiveis:'
+        print*,'Error reading macro (SOLVER) !'
+        print*,'Solver available:'
         do i = 1, nmc
           if(my_id.eq.0) print*,'Solver: ',macros(i)
         enddo
