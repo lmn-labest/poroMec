@@ -164,25 +164,21 @@ c ...
 c ......................................................................
 c
 c ...
-         diag = .true.
-c ...    precondicionador diagonal:
-         if(diag) then 
-           precondtime = Mpi_Wtime() - precondtime  
-           call pre_diag(m,ad,neq,.false.)
-           precondtime = Mpi_Wtime() - precondtime  
-c ...    
-         else                           
-           m(1:neq) = 1.d0  
-         endif           
-c ......................................................................
-c
-c ...
-         i_g = alloc_8('gsolver ',neq    ,ngram+1)         
+         i_g = alloc_8('gsolver ',neqovlp,ngram+1)         
          i_h = alloc_8('hsolver ',ngram+1,ngram)
          i_y = alloc_8('ysolver ',1,ngram)
          i_c = alloc_8('csolver ',1,ngram)
          i_s = alloc_8('ssolver ',1,ngram)
          i_r = alloc_8('rsolver ',1,ngram+1)
+c .....................................................................
+c
+c ... calculo do precondicionador
+        call cal_precond(ip     ,ja    ,m
+     1                  ,ad     ,al    ,ia(i_g) 
+     2                  ,precond,neq   ,nequ
+     3                  ,neqf1i ,neqf2i,i_fmapi
+     4                  ,i_xfi ,i_rcvsi,i_dspli
+     5                  ,novlp,my_id)
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado (Kuu,Kpp,Kpu)
@@ -203,16 +199,14 @@ c .....................................................................
 c
 c ... sequencial
            else 
-             call gmres2(neq,nequ,nad,ip,ja 
-     1                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     2                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     3                 ,tol    ,maxit   
-c ... matvec comum:
-     1                 ,matvec_csrc_pm  ,dot_par 
-     2                 ,neqovlp 
-     3                 ,my_id   ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     4                 ,i_xfi   ,i_rcvsi,i_dspli  
-     5                 ,.true.)
+             call call_gmres_block_pm(neq    ,nequ,neqovlp,nad  
+     1                     ,ip     ,ja     ,ad     ,al 
+     2                     ,m      ,b      ,x      ,ia(i_g)
+     3                     ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r)  
+     4                     ,tol    ,maxit  ,precond,fhist_solv,ngram
+     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                     ,i_xfi  ,i_rcvsi,i_dspli
+     7                     ,nprcs  ,ovlp   ,mpi) 
            endif
 c .....................................................................
 c
@@ -232,18 +226,16 @@ c ... matvec comum:
      5                 ,ia(i_threads_y),.true.)
 c .....................................................................
 c
-c ... sequencial
+c ... (sequencial+mpi)
            else 
-             call gmres2(neq,nequ,nad,ip,ja 
-     1                 ,ad ,al  ,al ,m ,b ,x,ngram,ia(i_g) 
-     2                 ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r) 
-     3                 ,tol    ,maxit   
-c ... matvec comum:
-     1                 ,matvec_csrc_sym_pm,dot_par 
-     2                 ,neqovlp
-     3                 ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
-     4                 ,i_xfi  ,i_rcvsi,i_dspli 
-     5                 ,.true.)
+             call call_gmres(neq   ,neqovlp,nad  
+     1                     ,ip     ,ja     ,ad     ,al 
+     2                     ,m      ,b      ,x      ,ia(i_g)
+     3                     ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r)  
+     4                     ,tol    ,maxit  ,precond,fhist_solv,ngram
+     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                     ,i_xfi  ,i_rcvsi,i_dspli
+     7                     ,nprcs  ,ovlp   ,mpi) 
            endif 
 c .....................................................................
          endif
@@ -978,7 +970,7 @@ c * r(neq)   - arranjo local de trabalho                               *
 c * s(neq)   - arranjo local de trabalho                               *
 c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
-c * pc       - precondicionador                                        *
+c * precond  - precondicionador                                        *
 c *            1 - nenhum                                              *
 c *            2 - diaggonal                                           *
 c *            3 - iLDLt(0)                                            *
@@ -1129,7 +1121,7 @@ c * z(neq)   - arranjo local de trabalho                               *
 c * y(neq)   - arranjo local de trabalho                               *
 c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
-c * pc       - precondicionador                                        *
+c * precond  - precondicionador                                        *
 c *            1 - nenhum                                              *
 c *            2 - diaggonal                                           *
 c *            3 - iLDLt(0)                                            *
@@ -1250,7 +1242,7 @@ c * z(neq)   - arranjo local de trabalho                               *
 c * y(neq)   - arranjo local de trabalho                               *
 c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
-c * pc       - precondicionador                                        *
+c * precond  - precondicionador                                        *
 c *            1 - nenhum                                              *
 c *            2 - diaggonal                                           *
 c *            3 - iLDLt(0)                                            *
@@ -2166,6 +2158,290 @@ c .....................................................................
       return
       end    
 c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 28/11/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * CALL_GMRES :chama a versao do GMRES desejada                       *    
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * neqovlp  - numero de eqquacoes em overlapping
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador                                        *
+c * b(*)     - vetor de forcas                                         *
+c * x(*)     - chute inicial                                           *
+c * g(*)     - arranjo local de trabalho                               *
+c * h(*)     - arranjo local de trabalho                               *
+c * y(*)     - arranjo local de trabalho                               *
+c * v(*)     - arranjo local de trabalho                               *
+c * s(*)     - arranjo local de trabalho                               *
+c * r(*)     - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * precond  - precondicionador                                        *
+c *            1 - nenhum                                              *
+c *            2 - diag                                                *
+c *            3 - iLDLt                                               *
+c *            4 -                                                     *
+c *            5 - modulo da diagonal                                  *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * mpi      - true|false                                              *
+c * ovlp     - overllaping                                             *
+c * nprcs    - numero de processos mpi                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*) - inalterados                                          *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************  
+      subroutine call_gmres(neq    ,neqovlp,nad  
+     1                     ,ia     ,ja     ,ad     ,al 
+     2                     ,m      ,b      ,x      ,g
+     3                     ,h      ,y      ,c      ,s        ,r     
+     4                     ,tol    ,maxit  ,precond,fhist_log,nkrylov
+     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                     ,i_xfi  ,i_rcvsi,i_dspli
+     7                     ,nprcs  ,ovlp   ,mpi) 
+      implicit none
+      include 'time.fi'
+c ... mpi
+      integer my_id
+      integer neqf1i,neqf2i,nprcs
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
+c .....................................................................
+      integer neq,neqovlp,nad,neq_doti,nkrylov 
+      integer ia(*),ja(*)
+      real*8  ad(*),al(*),x(*),b(*)
+c ... arranjos auxiliares
+      real*8 g(*),h(*),y(*),c(*),r(*),s(*)
+c ...
+      real*8  tol
+      integer maxit  
+      logical fhist_log
+c ... precondicionador
+      integer precond
+      real*8  m(*)
+c ...
+      external dot_par
+      external matvec_csrc_sym_pm,matvec_csrcr_sym_pm        
+c ......................................................................
+c
+c ... gmres sem precondicionador
+      if(precond .eq. 1) then
+        print*,'Not implemented GMRES algorithm without',
+     .        ' preconditioner !!!'
+        call stop_mef()
+c ......................................................................
+c
+c ... pbicgstabl2 - bicgstabl2 com precondicionador diagonal
+      else if(precond .eq. 2 .or. precond .eq. 5 ) then
+c ... overllaping
+         if(ovlp) then
+           call gmres2(neq,neq,nad,ia,ja 
+     1                ,ad ,al ,al ,m ,b ,x,nkrylov
+     2                ,g  ,h  ,y  ,c ,s ,r       
+     3                ,tol    ,maxit   
+c ... matvec comum:
+     4                ,matvec_csrcr_sym_pm,dot_par 
+     5                ,neqovlp
+     6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     7                ,i_xfi  ,i_rcvsi,i_dspli 
+     8                ,.true. ,.true. ,fhist_log,.true.
+     8                ,nprcs  , mpi) 
+c .....................................................................
+c
+c ...non-overllaping
+         else 
+           call gmres2(neq,neq,nad,ia,ja 
+     1                ,ad ,al ,al ,m ,b ,x,nkrylov
+     2                ,g  ,h  ,y  ,c ,s ,r       
+     3                ,tol    ,maxit   
+c ... matvec comum:
+     4                ,matvec_csrc_sym_pm,dot_par 
+     5                ,neqovlp
+     6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     7                ,i_xfi  ,i_rcvsi,i_dspli 
+     8                ,.true. ,.true. ,fhist_log,.true.
+     8                ,nprcs  , mpi) 
+         endif
+c .....................................................................
+c
+c ...
+      elseif(precond .eq. 3 ) then
+        print*,'iLDLt not implemented for GMRES!!!'
+        stop
+c ...
+      elseif(precond .eq. 4 ) then
+        print*,'iLLt not implemented for GMRES!!!'
+        stop
+      endif  
+c .....................................................................
+      return
+      end    
+c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 28/11/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * CALL_GMRES :chama a versao do GMRES desejada                       *    
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq      - numero de equacoes                                      *
+c * neqovlp  - numero de eqquacoes em overlapping
+c * nad      - numero de termos nao nulos no bloco Kuu e Kpu  ou K     *
+c * ia(*)    - ponteiro do formato CSR                                 *
+c * ja(*)    - ponteiro das colunas no formato CSR                     *
+c * ad(neq)  - diagonal da matriz A                                    *
+c * al(*)    - parte triangular inferior de A                          *
+c * m(*)     - precondicionador                                        *
+c * b(*)     - vetor de forcas                                         *
+c * x(*)     - chute inicial                                           *
+c * g(*)     - arranjo local de trabalho                               *
+c * h(*)     - arranjo local de trabalho                               *
+c * y(*)     - arranjo local de trabalho                               *
+c * v(*)     - arranjo local de trabalho                               *
+c * s(*)     - arranjo local de trabalho                               *
+c * r(*)     - arranjo local de trabalho                               *
+c * tol      - tolerancia de convergencia                              *
+c * maxit    - numero maximo de iteracoes                              *
+c * precond  - precondicionador                                        *
+c *            1 - nenhum                                              *
+c *            2 - diag                                                *
+c *            3 - iLDLt                                               *
+c *            4 -                                                     *
+c *            5 - modulo da diagonal                                  *
+c * my_id    -                                                         *
+c * neqf1i   -                                                         *
+c * neqf2i   -                                                         *
+c * neq_doti -                                                         *
+c * i_fmap   -                                                         *
+c * i_xfi    -                                                         *
+c * i_rvcs   -                                                         *
+c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
+c * flog     - log do arquivo de saida                                 *
+c * mpi      - true|false                                              *
+c * ovlp     - overllaping                                             *
+c * nprcs    - numero de processos mpi                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * x(neq) - vetor solucao                                             *
+c * b(neq) - modificado                                                *
+c * ad(*),al(*) - inalterados                                          *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************  
+      subroutine call_gmres_block_pm(neq    ,nequ,neqovlp,nad  
+     1                     ,ia     ,ja     ,ad     ,al 
+     2                     ,m      ,b      ,x      ,g
+     3                     ,h      ,y      ,c      ,s      ,r     
+     4                     ,tol    ,maxit  ,precond,nkrylov
+     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     6                     ,i_xfi  ,i_rcvsi,i_dspli
+     7                     ,nprcs  ,ovlp   ,mpi) 
+      implicit none
+      include 'time.fi'
+c ... mpi
+      integer my_id
+      integer neqf1i,neqf2i,nprcs
+c ... ponteiros      
+      integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
+      logical ovlp,mpi
+c .....................................................................
+      integer neq,nequ,neqovlp,nad,neq_doti,nkrylov 
+      integer ia(*),ja(*)
+      real*8  ad(*),al(*),x(*),b(*)
+c ... arranjos auxiliares
+      real*8 g(*),h(*),y(*),c(*),r(*),s(*)
+c ...
+      real*8  tol
+      integer maxit  
+c ... precondicionador
+      integer precond
+      real*8  m(*)
+c ...
+      external dot_par
+      external matvec_csrc_pm        
+c ......................................................................
+c
+c ... gmres sem precondicionador
+      if(precond .eq. 1) then
+        print*,'Not implemented GMRES algorithm without',
+     .        ' preconditioner !!!'
+        call stop_mef()
+c ......................................................................
+c
+c ... pbicgstabl2 - bicgstabl2 com precondicionador diagonal
+      else if(precond .eq. 2 .or. precond .eq. 5 ) then
+c ... overllaping
+c        if(ovlp) then
+c          call gmres2(neq,neq,nad,ia,ja 
+c    1                ,ad ,al ,al ,m ,b ,x,nkrylov
+c    2                ,g  ,h  ,y  ,c ,s ,r       
+c    3                ,tol    ,maxit   
+c ... matvec comum:
+c    4                ,matvec_csrcr_sym_pm,dot_par 
+c    5                ,neqovlp
+c    6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+c    7                ,i_xfi  ,i_rcvsi,i_dspli 
+c    8                ,.true.) 
+c .....................................................................
+c
+c ...non-overllaping
+c        else 
+           call gmres2(neq,neq,nad,ia,ja 
+     1                ,ad ,al ,al ,m ,b ,x,nkrylov
+     2                ,g  ,h  ,y  ,c ,s ,r       
+     3                ,tol    ,maxit   
+c ... matvec comum:
+     4                ,matvec_csrc_pm,dot_par 
+     5                ,neqovlp
+     6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     7                ,i_xfi  ,i_rcvsi,i_dspli 
+     8                ,.true.) 
+c        endif
+c .....................................................................
+c
+c ...
+      elseif(precond .eq. 3 ) then
+        print*,'iLDLt not implemented for GMRES!!!'
+        stop
+c ...
+      elseif(precond .eq. 4 ) then
+        print*,'iLLt not implemented for GMRES!!!'
+        stop
+      endif  
+c .....................................................................
+      return
+      end    
+c *********************************************************************
+c
 c *********************************************************************
       subroutine get_res(u,x,id,fnno,nnode,ndf)
       implicit none

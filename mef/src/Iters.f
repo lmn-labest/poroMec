@@ -514,7 +514,7 @@ c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
       norm_m_r = dsqrt(dabs(norm_m_r))
       norm_r = dot(r,r,neq_doti)
       norm_r = dsqrt(norm_r)
-      if( norm_m_r .gt. 3.16d0*conv ) then
+      if( norm_m_r .gt. conv ) then
          if(my_id .eq.0 )then
            write(*,1400) norm_m_r,conv
          endif 
@@ -549,7 +549,7 @@ c ... Controle de flops
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
      .       'PCG: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
-     .      ,' tol ',tol,' time ',time
+     .      ,' tol ',tol,' Mflops ',mflops,' time ',time
         endif
       endif
 c ......................................................................
@@ -1400,12 +1400,19 @@ c ----------------------------------------------------------------------
 c **********************************************************************
 c
 c *********************************************************************  
-      subroutine gmres2(neq,nequ,nad,ia,ja,ad,au,al,m,b,x,k,g,h,y,c,s,e,
-     .              tol,maxit,matvec,dot,neqovlp,my_id,neqf1i,neqf2i,
-     .              neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli,flog)
+      subroutine gmres2(neq   ,nequ ,nad,ia,ja
+     1                 ,ad    ,au   ,al ,m ,b ,x,k
+     2                 ,g     ,h    ,y  ,c ,s ,e
+     3                 ,tol   ,maxit
+     4                 ,matvec,dot
+     5                 ,neqovlp
+     6                 ,my_id ,neqf1i ,neqf2i ,neq_doti,i_fmapi
+     7                 ,i_xfi ,i_rcvsi,i_dspli
+     7                 ,fprint,flog   ,fhist  ,fnew   
+     8                 ,nprcs ,mpi)
 c **********************************************************************
-c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 30/05/2016                                    * 
+c * Data de criacao    : 30/05/2016                                    *
+c * Data de modificaco : 29/11/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * GMRES: Solucao iterativa de sistemas simetricos e nao-simetricos   *
 c *        pelo metodo GMRES com precondicionador diagonal.            *
@@ -1438,7 +1445,14 @@ c * i_fmap   -                                                         *
 c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
+c * fprint   - saida na tela                                           *
 c * flog     - log do arquivo de saida                                 *
+c * fhist    - log dos resuduos por iteracao                           *
+c * fnew     - .true.  -> x0 igual a zero                              *
+c *            .false. -> x0 dado                                      *
+c * mpi      - true|false                                              *
+c * nprcs    - numero de processos mpi                                 *  
+c * ------------------------------------------------------------------ * 
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -1449,7 +1463,7 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c * Arranjos locais de trabalho:                                       *
 c *                                                                    *
-c * g(neq+1,k+1)                                                       *
+c * g(neqovlp+1,k+1)                                                   *
 c * h(k+1,k)                                                           *
 c * y(k)                                                               *
 c * c(k)                                                               *
@@ -1462,7 +1476,9 @@ c * versao com refined modified gram-schmidt                           *
 c **********************************************************************
       implicit none
       include 'mpif.h'
-      integer neqf1i,neqf2i,neq_doti
+c ... mpi
+      logical mpi        
+      integer neqf1i,neqf2i,neq_doti,nprcs,ierr
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
@@ -1470,12 +1486,16 @@ c .....................................................................
       integer neq,nequ,nad
       integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
       real*8  ad(*),au(*),al(*),m(*),b(*),x(*)
-      real*8  g(neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
-      real*8  xkx,econv,norm,dot,r,aux1,aux2,beta,inorm
+      real*8  g(neqovlp,k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
+      real*8  xkx,econv,norm,dot,r,aux1,aux2,beta,inorm,norm_r,norm_m_r
       real*8 tau,kesp
       real*8  time0,time
       real*8 dum1
-      logical flog
+      logical flog,fprint,fnew,fhist
+c ...
+      real*8  flop_gmres
+      real*8  mflops,vmean
+c .....................................................................
       external matvec,dot
       integer my_id
       parameter (kesp = 0.25d0)
@@ -1486,7 +1506,7 @@ c
 c.... Chute inicial:
 c
       do 10 i = 1, neq
-         x(i) = 0.d0
+         if(fnew) x(i) = 0.d0
 c ...    pre-condicionador diagonal:                  
          g(i,1) = b(i)*m(i)
    10 continue
@@ -1636,9 +1656,17 @@ c ...
          jj = jj + 1
          if( jj .eq. 10) then
            jj = 0
-           write(*,2300),l,nit,dabs(e(ni+1)),econv
+           if(my_id .eq.0) write(*,2300),l,nit,dabs(e(ni+1)),econv
          endif
 c ......................................................................
+c
+c
+c ...
+         if(fhist) then
+           if(my_id .eq.0) write(18,2500)l,dabs(e(ni+1))/norm
+     .                          ,dabs(e(ni+1))
+         endif  
+c .....................................................................
 c
 c ...... Verifica a convergencia:
 c
@@ -1661,15 +1689,18 @@ c ... norm-2 = || x ||
       norm = dsqrt(dot(x,x,neq_doti))
 c ......................................................................
 c
-c ... r = b - Ax (calculo do residuo explicito)
+c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
       do 1200 i = 1, neq
         g(i,2) = b(i) - g(i,1)
+        g(i,3) = g(i,2)*m(i)
  1200 continue
-      aux1 = dot(g(1,2),g(1,2),neq_doti)
-      aux1 = dsqrt(aux1)
-      if( aux1 .gt. 3.16d0*econv ) then
+      norm_r   = dot(g(1,2),g(1,2),neq_doti)
+      norm_m_r = dot(g(1,3),g(1,3),neq_doti)
+      norm_r   = dsqrt(norm_r)
+      norm_m_r = dsqrt(norm_m_r)
+      if(  norm_m_r .gt. econv ) then
          if(my_id .eq.0 )then
-           write(*,2400) aux1,econv
+           write(*,2400)  norm_m_r,econv
          endif 
       endif
 c ......................................................................
@@ -1684,8 +1715,15 @@ c ......................................................................
          call stop_mef()
       endif
 c ......................................................................
-      if(my_id.eq.0)write(*,2000) tol,neq,l,nit,dabs(e(ni+1)),xkx,norm
-     .                           ,time
+      if(my_id .eq.0 .and. fprint )then
+        if(mpi) then
+          write(*,2010) tol,econv,l,nit,dabs(e(ni+1))
+     .                 ,xkx,norm,norm_r,norm_m_r,time
+        else
+          write(*,2000) tol,econv,neq,l,nit,dabs(e(ni+1))
+     .                 ,xkx,norm,norm_r,norm_m_r,time
+        endif
+      endif
 c ......................................................................
 c     Controle de flops
       if(flog) then
@@ -1700,18 +1738,33 @@ c ......................................................................
 c ----------------------------------------------------------------------
  2000 format(' (GMRES2) solver:'/
      . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||m         = ',d20.6/
      . 5x,'Number of equations  = ',i20/
      . 5x,'Number of cycles     = ',i20/
      . 5x,'Number of iterations = ',i20/
      . 5x,'Norm                 = ',d20.10/
      . 5x,'x * Kx               = ',d20.10/
      . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'|| b - Ax ||m        = ',d20.10/
+     . 5x,'CPU time (s)         = ',f20.2/)
+ 2010 format(' (GMRES2_MPI) solver:'/
+     . 5x,'Solver tol           = ',d20.6/
+     . 5x,'tol * ||b||m         = ',d20.6/
+     . 5x,'Number of cycles     = ',i20/
+     . 5x,'Number of iterations = ',i20/
+     . 5x,'Norm                 = ',d20.10/
+     . 5x,'x * Kx               = ',d20.10/
+     . 5x,'|| x ||              = ',d20.10/
+     . 5x,'|| b - Ax ||         = ',d20.10/
+     . 5x,'|| b - Ax ||m        = ',d20.10/
      . 5x,'CPU time (s)         = ',f20.2/)
  2100 format(' *** WARNING: no convergence reached for '
      .      ,i9,' cycles !',5x,i7,' nKylov',5x,' It ',i7/)
  2300 format (' GMRES2:',5x,'cycles',i7,5x,'It',i7,5x,2d20.10)
- 2400 format (' GMRES2:',1x,'Residuo exato > 3.16d0*conv '
+ 2400 format (' GMRES2:',1x,'Explicit residual > tol * ||b||| :'
      .       ,1x,d20.10,1x,d20.10)
+ 2500 format ( 5x,i7,5x,2es20.10)
       end
 c **********************************************************************
 c
@@ -5643,7 +5696,7 @@ c .....................................................................
 c
 c ...
          norm_r = dsqrt(dot(r,r,neq_doti))
-         if(fhist) write(18,1500),j,norm_r/norm_b 
+         if(fhist) write(18,1500),j,norm_r/norm_b,norm_r 
 c .....................................................................
 c
 c ...
@@ -6247,7 +6300,7 @@ c
 c ...
          norm_r = dsqrt(dot(r,r,neq_doti))
          if(fhist) then  
-           if(my_id .eq.0) write(18,1500),j,norm_r/norm_b 
+           if(my_id .eq.0) write(18,1500),j,norm_r/norm_b,norm_r 
          endif 
 c .....................................................................
 c
@@ -6317,7 +6370,7 @@ c ... Controle de flops
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
      .       'RPSQMR: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
-     .      ,' tol ',tol,' time ',time
+     .      ,' tol ',tol,' Mflops ',mflops,' time ',time
         endif
       endif
 c ......................................................................

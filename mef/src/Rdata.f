@@ -2267,7 +2267,7 @@ c ......................................................................
 c
 c ...
       if(fhist_log) then 
-        fname = name(prename,0,17)
+        fname = name(prename,nprcs,17)
         open(nout,file=fname)
         write(nout,'(a)') '#solver it r/r0'
       endif
@@ -2275,10 +2275,10 @@ c ......................................................................
       return  
 c ......................................................................
  100  continue
-      print*,'*** Erro na leitura das config !',macro(i)
+      print*,'*** Error reading config !',macro(i)
       call stop_mef()                        
  200  continue
-      print*, trim(fname), ' arquivo nao existente !'
+      print*,'File ',trim(fname),' not found !'
       call stop_mef()    
 c ......................................................................
       end
