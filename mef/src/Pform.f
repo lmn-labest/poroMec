@@ -682,8 +682,8 @@ c **********************************************************************
       include 'transiente.fi'
       include 'termprop.fi'
 c ... mpi
-      integer ierr
-      logical mpi,my_id
+      integer ierr,my_id
+      logical mpi
 c ...
       integer numel,nen,nenv,ndf,ndm,nst,nad,nadpu,stge,isw,numat,nlit
       integer neq,nequ

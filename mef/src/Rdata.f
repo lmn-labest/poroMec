@@ -2322,8 +2322,8 @@ c **********************************************************************
       integer nin
       data nmacro /10/
       data macro/'quadratic      ','desloc        ','pressure       '
-     1          ,'dpressure      ','stresstotal   ','stressbiot     '
-     2          ,'stressterzaghi ','fdarcy        ','dporosity      '
+     1          ,'dpressure      ','totalstress   ','biotstress     '
+     2          ,'terzaghistress ','darcyflux     ','dporosity      '
      3          ,'stress         ','              ','               '/
 c ......................................................................
 c

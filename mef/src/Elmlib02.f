@@ -23,7 +23,7 @@ c *                                                                   *
 c * ELMT06_MEC- tetraedros de 4 nos para o problema mecanico elastico *        
 c * estatico                                                          *
 c *                                                                   *
-c * ELMT07_MEC- hexaedros de  8 nos para o problema mecanico  elastico* 
+c * ELMT07_MEC- hexaedros de  8 nos para o problema mecanico elastico * 
 c * estatico                                                          *
 c *                                                                   *
 c * ------------------ Elementos quadraticos ------------------------ *
@@ -49,6 +49,45 @@ c *                                                                   *
 c * ----------------------------------------------------------------- *
 c * Plastico-estatico:                                                *
 c * ----------------------------------------------------------------- *
+c *                                                                   *
+c * ELMT22_MEC- triangulo de 3 nos para o problema mecanico plastico  *
+c * estatico (Estado plano de deformacao)  (NAO IMPLEMENTADO)         *
+c *                                                                   *
+c * ELMT23_MEC- triangulo de 3 nos para o problema mecanico plastico  *
+c * estatico (Estado plano de deformacao)  (NAO IMPLEMENTADO)         *
+c *                                                                   *
+c * ELMT24_MEC- quadrilateros de 4 nos para o problema mecanico       * 
+c * plastico estatico (Estado plano de deformacao) (NAO IMPLEMENTADO) *
+c *                                                                   *
+c * ELMT25_MEC- quadrilateros de 4 nos para o problema mecanico       *
+c * plastico estatico (Estado plano de tensao)  (NAO IMPLEMENTADO)    *
+c *                                                                   *
+c * ELMT26_MEC- tetraedros de 4 nos para o problema mecanico elastico *        
+c * plastico  (NAO IMPLEMENTADO)                                      *
+c *                                                                   *
+c * ELMT27_MEC- hexaedros de  8 nos para o problema mecanico elastico * 
+c * plastico  (NAO IMPLEMENTADO)                                      *
+c *                                                                   *
+c * ------------------ Elementos quadraticos ------------------------ *
+c *                                                                   *
+c * ELMT32_MEC- triangulo de 6 nos para o problema mecanico elastico  *
+c * estatico (Estado plano de deformacao) (NAO IMPLEMENTADO)          *
+c *                                                                   *
+c * ELMT33_MEC- triangulo de 6 nos para o problema mecanico elastico  *
+c * estatico (Estado plano de deformacao) (NAO IMPLEMENTADO)          *
+c *                                                                   *
+c * ELMT34_MEC- quadrilateros de 8 nos para o problema mecanico       * 
+c * elastico estatico (Estado plano de deformacao) (NAO IMPLEMENTADO) *
+c *                                                                   *
+c * ELMT35_MEC- quadrilateros de 8 nos para o problema mecanico       *
+c * elastico estatico (Estado plano de tensao) (NAO IMPLEMENTADO)     *
+c *                                                                   *
+c * ELMT36_MEC- tetraedros de 10 nos para o problema mecanico elastico*
+c * estatico                                                          *
+c *                                                                   *
+c * ELMT37_MEC- hexaedros de 20 nos para o problema mecanico  elastico* 
+c * estatico                                                          *
+c *                                                                   *
 c *********************************************************************
       subroutine elmt02_mec(e,iq,x,u,p,s,txn,ndm,nst,nel,isw)
 c **********************************************************************

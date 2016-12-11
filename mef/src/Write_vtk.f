@@ -1066,7 +1066,7 @@ c ...
 c .....................................................................
 c
 c ... fluxo de darcy    
-      write(aux1,'(15a)')'fluxDarcy'           
+      write(aux1,'(15a)')'darcyFlux'           
 c ... gdb graus de liberdade
 c     cod  2 vetor      
 c     cod2 3 real(8bytes) 
@@ -1106,7 +1106,7 @@ c ... gerando o tensor completo
 c .....................................................................
 c    
 c ...
-      write(aux1,'(15a)')'stress'           
+      write(aux1,'(15a)')'totalStress'           
 c ... gdb graus de liberdade
 c     cod  3 tensor     
 c     cod2 3 real(8bytes) 
@@ -1143,7 +1143,7 @@ c ... gerando o tensor completo
 c .....................................................................
 c
 c ...
-      write(aux1,'(15a)')'stressE'           
+      write(aux1,'(15a)')'terzaghiStress'           
 c ... gdb graus de liberdade
 c     cod  3 vetor      
 c     cod2 3 real(8bytes) 
@@ -1180,7 +1180,7 @@ c ... gerando o tensor completo
 c .....................................................................
 c
 c ...
-      write(aux1,'(15a)')'stressB'           
+      write(aux1,'(15a)')'BiotStress'           
 c ... gdb graus de liberdade
 c     cod  3 vetor      
 c     cod2 3 real(8bytes) 

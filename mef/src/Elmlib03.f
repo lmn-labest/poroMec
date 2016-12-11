@@ -3,6 +3,27 @@ c * Biblioteca de elementos poro-mecanicos                            *
 c * ----------------------------------------------------------------- *
 c * Elastico:                                                         *
 c * ----------------------------------------------------------------- *
+c * ------------------ Elementos lineares --------------------------- *
+c *                                                                   *
+c * ELMT02_PM- triangulo de 3 nos para o problema poromecanico        *
+c * elastico estatico (Estado plano de deformacao) (NAO IMPLEMENTADO) *
+c *                                                                   *
+c * ELMT03_PM - triangulo de 3 nos para o problema poromecanico       *
+c * elastico estatico (Estado plano de deformacao) (NAO IMPLEMENTADO) *
+c *                                                                   *
+c * ELMT04_PM - quadrilateros de 4 nos para o problema poromecanico   * 
+c * elastico estatico (Estado plano de deformacao) (NAO IMPLEMENTADO) *
+c *                                                                   *
+c * ELMT05_PM - quadrilateros de 4 nos para o problema poromecanico   *
+c * elastico estatico (Estado plano de tensao) (NAO IMPLEMENTADO)     *
+c *                                                                   *
+c * ELMT06_PM - tetraedros de 4 nos para o problema poromecanico      * 
+c * elastico estatico(NAO IMPLEMENTADO)                               *
+c *                                                                   *
+c * ELMT07_PM - hexaedros de  8 nos para o problema poromecanico      *
+c * elastico estatico (NAO IMPLEMENTADO)                              *
+c *                                                                   *
+c * ------------------ Elementos quadraticos ------------------------ *
 c *                                                                   *
 c * ELMT16_PM - tetraedros de 10 nos para o problema poro mecanico    *
 c * elastico                                                          *
@@ -11,13 +32,16 @@ c * ELMT17_PM - hexaedros de 20 nos para o problema poro mecanico     *
 c * elastico                                                          *
 c *                                                                   *
 c * ----------------------------------------------------------------- *
-c * Plastico:                                                         *
+c * Plastico-estatico:                                                *
 c * ----------------------------------------------------------------- *
+c * ------------------ Elementos lineares --------------------------- *
 c *                                                                   *
-c * ELMT26_PM - tetraedros de 10 nos para o problema poro mecanico    *
+c * ------------------ Elementos quadraticos ------------------------ *
+c *                                                                   *
+c * ELMT36_PM - tetraedros de 10 nos para o problema poro mecanico    *
 c * plastico (Nao implementado)                                       *
 c *                                                                   *
-c * ELMT27_PM - hexaedros de 20 nos para o problema poro mecanico     *
+c * ELMT37_PM - hexaedros de 20 nos para o problema poro mecanico     *
 c * plastico (Nao implementado)                                       *
 c *                                                                   *
 c *********************************************************************  
@@ -27,7 +51,7 @@ c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
 c * Data de modificaco : 30/04/2016                                    * 
 c * ------------------------------------------------------------------ *      
-c * ELMT06_PM: Elemento tetraedrico de 10 nos para problemas           *  
+c * ELMT16_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -814,7 +838,7 @@ c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
 c * Data de modificaco : 26/09/2016                                    * 
 c * ------------------------------------------------------------------ *       
-c * ELMT07_PM: Elemento hexaedricos de 20 nos para problemas           *  
+c * ELMT17_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
