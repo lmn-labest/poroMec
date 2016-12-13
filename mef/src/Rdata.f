@@ -1484,8 +1484,68 @@ c ......................................................................
       return
 c ......................................................................
   200 continue
-      print*,'*** Erro na leitura do arquivo de dados !'
+      print*,'*** Error reading the data file! '
       stop             
+c ......................................................................
+      end 
+c ======================================================================
+c **********************************************************************
+      subroutine readmacrov2(nin,newline,ier)
+c **********************************************************************
+c *                                                                    *
+c *   Subroutine READMACRO: le uma macro numa linha nova ou a partir   *
+c *                         da coluna line_col de uma linha lida       *
+c *                         anteriormente e armazenada em line(*)      *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *   nin - numero do arquivo de entrada                               *
+c *   newline = .true.  - nova linha deve ser lida                     *
+c *           = .false. - macro deve ser lida a partir da coluna       *
+c *                       line_col em line(*)                          *
+c *   ier     = codigo de erro    (  0 - sem erro                      *
+c *                                  1 - com erro)                     *
+c **********************************************************************
+      implicit none
+      include 'string.fi'
+      integer j,k,ier,nin
+      logical newline
+c ......................................................................
+      if(newline) then
+         line_col = 1
+         read(nin,'(500a1)',err = 200,end = 200) (line(j),j=1,maxstrl)
+      endif
+c ......................................................................
+      do j = 1, maxstrl
+         word(j) = ' '
+      enddo
+      strl = 0
+      if(line_col .gt. maxstrl) return
+c ......................................................................
+      do while (line(line_col) .eq. ' ')
+         line_col = line_col + 1
+         if (line_col .gt. maxstrl) return         
+      end do
+c ......................................................................
+      do while ( (line(line_col) .ne. ' ') .and.
+     .           (line(line_col) .ne. CHAR(13)) )
+         strl = strl + 1
+         line_col = line_col + 1
+         if (line_col .gt. maxstrl) goto 100
+      end do
+c ......................................................................
+  100 continue      
+      k = line_col-strl
+      do j = 1, strl
+         write(word(j),'(a)') line(k)
+         k = k + 1
+      end do 
+      ier = 0     
+      return
+c ......................................................................
+  200 continue
+      ier = 1
+      return
 c ......................................................................
       end 
 c ======================================================================
@@ -2138,11 +2198,11 @@ c *********************************************************************
      .                                ,nin)
       implicit none
       include 'string.fi'
-      character*15 string,macro(12)
+      character*15 string,macro(12),ex(12)
       character*80 fname,prename,name
       real*8 tol,ctol,smachn,alfap,alfau
       integer my_id,nprcs,solver,maxit,cmaxit,precond,nkrylov
-      integer i,j,nmacro
+      integer i,j,nmacro,erro
       integer nin,nout
       logical fhist_log  
       integer nincl /12/
@@ -2151,40 +2211,49 @@ c *********************************************************************
      .           'precond        ','nkrylov        ','histlog        ',
      .           'alfap          ','alfau          ','ctol           ',
      .           'cmaxit         ','               ','               '/
+c ... exemplo
+      data ex   /'name         cg','it         1000','tol      1.e-11',
+     .           'precond    diag','end            ','               ',
+     .           '               ','               ','               ',
+     .           '               ','               ','               '/
 c .....................................................................
 c      
 c ... arquivo de config
-      call readmacro(nin,.false.)
+      call readmacrov2(nin,.false.,erro)
       write(fname,'(80a)') (word(j),j=1,strl)
       open(nincl, file= fname,status= 'old',err=200,action='read')
 c .....................................................................
 c
 c ...
-      call readmacro(nincl,.true.)
+      call readmacrov2(nincl,.true.,erro)
+      if(erro .eq. 1) goto 200 
       write(string,'(15a)') (word(j),j=1,12)
       do while (string .ne. 'end')
 c ... solver
          if (string .eq. macro(1)) then
             i = 1
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(6a)') (word(j),j=1,6)
-            call set_solver(string,solver,nin,my_id)            
+            call set_solver(string,solver,nin,my_id)
 c .....................................................................
 c
 c ... maxit
          elseif (string .eq. macro(2)) then
             i = 2
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) maxit
-            if(my_id.eq.0) write(*,'(a10,1x,9i)')'It     :',maxit 
+            if(my_id.eq.0) write(*,'(a10,1x,i9)')'It     :',maxit 
 c .....................................................................
 c
 c ... tol
          elseif (string .eq. macro(3)) then
             i = 3
-            call readmacro(nincl,.false.)
-            write(string,'(15a)') (word(j),j=1,15)           
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
+            write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) tol
             if(tol .eq. 0.d0) tol = smachn()
             if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'Tol    :',tol   
@@ -2193,24 +2262,27 @@ c
 c ... precond
          elseif (string .eq. macro(4)) then
             i = 4
-            call readmacro(nincl,.false.)
-            write(string,'(6a)') (word(j),j=1,6)            
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
+            write(string,'(6a)') (word(j),j=1,6)
             call set_precond(word,precond,nin,my_id)
 c .....................................................................
 c
 c ... nkrylov
          elseif (string .eq. macro(5)) then
             i = 5
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) nkrylov
-            if(my_id.eq.0) write(*,'(a10,1x,9i)')'nKrylov:',nkrylov
+            if(my_id.eq.0) write(*,'(a10,1x,i9)')'nKrylov:',nkrylov
 c .....................................................................
 c
 c ... histlog
          elseif (string .eq. macro(6)) then
             i = 6
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) fhist_log
             if(my_id.eq.0) then
@@ -2220,7 +2292,8 @@ c ... histlog
 c ... alphap 
          elseif (string .eq. macro(7)) then
             i = 7
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) alfap
             if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpap  :',alfap
@@ -2229,7 +2302,8 @@ c
 c ... alphau 
          elseif (string .eq. macro(8)) then
             i = 8
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) alfau
             if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpau  :',alfau
@@ -2238,7 +2312,8 @@ c
 c ... alphau 
          elseif (string .eq. macro(9)) then
             i = 9
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) ctol
             if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'ctol   :',ctol
@@ -2247,7 +2322,8 @@ c
 c ... alphau 
          elseif (string .eq. macro(10)) then
             i = 10
-            call readmacro(nincl,.false.)
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) cmaxit
             if(my_id.eq.0) write(*,'(a10,1x,i9)')'cmaxit :',cmaxit
@@ -2256,7 +2332,8 @@ c .....................................................................
 c .....................................................................
 c
 c ... 
-         call readmacro(nincl,.true.)
+         call readmacrov2(nincl,.true.,erro)
+         if(erro .eq. 1) goto 300 
          write(string,'(15a)') (word(j),j=1,15)
       end do
 c ......................................................................
@@ -2275,11 +2352,23 @@ c ......................................................................
       return  
 c ......................................................................
  100  continue
-      print*,'*** Error reading config !',macro(i)
+      print*,'*** Error reading macro: '
+     .      ,trim(macro(i)),' in macro solver!'
       call stop_mef()                        
  200  continue
       print*,'File ',trim(fname),' not found !'
-      call stop_mef()    
+      call stop_mef()
+ 300  continue
+      print*,'*** Error reading solver macro !'
+      write(*,'(2x,a)') '******************************'
+      write(*,'(2x,a)') 'Example usage of macro solver:'
+      write(*,'(2x,a)') '------------------------------'
+      do i = 1, 5
+        write(*,'(2x,a)') ex(i)
+      enddo  
+      write(*,'(2x,a)') '------------------------------'
+      write(*,'(2x,a)') '******************************'
+      call stop_mef()
 c ......................................................................
       end
 c **********************************************************************

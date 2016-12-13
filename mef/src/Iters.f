@@ -3382,35 +3382,35 @@ c ======================================================================
       end
 c *********************************************************************
 c
-c *********************************************************************      
-      subroutine pcg_block_it(neq   ,nequ  ,neqp  
+c *********************************************************************
+      subroutine pcg_block_it(neq   ,nequ  ,neqp
      .                       ,nad   ,naduu ,nadpp
-     .                       ,iau   ,jau   
-     .                       ,iap   ,jap  
-     .                       ,iapu  ,japu    
-     .                       ,adu   ,adp  
+     .                       ,iau   ,jau
+     .                       ,iap   ,jap
+     .                       ,iapu  ,japu
+     .                       ,adu   ,adp
      .                       ,alu   ,alp  ,alpu
-     .                       ,mu    ,mp    ,b     ,x     
+     .                       ,mu    ,mp    ,b     ,x
      .                       ,z     ,r     ,s
      .                       ,bu    ,bp    ,bu0   ,bp0
      .                       ,u     ,p
-     .                       ,tol   ,ctol  ,maxit ,cmaxit,alfap ,alfau 
+     .                       ,tol   ,ctol  ,maxit ,cmaxit,alfap ,alfau
      .                       ,fnew  ,istep
      .                       ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      .                       ,i_xfi ,i_rcvsi,i_dspli)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 18/07/2016                                    * 
-c * ------------------------------------------------------------------ *                                                                   *
+c * Data de modificaco : 13/12/2016                                    *
+c * ------------------------------------------------------------------ *
 c * Subroutine PCG_BLOCK_IT                                            *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
-c * ------------------------------------------------------------------ *                                                                    *
+c * ------------------------------------------------------------------ *
 c * neq      - numero de equacoes                                      *
 c * nequ     - numero de equacoes no bloco Kuu                         *
 c * neqp     - numero de equacoes no bloco Kpp                         *
 c * nad      - numero de termos nao nulos no bloco Kuu, kpp e kpu      *
-c * naduu    - numero de termos nao nulos no bloco Kuu                 *  
+c * naduu    - numero de termos nao nulos no bloco Kuu                 *
 c * nadpp    - numero de termos nao nulos no bloco Kpp                 *
 c * iau(*)   - ponteiro do formato CSR (bloco Kuu)                     *
 c * jau(*)   - ponteiro das colunas no formato CSR (bloco Kuu)         *
@@ -3440,7 +3440,7 @@ c * tol      - tolerancia de convergencia                              *
 c * maxit    - numero maximo de iteracoes                              *
 c * ctol     - tolerancia de convergencia do ciclo externo             *
 c * cmaxit   - numero maximo de iteracoes do ciclo externo             *
-c * fnew     - .true. chute inicial nulo                               * 
+c * fnew     - .true. chute inicial nulo                               *
 c *          .false. passo anterior                                    *
 c * istep    - numero do passo de tempo                                *
 c * my_id    -                                                         *
@@ -3458,9 +3458,9 @@ c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * x(neq) - vetor solucao                                             *
-c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
-c * ------------------------------------------------------------------ *  
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'mpif.h'
@@ -3468,7 +3468,7 @@ c **********************************************************************
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
-c .....................................................................      
+c .....................................................................
       integer neq,nequ,neqp,nad,naduu,nadpp,maxit,i,j,jj,istep
       integer cmaxit
       integer iau(*),jau(*),iap(*),jap(*),iapu(*),japu(*)
@@ -3477,7 +3477,7 @@ c .....................................................................
       real*8 mu(*),mp(*),x(*),r(*),z(*),b(*),s(*)
       real*8 bp(*),bu(*),bp0(*),bu0(*)
       real*8 u(*),p(*),xkx,norm
-      real*8 dot,tol,ctol,d,alpha,beta
+      real*8 dot,dot_par,tol,ctol,d,alpha,beta
       real*8 resid_u,resid_p,p_conv,u_conv,alfap,alfau
       real*8 time0,time,time_csr
       real*8 dum1
@@ -3542,13 +3542,14 @@ c ......................................................................
 c
 c ... P = inv(Kpp)*(Fp - kpu*U)= inv(Kpp)*rp
         call pcg(neqp      ,neqp       ,nadpp,iap       ,jap
-     .          ,adp       ,alp        ,alp  ,mp        ,bp  
-     .          ,x(nequ+1) ,z          ,r    ,s     
-     .          ,tol       ,maxit
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id     ,neqf1i     ,neqf2i,neqp    ,i_fmapi
-     .          ,i_xfi     ,i_rcvsi    ,i_dspli
-     .          ,.false.   ,.false.    ,.false.,.false.)
+     1          ,adp       ,alp        ,alp  ,mp        ,bp  
+     2          ,x(nequ+1) ,z          ,r    ,s     
+     3          ,tol       ,maxit
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id     ,neqf1i     ,neqf2i,neqp    ,i_fmapi
+     6          ,i_xfi     ,i_rcvsi    ,i_dspli
+     7          ,.false.   ,.false.    ,.false.,.false.
+     8          ,1         ,.false.)
 c ......................................................................
 c
 c ... x - > p
@@ -3566,13 +3567,14 @@ c ......................................................................
 c
 c ... U = inv(Kuu)*(Fu - kup*P)=inv(Kuu)*ru
         call pcg(nequ   ,nequ   ,naduu,iau    ,jau
-     .          ,adu    ,alu    ,alu  ,mu     ,bu   
-     .          ,x      ,z      ,r    ,s      
-     .          ,tol    ,maxit
-     .          ,matvec_csrc_sym_pm,dot_par 
-     .          ,my_id  ,neqf1i ,neqf2i,nequ    ,i_fmapi
-     .          ,i_xfi  ,i_rcvsi,i_dspli
-     .          ,.false.,.true.  ,.false.,.false.)
+     1          ,adu    ,alu    ,alu  ,mu     ,bu   
+     2          ,x      ,z      ,r    ,s      
+     3          ,tol    ,maxit
+     4          ,matvec_csrc_sym_pm,dot_par 
+     5          ,my_id  ,neqf1i ,neqf2i,nequ    ,i_fmapi
+     6          ,i_xfi  ,i_rcvsi,i_dspli
+     7          ,.false.   ,.false.    ,.false.,.false.
+     8          ,1         ,.false.)
 c ......................................................................
 c
 c ... x - > u
