@@ -45,8 +45,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
       integer*8 i_a,i_b,i_c,i_d,i_g,i_h,i_y,i_z,i_r,i_s
 c ......................................................................
+      integer*8 nad,ip(*)
       integer neq3i,neq4i,neq_doti
-      integer ip(*),ja(*),neq,nequ,neqp,nad,naduu,nadpp
+      integer ja(*),neq,nequ,neqp,naduu,nadpp
       integer maxit,solver,ngram,istep,n_blocks_up
       real*8  ad(*),al(*),m(*),x(*),b(*),tol,energy
 c ... pcg duplo
@@ -272,12 +273,12 @@ c ...
 c ......................................................................
 c
 c ... alocacao dos arronjos auxiliares (6neq)    
-         i_c = alloc_8('tsolver ',1,neq)
-         i_h = alloc_8('hsolver ',1,neq)
-         i_r = alloc_8('rsolver ',1,neq)
-         i_s = alloc_8('psolver ',1,neq)
-         i_z = alloc_8('zsolver ',1,neq)
-         i_y = alloc_8('ysolver ',1,neq)
+        i_c = alloc_8('tsolver ',1,neq)
+        i_h = alloc_8('hsolver ',1,neq)
+        i_r = alloc_8('rsolver ',1,neq)
+        i_s = alloc_8('psolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_y = alloc_8('ysolver ',1,neq)
 c .....................................................................
 c
 c ... calculo do precondicionador
@@ -347,12 +348,12 @@ c .....................................................................
 c .....................................................................
 c
 c ... 
-         i_y = dealloc('ysolver ')   
-         i_z = dealloc('zsolver ')     
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_h = dealloc('hsolver ')
-         i_c = dealloc('tsolver ')
+        i_y = dealloc('ysolver ')   
+        i_z = dealloc('zsolver ')     
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_h = dealloc('hsolver ')
+        i_c = dealloc('tsolver ')
 c ......................................................................         
 c
 c ... PCG_BLOCK_IT                                                                   
@@ -443,9 +444,9 @@ c
 c ... BICGSTAB(2):
       else if(solver .eq. 6 ) then
 c ...
-         if(omp_solv) then 
-           print*,"BICGSTAB(2): Openmp not available !!"
-         endif 
+        if(omp_solv) then 
+          print*,"BICGSTAB(2): Openmp not available !!"
+        endif 
 c .....................................................................
 c
 c ...
@@ -509,24 +510,24 @@ c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
 c ......................................................................
 c
 c ... 
-         i_b = dealloc('bsolver ')
-         i_g = dealloc('gsolver ')
-         i_d = dealloc('dsolver ')
-         i_a = dealloc('asolver ')
-         i_y = dealloc('ysolver ')   
-         i_z = dealloc('zsolver ')     
-         i_s = dealloc('psolver ')
-         i_r = dealloc('rsolver ')
-         i_h = dealloc('hsolver ')
-         i_c = dealloc('tsolver ')
+        i_b = dealloc('bsolver ')
+        i_g = dealloc('gsolver ')
+        i_d = dealloc('dsolver ')
+        i_a = dealloc('asolver ')
+        i_y = dealloc('ysolver ')   
+        i_z = dealloc('zsolver ')     
+        i_s = dealloc('psolver ')
+        i_r = dealloc('rsolver ')
+        i_h = dealloc('hsolver ')
+        i_c = dealloc('tsolver ')
 c ...................................................................... 
 c
 c ... MINRES:
       else if(solver .eq. 7 ) then
 c ...
-         if(omp_solv) then 
-           print*,"MINRES: Openmp not available !!"
-         endif 
+        if(omp_solv) then 
+          print*,"MINRES: Openmp not available !!"
+        endif 
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
@@ -581,9 +582,9 @@ c
 c ... CR - Conjugate Residual
       else if(solver .eq. 8 ) then
 c ...
-         if(omp_solv) then 
-           print*,"CR: Openmp not available !!"
-         endif 
+        if(omp_solv) then 
+          print*,"CR: Openmp not available !!"
+        endif 
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
@@ -634,9 +635,9 @@ c
 c ... SYMMLQ:
       else if(solver .eq. 9 ) then
 c ...
-         if(omp_solv) then 
-           print*,"SYMMLQ: Openmp not available !!"
-         endif 
+        if(omp_solv) then 
+          print*,"SYMMLQ: Openmp not available !!"
+        endif 
 c .....................................................................
 c
 c ... matriz aramazena em csrc blocado nao simentrico (Kuu,Kpp,Kpu)
@@ -768,7 +769,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 11/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_CG : chama a versao do gradiente conjudado desejada           *    
 c * ------------------------------------------------------------------ * 
@@ -840,8 +841,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
       logical ovlp,mpi
 c .....................................................................
-      integer neq,nequ,nad,neq_doti 
-      integer ia(*),ja(*)
+      integer neq,nequ,neq_doti 
+      integer*8 ia(*),nad
+      integer ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
       real*8 z(*),r(*),s(*)
@@ -949,7 +951,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 23/09/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_CG_OMP : chama a versao do gradiente conjudado desejada       *    
 c * ------------------------------------------------------------------ * 
@@ -1019,8 +1021,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
       logical ovlp,mpi
 c .....................................................................
-      integer neq,nequ,nad,neq_doti 
-      integer ia(*),ja(*)
+      integer neq,nequ,neq_doti 
+      integer*8 ia(*),nad
+      integer ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
       real*8 z(*),r(*),s(*)
@@ -1097,7 +1100,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 27/06/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SYMMLQ : chama a versao do SYMMLQ                             *    
 c * ------------------------------------------------------------------ * 
@@ -1166,8 +1169,9 @@ c ... mpi
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
 c .....................................................................
-      integer neq,nequ,nad,neq_doti 
-      integer ia(*),ja(*)
+      integer*8 ia(*),nad
+      integer neq,nequ,neq_doti 
+      integer ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
       real*8 c(*),h(*),r(*),s(*),z(*),y(*)
@@ -1338,7 +1342,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 28/10/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SQMR:chama a versao do metodo QMR simetrico                   *    
 c * ------------------------------------------------------------------ * 
@@ -1410,8 +1414,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
       logical ovlp,mpi
 c .....................................................................
-      integer neq,nequ,nad,neq_doti 
-      integer ia(*),ja(*)
+      integer neq,nequ,neq_doti
+      integer*8 ia(*),nad 
+      integer ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
       real*8 c(*),h(*),r(*),s(*)
@@ -1475,7 +1480,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 01/11/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SQMR_OMP:chama a versao do metodo QMR simetrico               *    
 c * ------------------------------------------------------------------ * 
@@ -1548,8 +1553,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
       logical ovlp,mpi
 c .....................................................................
-      integer neq,nequ,nad,neq_doti 
-      integer ia(*),ja(*)
+      integer neq,nequ,neq_doti 
+      integer*8 ia(*),nad 
+      integer ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
       real*8 c(*),h(*),r(*),s(*)
@@ -1577,8 +1583,8 @@ c ...
 c ... overllaping
         if(ovlp) then
           call rpsqmr_omp(neq    ,nequ   ,nad    ,ia    ,ja
-     1             ,ad     ,al     ,al      ,m     ,b   ,x 
-     2             ,c      ,h      ,r       ,s 
+     1             ,ad     ,al     ,al   ,m     ,b   ,x 
+     2             ,c      ,h      ,r    ,s 
      3             ,tol   ,maxit
      4             ,matvec_csrcr_sym_pm_omp,dot_par_omp
      5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
@@ -2161,7 +2167,7 @@ c *********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/11/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_GMRES :chama a versao do GMRES desejada                       *    
 c * ------------------------------------------------------------------ * 
@@ -2231,8 +2237,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi,i_rcvsi,i_dspli
       logical ovlp,mpi
 c .....................................................................
-      integer neq,neqovlp,nad,neq_doti,nkrylov 
-      integer ia(*),ja(*)
+      integer neq,neqovlp,neq_doti,nkrylov 
+      integer*8 ia(*),nad
+      integer ja(*)
       real*8  ad(*),al(*),x(*),b(*)
 c ... arranjos auxiliares
       real*8 g(*),h(*),y(*),c(*),r(*),s(*)

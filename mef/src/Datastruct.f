@@ -7,7 +7,7 @@
      6                        ,ovlp ,n_blocks_up,block_pu ,block_pu_sym)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 26/06/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * DATASTRUCT: monta a estrutura de dados para a matriz de            *
 c *               coeficientes do sistema de equacoes de acordo com    *
@@ -95,7 +95,9 @@ c **********************************************************************
       implicit none
       integer ix(nen+1,*),id(ndf,*),num(*),nnode,nnodev
       integer numel,nen,ndf,nst,neq, n_blocks_up
-      integer stge,nad,nadr,naduu,nadpp,nadpu,nequ,neqp
+      integer stge,nadr,naduu,nadpp,nadpu,nequ,neqp
+      integer nc4,nl4
+      integer*8 nad,nc8,nl8
 c ... ponteiros      
       integer*8 i_ia,i_ja,i_au,i_al,i_ad
       integer*8 i_bd,i_lde
@@ -138,9 +140,12 @@ c
 c     
 c ...    matriz de coeficientes:
 c
-         i_al = alloc_8(al,1,nad+nadpu+nadr)
+         nl8  = 1
+         nc8  = nad+nadpu+nadr
+         i_al = dalloc_8(al,nl8,nc8)
          i_au = i_al
-         if(unsym) i_au = alloc_8(au,1,nad+nadpu) 
+         nc8  = nad+nadpu   
+         if(unsym) i_au = dalloc_8(au,nl8,nc8) 
          i_ad = alloc_8(ad,1,neq)         
 c ......................................................................
       elseif(stge .eq. 2) then
@@ -262,7 +267,9 @@ c .....................................................................
 c     
 c ...    matriz de coeficientes:
 c
-        i_ad = alloc_8(ad,1,nad)
+        nl4  = 1
+        nc4  = nad
+        i_ad = alloc_8(ad,nl4,nc4)
         i_au = i_ad
         i_al = i_ad                        
       endif

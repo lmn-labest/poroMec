@@ -1442,7 +1442,8 @@ c **********************************************************************
       include 'mpif.h'
       include 'parallel.fi'
       include 'time.fi'
-      integer neq,ia(*),ja(*),iar(*),jar(*),i,k,jak,dum0
+      integer*8 ia(*),iar(*),k
+      integer neq,ja(*),jar(*),i,jak,dum0
       real*8  ad(*),al(*),ar(*),x(*),y(*),t,xi,s
       real*8 dum4   
       integer neqf1i,neqf2i
@@ -1508,7 +1509,7 @@ c **********************************************************************
      6                             ,i_dspli  ,dum4)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    *
 c * ------------------------------------------------------------------ * 
 c * MATVEC_CSRC_SYM_PM: produto matriz-vetor y = Ax  (A simetrica),    *
 c *                   coef. de A no formato CSRC.                      *
@@ -1532,9 +1533,9 @@ c * i_xfi  - ponteiro para o buffer de valores    (MPI)                *
 c * i_rcvsi- ponteiro extrutura da comunicacao    (MPI)                *
 c * i_dspli- ponteiro extrutura da comunicacao    (MPI)                *
 c * ------------------------------------------------------------------ *
-c *   Parametros de saida:                                             *
+c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
-c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
+c * y(neq) - vetor contendo o resultado do produto y = Ax              *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -1543,7 +1544,8 @@ c **********************************************************************
       include 'mpif.h'
       include 'parallel.fi'
       include 'time.fi'
-      integer neq,ia(*),ja(*),dum0,dum1,dum2,dum3,i,k,jak
+      integer*8 ia(*),k
+      integer neq,ja(*),dum0,dum1,dum2,dum3,i,jak
       real*8  ad(*),al(*),x(*),y(*),s,t,xi
       real*8 dum4
       integer neqf1i,neqf2i

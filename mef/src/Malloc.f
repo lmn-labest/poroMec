@@ -21,6 +21,7 @@ c **********************************************************************
       module Malloc
          integer, allocatable, dimension(:) :: ia
          integer*8, external :: alloc_4,alloc_8,locate,dealloc
+         integer*8, external :: dalloc_4,dalloc_8
 c         integer*8, parameter :: maxmem =1800000000
          integer*8 maxmem
          data maxmem /100000000/    
@@ -105,9 +106,8 @@ c
 c ...
       nl8 = nl
       nc8 = nc
-      n = nl8*nc8
+      n   = nl8*nc8
 c ......................................................................
-      n = nl8*nc8
 c     if (n .le. 0) then
 c        aloc4 = ip(nalp+1)
 c        return
@@ -137,6 +137,72 @@ c ......................................................................
       call maxtest(ip(nalp+1),name)
       arname(nalp) = name
       alloc_4 = ipi
+c ......................................................................                  
+      return
+      end
+      integer*8 function dalloc_4(name,nl,nc)
+c **********************************************************************
+c *                                                                    *
+c *   DALLOC_4: aloca memoria para arranjos de 4 bytes                 *
+c *   -------                                                          *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *   name - nome do arranjo a ser alocado                             *
+c *   nl   - numero de linhas do arranjo (integer*8)                   *
+c *   nc   - numero de colunas do arranjo(integer*8)                   *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *   alloc_4 - ponteiro do arranjo                                    *
+c *                                                                    *
+c **********************************************************************
+      implicit none 
+      integer maxnpts
+      parameter (maxnpts = 200)
+c ... valores do ponteiros     
+      integer*8 ip(maxnpts)
+      integer*8 ipi,n,aloc4,locate,nl,nc
+c ......................................................................
+      character*8 arname(maxnpts),name
+      integer nalp
+      common /malloc_info/ arname,ip,nalp
+c ......................................................................
+c
+c ...
+      n = nl*nc
+c ......................................................................
+c     if (n .le. 0) then
+c        aloc4 = ip(nalp+1)
+c        return
+c     endif
+      if (n .le. 0) then
+         print*,'*** <ALLOC_4> numero  negativo de posicoes no vetor:',
+     .      '(',name,') ***'
+         call stop_mef()
+      endif
+c ......................................................................      
+      ipi = locate(name)
+      if(ipi .gt. 0) then
+         print*,'*** <ALLOC_4> Nome de arranjo existente: ',
+     .      '(',name,') ***'
+         call stop_mef()
+      endif
+c ......................................................................      
+      nalp   = nalp + 1
+      if (nalp+1 .gt. maxnpts) then
+         print*,'*** <ALLOC_4> Max. numero de ponteiros excedido: ',
+     .        '(',name,') ***'
+         call stop_mef()
+      endif
+c ......................................................................      
+      ipi = ip(nalp)
+      ip(nalp+1) = ipi + n
+      call maxtest(ip(nalp+1),name)
+      arname(nalp) = name
+      dalloc_4 = ipi
 c ......................................................................                  
       return
       end
@@ -209,6 +275,76 @@ c ......................................................................
       call maxtest(ip(nalp+1),name)
       arname(nalp) = name
       alloc_8 = ipi
+c ......................................................................                  
+      return
+      end
+      integer*8 function dalloc_8(name,nl,nc)
+c **********************************************************************
+c *                                                                    *
+c *   ALLOC_8: aloca memoria para arranjos de 8 bytes                  *
+c *   -------                                                          *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *   ---------------------                                            *
+c *                                                                    *
+c *   name - nome do arranjo a ser alocado                             *
+c *   nl   - numero de linhas do arranjo (integer*8)                   *
+c *   nc   - numero de colunas           (integer*8)                   *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *   -------------------                                              *
+c *                                                                    *
+c *   dalloc_8 - ponteiro do arranjo                                   *
+c *                                                                    *
+c **********************************************************************
+      implicit none 
+      integer maxnpts
+      parameter  (maxnpts = 200)
+c ... valores do ponteiros     
+      integer*8 ip(maxnpts)
+      integer*8 locate,ipi,n,aloc8,nl,nc
+c ......................................................................
+      character*8 arname(maxnpts),name
+      integer nalp
+      common /malloc_info/ arname,ip,nalp
+c ......................................................................
+c
+c ...
+      n   = nl*nc
+c ......................................................................
+c     if (n .le. 0) then
+c        aloc8 = ip(nalp+1)
+c        return
+c     endif      
+      if (n .le. 0) then
+         print*,'*** <ALLOC_8> numero negativo de posicoes no vetor:',
+     .      '(',name,') ***'
+         call stop_mef()
+      endif
+c ......................................................................
+      ipi = locate(name)
+      if(ipi .gt. 0) then
+         print*,'*** <ALLOC_8> Nome de arranjo existente: ',
+     .        '(',name,') ***'
+         call stop_mef()
+      endif
+c ......................................................................            
+      nalp = nalp + 1
+      if (nalp+1 .gt. maxnpts) then
+         print*,'*** <ALLOC_8> Max. numero de ponteiros excedido: ',
+     .        '(',name,') ***'
+         call stop_mef()
+      endif
+c ......................................................................                  
+      ipi = ip(nalp)
+      if(mod(ipi,2) .eq. 0) then
+         ipi      = ipi+1
+         ip(nalp) = ipi
+      endif
+      ip(nalp+1) = ipi + 2*n
+      call maxtest(ip(nalp+1),name)
+      arname(nalp) = name
+      dalloc_8 = ipi
 c ......................................................................                  
       return
       end
@@ -324,6 +460,21 @@ c **********************************************************************
       implicit none
       real*8 a(*)
       integer k,j
+c ......................................................................
+      do 100 k = 1, j
+         a(k) = 0.d0
+  100 continue
+      return
+      end
+      subroutine dazero(a,j)
+c **********************************************************************
+c *                                                                    *
+c *   DAZERO: zera as posicoes de 1 ate j do vetor a.                  *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      real*8 a(*)
+      integer*8 k,j
 c ......................................................................
       do 100 k = 1, j
          a(k) = 0.d0

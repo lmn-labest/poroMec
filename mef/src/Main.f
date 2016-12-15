@@ -63,7 +63,8 @@ c
 c ......................................................................
 c
 c ... Variaveis do sistema de equacoes:
-      integer neq,nequ,neqp,nad,naduu,nadpp,nadpu
+      integer neq,nequ,neqp,naduu,nadpp,nadpu
+      integer*8 nad
       integer n_blocks_pu
       logical block_pu,block_pu_sym,fneqs
       character*8 sia,sja,sau,sal,sad

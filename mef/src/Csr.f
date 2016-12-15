@@ -95,7 +95,7 @@ c * monta o bloco kuu, kpp e kup juntos ( primeiras equacoes u e       *
 c * depois as esquacoes de pressao                                     *
 c *                                                                    *
 c * block_pu_sym = false e block_pu = false                            *                   
-c * monta o bloco kuu, kpp e kup juntos se considera a estrutura       * 
+c * monta o bloco kuu, kpp e kup juntos sem considera a estrutura      * 
 c * blocada, i.e., graus de liberda juntos                             *
 c *                                                                    *
 c **********************************************************************
@@ -103,8 +103,9 @@ c **********************************************************************
       implicit none
       integer id(ndf,*),ix(nen+1,*),num(*)
       integer nnode,nnodev,numel,nen,ndf,neq,nequ,neqp
-      integer nad,nadr,naduu,nadpp,nadpu,n_blocks_up
+      integer nadr,naduu,nadpp,nadpu,n_blocks_up
       logical block_pu,block_pu_sym
+      integer*8 nad,nl,nc
 c ... ponteiros      
       integer*8 i0,i1,i2,i3
 c .....................................................................      
@@ -266,7 +267,7 @@ c                               coeficiente nao-nulo da equacao i
 c
         n = neq + 1
         if (right) n = 2*n
-        i2 = alloc_4(ija,1,n)
+        i2 = alloc_8(ija,1,n)
         call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
      .             lower,diag,upper,right)
 c ......................................................................     
@@ -276,12 +277,14 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-        i3 = alloc_4(ja,1,nad+nadr)
+        nl = 1
+        nc = nad+nadr
+        i3 = dalloc_4(ja,nl,nc)
         call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
      .             diag,upper,right)
-        call sortgraph(ia(i2),ia(i3),neq)
+        call sortgraphv2(ia(i2),ia(i3),neq)
         if (right) then
-          call sortgraph(ia(i2+neq+1),ia(i3+nad),neq)      
+          call sortgraphv2(ia(i2+neq+1),ia(i3+nad),neq)      
         endif
 c ......................................................................
 c
@@ -390,33 +393,38 @@ c **********************************************************************
       subroutine csria(id,num,ip,ips,ia,nnode,ndf,neq,nad,nadr,lower,
      .                 diag,upper,right)
 c **********************************************************************
-c *                                                                    *
-c *   CSRIA: monta o arranjo ia do formato CSR                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)- numeracao global das equacoes                    *
-c *    num(nnode)   - renumeracao nodal                                *
-c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no     *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * CSRIA: monta o arranjo ia do formato CSR                           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no        *
 c *                   conectado ao no i                                *
-c *    ips(ipos)    - contem as conetividades nodais de cada no        *
-c *    nnode - numero de nos                                           *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - numero de equacoes                                      *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro      *
-c *                      coeficiente nao-nulo da equacao i             *
-c *    nad   - numero de coeficientes nao nulos                        *
-c *                                                                    *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro         *
+c *                   coeficiente nao-nulo da equacao i                *
+c * nad   - numero de coeficientes nao nulos                           *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
-      integer nnode,ndf,neq,nad,nadr
-      integer id(ndf,nnode),ip(nnode+1),ips(*),ia(*),num(nnode)
+      integer nnode,ndf,neq,nadr
+      integer*8 nad,ia(*)
+      integer id(ndf,nnode),ip(nnode+1),ips(*),num(nnode)
       integer i,j,k,ii,jj,kk,neqi,neqj,no
       logical lower,diag,upper,right
 c ......................................................................
@@ -503,32 +511,37 @@ c **********************************************************************
       subroutine csrja(id,num,ip,ips,ja,nnode,ndf,neq,nad,lower,diag,
      .                 upper,right)
 c **********************************************************************
-c *                                                                    *
-c *   CSRJA: monta o arranjo ja do formato CSR (matrizes simetricas    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * CSRJA: monta o arranjo ja do formato CSR (matrizes simetricas      *
 c *                                             e nao simetricas)      *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)- numeracao global das equacoes                    *
-c *    num(nnode)   - renumeracao nodal                                *
-c *    ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro        *
-c *    ips(ipos)    - contem as conetividades nodais de cada no        *
-c *    nnode - numero de nos                                           *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - numero de equacoes                                      *
-c *    nad   - numero de coeficientes nao nulos                        *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    ja(nad) - ja(k) informa a coluna do coeficiente que ocupa       *
-c *              a posicao k no vetor a                                *
-c *                                                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro           *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * nad   - numero de coeficientes nao nulos                           *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ja(nad) - ja(k) informa a coluna do coeficiente que ocupa          *
+c *           a posicao k no vetor a                                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
-      integer nnode,ndf,neq,nad
+      integer*8 nad
+      integer nnode,ndf,neq
       integer id(ndf,*),num(*),ip(*),ips(*),ja(*)
       integer i,j,k,ii,jj,kk,neqi,neqj,no,n,m
       logical lower,diag,upper,right

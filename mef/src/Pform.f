@@ -14,7 +14,7 @@
      4                   ,block_pu,n_blocks_pu)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 10/11/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * PFORM_PM:                                                          *
 c * ------------------------------------------------------------------ *                                                             *
@@ -88,11 +88,12 @@ c **********************************************************************
       include 'omp_lib.h'
       include 'transiente.fi'
       include 'termprop.fi'
-      integer numel,nen,nenv,ndf,ndm,nst,nad,nadu,nadp,nadpu,nadr
+      integer*8 nad,ia(*),aux1
+      integer numel,nen,nenv,ndf,ndm,nst,nadu,nadp,nadpu,nadr
       integer stge,isw,numat,nlit
       integer neq,nequ,neqp,n_blocks_pu
       integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
-      integer ia(*),ja(*)
+      integer ja(*)
       integer iel,ma,nel,no,i,j,k,kk,ilib
       integer i_colorg(2,*),i_elcolor(*),numcolors
       integer ic,jc
@@ -106,8 +107,9 @@ c
 c ... Zera a matriz de coeficientes:
 c
       if(lhs) then
-        call azero(au,nad)
-        call azero(al,nad+nadpu+nadr)
+        call dazero(au,nad)
+        aux1 = nad+nadpu+nadr 
+        call dazero(al,aux1)
         call azero(ad,neq)      
       endif
 c ..................................................................... 
@@ -186,7 +188,7 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
-           call assbly_pm(sl      ,pl         ,ld
+           call assbly_pm(sl   ,pl         ,ld
      .                ,ia      ,ja         ,au
      .                ,al      ,ad         ,b    ,nst
      .                ,neq     ,nequ       ,neqp

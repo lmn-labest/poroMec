@@ -63,7 +63,7 @@ c *********************************************************************
      .             ,fprint,flog   ,fhist  ,fnew)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 20/04/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * Subroutine CG : Solucao de sistemas de equacoes pelo metodo dos    *    
 c * gradientes conjugados                                              *
@@ -123,8 +123,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),b(*)
       real*8  r(*),z(*),p(*)
       real*8  dot,tol,conv,xkx,norm,d,di,alpha,beta,tmp,norm_b
@@ -306,7 +307,7 @@ c *********************************************************************
      8              ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 31/10/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * Subroutine PCG : Solucao de sistemas de equacoes pelo metodo dos   *
 c * gradientes conjugados com precondicionador diagonal para matrizes  *
@@ -373,8 +374,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8  r(*),z(*),p(*)
       real*8  dot,tol,conv,xkx,norm,d,di,alpha,beta,tmp,norm_b
@@ -1120,7 +1122,7 @@ c **********************************************************************
      .              neq_doti,i_fmapi,i_xfi,i_rcvsi,i_dspli,flog)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 22/04/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * GMRES: Solucao iterativa de sistemas simetricos e nao-simetricos   *
 c *        pelo metodo GMRES com precondicionador diagonal.            *
@@ -1178,8 +1180,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad
-      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
+      integer neq,nequ
+      integer*8 ia(*),nad
+      integer k,maxit,ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
       real*8  ad(*),au(*),al(*),m(*),b(*),x(*)
       real*8  g(neqovlp,1:k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
       real*8  xkx,econv,norm,dot,r,aux1,aux2,beta
@@ -1412,7 +1415,7 @@ c *********************************************************************
      8                 ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 30/05/2016                                    *
-c * Data de modificaco : 29/11/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * GMRES: Solucao iterativa de sistemas simetricos e nao-simetricos   *
 c *        pelo metodo GMRES com precondicionador diagonal.            *
@@ -1483,8 +1486,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad
-      integer k,maxit,ia(*),ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
+      integer neq,nequ
+      integer*8 ia(*),nad
+      integer k,maxit,ja(*),neqovlp,nit,i,j,jj,l,ni,ic,nadr
       real*8  ad(*),au(*),al(*),m(*),b(*),x(*)
       real*8  g(neqovlp,k+1),h(k+1,k),y(k),c(k),s(k),e(k+1),tol
       real*8  xkx,econv,norm,dot,r,aux1,aux2,beta,inorm,norm_r,norm_m_r
@@ -1779,7 +1783,7 @@ c **********************************************************************
      .                    ,fprint  ,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 15/04/2016                                    *
-c * Data de modificaco : 20/04/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * BICGSTAB  : Solucao de sistemas de equacoes pelo metodo dos        * 
 c * gradientes biconjugados para matrizes nao-simetricas.              *                                         *
@@ -1834,9 +1838,10 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
-      integer neq,nequ,nad
+      integer neq,nequ
       integer maxit,i,j,jj,k
-      integer ia(*),ja(*),my_id
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),b(*)
       real*8  r(*),p(*),t(*),v(*),r0(*)
       real*8  dot,tol,conv,xkx,norm,d,alpha,beta,rr0,w,tmp,norm_r
@@ -2109,9 +2114,10 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
-      integer neq,nequ,nad
+      integer neq,nequ
+      integer*8 ia(*),nad
       integer maxit,i,j,jj,k
-      integer ia(*),ja(*),my_id
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),b(*)
       real*8  r(*),u(*),t(*),v(*),r0(*),w(*),s(*)
       real*8  dot,tol,conv,xkx,norm,d
@@ -2472,9 +2478,10 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
-      integer neq,nequ,nad
+      integer neq,nequ
       integer maxit,i,j,jj,k
-      integer ia(*),ja(*),my_id
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  r(*),u(*),t(*),v(*),r0(*),w(*),s(*),p(*),z(*),h(*)
       real*8  dot,tol,conv,xkx,norm,d,morm_r
@@ -2872,9 +2879,10 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
-      integer neq,nequ,nad
+      integer neq,nequ
       integer maxit,i,j,jj,k
-      integer ia(*),ja(*),my_id
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  r(*),p(*),t(*),v(*),z(*),r0(*)
       real*8  dot,tol,conv,d,alpha,beta,rr0,w,xkx,norm,tmp,norm_r
@@ -3105,7 +3113,7 @@ c **********************************************************************
      .                     ,fprint  ,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 15/04/2016                                    *
-c * Data de modificaco : 22/04/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PBICGSTAB : Solucao de sistemas de equacoes pelo metodo dos        * 
 c * gradientes biconjugados com precondicionador diagonal para         *
@@ -3164,9 +3172,10 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................   
-      integer neq,nequ,nad
+      integer neq,nequ
       integer maxit,i,j,jj,k
-      integer ia(*),ja(*),my_id
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  r(*),p(*),t(*),v(*),z(*),r0(*)
       real*8  dot,tol,conv,xkx,norm,d,alpha,beta,rr0,w,tmp
@@ -3692,7 +3701,7 @@ c *********************************************************************
      .             ,fprint,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 16/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * MINRES  : Solucao de sistemas de equacoes pelo metodo MINRES       *
 c * (matriz simetrica geral)                                           *
@@ -3747,8 +3756,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),b(*)
       real*8  v(*),v0(*),w0(*),w00(*),w(*),z(*)
       real*8  dot,tol,conv,xkx,norm,tmp
@@ -3982,7 +3992,7 @@ c *********************************************************************
      .             ,fprint,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 16/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PMINRES  : Solucao de sistemas de equacoes pelo metodo MINRES      *     
 c * precondicionado diagonal M=D(1/2)D(1/2)                            *
@@ -4043,8 +4053,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id,it,nrestart
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id,it,nrestart
       real*8  ad(*),au(*),al(*),m(*),x(*),b(*)
       real*8  v(*),v0(*),w0(*),w00(*),w(*),z(*),z0(*),p(*)
       real*8  dot,tol,conv,xkx,norm,tmp1,tmp2,tmp3,tmp4
@@ -4299,7 +4310,7 @@ c *********************************************************************
      .              ,fprint,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 22/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * CR : Solucao de sistemas de equacoes pelo metodo dos               *
 c * residuos conjugados para matrizes simetricas.                      *                                                        *
@@ -4354,8 +4365,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),b(*),x(*)
       real*8  r(*),z(*),p(*),ar(*),ap(*)
       real*8  dot,tol,conv,xkx,norm,d,rar,alpha,beta,tmp
@@ -4552,7 +4564,7 @@ c *********************************************************************
      .              ,fprint,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 22/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PCR : Solucao de sistemas de equacoes pelo metodo dos              *
 c * residuos conjugados com precondicionador diagonal para matrizes    *
@@ -4612,8 +4624,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),b(*),x(*),m(*)
       real*8  r(*),z(*),p(*),az(*),ap(*),t(*)
       real*8  dot,tol,conv,xkx,norm,d,zaz,alpha,beta,tmp
@@ -4826,7 +4839,7 @@ c *********************************************************************
      .             ,fprint,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 30/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * SYMMLQ  : Solucao de sistemas de equacoes pelo metodo SYMMLQ       *
 c * (matriz simetrica geral)                                           *
@@ -4880,8 +4893,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),b(*)
       real*8  v(*),v0(*),wb(*),y(*)
       real*8  dot,tol,conv,xkx,tmp,alpha,gamma,delta,epsln,norm,norm_r
@@ -5150,7 +5164,7 @@ c *********************************************************************
      .             ,fprint,flog   ,fnew)
 c **********************************************************************
 c * Data de criacao    : 30/05/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * SYMMLQ  : Solucao de sistemas de equacoes pelo metodo SYMMLQ       *
 c * (matriz simetrica geral)                                           *
@@ -5206,8 +5220,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),x(*),m(*),b(*)
       real*8  v(*),r1(*),r2(*),wb(*),y(*),z(*)
       real*8  dot,tol,conv,xkx,tmp,alpha,gamma,delta,epsln,norm_r_m
@@ -5503,9 +5518,9 @@ c *********************************************************************
      .                 ,fprint,flog   ,fhist  ,fnew)
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * RPSQMR : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
+c * SQMR : Solucao de sistemas de equacoes pelo metodo QMR simetrico   *
 c * diagonal a direita                                                 *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
@@ -5561,8 +5576,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8 ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8 r(*),t(*),q(*),d(*)
       real*8 dot,tol,conv,xkx,norm,alpha,beta,tmp1,tmp2,tau,ro,vn,v0
@@ -5790,7 +5806,7 @@ c *********************************************************************
      .                 ,fprint,flog   ,fhist  ,fnew)
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * LPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a esquerda                                                *
@@ -5848,8 +5864,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8 ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8 r(*),t(*),q(*),d(*)
       real*8 dot,tol,conv,xkx,norm,alpha,beta,tmp1,tmp2,tau,ro,vn,v0
@@ -6088,7 +6105,7 @@ c *********************************************************************
      8                 ,nprcs  ,mpi)
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 31/10/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a direita                                                 *
@@ -6158,8 +6175,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8 ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8 r(*),t(*),q(*),d(*)
       real*8 dot,tol,conv,xkx,norm,alpha,beta,tmp1,tmp2,tau,ro,vn,v0
@@ -6370,7 +6388,7 @@ c
 c ... Controle de flops
       if(flog) then
         if(my_id.eq.0) then
-          write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
+          write(10,'(a,a,i9,3(a,d20.10),2(a,f20.2))')
      .       'RPSQMR: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
      .      ,' tol ',tol,' Mflops ',mflops,' time ',time
         endif
@@ -6378,7 +6396,7 @@ c ... Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA LPSQMR:',/,5x,'Diagonal coefficient ' 
+ 1000 format (//,5x,'SUBROTINA RPSQMR:',/,5x,'Diagonal coefficient ' 
      . '- equation ',i9,d20.10)
  1100 format(' (RPSQMR) solver:'/
      . 5x,'Solver tol           = ',d20.6/

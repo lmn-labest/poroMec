@@ -14,22 +14,6 @@ c *   ebe: armazena matrizes de elemento.                              *
 c *   blockdg: monta a diagonal em blocos.                             *
 c *                                                                    *
 c **********************************************************************
-c **********************************************************************
-c *                                                                    *
-c *   ASSBLY.F                                            31/08/2005   *
-c *   ========                                                         *
-c *   Este arquivo contem subrotinas para montagem de matrizes e       *
-c *   vetores a partir das matrizes e vetores de elemento:             *
-c *                                                                    *
-c *   assbly: chama as rotinas de montagem, de acordo com o formato    *
-c *           utilizado.                                               *
-c *   csr: monta arranjos globais no formato CSR.                      *
-c *   skyline: monta arranjos globais no formato SKYLINE.              *
-c *   arestas : monta arranjos globais no formato de ARESTAS.          *
-c *   ebe: armazena matrizes de elemento.                              *
-c *   blockdg: monta a diagonal em blocos.                             *
-c *                                                                    *
-c **********************************************************************
       subroutine assbly(s ,p ,ld,ia,ja,au,al,ad,b,nst,neq,lhs,rhs,unsym,
      .                  stge)
 c **********************************************************************
@@ -143,9 +127,10 @@ c *                                                                    *
 c **********************************************************************     
       implicit none
       real*8  s(*),p(*),au(*),al(*),ad(*),b(*)
-      integer ld(*),ia(*),ja(*),nst
+      integer ld(*),ja(*),nst
+      integer*8 ia(*),nad
       integer neq,nequ,neqp
-      integer nad,nadu,nadp,nadpu
+      integer nadu,nadp,nadpu
       integer stge,n_blocks_up
       logical lhs,rhs,unsym,dualCsr
 c ...................................................................... 
@@ -217,7 +202,7 @@ c ......................................................................
 c
 c ... csr (ia,ja,a) 
       elseif (stge .eq. 6) then
-       call csrv3(s,p,ld,ia,ja,ad,b,nst,neq,lhs,rhs)
+        call csrv3(s,p,ld,ia,ja,ad,b,nst,neq,lhs,rhs)
       endif
 c ......................................................................       
       return
@@ -266,8 +251,9 @@ c *                                                                    *
 c **********************************************************************
       implicit none
       include 'parallel.fi'
-      integer ld(*),ia(*),ja(*),nst,neq
-      integer i,j,k,l,kk,nad
+      integer*8 ia(*),nad,kk
+      integer ld(*),ja(*),nst,neq
+      integer i,j,k,l
       real*8  s(nst,*),p(*),au(*),al(*),ad(*),b(*)
       logical lhs,rhs,unsym
 c ......................................................................

@@ -70,7 +70,7 @@ c ... equacoes
 c .....................................................................
 c
 c ... coeficeintes da matriz a
-      integer nad1t,nadr 
+      integer nadr 
 c .....................................................................
 c
       integer mdp,mcw,nprcs,ierr,nviz1,nviz2,min,my_id
