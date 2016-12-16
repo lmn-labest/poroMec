@@ -1,4 +1,7 @@
 c *********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    * 
+c * ------------------------------------------------------------------ *   
 c * WRITE_LOG : Escrever o arquivo de log de excuacao                 *
 c * ----------------------------------------------------------------- *
 c * parametros de entrada :                                           *
@@ -54,12 +57,13 @@ c ... malha
       integer nnode,numel,numel_nov,numel_ov
 c ... informacoes do sistema      
       integer neq,nequ,neqp,neq1,neq2,neq32,neq4,neq1a,neqf1,neqf2
-      integer nad,nadu,nadp,nadpu,nad1
+      integer nadu,nadp,nadpu,nad1
+      integer*8 nad      
 c ...
       integer ndf
       logical fporomec,fmec
 c ... mpi      
-      integer mcw,mi,mdp,ierr
+      integer mcw,mi,mdi,mdp,ierr
       integer my_id,nprcs
 c ... openmp
       integer nth_elmt,nth_solv,num_colors
@@ -73,6 +77,7 @@ c ...
 c ... variaveis de controle do mpi
       mcw = MPI_COMM_WORLD
       mi  = MPI_INTEGER
+      mdi = MPI_INTEGER8
       mdp = MPI_DOUBLE_PRECISION
 c .....................................................................
 c
@@ -203,20 +208,20 @@ c
 c ... mecancio
         if(fmec)then
           write(nlog,'(a)')"Mecanico:"
-          call itwrite('neq   ',neq  ,nprcs,nlog)
-          call itwrite('nad   ',nad  ,nprcs,nlog)
+          call  itwrite('neq   ',neq  ,nprcs,nlog)
+          call ditwrite('nad   ',nad  ,nprcs,nlog)
 c .....................................................................
 c
 c ... poromecanico
         else if(fporomec)then
           write(nlog,'(a)')"Poromecanico:"
-          call itwrite('neq   ',neq  ,nprcs,nlog)
-          call itwrite('nequ  ',nequ ,nprcs,nlog)
-          call itwrite('neqp  ',neqp ,nprcs,nlog)
-          call itwrite('nad   ',nad  ,nprcs,nlog)
-          call itwrite('nadu  ',nadu ,nprcs,nlog)
-          call itwrite('nadp  ',nadp ,nprcs,nlog)
-          call itwrite('nadpu ',nadpu,nprcs,nlog)
+          call  itwrite('neq   ',neq  ,nprcs,nlog)
+          call  itwrite('nequ  ',nequ ,nprcs,nlog)
+          call  itwrite('neqp  ',neqp ,nprcs,nlog)
+          call ditwrite('nad   ',nad  ,nprcs,nlog)
+          call  itwrite('nadu  ',nadu ,nprcs,nlog)
+          call  itwrite('nadp  ',nadp ,nprcs,nlog)
+          call  itwrite('nadpu ',nadpu,nprcs,nlog)
         endif
 c .....................................................................
         call itwrite('nnode ',nnode,nprcs,nlog)
@@ -259,8 +264,8 @@ c
 c
 c ... numero de coeficientes nao nulos    
 c
-           call MPI_GATHER(nad,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
-           if (my_id.eq.0) call itwrite('nad   ',ia(i_ts),nprcs,nlog)
+           call MPI_GATHER(nad,1,mdi,ia(i_ts),1,mdi,0,mcw,ierr)
+           if (my_id.eq.0) call ditwrite('nad   ',ia(i_ts),nprcs,nlog)
 c
 c ... numero de coeficieno nao nulos overlapping
 c
@@ -270,7 +275,7 @@ c
 c ... numero de coeficieno nao nulos overlapping
 c
            call MPI_GATHER(nad1,1,mi,ia(i_ts),1,mi,0,mcw,ierr)
-           if (my_id.eq.0) call itwrite('nad1  ',ia(i_ts),nprcs,nlog)
+           if (my_id.eq.0) call itwrite('nadr  ',ia(i_ts),nprcs,nlog)
 c
 c ... numero de equacao no buffer de recebimento
 c
@@ -284,8 +289,6 @@ c
 c
         endif
 c .....................................................................
-c
-c ...
 c
 c ... numero de nos      
 c

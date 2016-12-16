@@ -29,7 +29,7 @@ c *********************************************************************
      8                  ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 31/10/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * PCG_OMP : Solucao de sistemas de equacoes pelo metodo dos          *
 c * gradientes conjugados com precondicionador diagonal para matrizes  *
@@ -92,9 +92,10 @@ c ... mpi
 c ... ponteiros      
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
-c .....................................................................   
-      integer neq,nequ,maxit,i,j,jj,nad
-      integer ia(*),ja(*),my_id
+c .....................................................................
+      integer*8 ia(*),nad   
+      integer neq,nequ,maxit,i,j,jj
+      integer ja(*),my_id
       real*8  ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8  r(*),z(*),p(*)
       real*8  dot,tol,conv,xkx,norm,d,di,alpha,beta,tmp,norm_b
@@ -353,7 +354,7 @@ c *********************************************************************
      8                 ,nprcs ,mpi)
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 01/11/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a direita                                                 *
@@ -418,8 +419,9 @@ c ... ponteiros
       integer*8 i_fmapi,i_xfi
       integer*8 i_rcvsi,i_dspli
 c .....................................................................      
-      integer neq,nequ,nad,maxit,i,j,jj
-      integer ia(*),ja(*),my_id
+      integer neq,nequ,maxit,i,j,jj
+      integer*8 ia(*),nad
+      integer ja(*),my_id
       real*8 ad(*),au(*),al(*),b(*),m(*),x(*)
       real*8 r(*),t(*),q(*),d(*)
       real*8 dot,tol,conv,xkx,norm,alpha,beta,tmp1,tmp2,tau,ro,vn,v0

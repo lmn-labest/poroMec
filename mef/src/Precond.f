@@ -1553,7 +1553,7 @@ c **********************************************************************
 c
 c c ********************************************************************  
 c * Data de criacao    : 27/06/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ *  
 c * CAL_PRECOND : calculo o precondicionador                           *
 c * ------------------------------------------------------------------ * 
@@ -1601,7 +1601,8 @@ c ... ponteiros
       logical novlp
 c ...
       real*8 m(*),ad(*),al(*),w(*)
-      integer ia(*),ja(*),neq,nequ
+      integer*8 ia(*)
+      integer ja(*),neq,nequ
       integer precond,my_id
       real*8  max_block_a(max_block*max_block)
 c ... sem precondicionador:

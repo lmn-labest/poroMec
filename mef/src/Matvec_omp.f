@@ -465,7 +465,8 @@ c **********************************************************************
       include 'parallel.fi'
       include 'time.fi'
       include 'openmp.fi'
-      integer neq,ia(*),ja(*),dum0,dum1,dum2,dum3,dum4,i,j,k,jak,inc
+      integer*8 ia(*),k
+      integer neq,ja(*),dum0,dum1,dum2,dum3,dum4,i,j,jak,inc
       real*8  ad(*),al(*),x(*),y(*),s,t,xi
       integer neqf1i,neqf2i
 c ... ponteiros      
@@ -576,7 +577,8 @@ c **********************************************************************
       include 'parallel.fi'
       include 'time.fi'
       include 'openmp.fi'
-      integer neq,ia(*),ja(*),iar(*),jar(*),i,j,k,jak,inc,dum0
+      integer*8 ia(*),iar(*),k
+      integer neq,ja(*),jar(*),i,j,jak,inc,dum0
       real*8  ad(*),al(*),ar(*),x(*),y(*),s,t,xi
       integer neqf1i,neqf2i
 c ... ponteiros      

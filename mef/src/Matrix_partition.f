@@ -1,28 +1,32 @@
 c *********************************************************************
-c * PARTITION_MATRIX : dividi o trabalho do matevec entre as threads  *
-c * por linhas e inicializa a estruturas do buffer do matvec          *
-c * ----------------------------------------------------------------- *
-c * parametros de entrada :                                           *
-c * ----------------------------------------------------------------- *
-c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro     *
-c *                     coeficiente nao-nulo da linha   i             *
-c *   ja(nad)   - ja(k) informa a coluna do coeficiente que ocupa     *
-c *               a posicao k no vetor au                             *
-c *   neq       - numero de equacoes                                  *
-c *   ovlp      - overllaping( mpi)  
-c * ----------------------------------------------------------------- *
-c * parametros de saida                                               *
-c * ----------------------------------------------------------------- *
-c *  thread_begin(1:nthreads) - primeira linha do sistema da thread i *
-c *  thread_end(1:nthreads)   - ultima linha do sistema da thread i   *
-c *  thread_heigth(1:nthread) - altura onde a thread escreve no vetor *
-c *                             y                                     *
-c * ----------------------------------------------------------------- *
-c *********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    * 
+c * ------------------------------------------------------------------ *   
+c * PARTITION_MATRIX : dividi o trabalho do matevec entre as threads   *
+c * por linhas e inicializa a estruturas do buffer do matvec           *
+c * -----------------------------------------------------------------  *
+c * parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
+c *                     coeficiente nao-nulo da linha   i              *
+c *   ja(nad)   - ja(k) informa a coluna do coeficiente que ocupa      *
+c *               a posicao k no vetor au                              *
+c *   neq       - numero de equacoes                                   *
+c *   ovlp      - overllaping( mpi)                                    *
+c * -----------------------------------------------------------------  *
+c * parametros de saida                                                *
+c * -----------------------------------------------------------------  *
+c *  thread_begin(1:nthreads) - primeira linha do sistema da thread i  *
+c *  thread_end(1:nthreads)   - ultima linha do sistema da thread i    *
+c *  thread_heigth(1:nthread) - altura onde a thread escreve no vetor  *
+c *                             y                                      *
+c * -----------------------------------------------------------------  *
+c **********************************************************************
       subroutine partition_matrix(ia,ja,neq,nequ,nad,ovlp,block_pu)
       implicit none
       include 'openmp.fi'
-      integer ia(*),ja(*),neq,nequ,nad,nnzr
+      integer*8 ia(*),nad,nnzr
+      integer ja(*),neq,nequ
       integer i,idum
       logical ovlp,block_pu,flag
 c
@@ -93,36 +97,40 @@ c .....................................................................
       end
 c *********************************************************************
 c
-c *********************************************************************
-c * PARTITION_CSRC_BYNOZEROS :dividi o trabalho do matvec entre as    *
-c * threads considerando valores nao nulos e inicializa a estruturas  *
-c * do buffer do matvec                                               *
-c * ----------------------------------------------------------------- *
-c * parametros de entrada :                                           *
-c * ----------------------------------------------------------------- *
-c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro     *
-c *                     coeficiente nao-nulo da linha   i             *
-c *   iar(neq+1)- iar(i) informa a posicao no vetor ar do primeiro    *
-c *                     coeficiente nao-nulo da linha i da parte      *
-c *                     retangular                                    *
-c *   neq       - numero de equacoes                                  *
-c *   nnzr      - numero de nad zeros na matriz retangular(mpi)       *
-c *   ovlp      - overllaping( mpi)                                   *
-c * ----------------------------------------------------------------- *
-c * parametros de saida                                               *
-c * ----------------------------------------------------------------- *
-c *  thread_begin(1:nthreads) - primeira linha do sistema da thread i *
-c *  thread_end(1:nthreads)   - ultima linha do sistema da thread i   *
-c * ----------------------------------------------------------------- *
-c *********************************************************************
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    * 
+c * ------------------------------------------------------------------ *  
+c * PARTITION_CSRC_BYNOZEROS :dividi o trabalho do matvec entre as     *
+c * threads considerando valores nao nulos e inicializa a estruturas   *
+c * do buffer do matvec                                                *
+c * -----------------------------------------------------------------  *
+c * parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
+c *                     coeficiente nao-nulo da linha   i              *
+c *   iar(neq+1)- iar(i) informa a posicao no vetor ar do primeiro     *
+c *                     coeficiente nao-nulo da linha i da parte       *
+c *                     retangular                                     *
+c *   neq       - numero de equacoes                                   *
+c *   nnzr      - numero de nad zeros na matriz retangular(mpi)        *
+c *   ovlp      - overllaping( mpi)                                    *
+c * -----------------------------------------------------------------  *
+c * parametros de saida                                                *
+c * -----------------------------------------------------------------  *
+c *  thread_begin(1:nthreads) - primeira linha do sistema da thread i  *
+c *  thread_end(1:nthreads)   - ultima linha do sistema da thread i    *
+c * -----------------------------------------------------------------  *
+c **********************************************************************
       subroutine partition_csrc_bynonzeros(ia,iar,nnzr,neq,ovlp)
       implicit none
       include 'omp_lib.h'
       include 'openmp.fi'
-      integer ia(*),iar(*),nnzr,neq
+      integer*8 ia(*),iar(*),nnzr,nad,mean_variables
+      integer*8 thread_size(max_num_threads),tam
+      integer neq
       logical ovlp
-      integer mean_variables,line,thread_size(max_num_threads),tam,i
-      integer*8 nad  
+      integer line,i
 c
       nad = ia(neq+1)-1
       mean_variables = (2*nad + neq)/nth_solv + 1
@@ -197,6 +205,9 @@ c$omp end parallel
 c *********************************************************************
 c
 c *********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 15/12/2016                                    * 
+c * ------------------------------------------------------------------ *  
 c * COMPUTE_EFFECTIVE_WORK: Calculo do trabalho efeitivo por thread   *
 c * ----------------------------------------------------------------- *
 c * parametros de entrada :                                           *
@@ -217,7 +228,8 @@ c *********************************************************************
       implicit none
       include 'omp_lib.h'
       include 'openmp.fi'
-      integer ia(*),ja(*),neq,h,i
+      integer*8 ia(*)
+      integer ja(*),neq,h,i
 c
 c$omp parallel private(h) num_threads(nth_solv)
 !$    thread_id = omp_get_thread_num()
