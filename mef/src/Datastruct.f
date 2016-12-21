@@ -146,7 +146,7 @@ c
          i_au = i_al
          nc8  = nad+nadpu   
          if(unsym) i_au = dalloc_8(au,nl8,nc8) 
-         i_ad = alloc_8(ad,1,neq)         
+         i_ad = alloc_8(ad,1,neq)     
 c ......................................................................
       elseif(stge .eq. 2) then
 c

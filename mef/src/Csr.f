@@ -24,7 +24,7 @@ c **********************************************************************
      6                     ,n_blocks_up,block_pu ,block_pu_sym)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 08/11/2016                                    * 
+c * Data de modificaco : 15/12/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * CSRSTRUCT_PM: monta os arranjos ia e ja do formato CSR.            *
 c * ------------------------------------------------------------------ * 
@@ -282,10 +282,7 @@ c
         i3 = dalloc_4(ja,nl,nc)
         call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
      .             diag,upper,right)
-        call sortgraphv2(ia(i2),ia(i3),neq)
-        if (right) then
-          call sortgraphv2(ia(i2+neq+1),ia(i3+nad),neq)      
-        endif
+        call sort_graph_csr(ia(i2),ia(i3),neq,nad,right) 
 c ......................................................................
 c
 c ...      
@@ -1684,6 +1681,42 @@ c **********************************************************************
       integer ia(*),naduu,nadpp,neq,nequ
       naduu = ia(nequ+1) - ia(1)
       nadpp = ia(neq+1)  - ia(nequ+1)
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 15/12/2016                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * SORT_GRAPH_CSR: reordena as coeficientes das linhas em ordem       *
+c * crescente de coluna                                                *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ia(*) - informa a posicao do primeiro coeficiente nao-nulo         * 
+c *                da equacao i                                        *
+c * ja(*) - informa a coluna do coeficiente                            *
+c * neq   - numero de equacoes                                         *
+c * nad   - numero total de termo nao nulos fora da diagonal da parte  *
+c *         quadrada da matriz de coeficientes                         *
+c * ovlp  - overlaping                                                 *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * ia (integer*8),ja (integer), nad(interger*8) e neq (integer)       *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine sort_graph_csr(ia,ja,neq,nad,ovlp)
+      implicit none
+      integer*8 ia(*),nad
+      integer ja(*),neq
+      logical ovlp
+      call sortgraphv2(ia,ja,neq)
+      if(ovlp) call sortgraphv2(ia(neq+2),ja(nad+1),neq)  
       return
       end
 c **********************************************************************

@@ -21,7 +21,7 @@ c *********************************************************************
       integer nth_elmt,nth_solv
       logical omp_elmt,omp_solv
 c ... checa se eh solicitado o uso do openmp sem o codigo ter sido
-c     compilado com flag do opnemp    
+c     compilado com flag do openmp    
       max_num_threads_available = 0                      
 !$    max_num_threads_available      = omp_get_max_threads()
       if (max_num_threads_available .eq. 0 .and. 
@@ -30,6 +30,15 @@ c     compilado com flag do opnemp
      .         " but enable in run-time. "
         stop
       endif  
+c .....................................................................
+c
+c ...
+      if(omp_elmt .and. (nth_elmt .eq. 0) ) then
+!$      nth_elmt = omp_get_max_threads()
+      endif
+      if(omp_solv .and. (nth_solv .eq. 0) ) then
+!$      nth_solv = omp_get_max_threads()
+      endif
 c .....................................................................
 c
 c ... openmp in compile time and run time

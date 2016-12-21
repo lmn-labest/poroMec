@@ -59,8 +59,8 @@ c
       i0 = alloc_4('iaux0   ',1,nnode+1)
       call mzero(ia(i0),nnode+1)
       call aponta(ix,ia(i0),nnode,numel,nen,ipos)
-      i1 = alloc_4('iaux1   ',1,ipos)
-      i2 = alloc_4('iaux2   ',1,ipos)
+      i1 = alloc_8('iaux1   ',1,ipos)
+      i2 = alloc_8('iaux2   ',1,ipos)
       call mzero(ia(i1),ipos)
       call mzero(ia(i2),ipos)
       call graph0(ix,ia(i0),ia(i1),ia(i2),nnode,numel,nen)
@@ -137,8 +137,8 @@ c ......................................................................
             nok = ix(k,i)
             if (nok .eq. 0 .or. nok .gt. nnode) goto 100
             if (nok .eq. noj) goto 100
-            ipos = ip(noj) + ips(noj)
-            ips(noj) = ips(noj) + 1
+            ipos        = ip(noj) + ips(noj)
+            ips(noj)    = ips(noj) + 1
             noviz(ipos) = nok
   100       continue
   200    continue
