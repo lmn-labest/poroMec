@@ -1,8 +1,3 @@
-c*****************************Svn***************************************      
-c*$Date: 2011-03-16 15:32:53 -0300 (Wed, 16 Mar 2011) $                 
-c*$Rev: 914 $                                                           
-c*$Author: henrique $                                                   
-c***********************************************************************
 c **********************************************************************
 c *                                                                    *
 c *   GRAPH.F                                             31/08/2005   *
@@ -14,6 +9,7 @@ c *   aponta                                                           *
 c *   graph0                                                           *
 c *   graph1                                                           *
 c *   sortgrpah                                                        *
+c *   sortgraphv2                                                      *
 c *   bubblesort                                                       *
 c *                                                                    *
 c **********************************************************************
@@ -59,8 +55,8 @@ c
       i0 = alloc_4('iaux0   ',1,nnode+1)
       call mzero(ia(i0),nnode+1)
       call aponta(ix,ia(i0),nnode,numel,nen,ipos)
-      i1 = alloc_8('iaux1   ',1,ipos)
-      i2 = alloc_8('iaux2   ',1,ipos)
+      i1 = alloc_4('iaux1   ',1,ipos)
+      i2 = alloc_4('iaux2   ',1,ipos)
       call mzero(ia(i1),ipos)
       call mzero(ia(i2),ipos)
       call graph0(ix,ia(i0),ia(i1),ia(i2),nnode,numel,nen)

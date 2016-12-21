@@ -77,7 +77,8 @@ c *                                                                    *
 c *   program subroutines - fnroot, rcm.                               *
 c *                                                                    *
 c **********************************************************************
-      integer xadj(*),adjncy(*),mask(*),perm(*),xls(*)
+      integer*8 xadj(*),adjncy(*)
+      integer mask(*),perm(*),xls(*)
       integer ccsize,i,neq,nlvl,num,root
 c
       do 100 i = 1, neq
@@ -132,7 +133,8 @@ c *                                                                    *
 c *   program subroutines - rootls.                                    *
 c *                                                                    *
 c **********************************************************************
-      integer adjncy(*),ls(*),mask(*),xls(*),xadj(*)
+      integer adjncy(*),xadj(*)
+      integer ls(*),mask(*),xls(*)
       integer ccsize, j, jstrt, k, kstop, kstrt, mindeg, nabor,
      .        ndeg, nlvl, node, nunlvl, root
 c
