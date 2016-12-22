@@ -752,7 +752,7 @@ c ... Cargas nodais e valores prescritos no tempo t+dt:
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
-c ... forcas internas devidos as tensoes inicias tensoes
+c ... forcas internas devidos as tensoes inicias
       if(fstress0 .and. fcstress0) then
         timei = MPI_Wtime()
         call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)  

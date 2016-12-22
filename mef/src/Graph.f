@@ -5,9 +5,13 @@ c *                                                                    *
 c *   Este arquivo contem subrotinas para montagem do grafo da malha:  *
 c *                                                                    *
 c *   graph                                                            *
+c *   graph_v1                                                         *
 c *   aponta                                                           *
+c *   aponta_v1                                                        *
 c *   graph0                                                           *
+c *   graph0_v1                                                        *
 c *   graph1                                                           *
+c *   graph1_v1                                                        *
 c *   sortgrpah                                                        *
 c *   sortgraphv2                                                      *
 c *   bubblesort                                                       *
@@ -65,6 +69,68 @@ c
 c ......................................................................      
       return
       end
+      subroutine graph_v1(ix,nnode,numel,nen,i0,i1)
+c **********************************************************************
+c *                                                                    *
+c *   GRAPH: monta o grafo da malha.                                   *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    ix(nen+1,numel) - conetividades nodais                          *
+c *    nnode - numero de nos                                           *
+c *    numel - numero de elementos                                     *
+c *    nen   - numero de nos por elemento                              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    i0    - ponteiro para o arranjo ia(i0: nnode+1), apontador do   *
+c *            do arranjo que contem o grafo                           *
+c *    i1    - ponteiro para o arranjo ia(i1: ipos), que contem o      *
+c *            o grafo                                                 *
+c *                                                                    *
+c *    Obs: esta rotina deve ser utilizada com a estrutura de dados    *
+c *         definida no arquivo 'common.h'                             *
+c *    ia(i0: nnode+1) integer*8                                        *
+c **********************************************************************
+      use Malloc
+      implicit none
+      integer nnode,numel,nen
+c ... ponteiros      
+      integer*8 i0,i1,i2
+c .....................................................................      
+      integer ix(nen+1,*)
+      integer*8 tmp,ipos,nc8,nl8
+c ......................................................................
+c
+c ... Grafo da malha:
+c
+c     ia(i0) => ip(nnode+1) - ip(i) indica a posicao em ips do primeiro
+c                             no vizinho ao no i.
+c     ia(i1) => ips(ipos) - contem as conetividades nodais de cada no
+c     ia(i2) => arranjo auxiliar
+c
+      i0 = alloc_8('iaux0   ',1,nnode+1)
+      tmp  = nnode+1
+      call mzero_ll(ia(i0),tmp)
+      call aponta_V1(ix,ia(i0),nnode,numel,nen,ipos)
+c .....................................................................
+c
+c ...
+      nl8 = 1
+      nc8 = ipos
+c .....................................................................
+c
+c ...  
+      i1 = dalloc_4('iaux1   ',nl8,nc8)
+      i2 = dalloc_4('iaux2   ',nl8,nc8)
+      call mzero_sl(ia(i1),ipos)
+      call mzero_sl(ia(i2),ipos)
+      call graph0_v1(ix,ia(i0),ia(i1),ia(i2),nnode,numel,nen)
+      call graph1_v1(ia(i0),ia(i1),ia(i2),nnode,ipos)      
+      i2 = dealloc('iaux2   ')
+c ......................................................................      
+      return
+      end
       subroutine aponta(ix,ip,nnode,numel,nen,ipos)
 c **********************************************************************
 c *                                                                    *
@@ -102,6 +168,44 @@ c ......................................................................
 c ......................................................................            
       return
       end
+      subroutine aponta_v1(ix,ip,nnode,numel,nen,ipos)
+c **********************************************************************
+c *                                                                    *
+c *   APONTA: monta o arranjo ip(nnode+1), apontador do grafo inicial. *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    ix(nen+1,numel) - conetividades nodais                          *
+c *    nnode - numero de nos                                           *
+c *    numel - numero de elementos                                     *
+c *    nen   - numero de nos por elemento                              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    ip(nnode+1) - ip(i) indica a posicao no grafo do primeiro       *
+c *                  no vizinho ao no i (integer*8)                    *
+c *    ipos - numero de posicoes do arranjo que contem o grafo         *
+c *           inicial, que contem nos repetidos. (integer*8)           *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer nnode,numel,nen,i,j,no,ix(nen+1,*)
+      integer*8 ipos,ip(nnode+1)
+c ......................................................................
+      ip(1) = 1
+      do 100 i = 1, numel
+      do 100 j = 1, nen
+         no = ix(j,i)
+         if (no .eq. 0 .or. no .gt. nnode) goto 100
+         ip(no+1) = ip(no+1) + nen - 1
+  100 continue
+      do 200 i = 2, nnode+1
+         ip(i) = ip(i) + ip(i-1)
+  200 continue
+      ipos = ip(nnode+1) - 1
+c ......................................................................            
+      return
+      end
       subroutine graph0(ix,ip,ips,noviz,nnode,numel,nen)
 c **********************************************************************
 c *                                                                    *
@@ -124,6 +228,48 @@ c **********************************************************************
       implicit none
       integer ip(*),ips(*),noviz(*),nnode,numel,nen,ix(nen+1,*)
       integer i,j,k,noj,nok,ipos
+c ......................................................................
+      do 400 i = 1, numel
+      do 300 j = 1, nen
+         noj = ix(j,i)
+         if (noj .eq. 0 .or. noj .gt. nnode) goto 300
+         do 200 k = 1, nen
+            nok = ix(k,i)
+            if (nok .eq. 0 .or. nok .gt. nnode) goto 100
+            if (nok .eq. noj) goto 100
+            ipos        = ip(noj) + ips(noj)
+            ips(noj)    = ips(noj) + 1
+            noviz(ipos) = nok
+  100       continue
+  200    continue
+  300 continue
+  400 continue
+c ......................................................................        
+      return
+      end
+      subroutine graph0_v1(ix,ip,ips,noviz,nnode,numel,nen)
+c **********************************************************************
+c *                                                                    *
+c *   GRAPH0: monta o grafo inicial,armazenado no arranjo noviz.       *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    ix(nen+1,numel) - conetividades nodais                          *
+c *    ip(nnode+1) - apontador do grafo inicial (integer*8)            *
+c *    numel - numero de elementos                                     *
+c *    nen   - numero de nos por elemento                              *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    ips(nnode+1) = ip(nnode+1) - arranjo auxiliar                   *
+c *    noviz(ipos)  - grafo inicial, contendo nos repetidos            *
+c *                   noviz() = adjncy() no reordenador RCM            *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      integer*8 ip(*),ipos
+      integer ips(*),noviz(*),nnode,numel,nen,ix(nen+1,*)
+      integer i,j,k,noj,nok
 c ......................................................................
       do 400 i = 1, numel
       do 300 j = 1, nen
@@ -201,7 +347,67 @@ c
   210 continue
 c ......................................................................
       return
-      end      
+      end     
+      subroutine graph1_v1(ip,ips,noviz,nnode,ipos)
+c **********************************************************************
+c *                                                                    *
+c *   GRAPH1: ordena os elementos do arranjo noviz, eliminado os nos   *
+c *           repetidos, e armazenando o resultado em ips              *
+c *                                                                    *
+c *   Parametros de entrada:                                           *
+c *                                                                    *
+c *    ip(nnode+1) - apontador do grafo inicial (integer*8)            *
+c *    ips(ipos)   = ip()                                              *
+c *    noviz(ipos) - grafo inicial                                     *
+c *    nnode - numero de nos                                           *
+c *                                                                    *
+c *   Parametros de saida:                                             *
+c *                                                                    *
+c *    ip(nnode+1)  - apontador do grafo final                         *
+c *    ips()        - grafo final, ips()=adjncy() no reordenador RCM   *
+c *                                                                    *
+c **********************************************************************      
+      implicit none
+      integer*8 ip(nnode+1),ipos,j,l,k
+      integer nnode,i,no,ips(ipos),noviz(*)
+c ......................................................................
+      call sortgraphv2(ip,noviz,nnode)
+c ......................................................................
+c
+c ... Substitui os nos repetidos por zero e atualiza o no. de vizinhos
+c
+      do 110 i = 1, nnode
+         l = ip(i)
+         k = ip(i+1)-2
+         do 100 j = l, k
+            no = noviz(j)           
+            if ((no .ne. 0) .and. (noviz(j+1) .eq. no)) then
+               noviz(j) = 0
+               ips(i) = ips(i) - 1
+            endif
+  100    continue
+  110 continue
+c ......................................................................
+c
+c ... Atualiza o vetor apontador:                                       
+c 
+      do 200 i = 1, nnode
+         ip(i+1) = ip(i) + ips(i)         
+  200 continue
+c ......................................................................  
+c
+c ... Elimina os zeros da vizinhanca:                                   
+c  
+      j = 1
+      do 210 l = 1, ipos
+         if (noviz(l) .ne. 0) then
+            ips(j) = noviz(l)
+            j = j+1
+         endif
+  210 continue
+c ......................................................................
+      return
+      end       
       subroutine sortgraph(ia,ja,neq)
 c **********************************************************************
 c *                                                                    *

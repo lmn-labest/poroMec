@@ -119,7 +119,7 @@ c
 c     ia(i0) => ip(nnode+1) - ip(i) indica a posicao em ips do primeiro
 c                             no vizinho ao no i.
 c     ia(i1) => ips(ipos) - contem as conectividades nodais de cada no
-      call graph(ix,nnode,numel,nen,i0,i1)
+      call graph_v1(ix,nnode,numel,nen,i0,i1)
 c ......................................................................
 c      
 c ... csrc(uu+pp) + csr(up) nao simetricos
@@ -268,8 +268,9 @@ c
         n = neq + 1
         if (right) n = 2*n
         i2 = alloc_8(ija,1,n)
-        call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
-     .             lower,diag,upper,right)
+        call csria_v1(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf
+     1               ,neq,nad,nadr
+     2               ,lower,diag,upper,right)
 c ......................................................................     
 c
 c ... Montagem do arranjo ja(nad):
@@ -280,8 +281,9 @@ c
         nl = 1
         nc = nad+nadr
         i3 = dalloc_4(ja,nl,nc)
-        call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
-     .             diag,upper,right)
+        call csrja_v1(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf
+     1               ,neq,nad,lower
+     2               ,diag,upper,right)
         call sort_graph_csr(ia(i2),ia(i3),neq,nad,right) 
 c ......................................................................
 c
@@ -391,7 +393,7 @@ c **********************************************************************
      .                 diag,upper,right)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 21/12/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * CSRIA: monta o arranjo ia do formato CSR                           *
 c * ------------------------------------------------------------------ * 
@@ -420,8 +422,8 @@ c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       integer nnode,ndf,neq,nadr
-      integer*8 nad,ia(*)
-      integer id(ndf,nnode),ip(nnode+1),ips(*),num(nnode)
+      integer nad,ia(*)
+      integer id(ndf,nnode),ip(*),ips(*),num(nnode)
       integer i,j,k,ii,jj,kk,neqi,neqj,no
       logical lower,diag,upper,right
 c ......................................................................
@@ -509,7 +511,7 @@ c **********************************************************************
      .                 upper,right)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 21/12/2016                                    * 
 c * ------------------------------------------------------------------ * 
 c * CSRJA: monta o arranjo ja do formato CSR (matrizes simetricas      *
 c *                                             e nao simetricas)      *
@@ -537,10 +539,251 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
-      integer*8 nad
+      integer nad
       integer nnode,ndf,neq
       integer id(ndf,*),num(*),ip(*),ips(*),ja(*)
       integer i,j,k,ii,jj,kk,neqi,neqj,no,n,m
+      logical lower,diag,upper,right
+c ......................................................................
+      m = 0
+      n = 0
+c
+c ... Loop nos vertices:
+c
+      do 140 no = 1, nnode
+         i = num(no)
+c
+c ...    Loop nas equacoes do vertice i:
+c
+         do 130 ii = 1, ndf
+            neqi = id(ii,i)
+            if (neqi .gt. 0 .and. neqi .le. neq) then
+c ----------------------------------------------------------
+c
+c ...          Loop nas equacoes do vertice i:
+c
+               do 100 kk = 1, ndf
+                  neqj  = id(kk,i)
+                  if (neqj .le. 0) goto 100
+                  if (neqj .lt. neqi) then
+                     if (lower) then
+                        n = n + 1
+                        ja(n) = neqj
+                     endif
+                  elseif (neqj .eq. neqi) then
+                     if (diag) then
+                        n = n + 1
+                        ja(n) = neqj
+                     endif
+                  elseif (neqj .gt. neqi) then
+                     if (upper) then
+                        n = n + 1
+                        ja(n) = neqj
+                     endif
+                  endif                  
+  100          continue
+c
+c ...          Loop nos vertices conectados ao vertice i:
+c
+               do 120 k = ip(i), ip(i+1)-1
+                  j = ips(k)
+c
+c ...             Loop nas equacoes do vertice j:
+c
+                  do 110 jj = 1, ndf
+                     neqj  = id(jj,j)
+                     if (neqj .le. 0) goto 110
+                     if (neqj .lt. neqi) then
+                        if (lower) then
+                           n = n + 1
+                           ja(n) = neqj
+                        endif
+c ... parte retangular
+                     elseif (neqj .gt. neq) then
+                        if (right) then
+                           m = m + 1
+                           ja(nad+m) = neqj
+                        endif
+                     elseif (neqj .gt. neqi) then
+                        if (upper) then
+                           n = n + 1
+                           ja(n) = neqj
+                        endif
+                     endif
+  110             continue
+  120          continue
+c ----------------------------------------------------------
+            endif
+  130    continue
+  140 continue
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c
+c **********************************************************************
+      subroutine csria_v1(id,num,ip,ips,ia,nnode,ndf,neq,nad,nadr,lower,
+     .                 diag,upper,right)
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 21/12/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * CSRIA: monta o arranjo ia do formato CSR                           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro no        *
+c *                   conectado ao no i                                *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro         *
+c *                   coeficiente nao-nulo da equacao i                *
+c * nad   - numero de coeficientes nao nulos                           *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c * nad integer*8                                                      * 
+c * ia  integer*8                                                      * 
+c * k   integer*8                                                      * 
+c * ip  integer*8                                                      *
+c **********************************************************************
+      implicit none
+      integer nnode,ndf,neq,nadr
+      integer*8 nad,ia(*),ip(nnode+1),k
+      integer id(ndf,nnode),ips(*),num(nnode)
+      integer i,j,ii,jj,kk,neqi,neqj,no
+      logical lower,diag,upper,right
+c ......................................................................
+c
+c ... Inicializa o arranjo ia:
+c
+      do 50 i = 1, neq
+         ia(i) = 0
+         if (right) ia(i+neq+1) = 0
+   50 continue
+c ----------------------------------------------
+c
+c ... Loop nos vertices:
+c
+      do 140 no = 1, nnode
+         i = num(no)
+c
+c ...    Loop nas equacoes do vertice i:
+c
+         do 130 ii = 1, ndf
+            neqi = id(ii,i)
+            if (neqi .gt. 0 .and. neqi .le. neq) then
+c ----------------------------------------------
+c
+c ...          Loop nas equacoes do vertice i:
+c
+               do 100 kk = 1, ndf
+                  neqj = id(kk,i)
+                  if (neqj .le. 0) goto 100
+                  if (neqj .lt. neqi) then
+                     if (lower) ia(neqi) = ia(neqi) + 1
+                  elseif (neqj .eq. neqi) then
+                     if (diag) ia(neqi)  = ia(neqi) + 1
+                  elseif (neqj .gt. neqi) then
+                     if (upper) ia(neqi) = ia(neqi) + 1
+                  endif
+  100          continue
+c
+c ...          Loop nos vertices conectados ao vertice i:
+c
+               do 120 k = ip(i), ip(i+1)-1
+                  j = ips(k)
+c
+c ...             Loop nas equacoes do vertice j:
+c
+                  do 110 jj = 1, ndf
+                     neqj = id(jj,j)
+                     if (neqj .le. 0) goto 110
+                     if (neqj .lt. neqi) then
+                        if (lower) ia(neqi) = ia(neqi) + 1
+c ... parte retangular                        
+                     elseif (neqj .gt. neq) then
+                        if (right) ia(neq+1+neqi) = ia(neq+1+neqi) + 1
+c ...                        
+                     elseif (neqj .gt. neqi) then
+                        if (upper) ia(neqi) = ia(neqi) + 1
+                     endif
+  110             continue
+  120          continue
+c ----------------------------------------------
+            endif
+  130    continue
+  140 continue
+c ----------------------------------------------
+      do 200 i = neq, 1, -1
+         ia(i+1) = ia(i)
+         if (right) ia(i+neq+2) = ia(i+neq+1)         
+  200 continue
+      ia(1) = 1
+      if (right) ia(neq+2) = 1
+      do 210 i = 1, neq
+         ia(i+1) = ia(i+1) + ia(i)
+         if (right) ia(i+neq+2) = ia(i+neq+2) + ia(i+neq+1)         
+  210 continue
+      nad  = ia(neq+1)-1
+      nadr = 0
+      if (right) nadr = ia(2*neq+2)-1      
+c ......................................................................      
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csrja_v1(id,num,ip,ips,ja,nnode,ndf,neq,nad,lower,diag,
+     .                 upper,right)
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 21/12/2016                                    * 
+c * ------------------------------------------------------------------ * 
+c * CSRJA: monta o arranjo ja do formato CSR (matrizes simetricas      *
+c *                                             e nao simetricas)      *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro           *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * nad   - numero de coeficientes nao nulos                           *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * ja(nad) - ja(k) informa a coluna do coeficiente que ocupa          *
+c *           a posicao k no vetor a                                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * nad integer*8                                                      * 
+c * ip  integer*8                                                      * 
+c * k   integer*8                                                      * 
+c **********************************************************************
+      implicit none
+      integer*8 nad,ip(*),k
+      integer nnode,ndf,neq
+      integer id(ndf,*),num(*),ips(*),ja(*)
+      integer i,j,ii,jj,kk,neqi,neqj,no,n,m
       logical lower,diag,upper,right
 c ......................................................................
       m = 0
