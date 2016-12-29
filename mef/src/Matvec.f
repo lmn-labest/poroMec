@@ -1945,7 +1945,8 @@ c * ------------------------------------------------------------------ *
 c **********************************************************************
       real*8 function flop_csrc(nl,nad)
       implicit none
-      integer nl,nad
+      integer nl
+      integer*8 nad
       flop_csrc = nl + 4.d0*nad
       return
       end
@@ -1953,7 +1954,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 23/10/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 29/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_CG : calcula o numero de operacoes de pontos flutuantes       *    
 c * do CG                                                              *
@@ -1975,7 +1976,8 @@ c **********************************************************************
       real*8 function flop_cg(neq,nad,it,icod,mpi)
       implicit none
       include 'mpif.h'      
-      integer neq,nad,it,icod,ierr
+      integer neq,it,icod,ierr
+      integer*8 nad
       real*8 flop_csrc,flop_dot,fmatvec,fdot,flops,gflops
       logical mpi
 c
@@ -2009,7 +2011,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 31/10/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 29/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
 c * do SQRM                                                            *
@@ -2031,7 +2033,8 @@ c **********************************************************************
       real*8 function flop_sqrm(neq,nad,it,icod,mpi)
       implicit none
       include 'mpif.h'      
-      integer neq,nad,it,icod,ierr
+      integer neq,it,icod,ierr
+      integer*8 nad
       real*8 flop_csrc,flop_dot,fmatvec,fdot,flops,gflops
       logical mpi
 c
@@ -2065,7 +2068,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 15/11/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 29/12/2016                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_BICGSTAB(2) : calcula o numero de operacoes de pontos         *
 c * flutuantes do BICGSTAB(2)                                          *
@@ -2087,7 +2090,8 @@ c **********************************************************************
       real*8 function flop_bicgstab2(neq,nad,it,icod,mpi)
       implicit none
       include 'mpif.h'      
-      integer neq,nad,it,icod,ierr
+      integer neq,it,icod,ierr
+      integer*8 nad
       real*8 flop_csrc,flop_dot,fmatvec,fdot,flops,gflops
       logical mpi
 c

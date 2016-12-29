@@ -380,7 +380,7 @@ c *      ls - a temporary vector used to store the nodes of the        *
 c *           component level by level.                                *
 c *                                                                    *
 c **********************************************************************
-      integer*8 xadj(*), j, jstop, jstrt
+      integer*8 xadj(*), j, jstop, jstrt,modInt
       integer adjncy(*), deg(*), ls(*), mask(*) 
       integer i, lbegin, ccsize, lvlend, lvsize,
      .        nbr, ideg, node, root
@@ -407,7 +407,7 @@ c     ------------------------------------------------------
       do 400 i = lbegin, lvlend
          node = ls(i)
          jstrt = -xadj(node)
-         jstop =  iabs(xadj(node+1)) - 1
+         jstop =  modInt(xadj(node+1)) - 1
          ideg = 0
          if ( jstop .lt. jstrt ) goto 300
             do 200 j = jstrt, jstop
@@ -831,3 +831,31 @@ c     --------------------------------------------------------
   500 continue
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 29/12/2016                                    *
+c * Data de modificaco : 00/00/0006                                    * 
+c * ------------------------------------------------------------------ * 
+c * MODINT: modulo de um inteiro de 8 bytes                            *                                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * i  - inteiro de 8 bytes       o                                    *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * retorna o modulo do numero i                                       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c ********************************************************************** 
+      integer*8 function modInt(i)
+      implicit none
+      integer*8 i
+      modInt = i
+      if(i .lt. 0) modInt = -i
+      return
+      end
+c **********************************************************************
+

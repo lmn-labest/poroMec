@@ -1275,7 +1275,7 @@ c ... add tensao incial
             call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
           endif
           call effective_stress(ia(i_g7),ia(i_g5),ia(i_g) 
-     .                         ,nnovG   ,ntn     ,ndf,ndm)
+     .                         ,nnovG   ,ntn     ,ndf)
 c ......................................................................
         endif
 c ... delta porosidade 
@@ -1356,7 +1356,7 @@ c ... add tensao inicial
           call vsum(ia(i_txb),ia(i_tx0),nnodev*ntn,ia(i_txb))
         endif
         call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
-     .                       ,nnodev  ,ntn     ,ndf,ndm)
+     .                       ,nnodev  ,ntn     ,ndf)
 c ......................................................................
 c
 c ...
@@ -1880,14 +1880,14 @@ c ... add tensao incial
           call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
         endif
         call effective_stress(ia(i_g7),ia(i_g5),ia(i_g) 
-     .                       ,nnovG   ,ntn     ,ndf,ndm)
+     .                       ,nnovG   ,ntn     ,ndf)
       else
         if(.not. fplastic) then
           call vsum(ia(i_tx) ,ia(i_tx0),nnovG*ntn,ia(i_tx))
           call vsum(ia(i_txb),ia(i_tx0),nnovG*ntn,ia(i_txb))
         endif
         call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
-     .                       ,nnovG    ,ntn     ,ndf,ndm)      
+     .                       ,nnovG    ,ntn     ,ndf)      
       endif
 c .....................................................................
 c

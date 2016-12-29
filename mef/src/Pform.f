@@ -1418,7 +1418,6 @@ c * u                - pressao u(4,i)                                  *
 c * nnode            - numero de nos                                   *
 c * ntn              - numero de tensoes                               *
 c * ndf              - graus de liberade                               *
-c * ndm              - numero de dimensao                              *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -1428,10 +1427,9 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c **********************************************************************
       subroutine effective_stress(txe  ,tx ,u
-     .                           ,nnode,ntn,ndf
-     .                           ,ndm)
+     .                           ,nnode,ntn,ndf)
       implicit none
-      integer ntn,ndf,ndm,i,j,nnode
+      integer ntn,ndf,i,j,nnode
       real*8 txe(ntn,*),tx(ntn,*),u(ndf,*)
 c ...
       if(ntn .eq. 6 ) then
