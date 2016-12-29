@@ -1,15 +1,15 @@
       subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat
-     1                  ,nen     ,nenv
+     1                  ,nen     ,nenv      ,ntn
      2                  ,ndf     ,ndm       ,nst    ,i_ix 
      3                  ,i_ie    ,i_inum    ,i_e    ,i_x 
      4                  ,i_id    ,i_nload   ,i_eload,i_f
      5                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
-     6                  ,i_fnno
+     6                  ,i_txp   ,i_epsp    ,i_fnno
      7                  ,fstress0,fporomec  ,fmec   ,print_quad
-     8                  ,nin     )
+     8                  ,plastic   ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 08/11/2016                                    *
+c * Data de modificaco : 22/12/2016                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -25,6 +25,7 @@ c * numel - numero de elementos                                        *
 c * numat - numero de materiais                                        *
 c * nen   - numero max. de nos por elemento                            *
 c * nenv  - numero max. de nos geometicos por elemento                 *
+c * ntn   - numero tensoes no tensor de tensao (ntn = 4 2D; ntn = 6 3D)*
 c * ndf   - numero max. de graus de liberdade por no                   *
 c * ndm   - dimensao (1, 2 ou 3)                                       *
 c * nst   - numero de graus de liberdade por elemento                  *
@@ -39,11 +40,14 @@ c * i_x     - ponteiro para o arranjo x                                *
 c * i_f     - ponteiro para o arranjo f (poro_mecanico)                *
 c * i_u     - ponteiro para o arranjo u (poro_mecanico)                *
 c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
-c * i_tx0   - ponteiro para o arranjo tx(poro_mecanico)                *
+c * i_tx0   - ponteiro para o arranjo tx0(poro_mecanico)               *
 c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
-c * i_fnno     - ponteiro para o arranjo fnno                          *
+c * i_txp   - ponteiro para o arranjo txp(poro_mecanico)               *
+c * i_epsp  - ponteiro para o arranjo espp(poro_mecanico)              *
+c * i_fnno  - ponteiro para o arranjo fnno                             *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *
 c * print_quad - escrita da malha com elmentos quadraticos(true|false) *
+c * plastic  - (true/false)                                            * 
 c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
@@ -56,6 +60,10 @@ c * f     - forcas e prescricoes nodais                                *
 c * u0    - condicoes de contorno e inicial                            *
 c * tx0   - tensoes inicias                                            *
 c * dp    - delta P ( apenas alocado)                                  *
+c * txp   - tensoes nos pontos de integracao                           *
+c * epsp  - delta deformacao e pressao entre iteracoes nao lineares    *
+c *         deformacao volumetrica plastica total e parametro          *
+c *         de encruamento nos pontos de integracao                    *
 c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
 c * nload(i,j) - numero identificador da carga na direcao i do no j    *
 c * load(1,n)  - tipo da carga n                                       *
@@ -72,10 +80,10 @@ c ......................................................................
       include 'termprop.fi'
 c ......................................................................
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst,ntn
-      integer maxgrade
+      integer maxgrade,iplastic
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
-      integer*8 i_u,i_u0,i_tx0,i_dp
+      integer*8 i_u,i_u0,i_tx0,i_txp,i_epsp,i_dp
       integer*8 i_ix,i_id,i_ie
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
 c ......................................................................
@@ -85,7 +93,7 @@ c ......................................................................
       character*80 fname
       integer naux
       integer nincl /7/
-      logical fstress0,fporomec,fmec,print_quad
+      logical fstress0,fporomec,fmec,plastic,print_quad
       logical f_read_el /.false./
       logical el_quad  /.false./
       logical mk_el_quad  /.false./
@@ -107,7 +115,7 @@ c ......................................................................
 c
 c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
       if(my_id .eq. 0) print*,'loading parameters ...'
-      call parameters(nnodev,numel,numat,nen,ndf,ndm,nin)
+      call parameters(nnodev,numel,numat,nen,ndf,ndm,iplastic,nin)
       if(my_id .eq. 0) print*,'load.'
       nnode  = nnodev
       nst    = 0
@@ -116,6 +124,21 @@ c
 c ... tipo do problema
       fmec     = .false.
       fporomec = .false.
+c ......................................................................
+c
+c ...
+      i_txp   = 1 
+      i_epsp  = 1
+      plastic = .false.
+      if( iplastic .ne. 0) plastic = .true.           
+c ... temporario
+      if( nen .eq. 10 )then
+        npi = 4
+      else if( nen .eq. 20 )then
+        npi = 64
+      endif       
+c .....................................................................
+c
 c ... 
       if(ndm .eq. 2) then
 c ... mecancico 
@@ -178,10 +201,14 @@ c
 c ......................................................................
 c   
 c     Alocacao de arranjos na memoria: poromecanico
+c     elastic
 c     ---------------------------------------------------------------
 c     | ix | ie | e | x | eload |
 c     ---------------------------------------------------------------
-c
+c     plastic
+c     ---------------------------------------------------------------
+c     | ix | ie | e | x | eload | txp | esps |
+c     ---------------------------------------------------------------
       if(fporomec) then
         i_ix    = alloc_4('ix      ',nen+1,numel)
         i_ie    = alloc_4('ie      ',    1,numat)
@@ -193,6 +220,12 @@ c
         call azero(ia(i_e),numat*10)
         call mzero(ia(i_eload),numel*7)
         call azero(ia(i_x),nnodev*ndm)        
+        if(plastic) then  
+          i_txp   = alloc_8('txp     ',ntn*npi,numel)
+          i_epsp  = alloc_8('epsp    ',9*npi,numel)
+          call azero(ia(i_txp)  ,ntn*npi,numel)
+          call azero(ia(i_epsp) ,9*npi,numel)
+        endif
       endif 
 c ......................................................................
       totnel  = 0            
@@ -262,6 +295,7 @@ c ... Propriedades dos materiais:
 c
   400 continue
       call mate(ia(i_ie),ia(i_e),numat,nin)
+      call check_plastic(ia(i_ie),numat,plastic)
       go to 100
 c ......................................................................
 c
@@ -480,6 +514,7 @@ c ... malha quadratica gerada internamente
 c ......................................................................
       else
         print*,'MACRO: constrainpmec !! Unread Elements'
+        call stop_mef()
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -498,6 +533,7 @@ c ... malha quadratica gerada internamente
 c ......................................................................
       else
         print*,'MACRO: constraindisp !! Unread Elements'
+        call stop_mef()
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -516,6 +552,7 @@ c ... malha quadratica gerada internamente
 c ......................................................................
       else
         print*,'MACRO: nodalforces !! Unread Elements'
+        call stop_mef()
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -529,6 +566,7 @@ c
         call bound(ia(i_eload),numel,7,nin,3) 
       else
         print*,'MACRO: elmtloads !! Unread Elements'
+        call stop_mef()
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -541,6 +579,7 @@ c
         call bound(ia(i_nload),nnodev,ndf,nin,2) 
       else
         print*,'MACRO: nodalloads !! Unread Elements'
+        call stop_mef()
       endif
       goto 100
 c ......................................................................
@@ -603,6 +642,7 @@ c
         call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)
       else
         print*,'MACRO: initialpres !! Unread Elements'
+        call stop_mef()
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100 
@@ -619,8 +659,12 @@ c ... malha quadratica gerada internamente
         if(mk_el_quad) then
           call mk_initial_quad(ia(i_tx0),ia(i_ix),numel,ntn,nen)
         endif
+c ......................................................................
+c
+c ......................................................................
       else
         print*,'MACRO: initialstress !! Unread Elements'
+        call stop_mef()
       endif
       if(my_id .eq. 0) print*,'load.'
       go to 100
@@ -805,6 +849,10 @@ c ...
             i_eload = locate('eload   ')
             i_e     = locate('e       ')
             i_fnno  = locate('ffno    ')
+            if(plastic) then  
+              i_txp   = locate('txp     ')
+              i_epsp  = locate('epsp    ')
+            endif
 c .....................................................................
 c
 c ...
@@ -1356,7 +1404,7 @@ c ......................................................................
 c ......................................................................
       return
       end   
-      subroutine parameters(nnode,numel,numat,nen,ndf,ndm,nin)
+      subroutine parameters(nnode,numel,numat,nen,ndf,ndm,plastic,nin)
 c **********************************************************************
 c *                                                                    *
 c *   Parameters                                                       *
@@ -1365,18 +1413,23 @@ c **********************************************************************
       implicit none
       include 'string.fi'
       character*12 string
-      integer nnode,numel,numat,nen,ndf,ndft,ndm,nin,n,j,npi
-      logical flag(6)
-      character*6 macro(6)
-      integer i,nmc 
-      data macro/'nnode ','numel ','numat '
-     .          ,'maxno ','ndf   ','dim   '/
-      data nmc /6/
+      integer nnode,numel,numat,nen,ndf,ndft,ndm,plastic,nin,n,j
+      logical flag(7)
+      character*8 macro(7)
+      integer i,nmc         
+      data macro/'nnode   ' ,'numel   ','numat   '
+     .          ,'maxno   ' ,'ndf     ','dim     '
+     .          ,'plastic '/
+      data nmc /7/
 c ......................................................................
       flag(1:nmc) = .false.
-      n   = 0
+c ...
+      plastic = 0
+      flag(7) = .true.
+c ......................................................................
+      n       = 0
       call readmacro(nin,.true.)
-      write(string,'(6a)') (word(j),j=1,6)
+      write(string,'(8a)') (word(j),j=1,8)
       do while (strl .ne. 0)
          if     (string .eq. 'nnode') then
             call readmacro(nin,.false.)
@@ -1414,22 +1467,29 @@ c ......................................................................
             read(string,*,err = 100,end = 100) ndm
             flag(6) = .true.
             n = n + 1
+         elseif (string .eq. 'plastic') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) plastic
+            n = n + 1
          endif
          call readmacro(nin,.false.)
-         write(string,'(6a)') (word(j),j=1,6)
+         write(string,'(8a)') (word(j),j=1,8)
       end do
-      if(n .lt. nmc) goto 110
+c .....................................................................
+c
+c ...
+      do i = 1, nmc
+        if(.not. flag(i)) then 
+          print *,"Missing macro: ",macro(i)
+          call stop_mef()
+        endif
+      enddo
       return
 c ......................................................................
   100 continue
-      print*,'*** Erro na leitura das variaveis de controle !'
-      stop       
-  110 continue
-        print*,'*** Erro na leitura das variaveis de controle !'
-        do i = 1, nmc
-          if(flag(i) .eqv. .false.) print *,"falta a macro ",macro(i)
-        enddo
-      stop       
+      print*,'*** In reading the control variables !'
+      call stop_mef()    
 c ......................................................................
       end
       subroutine readmacro(nin,newline)
@@ -2626,4 +2686,46 @@ c ......................................................................
       return
       end
 c **********************************************************************
+c
+c **********************************************************************
+      subroutine check_plastic(ie,numat,plastic)
+      implicit none
+      integer ie(*),numat,i,pel(2),eel(2),ty
+      logical flag,plastic
+c ... elementos de plasticidade
+      pel(1) = 36
+      pel(2) = 37
+c ...
+      eel(1) = 16
+      eel(2) = 17  
+c .....................................................................
+c
+c ...
+      flag = .false.
+      do i = 1, numat
+        ty = ie(i)
+        if( ty .eq. pel(1) .or. ty .eq. pel(2) ) flag = .true.
+      enddo
+c .....................................................................
+c
+c ...
+      if(plastic) then
+        if(.not. flag) then 
+          print*,'Erro: Invalid elements!!'
+          print*,'Plastic elements are: ',pel(1:2)
+          call stop_mef()
+        endif
+      else
+        if(flag) then 
+          print*,'Erro: Invalid elements!!'
+          print*,'Elastic elements are: ',eel(1:2)
+          call stop_mef()
+        endif    
+      endif  
+c .....................................................................
+c
+c ...
+      return
+      end
+      
 

@@ -59,7 +59,7 @@ c
 c ... Variaveis descritivas do problema:
 c
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndm,nst
-      logical fporomec,fmec
+      logical fporomec,fmec,fplastic
 c ......................................................................
 c
 c ... Variaveis do sistema de equacoes:
@@ -111,10 +111,10 @@ c ... malha
       integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_e,i_x,i_xq,i_inum
       integer*8 i_ic,i_fnno
 c ... arranjos locais ao elemento
-      integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl
+      integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl,i_plasticl
 c ... forcas e graus de liberdade 
       integer*8 i_f
-      integer*8 i_u,i_u0,i_tx0,i_dp,i_dporosity
+      integer*8 i_u,i_u0,i_tx0,i_txp,i_epsp,i_dp,i_dporosity
       integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
@@ -262,7 +262,7 @@ c     kuu, kpp e kup separados
 c 
 c     block_pu_sym = true  monta o bloco kuu, kpp e kup juntos na 
 c     forma simetrica
-c     ( primeiras equacoes u e depois as esquacoes de pressao)                                     *
+c     ( primeiras equacoes u e depois as esquacoes de pressao)  
 c 
 c     block_pu_sym = false e block_pu = false                               
 c     monta o bloco kuu, kpp e kup juntos sem considera a estrutura      
@@ -286,8 +286,8 @@ c ...
 c ... sai da paraview
 c     bvtk = true vtk binario
 c     leagacy_vtk = true (.vtk) | false (.vtu) 
-      bvtk       = .true.
-      legacy_vtk = .true.
+      bvtk       = .false.
+      legacy_vtk = .false.
 c ... OpenMP
       omp_elmt = .false.
       omp_solv = .false.
@@ -450,20 +450,20 @@ c
 c
 c.... Leitura de dados:
       call rdat_pm(nnode   ,nnodev  ,numel  ,numat  
-     1         ,nen        ,nenv   
+     1         ,nen        ,nenv    ,ntn
      2         ,ndf        ,ndm     ,nst    ,i_ix  
      3         ,i_ie       ,i_inum  ,i_e    ,i_x
      4         ,i_id       ,i_nload ,i_eload,i_f  
      5         ,i_u        ,i_u0    ,i_tx0  ,i_dp
-     6         ,i_fnno   
+     6         ,i_txp      ,i_epsp  ,i_fnno     
      7         ,fstress0   ,fporomec,fmec   ,print_flag(1)
-     8         ,nin ) 
+     8         ,fplastic ,nin ) 
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | fnno |                                               
+c    | dp | txp | epsp | fnno |                                               
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -617,9 +617,14 @@ c ... poro mecanico
         i_dpl = alloc_8('dpl     ',1  ,nenv)
         i_pl  = alloc_8('pl      ',1  ,nst)
 c ... 6 - tensoes totais, 6 - tensoes de biot , 3 - fluxo de darcy
-        i_txl = alloc_8('txl     ', 15,nenv)
+        i_txl      = alloc_8('txl     ', 15,nenv)
 c ...      
-        i_txnl= alloc_8('txnl    ',  6,nen)
+        i_txnl     = alloc_8('txnl    ',  6,nen)
+c ... tensoes, delta deformacao e pressoes entre iteracoes nao lineares
+c     dilatacao volumetrica plastica e paramentro de endurecimento 
+c     nos pontos de integracao   *
+        i_plasticl = 1
+        if(fplastic) i_plasticl = alloc_8('plasticl', 15,npi)
 c ...      
         i_sl  = alloc_8('sl      ',nst,nst)
         i_ld  = alloc_4('ld      ',  1,nst)
@@ -755,20 +760,15 @@ c
 c ... forcas internas devidos as tensoes inicias
       if(fstress0 .and. fcstress0) then
         timei = MPI_Wtime()
-        call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)  
-     1               ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     2               ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_bst0) 
-     3               ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
-     4               ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     5               ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
-     6               ,numel       ,nen          ,nenv     ,ndf 
-     7               ,ndm         ,nst          
-     8               ,neq         ,nequ         ,neqp 
-     9               ,nad         ,naduu        ,nadpp    ,nadpu,nadr
-     1               ,.false.     ,.true.       ,unsym 
-     2               ,stge        ,5            ,ilib     ,i
-     3               ,ia(i_colorg),ia(i_elcolor),numcolors,.true.
-     4               ,block_pu    ,n_blocks_pu)
+        call initial_stress(ia(i_ix)     ,ia(i_ie)  ,ia(i_e)  
+     1       ,ia(i_x)     ,ia(i_id)      ,ia(i_bst0) 
+     2       ,ia(i_u0)    ,ia(i_txp)     ,ia(i_tx0)
+     3       ,ia(i_xl)    ,ia(i_ul)      ,ia(i_pl)
+     4       ,ia(i_ld)    ,ia(i_plasticl),ia(i_txnl) 
+     5       ,numel       ,nen           ,nenv     ,ndf 
+     6       ,ndm         ,nst           ,npi      ,ntn
+     7       ,neq         ,stge          ,ilib      
+     8       ,block_pu    ,fplastic)
         elmtime = elmtime + MPI_Wtime()-timei
         fcstress0= .false.
       endif 
@@ -777,25 +777,26 @@ c
 c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
 c     do passo t:  
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
-     1             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja) 
-     2             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
-     3             ,ia(i_u0)    ,ia(i_dp)     ,ia(i_tx0)
-     4             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     5             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl) 
-     6             ,numel       ,nen          ,nenv     ,ndf 
-     7             ,ndm         ,nst          
-     8             ,neq         ,nequ         ,neqp 
-     9             ,nad         ,naduu        ,nadpp    ,nadpu,nadr 
-     1             ,.false.     ,.true.       ,unsym 
-     2             ,stge        ,4            ,ilib     ,i
-     3             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
-     4             ,block_pu    ,n_blocks_pu)
+      call pform_pm(ia(i_ix)    ,ia(i_eload),ia(i_ie) ,ia(i_e) 
+     1             ,ia(i_x)     ,ia(i_id)   ,ia(i_ia) ,ia(i_ja) 
+     2             ,ia(i_au)    ,ia(i_al)   ,ia(i_ad) ,ia(i_b0) 
+     3             ,ia(i_u0)    ,ia(i_dp)   ,ia(i_txp),ia(i_epsp)
+     4             ,ia(i_tx0)
+     5             ,ia(i_xl)    ,ia(i_ul)   ,ia(i_dpl),ia(i_pl)
+     6             ,ia(i_sl)    ,ia(i_ld)   ,ia(i_plasticl),ia(i_txnl) 
+     7             ,numel       ,nen        ,nenv     ,ndf 
+     8             ,ndm         ,nst        ,npi      ,ntn
+     9             ,neq         ,nequ       ,neqp 
+     1             ,nad         ,naduu      ,nadpp    ,nadpu,nadr 
+     2             ,.false.     ,.true.     ,unsym 
+     3             ,stge        ,4          ,ilib     ,i
+     4             ,ia(i_colorg),ia(i_elcolor),numcolors
+     5             ,block_pu    ,n_blocks_pu  ,fplastic)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
-c ... tensao inicial
-      if(fstress0) then
+c ... tensao inicial elastico
+      if(fstress0 .and. ( .not. fplastic) ) then
         call vsum(ia(i_b0),ia(i_bst0),neq,ia(i_b0))
       endif  
 c .....................................................................
@@ -818,22 +819,29 @@ c ...
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
-c ... Residuo: b = F - K.du(n+1,i)
+c ... Residuo:
+c ... plastic
+c              Fu = Fu - int(BeT*sigma*dv)
+c              bp = Fp - K.dp(n+1,i)
+c ... elastic
+c              Fu = Fu - K.du(n+1,i)
+c              bp = Fp - K.dp(n+1,i)
       timei = MPI_Wtime()
       call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
      1             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
      2             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
-     3             ,ia(i_u)     ,ia(i_dp)     ,ia(i_tx0)
-     4             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     5             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_txnl)
-     6             ,numel       ,nen          ,nenv     ,ndf
-     7             ,ndm         ,nst          
-     8             ,neq         ,nequ         ,neqp
+     3             ,ia(i_u)     ,ia(i_dp)     ,ia(i_txp),ia(i_epsp)
+     4             ,ia(i_tx0)
+     5             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
+     6             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_plasticl),ia(i_txnl)
+     7             ,numel       ,nen          ,nenv     ,ndf
+     8             ,ndm         ,nst          ,npi      ,ntn
+     9             ,neq         ,nequ         ,neqp
      1             ,nad         ,naduu        ,nadpp    ,nadpu,nadr
      2             ,.true.      ,.true.       ,unsym
      3             ,stge        ,2            ,ilib     ,i
-     4             ,ia(i_colorg),ia(i_elcolor),numcolors,.false.
-     5             ,block_pu,n_blocks_pu)
+     4             ,ia(i_colorg),ia(i_elcolor),numcolors
+     5             ,block_pu    ,n_blocks_pu  ,fplastic)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -1184,8 +1192,6 @@ c ... 8  - fluxo de darcy
 c ... 9  - delta porosidade
 c
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
-      ntn   = 6
-c .....................................................................
 c
 c ...
       i_tx   = 1
@@ -1220,12 +1226,12 @@ c ...
      .     .or. print_flag(8)) then
           timei = MPI_Wtime()
           call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1                 ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2                 ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) 
-     3                 ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
-     5                 ,nnode      ,numel   ,nen       ,nenv
-     6                 ,ndm        ,ndf     ,nst       ,ntn
-     7                 ,3          ,ilib    ,i_xf      ,novlp)
+     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl),ia(i_plasticl)
+     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp),ia(i_txp) 
+     3        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
+     5        ,nnode      ,numel   ,nen       ,nenv
+     6        ,ndm        ,ndf     ,nst       ,ntn  ,npi 
+     7        ,3          ,ilib    ,i_xf      ,novlp,fplastic)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
 c ......................................................................
@@ -1264,8 +1270,10 @@ c ... tensao e fluxo
             call global_v(ndm,nno_pload,i_flux,i_g8,'fluxG   ')
           endif
 c ... add tensao incial
-          call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
-          call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
+          if(.not. fplastic) then
+            call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
+            call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
+          endif
           call effective_stress(ia(i_g7),ia(i_g5),ia(i_g) 
      .                         ,nnovG   ,ntn     ,ndf,ndm)
 c ......................................................................
@@ -1279,6 +1287,7 @@ c ... delta porosidade
           endif
         endif
 c ......................................................................
+c
 c ...
         if(my_id .eq. 0) then
           call write_mesh_res_pm(ia(i_g1),ia(i_g2) ,ia(i_g)  ,ia(i_g3)
@@ -1316,13 +1325,13 @@ c ...
         if( print_flag(5) .or. print_flag(6) .or. print_flag(7) 
      .     .or. print_flag(8)) then
           timei = MPI_Wtime()
-          call tform_pm(ia(i_ix)   ,ia(i_x)   ,ia(i_e)   ,ia(i_ie)
-     1                 ,ia(i_ic)   ,ia(i_xl)  ,ia(i_ul)  ,ia(i_dpl)
-     2                 ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp) 
-     3                 ,ia(i_tx)   ,ia(i_txb) ,ia(i_flux),ia(i_fnno) 
-     4                 ,nnode      ,numel     ,nen       ,nenv
-     5                 ,ndm        ,ndf       ,nst       ,ntn
-     6                 ,3          ,ilib      ,i_xf      ,novlp)
+          call tform_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_e)  ,ia(i_ie)
+     1       ,ia(i_ic)   ,ia(i_xl)  ,ia(i_ul)  ,ia(i_dpl),ia(i_plasticl)
+     2       ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp)  ,ia(i_txp)
+     3       ,ia(i_tx)   ,ia(i_txb) ,ia(i_flux),ia(i_fnno) 
+     4       ,nnode      ,numel     ,nen       ,nenv
+     5       ,ndm        ,ndf       ,nst       ,ntn  ,npi 
+     6       ,3          ,ilib      ,i_xf      ,novlp,fplastic)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
 c ......................................................................
@@ -1341,9 +1350,11 @@ c ...
         endif
 c ......................................................................
 c
-c ... add tensao incial
-        call vsum(ia(i_tx),ia(i_tx0) ,nnodev*ntn,ia(i_txb))
-        call vsum(ia(i_txb),ia(i_tx0),nnodev*ntn,ia(i_txb))
+c ... add tensao inicial
+        if(.not. fplastic) then
+          call vsum(ia(i_tx) ,ia(i_tx0),nnodev*ntn,ia(i_tx))
+          call vsum(ia(i_txb),ia(i_tx0),nnodev*ntn,ia(i_txb))
+        endif
         call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
      .                       ,nnodev  ,ntn     ,ndf,ndm)
 c ......................................................................
@@ -1826,8 +1837,6 @@ c ......................................................................
 c .....................................................................
 c
 c ... calculo da tensoes, tensoes efetivas e fluxo de darcy nos vertices.
-      ntn   = 6
-c .....................................................................
       i_tx  = alloc_8('tx      ',  ntn,nnode)
       i_txe = alloc_8('txe     ',  ntn,nnode)
       i_txb = alloc_8('txb     ',  ntn,nnode)
@@ -1837,13 +1846,13 @@ c .....................................................................
 c
 c ...
       timei = MPI_Wtime()
-      call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1             ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2             ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp) 
-     3             ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
-     5             ,nnode      ,numel   ,nen       ,nenv
-     6             ,ndm        ,ndf     ,nst       ,ntn
-     7             ,3          ,ilib    ,i_xf      ,novlp)
+      call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)   ,ia(i_ie)
+     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul)  ,ia(i_dpl),ia(i_plasticl)
+     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp)  ,ia(i_txp) 
+     3        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
+     5        ,nnode      ,numel   ,nen        ,nenv
+     6        ,ndm        ,ndf     ,nst        ,ntn   ,npi
+     7        ,3          ,ilib    ,i_xf       ,novlp,fplastic)
       tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
 c
@@ -1866,15 +1875,19 @@ c ... comunicao
           call global_v(ndm,nno_pload,i_flux,i_g8,'fluxG   ')
         endif
 c ... add tensao incial
-        call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
-        call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
+        if(.not. fplastic) then
+          call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
+          call vsum(ia(i_g6),ia(i_g4),nnovG*ntn,ia(i_g6))
+        endif
         call effective_stress(ia(i_g7),ia(i_g5),ia(i_g) 
      .                       ,nnovG   ,ntn     ,ndf,ndm)
       else
-        call vsum(ia(i_tx),ia(i_tx0),nnovG*ntn,ia(i_tx))
-        call vsum(ia(i_txb),ia(i_tx0),nnovG*ntn,ia(i_txb))
+        if(.not. fplastic) then
+          call vsum(ia(i_tx) ,ia(i_tx0),nnovG*ntn,ia(i_tx))
+          call vsum(ia(i_txb),ia(i_tx0),nnovG*ntn,ia(i_txb))
+        endif
         call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
-     .                       ,nnovG   ,ntn     ,ndf,ndm)      
+     .                       ,nnovG    ,ntn     ,ndf,ndm)      
       endif
 c .....................................................................
 c
@@ -1882,7 +1895,7 @@ c
 c ... codigo para o arquivo stress_node.txt      
       code   = 31
       ifiles = 2
-      string = 'stressTotal'
+      string = 'totalStress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
@@ -1902,7 +1915,7 @@ c
 c ... codigo para o arquivo stressE_node.txt      
       code   = 32
       ifiles = 3
-      string = 'stressE'
+      string = 'eSstress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
          if(mpi) then
@@ -1922,7 +1935,7 @@ c
 c ... codigo para o arquivo stressB_node.txt      
       code   = 33
       ifiles = 4
-      string = 'stressBiot'
+      string = 'biotStress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
@@ -1942,11 +1955,11 @@ c
 c ... codigo para o arquivo flux_node.txt      
       code   = 34
       ifiles = 5
-      string = 'stressFlux'
+      string = 'darcyFlux'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
-            call printnode(ia(i_g8),ia(i_no+j-1),ntn         ,istep,dt
+            call printnode(ia(i_g8),ia(i_no+j-1),ndm         ,istep,dt
      1                     ,string   ,prename     ,ia(i_nfile+j-1)
      2                     ,code     ,new_file(ifiles))
           else

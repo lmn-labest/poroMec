@@ -1,9 +1,10 @@
-      subroutine elmlib_pm(e ,iq  ,x   ,u      ,dp     ,p  ,s,txn
-     .                    ,dt,ndm ,nst ,nel    ,iel,isw
-     .                    ,ma,nlit,ilib,block_pu)
+      subroutine elmlib_pm(e ,iq  ,x   ,u      ,dp 
+     1                    ,p ,s   ,v1  ,v2        
+     2                    ,dt,ndm ,nst ,nel    ,iel,isw
+     3                    ,ma,nlit,ilib,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 23/10/2016                                    * 
+c * Data de modificaco : 22/12/2016                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMLIB_PM: biblioteca de elementos do poromecanico                 *
 c * ------------------------------------------------------------------ * 
@@ -15,8 +16,15 @@ c * x(ndm,nen)- coordenadas nodais locais                              *
 c * u(nst)     - solucao anterior                                      *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
 c * p(nst)     - nao definido                                          *
-c * s(nst,nst)   - nao definido                                        *
-c * txn(6,nen) - tensoes nodais                                        *
+c * s(nst,nst) - nao definido                                          *
+c * v1(*)      - vetor auxiliar com micelania de variaveis             *
+c *              elasticiade:                                          *
+c *              tensoes nodal                                         *
+c * v2(*)      - vetor auxiliar com micelania de variaveis             *                                         *
+c *           plasticidade:                                            *
+c *           tensoes, delta deformacao entre iteracoes                *
+c *           nao lineares, dilatacao volumetrica plastica             *
+c *           e paramentro de endurecimento nos pontos de integracao   *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento                    *
 c * nel - numero do elemento                                           *
@@ -36,101 +44,99 @@ c * p - isw = 2  residuo                                               *
 c *     isw = 3  tensao e fluxo                                        *
 c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *     de tempo anterior                                              *
+c * vplastic(1:6,*)  - tensoes                                         *
+c * vplastic(7:12,*) - delta deformacao entre iteracoes nao lineares   *
+c * vplastic(13,*)   - dilatacao volumetrica plastica                  *
+c * vplastic(14,*)   - paramentro de endurecimento                     *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
-      real*8 e(*),x(*),u(*),dp(*),p(*),s(nst,*),txn(6,*)
+      real*8 e(*),x(*),u(*),dp(*),p(*),s(nst,*),v1(*),v2(*)
       real*8 dt
       logical block_pu
 c ......................................................................
-      goto (100 , 200, 300
-     1     ,400 , 500, 600
-     2     ,700 , 800, 900
-     3     ,1000,1100,1200
-     4     ,1300,1400,1500
-     5     ,1600,1700,1800 ) iel
-   10 write(*,2000) iel,nel
-      stop
+      goto (100 , 200, 300      !           ,            ,
+     1     ,400 , 500, 600      !           ,            ,
+     2     ,700 , 800, 900      !           ,            ,
+     3     ,1000,1100,1200      !           ,            ,
+     4     ,1300,1400,1500      !           ,            ,
+     5     ,1600,1700,1800      !elmt16_pm  ,elmt16_pm   ,
+     6     ,1900,2000,2100      !           ,            ,  
+     7     ,2200,2300,2400      !           ,            ,
+     8     ,2500,2600,2700      !           ,            ,
+     9     ,2800,2900,3000      !           ,            ,
+     1     ,3100,3200,3300      !           ,            ,
+     2     ,3400,3500,3600      !           ,elmt36_pm   ,
+     3     ,3700,3800,3900      !           ,            , 
+     4     ) iel
 c ......................................................................
-  100 continue
-      go to 10
-      return
-c ......................................................................            
-  200 continue
-      go to 10
-      return
-c ......................................................................
-  300 continue
-      go to 10
-      return
-c ......................................................................
-  400 continue
-      go to 10
-      return
-c ......................................................................
-  500 continue
-      go to 10
-      return
-c ......................................................................
-  600 continue
-      go to 10
-      return
-c ......................................................................
-  700 continue
-      go to 10
-      return
-c ......................................................................
-  800 continue
-      go to 10
-      return
-c ......................................................................            
-  900 continue
-      go to 10
-      return 
-c ......................................................................
- 1000 continue
-      go to 10
-      return 
-c ......................................................................
- 1100 continue
-      go to 10
-      return       
-c ......................................................................
- 1200 continue
-      go to 10
-      return       
-c ......................................................................
- 1300 continue
-      go to 10
-      return       
-c ......................................................................
- 1400 continue
-      go to 10
-      return       
-c ......................................................................
- 1500 continue
-      go to 10
-      return         
+   10 write(*,9000) iel,nel
+      call stop_mef()
 c ......................................................................
  1600 continue
       if (ilib .eq. 1) then  
-c     Elemento tetraedro de 10 nos (poromec)
-        call elmt16_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
+c     Elemento tetraedro de 10 nos (poromec-elastic)
+        call elmt16_pm(e,iq,x,u,dp,p,s,v1,dt,ndm,nst,nel,isw,block_pu)
       endif 
       return       
 c ......................................................................
  1700 continue
       if (ilib .eq. 1) then  
-c     Elemento hexaedrico de 20 nos (poromec)
-        call elmt17_pm(e,iq,x,u,dp,p,s,txn,dt,ndm,nst,nel,isw,block_pu)
+c     Elemento hexaedrico de 20 nos (poromec-elastic)
+        call elmt17_pm(e,iq,x,u,dp,p,s,v1,dt,ndm,nst,nel,isw,block_pu)
       endif
       return 
 c ......................................................................
+ 3600 continue
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (poromec-plastic)
+        call elmt36_pm(e,iq,x,u,dp,p,s,v1,v2,dt,ndm,nst,nel,isw
+     .                ,block_pu,nlit)
+      endif 
+      return       
+c ......................................................................
+c
+c ... campos reservados para expancoes futuras de elementos
+  100 continue
+  200 continue
+  300 continue
+  400 continue
+  500 continue
+  600 continue
+  700 continue
+  800 continue
+  900 continue
+ 1000 continue
+ 1100 continue
+ 1200 continue
+ 1300 continue
+ 1400 continue
+ 1500 continue
  1800 continue
+ 1900 continue
+ 2000 continue
+ 2100 continue
+ 2200 continue
+ 2300 continue
+ 2400 continue
+ 2500 continue
+ 2600 continue
+ 2700 continue
+ 2800 continue
+ 2900 continue
+ 3000 continue
+ 3100 continue
+ 3200 continue
+ 3300 continue
+ 3400 continue
+ 3500 continue
+ 3700 continue
+ 3800 continue
+ 3900 continue
       go to 10
       return
 c ......................................................................       
- 2000 format(1x,'SUBROUTINE ELMLIBPMEC:'
+ 9000 format(1x,'SUBROUTINE ELMLIBPMEC:'
      .,/,5x,'tipo de elemento ',i2,' nao existente, elemento ',i9,' !')
        end
 c **********************************************************************
