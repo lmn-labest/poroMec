@@ -1496,9 +1496,6 @@ c .....................................................................
       real*8  time0,time
       real*8 dum1
       logical flog,fprint,fnew,fhist
-c ...
-      real*8  flop_gmres
-      real*8  mflops,vmean
 c .....................................................................
       external matvec,dot
       integer my_id
@@ -1626,8 +1623,8 @@ c
 c
             h(i,i)   = r
             h(i+1,i) = 0.d0
-            e(i+1) = -s(i) * e(i)
-            e(i)   =  c(i) * e(i)
+            e(i+1)   = -s(i) * e(i)
+            e(i)     =  c(i) * e(i)
             if (dabs(e(i+1)) .le. econv) goto 500
   400    continue
   500    continue
@@ -1674,7 +1671,6 @@ c .....................................................................
 c
 c ...... Verifica a convergencia:
 c
-c         nii(l)=ni
          if (dabs(e(ni+1)) .le. econv) goto 1100
 c ......................................................................
  1000 continue
