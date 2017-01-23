@@ -112,9 +112,10 @@ c ... malha
       integer*8 i_ic,i_fnno
 c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl,i_plasticl
+      integer*8 i_tx1pl,i_tx2pl,i_depsl,i_dporosity,i_p0l
 c ... forcas e graus de liberdade 
       integer*8 i_f
-      integer*8 i_u,i_u0,i_tx0,i_txp,i_epsp,i_dp,i_dporosity
+      integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_plastic,i_depsp,i_dp
       integer*8 i_tx,i_txb,i_txe,i_flux
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
@@ -142,7 +143,7 @@ c
       data nmc /40/
       data macro/'loop    ','hextotet','mesh    '
      1          ,'solv    ','dt      ','pgeo    '
-     2          ,'        ','block_pu','gravity '
+     2          ,'presolv ','block_pu','gravity '
      3          ,'        ','solver  ','deltatc '
      4          ,'pcoo    ','        ','        '
      5          ,'pres    ','        ','solvm   '
@@ -233,7 +234,7 @@ c                5 - diagm, 6 - bdiag, 7 -diagS
       maxit     =  50000
       solvtol   =  1.d-11
       maxnlit   =  2 
-      tol       =  1.d-04
+      tol       =  1.d-05
       ngram     =  50
       precond   =  2
       fhist_log = .false.
@@ -449,13 +450,14 @@ c
       flag_macro_mesh = .true.
 c
 c.... Leitura de dados:
-      call rdat_pm(nnode   ,nnodev  ,numel  ,numat  
-     1         ,nen        ,nenv    ,ntn
-     2         ,ndf        ,ndm     ,nst    ,i_ix  
-     3         ,i_ie       ,i_inum  ,i_e    ,i_x
-     4         ,i_id       ,i_nload ,i_eload,i_f  
-     5         ,i_u        ,i_u0    ,i_tx0  ,i_dp
-     6         ,i_txp      ,i_epsp  ,i_fnno     
+      call rdat_pm(nnode ,nnodev  ,numel  ,numat  
+     1         ,nen      ,nenv    ,ntn    ,ndf
+     1         ,ndm      ,nst     ,i_ix   ,i_ie   
+     2         ,i_inum   ,i_e    ,i_x
+     3         ,i_id     ,i_nload ,i_eload,i_f  
+     4         ,i_u      ,i_u0    ,i_tx0  ,i_dp
+     5         ,i_tx1p   ,i_tx2p  ,i_depsp,i_plastic
+     6         ,i_fnno     
      7         ,fstress0   ,fporomec,fmec   ,print_flag(1)
      8         ,fplastic ,nin ) 
 c    -----------------------------------------------------------------
@@ -463,7 +465,7 @@ c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | txp | epsp | fnno |                                               
+c    | dp | tx1p | tx2p | epsp | plastic | fnno |                                               
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -615,16 +617,28 @@ c ... poro mecanico
         i_xl  = alloc_8('xl      ',ndm,nenv)
         i_ul  = alloc_8('ul      ',1  ,nst)
         i_dpl = alloc_8('dpl     ',1  ,nenv)
+        i_p0l = alloc_8('p0l     ',1  ,nenv)
         i_pl  = alloc_8('pl      ',1  ,nst)
 c ... 6 - tensoes totais, 6 - tensoes de biot , 3 - fluxo de darcy
         i_txl      = alloc_8('txl     ', 15,nenv)
 c ...      
         i_txnl     = alloc_8('txnl    ',  6,nen)
-c ... tensoes, delta deformacao e pressoes entre iteracoes nao lineares
-c     dilatacao volumetrica plastica e paramentro de endurecimento 
-c     nos pontos de integracao   *
-        i_plasticl = 1
-        if(fplastic) i_plasticl = alloc_8('plasticl', 15,npi)
+c ...
+        i_tx1pl     = 1 
+        i_tx2pl     = 1
+        i_depsl     = 1
+        i_plasticl  = 1        
+        if(fplastic) then 
+c ... tensoes nos pontos de integracao
+          i_tx1pl = alloc_8('tx1l     ',ntn,npi)
+          i_tx2pl = alloc_8('tx2l     ',ntn,npi)
+c     delta deformacao e pressoes entre iteracoes nao lineares
+          i_depsl = alloc_8('depsl    ',ntn+1,npi)
+c ... dilatacao volumetrica plastica
+c    , dilatacao volumetrica plastica do passo de tempo anterior
+c     e paramentro de endurecimento
+          i_plasticl = alloc_8('plasticl', 3,npi)
+        endif
 c ...      
         i_sl  = alloc_8('sl      ',nst,nst)
         i_ld  = alloc_4('ld      ',  1,nst)
@@ -720,10 +734,12 @@ c ......................................................................
 c
 c ...
       print_nnode = nnovG   
-      if(print_flag(1)) print_nnode = nnoG     
+      if(print_flag(1)) print_nnode = nnoG  
 c ......................................................................
-      goto 50
-c ----------------------------------------------------------------------
+c
+c ...
+      go to 50
+c ......................................................................
 c
 c ... Macro-comando SOLV:
 c
@@ -755,43 +771,27 @@ c ... Cargas nodais e valores prescritos no tempo t+dt:
       call pload_pm(ia(i_id),ia(i_f),ia(i_u),ia(i_b0),ia(i_nload)
      .             ,ia(i_fnno),nnode,ndf)
       vectime = vectime + MPI_Wtime()-timei
-c .....................................................................
-c
-c ... forcas internas devidos as tensoes inicias
-      if(fstress0 .and. fcstress0) then
-        timei = MPI_Wtime()
-        call initial_stress(ia(i_ix)     ,ia(i_ie)  ,ia(i_e)  
-     1       ,ia(i_x)     ,ia(i_id)      ,ia(i_bst0) 
-     2       ,ia(i_u0)    ,ia(i_txp)     ,ia(i_tx0)
-     3       ,ia(i_xl)    ,ia(i_ul)      ,ia(i_pl)
-     4       ,ia(i_ld)    ,ia(i_plasticl),ia(i_txnl) 
-     5       ,numel       ,nen           ,nenv     ,ndf 
-     6       ,ndm         ,nst           ,npi      ,ntn
-     7       ,neq         ,stge          ,ilib      
-     8       ,block_pu    ,fplastic)
-        elmtime = elmtime + MPI_Wtime()-timei
-        fcstress0= .false.
-      endif 
-c .....................................................................      
+c .....................................................................   
 c
 c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
 c     do passo t:  
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix)    ,ia(i_eload),ia(i_ie) ,ia(i_e) 
-     1             ,ia(i_x)     ,ia(i_id)   ,ia(i_ia) ,ia(i_ja) 
-     2             ,ia(i_au)    ,ia(i_al)   ,ia(i_ad) ,ia(i_b0) 
-     3             ,ia(i_u0)    ,ia(i_dp)   ,ia(i_txp),ia(i_epsp)
-     4             ,ia(i_tx0)
-     5             ,ia(i_xl)    ,ia(i_ul)   ,ia(i_dpl),ia(i_pl)
-     6             ,ia(i_sl)    ,ia(i_ld)   ,ia(i_plasticl),ia(i_txnl) 
-     7             ,numel       ,nen        ,nenv     ,ndf 
-     8             ,ndm         ,nst        ,npi      ,ntn
-     9             ,neq         ,nequ       ,neqp 
-     1             ,nad         ,naduu      ,nadpp    ,nadpu,nadr 
-     2             ,.false.     ,.true.     ,unsym 
-     3             ,stge        ,4          ,ilib     ,i
-     4             ,ia(i_colorg),ia(i_elcolor),numcolors
-     5             ,block_pu    ,n_blocks_pu  ,fplastic)
+      call pform_pm(ia(i_ix)  ,ia(i_eload),ia(i_ie)  ,ia(i_e) 
+     1           ,ia(i_x)     ,ia(i_id)   ,ia(i_ia)  ,ia(i_ja) 
+     2           ,ia(i_au)    ,ia(i_al)   ,ia(i_ad)  ,ia(i_b0) 
+     3           ,ia(i_u0)    ,ia(i_u)    ,ia(i_tx1p),ia(i_tx2p)
+     4           ,ia(i_depsp) ,ia(i_dp)   ,ia(i_plastic)
+     5           ,ia(i_xl)    ,ia(i_ul)   ,ia(i_p0l)  ,ia(i_dpl)
+     6           ,ia(i_pl)    ,ia(i_sl)   ,ia(i_ld)   ,ia(i_txnl)
+     7           ,ia(i_tx1pl) ,ia(i_tx2pl),ia(i_depsl),ia(i_plasticl)
+     8           ,numel       ,nen        ,nenv       ,ndf 
+     9           ,ndm         ,nst        ,npi        ,ntn
+     1           ,neq         ,nequ       ,neqp 
+     2           ,nad         ,naduu      ,nadpp      ,nadpu,nadr 
+     3           ,.false.     ,.true.     ,unsym 
+     4           ,stge        ,4          ,ilib     ,i
+     5           ,ia(i_colorg),ia(i_elcolor),numcolors
+     6           ,block_pu    ,n_blocks_pu  ,fplastic)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -812,13 +812,15 @@ c loop nao linear:
 c ---------------------------------------------------------------------
   410 continue
 c ... Loop multi-corretor:      
-      if(my_id.eq.0) print*,'nonlinear iteration ',i      
+      if(my_id.eq.0) print*,'nonlinear iteration ',i
+c .....................................................................
+c
 c ...
       timei = MPI_Wtime()
       call aequalb(ia(i_b),ia(i_b0),neq)
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
-c
+c      
 c ... Residuo:
 c ... plastic
 c              Fu = Fu - int(BeT*sigma*dv)
@@ -827,21 +829,22 @@ c ... elastic
 c              Fu = Fu - K.du(n+1,i)
 c              bp = Fp - K.dp(n+1,i)
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
-     1             ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
-     2             ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
-     3             ,ia(i_u)     ,ia(i_dp)     ,ia(i_txp),ia(i_epsp)
-     4             ,ia(i_tx0)
-     5             ,ia(i_xl)    ,ia(i_ul)     ,ia(i_dpl),ia(i_pl)
-     6             ,ia(i_sl)    ,ia(i_ld)     ,ia(i_plasticl),ia(i_txnl)
-     7             ,numel       ,nen          ,nenv     ,ndf
-     8             ,ndm         ,nst          ,npi      ,ntn
-     9             ,neq         ,nequ         ,neqp
-     1             ,nad         ,naduu        ,nadpp    ,nadpu,nadr
-     2             ,.true.      ,.true.       ,unsym
-     3             ,stge        ,2            ,ilib     ,i
-     4             ,ia(i_colorg),ia(i_elcolor),numcolors
-     5             ,block_pu    ,n_blocks_pu  ,fplastic)
+      call pform_pm(ia(i_ix)    ,ia(i_eload) ,ia(i_ie)  ,ia(i_e)
+     1             ,ia(i_x)     ,ia(i_id)    ,ia(i_ia)  ,ia(i_ja)
+     2             ,ia(i_au)    ,ia(i_al)    ,ia(i_ad)  ,ia(i_b)
+     3             ,ia(i_u0)    ,ia(i_u)     ,ia(i_tx1p),ia(i_tx2p)
+     4             ,ia(i_depsp) ,ia(i_dp)    ,ia(i_plastic) 
+     5             ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
+     6             ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
+     7             ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
+     8             ,numel       ,nen         ,nenv     ,ndf
+     9             ,ndm         ,nst         ,npi      ,ntn
+     1             ,neq         ,nequ        ,neqp
+     2             ,nad         ,naduu       ,nadpp    ,nadpu,nadr
+     3             ,.true.      ,.true.      ,unsym
+     4             ,stge        ,2           ,ilib     ,i
+     5             ,ia(i_colorg),ia(i_elcolor),numcolors
+     6             ,block_pu    ,n_blocks_pu  ,fplastic)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -883,8 +886,17 @@ c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
+c .....................................................................
+c
 c ...
-      if (i .ge. maxnlit) goto 420
+      if (i .ge. maxnlit)then
+        if(my_id.eq.0) then
+          print*,'Newton-Raphson: no convergence reached after '
+     .          ,i,' iteretions !'
+        call stop_mef()
+        endif
+c       goto 420
+      endif
       i = i + 1
       goto 410 
 c .....................................................................
@@ -906,6 +918,18 @@ c    .               ,ia(i_u),ia(i_u0),ia(i_dp),ia(i_pres0))
       call update_res_v2(nnode   ,ndf
      1                  ,ia(i_u) ,ia(i_u0)
      2                  ,ia(i_dp),ia(i_fnno))
+c .....................................................................
+c
+c ... 
+      if(fplastic) then
+c ... atualizacoes as tensoes do passo de tempo anterior tx2p -> tx1p
+        call aequalb(ia(i_tx1p),ia(i_tx2p),ntn*npi*numel)   
+c ... atualizacoes as deformacoes volumetricas plastica 
+c     do passo de tempo anterior 1 -> 2
+        call update_plastic(ia(i_ix),ia(i_e),ia(i_plastic)
+     .                     ,nen,npi,numel)
+      endif
+c .....................................................................
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
       goto 50 
@@ -982,8 +1006,31 @@ c ... Macro-comando:
 c
 c ......................................................................
   700 continue
+c ... forcas internas devidos as tensoes inicias
+      print*, 'Macro PRESOLV'
+      if(fstress0 .and. fcstress0) then
+        timei = MPI_Wtime()
+        call initial_stress(ia(i_ix)     ,ia(i_ie)  ,ia(i_e)  
+     1       ,ia(i_x)     ,ia(i_id)      ,ia(i_bst0) 
+     2       ,ia(i_u0)    ,ia(i_tx1p)    ,ia(i_tx0) ,ia(i_dp)
+     3       ,ia(i_xl)    ,ia(i_ul)      ,ia(i_dpl) ,ia(i_pl)
+     4       ,ia(i_ld)    ,ia(i_txnl)    ,ia(i_tx1pl) 
+     5       ,numel       ,nen           ,nenv     ,ndf 
+     6       ,ndm         ,nst           ,npi      ,ntn
+     7       ,neq         ,stge          ,ilib      
+     8       ,block_pu    ,fplastic)
+        elmtime = elmtime + MPI_Wtime()-timei
+c ... atualizacoes as tensoes do passo de tempo anterior tx1p -> tx2p
+        if(fplastic) then 
+          call aequalb(ia(i_tx2p),ia(i_tx1p),ntn*npi*numel) 
+c         call initial_pc(ia(i_ix),ia(i_ie),ia(i_e)ia(i_tx1p),ia(i_u0)
+c                        ,numel,nen,  
+        endif
+        fcstress0= .false.
+      endif 
+c ..................................................................... 
       goto 50
-c ----------------------------------------------------------------------
+c .....................................................................
 c
 c ... Macro-comando: BLOCK_PU
 c
@@ -1226,8 +1273,8 @@ c ...
      .     .or. print_flag(8)) then
           timei = MPI_Wtime()
           call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl),ia(i_plasticl)
-     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp),ia(i_txp) 
+     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl),ia(i_tx1pl)
+     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp),ia(i_tx1p) 
      3        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
      5        ,nnode      ,numel   ,nen       ,nenv
      6        ,ndm        ,ndf     ,nst       ,ntn  ,npi 
@@ -1326,8 +1373,8 @@ c ...
      .     .or. print_flag(8)) then
           timei = MPI_Wtime()
           call tform_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_e)  ,ia(i_ie)
-     1       ,ia(i_ic)   ,ia(i_xl)  ,ia(i_ul)  ,ia(i_dpl),ia(i_plasticl)
-     2       ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp)  ,ia(i_txp)
+     1       ,ia(i_ic)   ,ia(i_xl)  ,ia(i_ul)  ,ia(i_dpl),ia(i_tx1pl)
+     2       ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp)  ,ia(i_tx1p)
      3       ,ia(i_tx)   ,ia(i_txb) ,ia(i_flux),ia(i_fnno) 
      4       ,nnode      ,numel     ,nen       ,nenv
      5       ,ndm        ,ndf       ,nst       ,ntn  ,npi 
@@ -1813,7 +1860,7 @@ c .....................................................................
       string = 'DeslocAndPress'
       if( my_id .eq. 0) then
         do j = 1, num_pnode
-          call printnode(ia(i_g1),ia(i_no+j-1),ndf            ,istep,dt
+          call printnode(ia(i_g1),ia(i_no+j-1),ndf            ,istep,t
      1                  ,string  ,prename     ,ia(i_nfile+j-1)
      2                  ,code    ,new_file(ifiles))
         enddo
@@ -1847,8 +1894,8 @@ c
 c ...
       timei = MPI_Wtime()
       call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)   ,ia(i_ie)
-     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul)  ,ia(i_dpl),ia(i_plasticl)
-     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp)  ,ia(i_txp) 
+     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul)  ,ia(i_dpl),ia(i_tx1pl)
+     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp)  ,ia(i_tx1p) 
      3        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
      5        ,nnode      ,numel   ,nen        ,nenv
      6        ,ndm        ,ndf     ,nst        ,ntn   ,npi
@@ -1899,11 +1946,11 @@ c ... codigo para o arquivo stress_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
-           call printnode(ia(i_g5),ia(i_no+j-1),ntn          ,istep,dt
+           call printnode(ia(i_g5),ia(i_no+j-1),ntn          ,istep,t
      1                   ,string   ,prename     ,ia(i_nfile+j-1)
      2                   ,code     ,new_file(ifiles))
           else
-            call printnode(ia(i_tx),ia(i_no+j-1),ntn          ,istep,dt
+            call printnode(ia(i_tx),ia(i_no+j-1),ntn          ,istep,t
      1                   ,string   ,prename     ,ia(i_nfile+j-1)
      2                   ,code     ,new_file(ifiles))
           endif  
@@ -1919,11 +1966,11 @@ c ... codigo para o arquivo stressE_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
          if(mpi) then
-           call printnode(ia(i_g7),ia(i_no+j-1),ntn          ,istep,dt
+           call printnode(ia(i_g7),ia(i_no+j-1),ntn          ,istep,t
      1                 ,string   ,prename     ,ia(i_nfile+j-1)
      2                 ,code     ,new_file(ifiles))
          else
-           call printnode(ia(i_txe),ia(i_no+j-1),ntn          ,istep,dt
+           call printnode(ia(i_txe),ia(i_no+j-1),ntn          ,istep,t
      1                 ,string   ,prename     ,ia(i_nfile+j-1)
      2                 ,code     ,new_file(ifiles))
           endif
@@ -1939,11 +1986,11 @@ c ... codigo para o arquivo stressB_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
-            call printnode(ia(i_g6),ia(i_no+j-1),ntn         ,istep,dt
+            call printnode(ia(i_g6),ia(i_no+j-1),ntn         ,istep,t
      1                   ,string   ,prename     ,ia(i_nfile+j-1)
      2                   ,code     ,new_file(ifiles))
           else
-            call printnode(ia(i_txb),ia(i_no+j-1),ntn         ,istep,dt
+            call printnode(ia(i_txb),ia(i_no+j-1),ntn         ,istep,t
      1                   ,string   ,prename     ,ia(i_nfile+j-1)
      2                   ,code     ,new_file(ifiles))
           endif
@@ -1959,11 +2006,11 @@ c ... codigo para o arquivo flux_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
-            call printnode(ia(i_g8),ia(i_no+j-1),ndm         ,istep,dt
+            call printnode(ia(i_g8),ia(i_no+j-1),ndm         ,istep,t
      1                     ,string   ,prename     ,ia(i_nfile+j-1)
      2                     ,code     ,new_file(ifiles))
           else
-            call printnode(ia(i_flux),ia(i_no+j-1),ndm        ,istep,dt
+            call printnode(ia(i_flux),ia(i_no+j-1),ndm        ,istep,t
      1                 ,string   ,prename     ,ia(i_nfile+j-1)
      2                 ,code     ,new_file(ifiles))
           endif

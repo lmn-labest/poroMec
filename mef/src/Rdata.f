@@ -1,15 +1,16 @@
       subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat
-     1                  ,nen     ,nenv      ,ntn
-     2                  ,ndf     ,ndm       ,nst    ,i_ix 
-     3                  ,i_ie    ,i_inum    ,i_e    ,i_x 
-     4                  ,i_id    ,i_nload   ,i_eload,i_f
-     5                  ,i_u     ,i_u0      ,i_tx0  ,i_dp
-     6                  ,i_txp   ,i_epsp    ,i_fnno
-     7                  ,fstress0,fporomec  ,fmec   ,print_quad
-     8                  ,plastic   ,nin     )
+     1                  ,nen     ,nenv      ,ntn    ,ndf
+     2                  ,ndm     ,nst       ,i_ix   ,i_ie 
+     3                  ,i_inum  ,i_e       ,i_x 
+     4                  ,i_id    ,i_nload   ,i_eload   ,i_f
+     5                  ,i_u     ,i_u0      ,i_tx0     ,i_dp
+     6                  ,i_tx1p  ,i_tx2p    ,i_epsp    ,i_plastic
+     7                  ,i_fnno
+     8                  ,fstress0,fporomec  ,fmec      ,print_quad
+     9                  ,plastic   ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 22/12/2016                                    *
+c * Data de modificaco : 11/01/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -83,7 +84,7 @@ c ......................................................................
       integer maxgrade,iplastic
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
-      integer*8 i_u,i_u0,i_tx0,i_txp,i_epsp,i_dp
+      integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_epsp,i_plastic,i_dp
       integer*8 i_ix,i_id,i_ie
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
 c ......................................................................
@@ -127,9 +128,11 @@ c ... tipo do problema
 c ......................................................................
 c
 c ...
-      i_txp   = 1 
-      i_epsp  = 1
-      plastic = .false.
+      i_tx1p    = 1 
+      i_tx2p    = 1 
+      i_epsp    = 1
+      i_plastic = 1
+      plastic   = .false.
       if( iplastic .ne. 0) plastic = .true.           
 c ... temporario
       if( nen .eq. 10 )then
@@ -195,7 +198,7 @@ c
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
         call mzero(ia(i_eload),numel*7)
-        call azero(ia(i_e),numat*10)
+        call azero(ia(i_e),numat*prop)
         call azero(ia(i_x),nnodev*ndm)        
       endif 
 c ......................................................................
@@ -207,7 +210,7 @@ c     | ix | ie | e | x | eload |
 c     ---------------------------------------------------------------
 c     plastic
 c     ---------------------------------------------------------------
-c     | ix | ie | e | x | eload | txp | esps |
+c     | ix | ie | e | x | eload | txp1 | txp2 | espsp | plastcic |
 c     ---------------------------------------------------------------
       if(fporomec) then
         i_ix    = alloc_4('ix      ',nen+1,numel)
@@ -217,14 +220,18 @@ c     ---------------------------------------------------------------
         i_x     = alloc_8('x       ',  ndm,nnodev)
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
-        call azero(ia(i_e),numat*10)
+        call azero(ia(i_e),numat*prop)
         call mzero(ia(i_eload),numel*7)
         call azero(ia(i_x),nnodev*ndm)        
         if(plastic) then  
-          i_txp   = alloc_8('txp     ',ntn*npi,numel)
-          i_epsp  = alloc_8('epsp    ',9*npi,numel)
-          call azero(ia(i_txp)  ,ntn*npi,numel)
-          call azero(ia(i_epsp) ,9*npi,numel)
+          i_tx1p    = alloc_8('tx1p    ',ntn*npi,numel)
+          i_tx2p    = alloc_8('tx2p    ',ntn*npi,numel)
+          i_epsp    = alloc_8('epsp    ',7*npi,numel)
+          i_plastic = alloc_8('vplastic',3*npi,numel)
+          call azero(ia(i_tx1p)   ,ntn*npi,numel)
+          call azero(ia(i_tx2p)   ,ntn*npi,numel)
+          call azero(ia(i_epsp)   ,7*npi,numel)
+          call azero(ia(i_plastic),3*npi,numel)
         endif
       endif 
 c ......................................................................
@@ -798,11 +805,22 @@ c
          nmacros = nmacros + 1
          write(macros(nmacros),'(15a)') 'end'
       endif
+c ......................................................................
+c
+c ... tensao e pressao iniciais
+c     call init_stress(ia(i_ix),ia(i_ie),ia(i_e),ia(i_x),ia(i_tx0)
+c    .                ,numel,nenv,nen,ndm,ntn)
+c ......................................................................
 c
 c ... Inicializa as condicoes de contorno no vetor u:
 c
       if(ndf.gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
       call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
+c .....................................................................
+c
+c ... inicializa o paramentro de encruamento
+      if(plastic) call init_pc0(ia(i_ie),ia(i_ix),ia(i_e),ia(i_plastic)
+     .                         ,npi,numel,nen)
 c .....................................................................
 c
 c ... 
@@ -850,8 +868,10 @@ c ...
             i_e     = locate('e       ')
             i_fnno  = locate('ffno    ')
             if(plastic) then  
-              i_txp   = locate('txp     ')
-              i_epsp  = locate('epsp    ')
+              i_tx1p    = locate('tx1p    ')
+              i_tx2p    = locate('tx2p    ')
+              i_epsp    = locate('epsp    ')
+              i_plastic = locate('plastic ')
             endif
 c .....................................................................
 c
@@ -1289,9 +1309,9 @@ c ... forca distribuida constante no contorno
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
-            read(string,*,err = 200,end = 200) load(2,i)
+            read(string,*,err = 200,end = 200) load(2,i)            
             do k = 1, load(2,i)
-               call readmacro(nin,.false.)
+                call readmacro(nin,.false.)
                write(string,'(30a)') (word(j),j=1,30)
                read(string,*,err = 200,end = 200) fload(k,1,i)
             enddo           
@@ -2066,7 +2086,7 @@ c     enddo
 c .....................................................................
       return
       end
-c **********************************************************************
+c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
@@ -2688,6 +2708,24 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
+c * Data de criacao    : 20/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * CHECK_PLASTIC : verifica a escolha dos elementos entre o elastico  *
+c * e plastico                                                         *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ie      - tipo de elemento por material                            *
+c * numat   - numero de materiais                                      *
+c * plastic - true|false                                               *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
       subroutine check_plastic(ie,numat,plastic)
       implicit none
       integer ie(*),numat,i,pel(2),eel(2),ty
@@ -2727,5 +2765,88 @@ c
 c ...
       return
       end
-      
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 20/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * INIT_PC0 : inicializa do pressao de consolidacao inicial           *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ie      - tipo de elemento por material                            *
+c * ix      - conectividade do material                                *
+c * e       - propriedade do material
+c * plastic - true|false                                               *
+c * npi     - numero de pontos de integracao 
+c * numel   - numero de elementos                                   
+c * nen     - numero de nos por elemento                               *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine init_pc0(ie,ix,e,plastic,npi,numel,nen)
+      implicit none
+      include 'termprop.fi'
+      integer ie(*),ix(nen+1,*),numel,npi,ma,nen,i,j
+      real*8 e(prop,*),plastic(3,npi,*)
+      do i = 1, numel 
+        ma             = ix(nen+1,i)
+        do j = 1, npi 
+          plastic(3,j,i) = e(12,ma)
+        enddo
+      enddo
+      return
+      end
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * INIT_STRESS:                                                       *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine  init_stress(ix,ie,e,x,tx0,numel,nenv,nen,ndm,ntn)
+      implicit none
+      include 'gravity.fi'
+      include 'termprop.fi'
+      integer ie(*),ix(nen+1,*),numel,npi,ma,nen,nenv,ndm,ntn,i,j,no
+      real*8 e(prop,*),tx0(ntn,*),x(ndm,*),ps,ro,x3
+c .....................................................................
+c
+c ...
+      do i = 1, numel 
+        ma  = ix(nen+1,i)
+        ps  = e(2,ma)
+        ro  = e(6,ma)*1.d-6
+        do j = 1, nenv
+          no     = ix(j,i) 
+          x3     = x(3,no)
+c ... tensao inicial
+          tx0(3,no)   = -ro*gravity_mod*(0.5d0-x3)
+          tx0(1,no)   = (ps/(1.0-ps))*tx0(3,no)
+          tx0(2,no)   = tx0(1,no) 
+          tx0(4:6,no) = 0.d0
+c ......................................................................
+        enddo
+      enddo
+      open(15, file= 'stress.txt',action= 'write')
+      do i = 1, 44
+        write(15,'(i9,6es14.6)')i,(tx0(j,i),j=1,6)
+      enddo  
+      stop
+      return
+      end
+c ......................................................................
 

@@ -1,5 +1,6 @@
-      subroutine plasticity3d_pm(eps ,tx,mcs  ,pc0
-     2                          ,alfa,pr,iyied,c14,g)
+      subroutine plasticity3d_pm(eps1 ,eps2 ,tx
+     1                          ,mcs  ,alfa 
+     2                          ,pr   ,c14  ,g,nel)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 22/12/2016                                    *
@@ -9,10 +10,10 @@ c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * eps(6)       - deformacao plastica + elastica                      *
-c * a1,b1,c1,c14 -  coeficientes da matriz constitutiva                *
-c * eps(1)       - armazena deformacao plastica                        *
+c * c14,g        -  coeficientes da matriz constitutiva                *
+c * eps1         - armazena deformacao plastica                        *
 c *                volumetrica do passo anterior                       *
-c * eps(2)       - armazena pc do passo anterior                       *
+c * eps2         - armazena pc do passo anterior                       *
 c * tx(6)        - delta tensao efetiva                                *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
@@ -22,65 +23,58 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
-      integer i,iyied,j,maxit
-      real*8  tx(*),eps(*),epe1,g
-      real*8  snphi,pr,se1,tol1
-      real*8  steff,varj2,theta,sint3,c14,devs(6)
-      real*8  stot(6),abeta
-      real*8  dlamb,hl1
-      real*8  epe2,escur1,tol
-      real*8  a1(6),d1(6)
-      real*8  lamb,mcs,pc,sm,pc0,alfa
+      integer i,iyied,j,maxit,nel
+      real*8 tx(*),eps1,eps2,epe1,epe2,g
+      real*8 snphi,pr,se1,steff,varj2,theta,sint3,c14,devs(6)
+      real*8 stot(6),abeta,dlamb,hl1,escur1,tol,a1(6),d1(6)
+      real*8 lamb,mcs,pc,sm,alfa
+      real*8 th,ds
 c ......................................................................
 c   
-c    
-      maxit = 100
-      tol   = 1.0e-03
-      tol1  = 1.0e-7
+c ...    
+      th    = 0.0d0
+      maxit = 500000
+      tol   = 1.0e-07
 c ... t0 = t:
       call aequalb(stot,tx,6)
-c ...  eps(1) = armazena deformacao plastica volumetrica do passo anterior      
-c ...  eps(2) = armazena pc do passo anterior
-      epe1 = eps(1)
-      epe2 = eps(2)
+c ...  eps1 = armazena deformacao plastica volumetrica do passo anterior      
+c ...  eps2 = armazena pc do passo anterior
+      epe1 = eps1
+      epe2 = eps2
       pc   = epe2
 c ... evaluate effective stress
       call effst3d(se1,iyied,stot,devs,steff,sm,varj2,mcs,escur1,pc) 
 c ... check for yielding durint this iterations
       if(escur1 .le. 1.0e-10) return
-      lamb = 0.d0
 c ... loop Newton-Raphson
       do 8 i = 1, maxit
 c ... calculate vectors A and D
          call effst3d(se1,iyied,stot,devs,steff,sm,varj2,mcs,escur1,pc) 
-c         tol1 = preys1*tol
-         if( dabs(escur1) .lt. tol1)  goto 11
+         if( dabs(escur1) .lt. tol)  goto 11
          call flow3d(a1,d1,devs,abeta,steff,theta,varj2,sint3,hl1,
      .          snphi,c14,g,pr,mcs,pc,sm,epe2,alfa)
 c ... compute plastic multiplier
          dlamb = escur1 *abeta
-         lamb = lamb + dlamb
 c ... update plastic strain trace
-         do j = 1, 3
+         do j = 1, 3            
            epe1 = epe1 + a1(j)*dlamb
-         enddo
+         enddo         
 c ... update hardening parameter
-         pc = epe2 - alfa*epe2*(epe1-eps(1))
+        pc = epe2 - alfa*epe2*(epe1-eps1)
 c ...compute elastoplastic stresses
          do 10 j = 1,6
-            stot(j) = stot(j)-dlamb*d1(j)
+           stot(j) = stot(j)-dlamb*d1(j)
    10    continue
     8  continue
-       write(*,*) 'numero maximo de iteracoes excedido - plasticidade',
-     .          maxit
+       write(*,*) 'numero maximo de iteracoes excedido - plasticidade'
+       write(*,*) 'it:',maxit,'res:',dabs(escur1),'tol:',tol
       stop
    11 continue
 c ... calculate equivalent plastic strain
-      do 16 j = 1,6
-        tx(j) = stot(j)
-   16 continue	
-      eps(1) = epe1
-      eps(2) = epe2
+      tx(1:6) = stot(1:6)
+c .....................................................................
+      eps1 = epe1
+      eps2 = epe2
       return
       end
       subroutine effst3d(se,iyied,tx,devs,steff,sm,varj2,mcs,escur,pc)
@@ -150,8 +144,8 @@ c *                                                                    *
 c **********************************************************************
       implicit none
       integer j
-      real*8 a1(6),a2(6),a3(6),a(6),d(6),devs(6),root3,steff,varj2
-      real*8 cons1,cons2,cons3,theta,snphi
+      real*8 a1(6),a2(6),a(6),d(6),devs(6),root3,steff,varj2
+      real*8 cons1,cons2,theta,snphi
       real*8 c14,xml,g,abeta,sint3,hl,denom,pr,mcs
       real*8 pc,sm,epe2,alfa
       root3 = 1.73205080757d0
@@ -170,22 +164,23 @@ c ... vector A2:
       a2(5) = devs(5)!/steff
       a2(6) = devs(6)!/steff
 c ... vector A3
-      a3(1) =(2.d0/3.d0)*(devs(2)*devs(3)-devs(5)*devs(5))+(1.d0/3.d0)*
-     .       (devs(6)*devs(6)+devs(4)*devs(4)-devs(1)*(devs(3)+devs(2)))
-      a3(2) =(2.d0/3.d0)*(devs(1)*devs(3)-devs(6)*devs(6))+(1.d0/3.d0)*
-     .       (devs(5)*devs(5)+devs(4)*devs(4)-devs(2)*(devs(1)+devs(3)))
-      a3(3) =(2.d0/3.d0)*(devs(1)*devs(2)-devs(4)*devs(4))+(1.d0/3.d0)*
-     .       (devs(5)*devs(5)+devs(6)*devs(6)-devs(3)*(devs(1)+devs(2)))
-      a3(4) = 2.d0*(devs(5)*devs(6)-devs(3)*devs(4))
-      a3(5) = 2.d0*(devs(4)*devs(6)-devs(1)*devs(5))
-      a3(6) = 2.d0*(devs(4)*devs(5)-devs(2)*devs(6))
+c     a3(1) =(2.d0/3.d0)*(devs(2)*devs(3)-devs(5)*devs(5))+(1.d0/3.d0)*
+c    .       (devs(6)*devs(6)+devs(4)*devs(4)-devs(1)*(devs(3)+devs(2)))
+c     a3(2) =(2.d0/3.d0)*(devs(1)*devs(3)-devs(6)*devs(6))+(1.d0/3.d0)*
+c    .       (devs(5)*devs(5)+devs(4)*devs(4)-devs(2)*(devs(1)+devs(3)))
+c     a3(3) =(2.d0/3.d0)*(devs(1)*devs(2)-devs(4)*devs(4))+(1.d0/3.d0)*
+c    .       (devs(5)*devs(5)+devs(6)*devs(6)-devs(3)*(devs(1)+devs(2)))
+c     a3(4) = 2.d0*(devs(5)*devs(6)-devs(3)*devs(4))
+c     a3(5) = 2.d0*(devs(4)*devs(6)-devs(1)*devs(5))
+c     a3(6) = 2.d0*(devs(4)*devs(5)-devs(2)*devs(6))
 c ... Modified Cam-clay
-      cons1 = 2.d0/9.d0*(mcs*mcs)*sm+1.d0/3.d0*mcs*mcs*pc
+      cons1 = (2.d0/3.d0)*mcs*mcs*sm+(1.d0/3.d0)*mcs*mcs*pc
       cons2 = 3.d0
-      cons3 = 0.d0
+c     cons3 = 0.d0
 c ... vector A
       do 50 j = 1,6
-        a(j) = cons1*a1(j)+cons2*a2(j)+cons3*a3(j)
+c       a(j) = cons1*a1(j)+cons2*a2(j)+cons3*a3(j)
+        a(j) = cons1*a1(j)+cons2*a2(j)
    50 continue
 c ... vector D
       xml  = c14*(a(1)+a(2)+a(3))

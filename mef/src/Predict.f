@@ -158,7 +158,7 @@ c
 c *********************************************************************
       subroutine delta_update_pm(nnode,ndf,id,du,x,fnno)
 c **********************************************************************
-c * Data de criacao    : 70/00/0000                                    *
+c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 08/11/2016                                    *
 c * ------------------------------------------------------------------ *
 c * DELTA_UPDATE_PM :  atualizacao os incrementos do graus de liberdade*
@@ -234,6 +234,59 @@ c ... atualizacao dos incrementos dos deslocamentos
           endif
   100   continue
   110 continue
+c ......................................................................
+c
+c ...
+      return
+      end
+c *********************************************************************
+c
+c *********************************************************************
+      subroutine update_plastic(ix,e,plastic,nen,npi,numel)
+c **********************************************************************
+c * Data de criacao    : 11/01/2016                                    *
+c * Data de modificaco : 20/01/2017                                    *
+c * ------------------------------------------------------------------ *
+c * UPDATE_PLASTIC : atualizacao da dilatacao volumetrica              *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * plastic - parametros do plastico                                   *
+c *           plastic(1) - dilatacao volumetrica plastica              *  
+c *                        do passo anterior                           *
+c *           plastic(2) - dilatacao volumetrica plastica              *
+c *           plastic(3) - paramentro de endurecimento                 *  
+c * npi     - numero de pontos de integracao                           *
+c * numel   - numero de elementos                                      *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c  * plastic(1) - atualizado com a dilatacao volumetrica plastica      *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      implicit none
+      include 'termprop.fi'
+      integer i,j,npi,numel,ix(nen+1,*),nen,ma
+      real*8 plastic(3,npi,numel),alfa,e(prop,*),de
+      real*8 k_plastic,e0,lambda_plastic
+      logical flag_def,flag_pc
+c ......................................................................
+c
+c ... atualizacao dos incrementos dos deslocamentos
+      do i = 1, numel
+        ma             = ix(nen+1,i)
+        e0             = e(8,ma) 
+        lambda_plastic = e(9,ma)
+        k_plastic      = e(10,ma)
+        alfa           = (1+e0)/(lambda_plastic-k_plastic)
+        do j = 1, npi                  
+          de             = plastic(2,j,i) - plastic(1,j,i)          
+          plastic(1,j,i) = plastic(2,j,i) 
+          plastic(3,j,i) = plastic(3,j,i)*dexp(-alfa*de)  
+        enddo
+      enddo
 c ......................................................................
 c
 c ...

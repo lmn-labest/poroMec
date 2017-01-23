@@ -779,7 +779,7 @@ c *  u       - vetor com a grandeza a ser escrita                     *
 c *  no      - numero do no                                           *
 c *  ndf     - graus de liberdade da grandeza                         *
 c *  istep   - passo de tempo                                         *
-c *  dt      - intercalo de tempo                                     *
+c *  t       - tempo                                                  *
 c *  nameres - nome da gradeza a ser escrita                          *
 c *  prename - nome do arquivo de saida                               *
 c *  nout    - numero do arquivo a ser escrito                        *
@@ -787,13 +787,13 @@ c *  open    - abertura de um novo arquivo .true.                     *
 c *  ---------------------------------------------------------------- *
 c *  Parametro de Saida :                                             *
 c *********************************************************************
-      subroutine printnode(u,no,ndf,istep,dt,nameres,prename,nout,code
+      subroutine printnode(u,no,ndf,istep,t,nameres,prename,nout,code
      .                    ,open)
       implicit none
 c ===        
       character*30 nameres
       real*8 u(ndf,*)
-      real*8 dt
+      real*8 t
       integer no,istep,nout,ndf,i,code
       character*80 fileout,prename,name
       logical open
@@ -814,7 +814,7 @@ c ... reabre o arquivo e add uma nova linha
 c =====================================================================        
 c
 c === 
-      write(nout,'(i9,f30.6,9f30.10)')istep,istep*dt,(u(i,no), i=1, ndf)
+      write(nout,'(i9,f30.6,9f30.10)')istep,t,(u(i,no), i=1, ndf)
 c      write(nout,*)istep,',',istep*dt,',',u(no)
       close(nout)
       return

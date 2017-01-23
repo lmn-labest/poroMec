@@ -37,7 +37,7 @@ c
         do 100 j = 1, ndf - 1
           nc = nload(j,i)
           if(nc .gt. 0) then
-            call tload(nc,t,u(j,i),c,vc)
+            call tload(nc,t,u(j,i),c,vc,0)
             f(j,i) = c
           endif
   100   continue
@@ -49,7 +49,7 @@ c ...
         if(fnno(i) .eq. 1) then
           nc = nload(ndf,i)
           if(nc .gt. 0) then
-            call tload(nc,t,u(ndf,i),c,vc)
+            call tload(nc,t,u(ndf,i),c,vc,0)
             f(ndf,i) = c
           endif
         endif
@@ -226,6 +226,7 @@ c *    t       - tempo                                                 *
 c *    u       - solucao                                               *
 c *    c       - nao definido                                          *
 c *    vc      - nao definido                                          *
+c *    nlit    - iteracao nao linear                                   *                  
 c *                                                                    *
 c *   Parametros de saida:                                             *
 c *   -------------------                                              *
@@ -308,32 +309,18 @@ c ......................................................................
 c
 c ... kdu/dx = emiss * const(Stef-Boltz) *(uext4-u4)+H(uext-u)
       elseif(itype .eq. 7) then
-c         call interpol(fload(1,2,nc),fload(1,3,nc),t,nparc,uext)
         call interpol(fload(1,2,nc),fload(1,3,nc),t,nparc,c)
-c         a = fload(1,1,nc)
-c         b = fload(2,1,nc)
-c         h = fload(3,1,nc)
-c         c = a*b*(uext**4-u**4)+h*(uext-u)
 c ......................................................................
 c
 c ...  kdu/dx = emiss * const(Stef-Boltz) *(uext4-u4)+H(uext-u)
       elseif(itype .eq. 8) then
-c         call interpol(fload(1,2,nc),fload(1,3,nc),t,nparc,uext)
-c           if( t .ge. 172800.d0)   then
         call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)
-c           else  
-c              c = 0.d0
-c           endif
-c         a = fload(1,1,nc)
-c         b = fload(2,1,nc)
-c         h = fload(3,1,nc)
-c         c = a*b*(uext**4-u**4)+h*(uext-u)
 c ......................................................................
 c
-c ... forca distribuida constante no contorno
+c ... forca distribuida constante no contorno com possibilidade de
+c     incremento de carga dentro da iteracao nao linear
       elseif (itype .eq. 40) then
-c ... numero de parcelas: 
-        vc(1:nparc)  = fload(1:nparc,1,nc)
+        vc(1:nparc)  = fload(1:nparc,1,nc)            
 c .....................................................................
       endif
       return

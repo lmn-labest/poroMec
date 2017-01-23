@@ -1,10 +1,11 @@
-      subroutine elmlib_pm(e ,iq  ,x   ,u      ,dp 
-     1                    ,p ,s   ,v1  ,v2        
-     2                    ,dt,ndm ,nst ,nel    ,iel,isw
-     3                    ,ma,nlit,ilib,block_pu)
+      subroutine elmlib_pm(e ,iq  ,x   ,u   ,p0 
+     1                    ,dp,p   ,s   ,v1  ,v2 
+     2                    ,v3,v4        
+     3                    ,ndm ,nst ,nel,iel,isw
+     4                    ,ma,nlit,ilib,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 22/12/2016                                    * 
+c * Data de modificaco : 17/01/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMLIB_PM: biblioteca de elementos do poromecanico                 *
 c * ------------------------------------------------------------------ * 
@@ -14,17 +15,28 @@ c * e(10) - constantes fisicas                                         *
 c * iq(7) - cargas nos elementos                                       *
 c * x(ndm,nen)- coordenadas nodais locais                              *
 c * u(nst)     - solucao anterior                                      *
+c * p0(*)      - pressao no passo de tempo anterior                    *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
 c * p(nst)     - nao definido                                          *
 c * s(nst,nst) - nao definido                                          *
-c * v1(*)      - vetor auxiliar com micelania de variaveis             *
-c *              elasticiade:                                          *
-c *              tensoes nodal                                         *
-c * v2(*)      - vetor auxiliar com micelania de variaveis             *                                         *
-c *           plasticidade:                                            *
-c *           tensoes, delta deformacao entre iteracoes                *
-c *           nao lineares, dilatacao volumetrica plastica             *
-c *           e paramentro de endurecimento nos pontos de integracao   *
+c * v1(*) - vetor auxiliar com micelania de variaveis                  *
+c *       elasticiade:                                                 *
+c *         tensoes nodal                                              *
+c *       plasticidade:                                                *
+c *         tensao nos pontos de integeracao no passo de tempo         *
+c *         anterior                                                   *
+c * v2(*) - vetor auxiliar com micelania de variaveis                  *                                         *
+c *       plasticidade:                                                *
+c *         tensao nos pontos de integeracao                           *
+c * v3(*) - vetor auxiliar com micelania de variaveis                  *    
+c *       plasticidade                                                 *
+c *         incremento deformacoes e pressoes                          * 
+c * v4(*) - vetor auxiliar com micelania de variaveis                  *    
+c *       plasticidade                                                 *
+c *        deformacao volumetricas plasticas no passo de tempo         *
+c *        anterior                                                    *
+c *        deformacao volumetricas plasticas                           *
+c *        paramentro de endurecimento nos pontos de integracao        *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento                    *
 c * nel - numero do elemento                                           *
@@ -44,15 +56,11 @@ c * p - isw = 2  residuo                                               *
 c *     isw = 3  tensao e fluxo                                        *
 c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *     de tempo anterior                                              *
-c * vplastic(1:6,*)  - tensoes                                         *
-c * vplastic(7:12,*) - delta deformacao entre iteracoes nao lineares   *
-c * vplastic(13,*)   - dilatacao volumetrica plastica                  *
-c * vplastic(14,*)   - paramentro de endurecimento                     *
 c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
-      real*8 e(*),x(*),u(*),dp(*),p(*),s(nst,*),v1(*),v2(*)
-      real*8 dt
+      real*8 e(*),x(*),u(*),p0(*),p(*),s(nst,*),v1(*),v2(*),v3(*),v4(*)
+      real*8 dp(*)
       logical block_pu
 c ......................................................................
       goto (100 , 200, 300      !           ,            ,
@@ -76,21 +84,31 @@ c ......................................................................
  1600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-elastic)
-        call elmt16_pm(e,iq,x,u,dp,p,s,v1,dt,ndm,nst,nel,isw,block_pu)
+        call elmt16_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
       endif 
       return       
 c ......................................................................
  1700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-elastic)
-        call elmt17_pm(e,iq,x,u,dp,p,s,v1,dt,ndm,nst,nel,isw,block_pu)
+        call elmt17_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
       endif
       return 
 c ......................................................................
  3600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-plastic)
-        call elmt36_pm(e,iq,x,u,dp,p,s,v1,v2,dt,ndm,nst,nel,isw
+        call elmt36_pm(e,iq,x,u,p0,p,s,v1,v2,v3,v4,ndm,nst,nel,isw
+     .                ,block_pu,nlit)
+      endif 
+      return       
+c ......................................................................
+c
+c ......................................................................
+ 3700 continue
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 20 nos (poromec-plastic)
+        call elmt37_pm(e,iq,x,u,p0,p,s,v1,v2,v3,v4,ndm,nst,nel,isw
      .                ,block_pu,nlit)
       endif 
       return       
@@ -130,7 +148,6 @@ c ... campos reservados para expancoes futuras de elementos
  3300 continue
  3400 continue
  3500 continue
- 3700 continue
  3800 continue
  3900 continue
       go to 10
@@ -1418,7 +1435,7 @@ c *                                                                    *
 c *   Parametros de saida:                                             *
 c *   -------------------                                              *
 c *                                                                    *
-c *     h(2)    - funcoes de interolocao no ponto (r,s,t)              *
+c *     h(20)   - funcoes de interolocao no ponto (r,s,t)              *
 c *     hx(20)  - derivadas de h em relacao a r                        *
 c *     hy(20)  - derivadas de h em relacao a s                        *
 c *     hz(20)  - derivadas de h em relacao a t                        *
@@ -3075,6 +3092,279 @@ c
 c ...
       tetra_vol = det*div6
 c ......................................................................      
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 22/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * DESVIADOR: calculo da tensao desviadora                            *
+c* ------------------------------------------------------------------- * 
+c * tx  - tensao                                                       *
+c * s   - nao definido                                                 *
+c * ntn - numero de tensoes                                            *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * s   - tensor desviador                                             *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      subroutine desviador(tx,s,ntn)
+      implicit none
+      integer ntn
+      real*8  tx(*),s(*),r3,sm
+c ...
+      r3 = 0.333333333333333d0
+c ......................................................................
+c
+c ...
+      if(ntn .eq. 6) then
+        sm     = r3*(tx(1)+tx(2)+tx(3))
+        s(1)   = tx(1) - sm        
+        s(2)   = tx(2) - sm
+        s(3)   = tx(3) - sm
+        s(4:6) = tx(4:6)
+      endif
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 18/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * EXTRAPLO_STRESS_HEXA20 : calcula a tensaa nodal por extrapolacao   *
+c * das tensoes dos pontos de integracao do hexaedros de 20 nos        *
+c* ------------------------------------------------------------------- * 
+c * txp - tensao nos pontos de integracao                              *
+c * etx - nao definido                                                 *
+c * rn  - coordenadas r dos nos do hexaedros                           *
+c * sn  - coordenadas s dos nos do hexaedros                           *
+c * tn  - coordenadas t dos nos do hexaedros                           *
+c * sc  -                                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * etx - tensao nodal extrapolada                                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * extrapolacao feita utlizando as proprias funcoes de interpolacao   * 
+c **********************************************************************
+      subroutine extrapol_stress_hexa20(txp,etx,rn,sn,tn,pg)
+      implicit none
+      integer i,j
+      real*8  l(8,20),la,lb,lc,ld,txp(6,*),etx(6,*),square3
+      real*8 f1(20,6),f2(8,6),sc,pg
+      real*8 rn(*),sn(*),tn(*),rnl(8),snl(8),tnl(8),hu(20)
+c ......................................................................
+c
+c ...
+      sc = 1.d0/dabs(pg)
+      do i = 1, 8
+        rnl(i) = rn(i)*sc
+        snl(i) = sn(i)*sc
+        tnl(i) = tn(i)*sc
+      enddo
+c ......................................................................
+c
+c ...
+      do i = 1, 8 
+        call sfhexa20_m(hu,hu,hu,hu,rnl(i),snl(i),tnl(i)
+     .                 ,.true.,.false.)
+        do j = 1, 20
+          l(i,j) = hu(j)
+        enddo
+      enddo
+c ......................................................................
+c
+c ...
+      do i = 1, 6
+        do j = 1, 20
+          f1(j,i) = txp(i,j)
+        enddo
+      enddo
+c .....................................................................
+c
+c ...
+      do i = 1, 6
+        call matvec(l,f1(1,i),f2(1,i),8,20)
+      enddo
+c ......................................................................
+c
+c ...
+      do i = 1, 6
+        do j = 1, 8
+          etx(i,j) = f2(j,i)
+        enddo
+      enddo
+c .....................................................................
+c
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 22/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * EXTRAPOL_STRESS_HEXA20 : calcula a tensao nodal por extrapolacao   *
+c * das tensoes dos pontos de integracao do hexaedros de 20 nos atraves*
+c * de uma superficie trilinear                                        *
+c * -------------------------------------------------------------------* 
+c * txp - tensao nos pontos de integracao                              *
+c * etx - nao definido                                                 *
+c * rn  - coordenadas r dos nos do hexaedros                           *
+c * sn  - coordenadas s dos nos do hexaedros                           *
+c * tn  - coordenadas t dos nos do hexaedros                           *
+c * sc  -                                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * etx - tensao nodal extrapolada                                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * pontos de integracao utilizados na interpolacao: (r,s,t)           *
+c * 4x4x4 pontos de integracao                                         *
+c *                                                                    *
+c * 1 : (-0.86,-0.86,-0.86)                                            *
+c * 4 : (+0.86,-0.86,-0.86)                                            *
+c * 13: (-0.86,+0.86,-0.86)                                            *
+c * 16: (+0.86,+0.86,-0.86)                                            *
+c * 49: (-0.86,-0.86,+0.86)                                            *
+c * 52: (+0.86,-0.86,+0.86)                                            *
+c * 61: (-0.86,+0.86,+0.86)                                            *
+c * 64: (+0.86,+0.86,+0.86)                                            *
+c *                                                                    *
+c * polinomio trilinear                                                *
+c * p(r,s,t) = a1 + a2*r + a3*s + a4*t + a5*r*s + a6*s*t + a7*r*t      *
+c *            a8*r*s*t                                                *   
+c **********************************************************************
+      subroutine extrapol_stress_hexa20_v2(txp,etx,rn,sn,tn)
+      implicit none
+      integer i,j,ip(8)
+      real*8  txp(6,*),etx(6,*),f(8)
+      real*8 c1,c2,c3,c4,a(8)
+      real*8 rn(*),sn(*),tn(*),rnj,snj,tnj
+      data ip /1,4,13,16,49,52,61,64/
+c ......................................................................
+c
+c ...
+      c1 = 0.125000000000000d0
+      c2 = 0.145157042290566d0
+      c3 = 0.168564535400043d0
+      c4 = 0.195746635145486d0  
+c .......................................................................
+c
+c ...
+      do i = 1, 6
+        f(1:8) =txp(i,ip(1:8))
+c
+        a(1) = c1*( f(1)+f(2)+f(3)+f(4)+f(5)+f(6)+f(7)+f(8) )
+c 
+        a(2) = c2*( f(2)+f(4)+f(6)+f(8) -( f(1)+f(3)+f(5)+f(7) ) ) 
+c 
+        a(3) = c2*( f(3)+f(4)+f(7)+f(8) -( f(1)+f(2)+f(5)+f(6) ) ) 
+c
+        a(4) = c2*( f(5)+f(6)+f(7)+f(8) -( f(1)+f(2)+f(3)+f(4) ) ) 
+c
+        a(5) = c3*( f(1)+f(4)+f(5)+f(8) -( f(2)+f(3)+f(6)+f(7) ) ) 
+c
+        a(6) = c3*( f(1)+f(2)+f(7)+f(8) -( f(3)+f(4)+f(5)+f(6) ) ) 
+c
+        a(7) = c3*( f(1)+f(3)+f(6)+f(8) -( f(2)+f(4)+f(5)+f(7) ) ) 
+c
+        a(8) = c4*( f(2)+f(3)+f(5)+f(8) -( f(1)+f(4)+f(6)+f(7) ) ) 
+c ...
+        do j = 1, 8
+          rnj = rn(j)
+          snj = sn(j)
+          tnj = tn(j)
+          etx(i,j) = a(1) + a(2)*rnj + a(3)*snj + a(4)*tnj
+     .    + a(5)*rnj*snj + a(6)*snj*tnj + a(7)*rnj*tnj
+     .    + a(8)*rnj*snj*tnj
+        enddo
+c ......................................................................
+      enddo
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 22/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * EXTRAPOL_STRESS_tetra10: calcula a tensao nodal por extrapolacao   *
+c * das tensoes dos pontos de integracao do tetraedros de 10 nos       *
+c * atraves de uma superficie linear                                   * 
+c * ------------------------------------------------------------------ * 
+c * txp - tensao nos pontos de integracao                              *
+c * etx - nao definido                                                 *
+c * rn  - coordenadas r dos nos do hexaedros                           *
+c * sn  - coordenadas s dos nos do hexaedros                           *
+c * tn  - coordenadas t dos nos do hexaedros                           *
+c * sc  -                                                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * etx - tensao nodal extrapolada                                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * pontos de integracao utilizados na interpolacao: (r,s,t)           *
+c * 4x4x4 pontos de integracao                                         *
+c *                                                                    *
+c * 1 : (0.58,0.13,0.13)                                               *
+c * 2 : (0.13,0.58,0.13)                                               *
+c * 3 : (0.13,0.13,0.58)                                               *
+c * 4 : (0.13,0.13,0.13)                                               *
+c *                                                                    *
+c * polinomio linear                                                   *
+c * p(r,s,t) = a1 + a2*r + a3*s + a4*t                                 *   
+c **********************************************************************
+      subroutine extrapol_stress_tetra10(txp,etx,rn,sn,tn)
+      implicit none
+      integer i,j
+      real*8  txp(6,*),etx(6,*),f(4)
+      real*8 c1,c2,c3,a(4)
+      real*8 rn(*),sn(*),tn(*),rnj,snj,tnj
+c ......................................................................
+c
+c ...
+      c1 = 0.309016988749894d0
+      c2 = 1.927050966249684d0
+      c3 = 2.236067954999579d0
+c .......................................................................
+c
+c ...
+      do i = 1, 6
+        f(1:4) =txp(i,1:4)
+c
+        a(1) = c2*f(4) - c1*( f(1) + f(2) + f(3) )
+c 
+        a(2) = c3*( f(1) - f(4) ) 
+c 
+        a(3) = c3*( f(2) - f(4) ) 
+c
+        a(4) = c3*( f(3) - f(4) ) 
+c ...
+        do j = 1, 4
+          rnj = rn(j)
+          snj = sn(j)
+          tnj = tn(j)
+          etx(i,j) = a(1) + a(2)*rnj + a(3)*snj + a(4)*tnj
+        enddo
+c ......................................................................
+      enddo
+c ......................................................................
       return
       end
 c **********************************************************************
