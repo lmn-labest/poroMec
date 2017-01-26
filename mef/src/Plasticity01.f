@@ -60,7 +60,9 @@ c ... update plastic strain trace
            epe1 = epe1 + a1(j)*dlamb
          enddo         
 c ... update hardening parameter
-        pc = epe2 - alfa*epe2*(epe1-eps1)
+c       ds = epe1-eps1
+c       if( ds .gt. 0.d0) ds = 0.d0
+        pc = epe2 - alfa*epe2*ds
 c ...compute elastoplastic stresses
          do 10 j = 1,6
            stot(j) = stot(j)-dlamb*d1(j)

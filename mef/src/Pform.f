@@ -147,111 +147,117 @@ c
 c ... openmp
       if(omp_elmt)then
 c ... loop nos cores
-cc$omp parallel num_threads(nth_elmt)
-cc$omp.default(none)
-cc$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
-cc$omp.private(plasticl,txnl)
-cc$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
-cc$omp.shared(id,u,ix,dp,tx,eps,ie,e,block_pu,n_blocks_pu)
-cc$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,ntn,npi,isw,nst,dt)
-cc$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu,plastic)
-c       do ic = 1, numcolors
-cc$omp do
+c$omp parallel num_threads(nth_elmt)
+c$omp.default(none)
+c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
+c$omp.private(p0l,tx1l,tx2l,depsl,plasticl,txnl)
+c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
+c$omp.shared(id,u,u0,ix,dp,tx1,tx2,ie,e,block_pu,n_blocks_pu)
+c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,ntn,npi,isw,nst,dt)
+c$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu,plastic,fplastic)
+       do ic = 1, numcolors
+c$omp do
 c ... Loop nos elementos:
 c     ------------------
-c         do jc = i_colorg(1,ic), i_colorg(2,ic)
-c           nel = i_elcolor(jc)
-c           print*,omp_get_thread_num(),jc,nel,ic
-c           kk = 0
+         do jc = i_colorg(1,ic), i_colorg(2,ic)
+           nel = i_elcolor(jc)
+           kk = 0
 c ... loop nos nos de deslocamentos
-c           do i = 1, nen
-c             no = ix(i,nel)
-c             do j = 1, ndf - 1
-c               kk     = kk + 1
-c               ld(kk) = id(j,no)
-c               ul(kk) = u(j,no)
-c               pl(kk) = 0.d0
-c             enddo
+           do i = 1, nen
+             no = ix(i,nel)
+             do j = 1, ndf - 1
+               kk     = kk + 1
+               ld(kk) = id(j,no)
+               pl(kk) = 0.d0
+               ul(kk) = u(j,no)
+             enddo
 c ......................................................................              
-c         enddo   
+           enddo   
 c ......................................................................               
 c
 c...... loop nos nos do pressao
-c           do i = 1, nenv
-c             no       = ix(i,nel)
-c             kk       = kk + 1
-c             ld(kk)   = id(ndf,no)
-c             pl(kk)   = 0.d0
-c             ul(kk)   = u(ndf,no)
-c             dpl(i)   = dp(no)
-c             do j = 1, ndm
-c               xl(j,i) = x(j,no)
-c             enddo   
-c           enddo    
+           do i = 1, nenv
+             no       = ix(i,nel)
+             kk       = kk + 1
+             ld(kk)   = id(ndf,no)
+             pl(kk)   = 0.d0
+             ul(kk)   = u(ndf,no)
+             p0l(i)   = u0(ndf,no)
+             dpl(i)   = dp(no)
+             do j = 1, ndm
+               xl(j,i) = x(j,no)
+             enddo   
+           enddo    
 c ......................................................................
 c
+c
 c ... plasticidade
-c         if(plastic) then
-c           do j = 1, npi  
+           if(fplastic) then
+             do j = 1, npi  
+c ... tensoes no passo de tempo anterior
+               tx1l(1:ntn,j) = tx1(1:ntn,j,nel)
 c ... tensoes
-c             plasticl(1:ntn,j)  = tx(1:ntn,j,nel)
+               tx2l(1:ntn,j) = tx2(1:ntn,j,nel)
 c ... delta deformacoes
-c             plasticl(7:12,j)  = eps(1:ntn,j,nel)
+               depsl(1:6,j)  = deps(1:6,j,nel)
 c ... delta pressao                        
-c             plasticl(13,j) = eps(ntn+1,j,nel)
+               depsl(7,j)    = deps(7,j,nel)
+c ... dilatacao volumetrica plastica do passo de tempo anterior
+               plasticl(1,j) = plastic(1,j,nel)
 c ... dilatacao volumetrica plastica
-c             plasticl(14,j) = eps(ntn+2,j,nel)
+               plasticl(2,j) = plastic(2,j,nel)
 c ... paramentro de endurecimento 
-c             plasticl(15,j) = eps(ntn+3,j,nel)
-c           enddo  
-c         endif  
-c ......................................................................           
+               plasticl(3,j) = plastic(3,j,nel)
+             enddo  
+           endif  
+c ......................................................................   
 c
 c ...... Arranjos de elemento:
-c           ma  = ix(nen+1,nel)
-c           iel = ie(ma)
-c           el(1:prop) = e(1:prop,ma)
+           ma  = ix(nen+1,nel)
+           iel = ie(ma)
+           el(1:prop) = e(1:prop,ma)
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-c           call elmlib_pm(el  ,iq(1,nel),xl ,ul,dpl
-c    1                    ,pl  ,sl       ,txnl,plasticl
-c    2                    ,dt  ,ndm      ,nst ,nel     ,iel,isw
-c    3                    ,ma  ,nlit     ,ilib,block_pu)   
+           call elmlib_pm(el    ,iq(1,nel),xl  ,ul      ,p0l
+     1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
+     2                  ,depsl ,plasticl
+     3                  ,ndm   ,nst      ,nel ,iel,isw
+     4                  ,ma    ,nlit     ,ilib,block_pu)   
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
-c         if(plastic) then
+           if(fplastic) then
 c ...
-c           do j = 1, npi  
+             do j = 1, npi  
 c ... tensoes
-c             tx(1:ntn,j,nel) = plasticl(1:ntn,j) 
+               tx2(1:ntn,j,nel) = tx2l(1:ntn,j) 
 c ... delta deformacoes
-c             eps(1:ntn,j,nel) = plasticl(7:12,j)   
+               deps(1:6,j,nel)  = depsl(1:6,j)   
 c ... delta pressao                        
-c             eps(ntn+1,j,nel) = plasticl(13,j)  
+               deps(7,j,nel)    = depsl(7,j)  
 c ... dilatacao volumetrica plastica
-c             eps(ntn+2,j,nel) = plasticl(14,j) 
+               plastic(2,j,nel) = plasticl(2,j) 
 c ... paramentro de endurecimento 
-c             eps(ntn+3,j,nel) = plasticl(15,j)
-c           enddo
+               plastic(3,j,nel) = plasticl(3,j)
+             enddo
 c ..................................................................... 
-c         endif  
+           endif  
 c ...................................................................... 
 c
 c ...... Monta arrranjos locais em arranjos globais:
-c          call assbly_pm(sl   ,pl         ,ld
-c    .                ,ia      ,ja         ,au
-c    .                ,al      ,ad         ,b    ,nst
-c    .                ,neq     ,nequ       ,neqp
-c    .                ,nad     ,nadu       ,nadp ,nadpu
-c    .                ,lhs     ,rhs        ,unsym,stge
-c    .                ,block_pu,n_blocks_pu)
-c         enddo   
-cc$omp end do
+           call assbly_pm(sl   ,pl         ,ld
+     .                ,ia      ,ja         ,au
+     .                ,al      ,ad         ,b    ,nst
+     .                ,neq     ,nequ       ,neqp
+     .                ,nad     ,nadu       ,nadp ,nadpu
+     .                ,lhs     ,rhs        ,unsym,stge
+     .                ,block_pu,n_blocks_pu)
+          enddo   
+c$omp end do
 c .....................................................................
-c       enddo
-cc$omp end parallel
+        enddo
+c$omp end parallel
 c .....................................................................
 c
 c ... sequencial
@@ -371,7 +377,7 @@ c **********************************************************************
      7                   ,isw   ,ilib ,i_xfi,novlp,plastic)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 16/01/2017                                    * 
+c * Data de modificaco : 24/01/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
 c * ------------------------------------------------------------------ * 
@@ -427,7 +433,6 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c * Calcula as tensoes apenas nos vertices                             *     
 c **********************************************************************
-      use Malloc
       implicit none
       include 'mpif.h'
       include 'termprop.fi'
@@ -755,7 +760,7 @@ c **********************************************************************
      6                         ,isw   ,ilib ,i_xfi    ,novlp)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 24/11/2016                                    * 
+c * Data de modificaco : 24/01/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * DELTA_PORISITY: calculo da porosidade                              *
 c * ------------------------------------------------------------------ * 
@@ -800,7 +805,6 @@ c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c * Calcula as tensoes apenas nos vertices                             *     
 c **********************************************************************
-      use Malloc
       implicit none
       include 'mpif.h'
       include 'termprop.fi'
@@ -893,6 +897,141 @@ c .......................................................................
       do 1000 i = 1, nnode
         if(fnno(i) .eq. 1 ) then
           dporosity(i) = dporosity(i)/ic(i)
+        endif
+ 1000 continue
+c ......................................................................
+c
+c ......................................................................
+      return
+      end      
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine consolidation_pressure(ix  ,ie        ,ic   
+     1                         ,plasticl,pl   
+     2                         ,pc      ,plastic ,fnno
+     3                         ,nnode   ,numel,nen     ,nenv
+     4                         ,ndm     ,ndf  ,nst     ,npi
+     5                         ,isw     ,ilib ,i_xfi   ,novlp)
+c **********************************************************************
+c * Data de criacao    : 24/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * CONSILADATION_PRESURE:  da porosidade                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel)  - conetividades nodais                            *
+c * x(ndm,nnode)     - coordenadas nodais                              *
+c * e(10,numat)      - constantes fisicas dos materiais                *
+c * ie(numat)        - tipo de elemento                                *
+c * ic(nnode)        - nao definido                                    *
+c * xl(ndm,nen)      - nao definido                                    *
+c * ul(ndf,nen)      - nao definido                                    *
+c * pl(ntn*nen)      - nao definido                                    *
+c * dpl(nst)         - nao definido                                    *
+c * u(ndf,nnode)     - solucao corrente                                *
+c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
+c * dpososity(nnodev)- nao definido                                    *
+c * fnno             -  identifica dos nos de vertices                 *
+c *                     ( 1 - vertice | 0 )                            *
+c * nnodev           - numero de nos de vertices                       *
+c * numel            - numero de elementos                             *
+c * nen              - numero max. de nos por elemento                 *
+c * nenv             - numero de nos de vertice por elemento           *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * nst              - nst = nen*ndf                                   *
+c * ndm              - dimensao                                        *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * ntn              - numero max. de derivadas por no                 *
+c * nprcs            - numero de processos                             *
+c * isw              - codigo de instrucao para as rotinas             *
+c *                    de elemento                                     *
+c * ilib             - determina a biblioteca do elemento              *
+c * i_xf             - buffer de comunicao para o numero de elementos  *
+c *                    conectidos aos nos                              *
+c * novlp            - chave indicativa de non-overlapping             * 
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * dpososity(nnodev)- delta phi ( phi(n  ,0  ) - phi(0) )             *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Calcula as tensoes apenas nos vertices                             *     
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'termprop.fi'
+c ... mpi
+      integer*8 i_xfi
+      logical novlp
+c ...
+      integer nnode,numel,nen,nenv,ndf,nst,ndm,ntn,npi
+c ......................................................................      
+      integer ix(nen+1,*),ic(*),fnno(*),ie(*)
+      integer nel,ma,iel,i,j,k,k1,no,kk
+      integer ilib,isw
+      real*8  pl(nenv),plasticl(3,npi)
+      real*8  plastic(3,npi,*),pc(*)
+c ...
+      logical ldum
+      integer idum
+      real*8 ddum
+c ......................................................................
+c
+c ...
+      do 30 i = 1, nnode
+        ic(i)        = 0
+        pc(i)        = 0.d0
+   30 continue
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 900 nel = 1, numel
+        kk = 0
+c ... 
+        do 300 i = 1, nenv
+          pl(i) = 0.d0
+  300   continue
+c ......................................................................
+c
+c ... plasticidade
+        do j = 1, npi  
+c ... paramentro de endurecimento 
+          plasticl(3,j) = plastic(3,j,nel)
+        enddo  
+c ......................................................................     
+c
+c ...... Arranjos de elemento:
+        ma         = ix(nen+1,nel)
+        iel        = ie(ma)
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+        call elmlib_pm(ddum,idum    ,ddum,ddum,ddum
+     1                ,ddum,pl      ,ddum,ddum,ddum
+     2                ,ddum,plasticl
+     3                ,ndm ,nst     ,nel  ,iel,isw
+     4                ,ma  ,idum    ,ilib,ldum)
+c ......................................................................
+c
+c ...... media do vetor global
+        do 800 i = 1, nenv
+           no = ix(i,nel)
+           if (no .le. 0) go to 800
+           ic(no)        = ic(no) + 1
+           pc(no) = pc(no) + pl(i)
+  800   continue
+  900 continue
+c .......................................................................
+c
+c ... Comunica vetor de contagem de elementos por no'
+      if (novlp) call allgatheri(ic,i_xfi)
+c .......................................................................
+      do 1000 i = 1, nnode
+        if(fnno(i) .eq. 1 ) then
+          pc(i) = pc(i)/ic(i)
         endif
  1000 continue
 c ......................................................................
@@ -1010,6 +1149,8 @@ c ...
         if(my_id .eq. 0 ) then
           print*,'Delta critico:',g_dtc_min
           print*,'Delta t      :',dt
+          dt =  dtc_min
+          print*,'New Delta t  :',dt
         endif
       endif 
 c ......................................................................

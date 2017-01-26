@@ -1742,7 +1742,7 @@ c ...
       real*8 vplastic(3,*),tx0(6,*),tx(6,*),depsi(7,*)
       real*8 pi,dpi,ddpi
 c ...
-      real*8 etx(6,4)
+      real*8 etx(6,4),pce(4),pci(4)
 c ... integracao numerica de tetraedros     
       real*8 pri4(5,3),psi4(5,3),pti4(5,3),wf4(5,3)
       real*8  pri(12,5),psi(12,5),wf(12,5)
@@ -1783,14 +1783,14 @@ c
      .        , 0.0d0, 0.5d0, 0.0d0 ! s7, s8, s9              
      .        , 0.5d0/              ! s10              
 c
-      data tn / 0.0d0, 0.0d0, 0.0d0 ! t1, t2, t3
-     .        , 1.0d0, 0.0d0, 0.0d0 ! t4, t5, t6              
-     .        , 0.5d0, 0.0d0, 0.0d0 ! t7, t8, t9              
-     .        , 0.5d0/              ! t10              
+      data tn / 0.0d0, 0.0d0, 1.0d0 ! t1, t2, t3
+     .        , 0.0d0, 0.5d0, 0.0d0 ! t4, t5, t6              
+     .        , 0.5d0, 0.5d0, 0.0d0 ! t7, t8, t9              
+     .        , 0.0d0/              ! t10              
 c
       data nen/10/,igrau_vol/2/,igrau_face/2/    
 c ......................................................................
-      goto (100,200,300,400,500,600,700) isw
+      goto (100,200,300,400,500,600,700,800) isw
 c ======================================================================
 c
 c.... calculo do delta t critico               
@@ -2220,8 +2220,9 @@ c ...
       c         = 0.5d0*(a2/a1)
 c .....................................................................
 c
-c ... media da tensao no elemento
-      call extrapol_stress_tetra10(tx,etx,rn,sn,tn)
+c ... extrapolacao da tensao do ponto de integracao 
+c     para o nos dos vertice
+      call extrapol_tetra10(tx,etx,rn,sn,tn,6)
 c .....................................................................
 c
 c ... tensao nodal total
@@ -2516,7 +2517,7 @@ c ...
         tx(1:6,lx) = txi(1:6)       
 c .....................................................................
   510 continue 
-c .....................................................................
+c ....................................................................
       return
 c ======================================================================
 c
@@ -2525,7 +2526,7 @@ c
 c ......................................................................
   600 continue
       stop
-c ....................................................................
+c ======================================================================
 c
 c ... Variacao da porosidade             
 c
@@ -2565,6 +2566,20 @@ c ... porosidade
 c       p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpi
 c .....................................................................
 c 710 continue
+c .....................................................................
+      return
+c ======================================================================
+c
+c ... extrapola das pressoes de consolidacao para os nos
+c
+c ......................................................................
+  800 continue
+      igrau       = igrau_vol 
+      nint        = npint4(igrau) 
+      pci(1:nint) = vplastic(3,1:nint)
+c ... pressao de consolidacao nodal total
+      call extrapol_tetra10(pci,pce,rn,sn,tn,1)
+      p(1:4)      = pce(1:4)    
 c .....................................................................
       return
       end
@@ -2646,9 +2661,12 @@ c **********************************************************************
       include 'gravity.fi'
       include 'load.fi'
       common /gauss/ pg, wg
+      integer nint
+      parameter (nint = 4)
+c ...
       integer ndm,nst,nel,isw
       integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,inpi
-      integer nen,nint,lx,ly,lz
+      integer nen,nints,lx,ly,lz
       integer iq(*)
 c ...
       real*8 face_u(8),face_f(3),n_flux
@@ -2667,7 +2685,7 @@ c ...
       real*8 vplastic(3,*),tx0(6,*),tx(6,*),depsi(7,*)
       real*8 pi,dpi,ddpi
 c ...
-      real*8 etx(6,8)
+      real*8 etx(6,8),pce(8),pci(64)
 c ... integracao numerica de tetraedros          
       real*8 pg(10,10),wg(10,10)
 c ...
@@ -2716,9 +2734,9 @@ c
      .         -1.d0,-1.d0,-1.d0,-1.d0, !t13,t14,t15,t16      
      .          0.d0, 0.d0, 0.d0, 0.d0/ !t17,t18,t19,t20       
 c
-      data nen/20/
+      data nen/20/   
 c ......................................................................
-      goto (100,200,300,400,500,600,700) isw
+      goto (100,200,300,400,500,600,700,800) isw
 c ======================================================================
 c
 c.... calculo do delta t critico               
@@ -2809,7 +2827,6 @@ c ... Matriz de rigidez:
 c .....................................................................
 c
 c ... 
-      nint = 4 
       do 205 lz = 1, nint
         ti = pg(lz,nint)
         do 210 ly = 1, nint
@@ -2968,7 +2985,6 @@ c .....................................................................
 c .....................................................................
 c
 c ... Forcas internas:
-      nint = 4
       if(nlit .eq. 1 ) then
         call lku_m(s,u,p,nst)
 c        
@@ -3168,7 +3184,7 @@ c ...
 c .....................................................................
 c
 c ...    
-      call extrapol_stress_hexa20_v2(tx,etx,rn,sn,tn)
+      call extrapol_hexa20_v2(tx,etx,rn,sn,tn,6)
 c .....................................................................
 c
 c ... tensao nodal total
@@ -3257,7 +3273,6 @@ c .....................................................................
 c
 c ...  
       inpi = 0                          
-      nint = 4 
       do 405 lz = 1, nint
         ti = pg(lz,nint)
         do 410 ly = 1, nint
@@ -3386,7 +3401,7 @@ c ...
 c ... forcas
             if( carg .eq. 40 ) then
               call tload(iq(j),t,face_u,n_flux,face_f)
-              nint = 3
+              nints = 3
               do 450 ly = 1, nint
                 si = pg(ly,nint)
                 do 455 lx = 1, nint
@@ -3407,9 +3422,9 @@ c .....................................................................
 c
 c ...
                   do 460 i = 1, 8
-                    no  = hexa_face_node20(i,j)
+                    no    = hexa_face_node20(i,j)
 c                   l1  = (no-1)*3+1
-                    wt1 = hu(i)*w
+                    wt1   = hu(i)*w
                     l1    = 3*no-2
                     l2    = l1 + 1
                     l3    = l2 + 1
@@ -3447,7 +3462,6 @@ c
 c ......................................................................
   500 continue
 c ...
-      nint  = 4 
       inpi  = 0
       do 510 lz = 1, nint
         ti = pg(lz,nint)
@@ -3531,6 +3545,21 @@ c ... porosidade
 c       p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpm
 c ..................................................................... 
 c 710 continue
+c .....................................................................
+      return
+c ======================================================================
+c
+c ======================================================================
+c
+c ... extrapola das pressoes de consolidacao para os nos
+c
+c ......................................................................
+  800 continue
+      inpi        = nint*nint*nint
+      pci(1:inpi) = vplastic(3,1:inpi)
+c ... pressao de consolidacao nodal total
+      call extrapol_hexa20_v2(pci,pce,rn,sn,tn,1)
+      p(1:8) = pce(1:8) 
 c .....................................................................
       return
 c ======================================================================

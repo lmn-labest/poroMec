@@ -7,10 +7,10 @@
      6                  ,i_tx1p  ,i_tx2p    ,i_epsp    ,i_plastic
      7                  ,i_fnno
      8                  ,fstress0,fporomec  ,fmec      ,print_quad
-     9                  ,plastic   ,nin     )
+     9                  ,plastic ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 11/01/2017                                    *
+c * Data de modificaco : 23/01/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -2455,14 +2455,14 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 27/09/2016                                    *
-c * Data de modificaco : 31/10/2016                                    *
+c * Data de modificaco : 23/01/2017                                    *
 c * ------------------------------------------------------------------ *
 c * SET_PRINT_VTK : leitualeitura das configuracoes basicas de excucao *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada :                                            *
 c * -----------------------------------------------------------------  *
 c * fprint    - nao definido                                           *
-c * my_id   - id do processo do mpi                                    *
+c * my_id     -id do processo do mpi                                   *
 c * nin       - arquivo de entrada                                     *
 c * -----------------------------------------------------------------  *
 c * Parametros de saida :                                              *
@@ -2477,23 +2477,24 @@ c *          stress Biot     (6)                                       *
 c *          stress Terzaghi (7)                                       *
 c *          fluxo de darcy  (8)                                       *
 c *          delta prosidade (9)                                       *
-c *          stress          (10)                                      *
+c *          pconsolidation  (10)                                      *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c **********************************************************************
-      subroutine set_print_vtk(fprint,my_id,nin)
+      subroutine set_print_vtk_pm(fprint,my_id,nin)
       implicit none
       include 'string.fi'
       character*15 string,macro(12)
       logical fprint(*),fexit
       integer j,nmacro,my_id
       integer nin
+      logical fplastic
       data nmacro /10/
       data macro/'quadratic      ','desloc        ','pressure       '
      1          ,'dpressure      ','totalstress   ','biotstress     '
      2          ,'terzaghistress ','darcyflux     ','dporosity      '
-     3          ,'stress         ','              ','               '/
+     3          ,'pconsolidation ','              ','               '/
 c ......................................................................
 c
 c ...
@@ -2552,7 +2553,7 @@ c ... delta porosidade
           fprint(9) = .true.
 c .....................................................................
 c
-c ... stress 
+c ... pconsolidation 
         elseif (string .eq. macro(10)) then
           fprint(10) = .true.
         endif
@@ -2795,7 +2796,7 @@ c **********************************************************************
       integer ie(*),ix(nen+1,*),numel,npi,ma,nen,i,j
       real*8 e(prop,*),plastic(3,npi,*)
       do i = 1, numel 
-        ma             = ix(nen+1,i)
+        ma             = ix(nen+1,i)        
         do j = 1, npi 
           plastic(3,j,i) = e(12,ma)
         enddo
@@ -2841,11 +2842,11 @@ c ... tensao inicial
 c ......................................................................
         enddo
       enddo
-      open(15, file= 'stress.txt',action= 'write')
-      do i = 1, 44
-        write(15,'(i9,6es14.6)')i,(tx0(j,i),j=1,6)
-      enddo  
-      stop
+c     open(15, file= 'stress.txt',action= 'write')
+c     do i = 1, 44
+c       write(15,'(i9,6es14.6)')i,(tx0(j,i),j=1,6)
+c     enddo  
+c     stop
       return
       end
 c ......................................................................

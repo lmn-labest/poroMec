@@ -765,7 +765,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 25/10/2016                                   * 
+c * Data de modificaco : 24/01/2017                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
 c * poromecanico no formato vtk                                       *
@@ -777,6 +777,7 @@ c *  x(ndm,*)   - coordenadas                                         *
 c *  u(ndf,*)   - deslocamento e pressoes                             *
 c * dp(*)       - delta p total ( p(n) - p(0) )                       *
 c * tx(6,*)     - tensao total nodal                                  *
+c * pc(*)       - pressao de consolidacao (plastico)                  *
 c * txb(6,*)    - tensao biot nodal                                   *  
 c * txe(6,*)    - tensao evetiva de Terzaghi nodal                    *
 c * flux(ndm,*) - fluxo de darcy nodal                                *              
@@ -809,19 +810,20 @@ c * ----------------------------------------------------------------- *
 c * 1 - deslocamento do no i- u(1,i), u(2,i) e u(3,i)                 *
 c * 2-  pressao do no i     - u(4,i)                                  *       
 c ********************************************************************* 
-       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp  
-     1                           ,dporosity,tx    ,txb   ,txe 
-     2                           ,flux     ,nnode ,numel ,istep 
-     3                           ,t        ,nen    ,ndm  ,ndf
-     4                           ,ntn      ,fileout,prename
-     5                           ,bvtk     ,legacy ,fprint,nout)
+       subroutine write_mesh_res_pm(el     ,x     ,u     ,dp
+     1                           ,pc
+     2                           ,dporosity,tx    ,txb   ,txe 
+     3                           ,flux     ,nnode ,numel ,istep 
+     4                           ,t        ,nen    ,ndm  ,ndf
+     5                           ,ntn      ,fileout,prename
+     6                           ,bvtk     ,legacy ,fprint,nout)
 c ===
       use Malloc 
       implicit none
 c ... variaveis da malha      
       integer nnode,numel,nen,ndm,ndf,ntn,ntn1
       integer el(nen+1,numel)
-      real*8  x(ndm,*),u(ndf,*),dp(*),dporosity(*) 
+      real*8  x(ndm,*),u(ndf,*),dp(*),dporosity(*),pc(*)
       real*8 tx(ntn,*),txb(ntn,*),txe(ntn,*),flux(ndm,*)
       integer nel,nno
 c ... tempo
@@ -1044,6 +1046,33 @@ c     cod2 3 real(8bytes)
       if(fprint(9)) then
 c ...
         call mk_field_quad(dporosity,ia(i_p)
+     .                    ,el
+     .                    ,nnode    ,numel   ,nen             
+     .                    ,1        ,fprint(1))   
+c .....................................................................
+c
+c ...
+        if(legacy) then
+          call point_prop_vtk(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        else
+          call point_prop_vtu(idum,fdum,ia(i_p),nnode,aux1,ndm,gdl,cod
+     .                      ,cod2,bvtk,nout)
+        endif
+      endif
+c .....................................................................
+c
+c ... pressao    
+      write(aux1,'(15a)')'pconsolidation'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 3 real(8bytes) 
+      gdl =  1              
+      cod =  1
+      cod2 = 3
+      if(fprint(10)) then
+c ...
+        call mk_field_quad(pc       ,ia(i_p)
      .                    ,el
      .                    ,nnode    ,numel   ,nen             
      .                    ,1        ,fprint(1))   

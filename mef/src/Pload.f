@@ -320,7 +320,11 @@ c
 c ... forca distribuida constante no contorno com possibilidade de
 c     incremento de carga dentro da iteracao nao linear
       elseif (itype .eq. 40) then
-        vc(1:nparc)  = fload(1:nparc,1,nc)            
+        if( t .le. 3600.0) then
+          vc(1:nparc)  = fload(1:nparc,1,nc)*(t/3600.0)      
+        else
+          vc(1:nparc)  = fload(1:nparc,1,nc)
+        endif            
 c .....................................................................
       endif
       return

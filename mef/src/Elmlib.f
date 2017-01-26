@@ -842,7 +842,7 @@ c * no4 (   0,   0,   0,  1)                                           *
 c * no5 ( 1/2, 1/2,   0,  0)                                           * 
 c * no6 ( 1/2,   0, 1/2,  0)                                           * 
 c * no7 ( 1/2,   0,   0,1/2)                                           * 
-c * no8 (   0, 1/2,   0,  0)                                           * 
+c * no8 (   0, 1/2, 1/2,  0)                                           * 
 c * no9 (   0,   0, 1/2,1/2)                                           * 
 c * no10(   0, 1/2,   0,1/2)                                           * 
 c **********************************************************************
@@ -3298,29 +3298,117 @@ c ......................................................................
       end
 c **********************************************************************
 c
+c
 c **********************************************************************
-c * Data de criacao    : 22/01/2017                                    *
+c * Data de criacao    : 24/01/2017                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ * 
-c * EXTRAPOL_STRESS_tetra10: calcula a tensao nodal por extrapolacao   *
-c * das tensoes dos pontos de integracao do tetraedros de 10 nos       *
-c * atraves de uma superficie linear                                   * 
-c * ------------------------------------------------------------------ * 
-c * txp - tensao nos pontos de integracao                              *
+c * EXTRAPOL_HEXA20 : calcula os valores nos vertices por extrapolacao *
+c * do valores dos pontos de integracao do hexaedros de 20 nos         *
+c * atraves de uma superficie trilinear                                *
+c * -------------------------------------------------------------------* 
+c * up  - variavel no ponto de integracao                              *
 c * etx - nao definido                                                 *
 c * rn  - coordenadas r dos nos do hexaedros                           *
 c * sn  - coordenadas s dos nos do hexaedros                           *
 c * tn  - coordenadas t dos nos do hexaedros                           *
-c * sc  -                                                              *
+c * ndf - graus de liberdade                                           *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
-c * etx - tensao nodal extrapolada                                     *
+c * up  - variavel extrapolada para o vertice                          *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c * pontos de integracao utilizados na interpolacao: (r,s,t)           *
 c * 4x4x4 pontos de integracao                                         *
+c *                                                                    *
+c * 1 : (-0.86,-0.86,-0.86)                                            *
+c * 4 : (+0.86,-0.86,-0.86)                                            *
+c * 13: (-0.86,+0.86,-0.86)                                            *
+c * 16: (+0.86,+0.86,-0.86)                                            *
+c * 49: (-0.86,-0.86,+0.86)                                            *
+c * 52: (+0.86,-0.86,+0.86)                                            *
+c * 61: (-0.86,+0.86,+0.86)                                            *
+c * 64: (+0.86,+0.86,+0.86)                                            *
+c *                                                                    *
+c * polinomio trilinear                                                *
+c * p(r,s,t) = a1 + a2*r + a3*s + a4*t + a5*r*s + a6*s*t + a7*r*t      *
+c *            a8*r*s*t                                                *   
+c **********************************************************************
+      subroutine extrapol_hexa20_v2(up,ue,rn,sn,tn,ndf)
+      implicit none
+      integer i,j,ip(8),ndf
+      real*8  up(ndf,*),ue(ndf,*),f(8)
+      real*8 c1,c2,c3,c4,a(8)
+      real*8 rn(*),sn(*),tn(*),rnj,snj,tnj
+      data ip /1,4,13,16,49,52,61,64/
+c ......................................................................
+c
+c ...
+      c1 = 0.125000000000000d0
+      c2 = 0.145157042290566d0
+      c3 = 0.168564535400043d0
+      c4 = 0.195746635145486d0  
+c .......................................................................
+c
+c ...
+      do i = 1, ndf
+        f(1:8) =up(i,ip(1:8))
+c
+        a(1) = c1*( f(1)+f(2)+f(3)+f(4)+f(5)+f(6)+f(7)+f(8) )
+c 
+        a(2) = c2*( f(2)+f(4)+f(6)+f(8) -( f(1)+f(3)+f(5)+f(7) ) ) 
+c 
+        a(3) = c2*( f(3)+f(4)+f(7)+f(8) -( f(1)+f(2)+f(5)+f(6) ) ) 
+c
+        a(4) = c2*( f(5)+f(6)+f(7)+f(8) -( f(1)+f(2)+f(3)+f(4) ) ) 
+c
+        a(5) = c3*( f(1)+f(4)+f(5)+f(8) -( f(2)+f(3)+f(6)+f(7) ) ) 
+c
+        a(6) = c3*( f(1)+f(2)+f(7)+f(8) -( f(3)+f(4)+f(5)+f(6) ) ) 
+c
+        a(7) = c3*( f(1)+f(3)+f(6)+f(8) -( f(2)+f(4)+f(5)+f(7) ) ) 
+c
+        a(8) = c4*( f(2)+f(3)+f(5)+f(8) -( f(1)+f(4)+f(6)+f(7) ) ) 
+c ...
+        do j = 1, 8
+          rnj = rn(j)
+          snj = sn(j)
+          tnj = tn(j)
+          ue(i,j) = a(1) + a(2)*rnj + a(3)*snj + a(4)*tnj
+     .    + a(5)*rnj*snj + a(6)*snj*tnj + a(7)*rnj*tnj
+     .    + a(8)*rnj*snj*tnj
+        enddo
+c ......................................................................
+      enddo
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 22/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * EXTRAPOL_TETR10 : calcula os valores nos vertices por extrapolacao *
+c * do valores dos pontos de integracao do tetraedro de 10 nos         *
+c * atraves de uma superficie trilinear                                *
+c * -------------------------------------------------------------------* 
+c * up  - variavel no ponto de integracao                              *
+c * etx - nao definido                                                 *
+c * rn  - coordenadas r dos nos do hexaedros                           *
+c * sn  - coordenadas s dos nos do hexaedros                           *
+c * tn  - coordenadas t dos nos do hexaedros                           *
+c * ndf - graus de liberdade                                           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * up  - variavel extrapolada para o vertice                          *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * pontos de integracao utilizados na interpolacao: (r,s,t)           *
+c * 4 pontos                                                           *
 c *                                                                    *
 c * 1 : (0.58,0.13,0.13)                                               *
 c * 2 : (0.13,0.58,0.13)                                               *
@@ -3330,10 +3418,10 @@ c *                                                                    *
 c * polinomio linear                                                   *
 c * p(r,s,t) = a1 + a2*r + a3*s + a4*t                                 *   
 c **********************************************************************
-      subroutine extrapol_stress_tetra10(txp,etx,rn,sn,tn)
+      subroutine extrapol_tetra10(up,ue,rn,sn,tn,ndf)
       implicit none
-      integer i,j
-      real*8  txp(6,*),etx(6,*),f(4)
+      integer i,j,ndf
+      real*8  up(ndf,*),ue(ndf,*),f(4)
       real*8 c1,c2,c3,a(4)
       real*8 rn(*),sn(*),tn(*),rnj,snj,tnj
 c ......................................................................
@@ -3345,8 +3433,8 @@ c ...
 c .......................................................................
 c
 c ...
-      do i = 1, 6
-        f(1:4) =txp(i,1:4)
+      do i = 1, ndf
+        f(1:4) =up(i,1:4)
 c
         a(1) = c2*f(4) - c1*( f(1) + f(2) + f(3) )
 c 
@@ -3356,11 +3444,12 @@ c
 c
         a(4) = c3*( f(3) - f(4) ) 
 c ...
-        do j = 1, 4
-          rnj = rn(j)
-          snj = sn(j)
-          tnj = tn(j)
-          etx(i,j) = a(1) + a(2)*rnj + a(3)*snj + a(4)*tnj
+        do j = 1, 4          
+          rnj     = rn(j)
+          snj     = sn(j)
+          tnj     = tn(j)
+c 
+          ue(i,j) = a(1) + a(2)*rnj + a(3)*snj + a(4)*tnj
         enddo
 c ......................................................................
       enddo
