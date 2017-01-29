@@ -30,7 +30,7 @@ c **********************************************************************
      .                  ,m      ,b       ,x          ,tol    ,maxit
      .                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
      .                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond
-     .                  ,fmec   ,fporomec,fhist_solv 
+     .                  ,fmec   ,fporomec,fhist_solv ,fprint
      .                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
      .                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
@@ -54,9 +54,8 @@ c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
 c ......................................................................
-      logical block_pu,fmec,fporomec,fhist_solv
+      logical block_pu,fmec,fporomec,fhist_solv,fprint
 c ... precondicionador
-      logical diag
       integer precond
       real*8  max_block_a(max_block*max_block)
 c ...................................................................... 
@@ -219,7 +218,8 @@ c ... omp
      1                     ,ip     ,ja     ,ad     ,al 
      2                     ,m      ,b      ,x      ,ia(i_g)
      3                     ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r)  
-     4                     ,tol    ,maxit  ,precond,fhist_solv,ngram
+     4                     ,tol    ,maxit  ,precond,fhist_solv,fprint
+     5                     ,ngram  
      5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                     ,i_xfi  ,i_rcvsi,i_dspli,ia(i_threads_y)
      7                     ,nprcs  ,ovlp   ,mpi) 
@@ -231,10 +231,11 @@ c ... (sequencial+mpi)
      1                     ,ip     ,ja     ,ad     ,al 
      2                     ,m      ,b      ,x      ,ia(i_g)
      3                     ,ia(i_h),ia(i_y),ia(i_c),ia(i_s),ia(i_r)  
-     4                     ,tol    ,maxit  ,precond,fhist_solv,ngram
-     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     6                     ,i_xfi  ,i_rcvsi,i_dspli
-     7                     ,nprcs  ,ovlp   ,mpi) 
+     4                     ,tol    ,maxit  ,precond,fhist_solv,fprint
+     5                     ,ngram
+     6                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7                     ,i_xfi  ,i_rcvsi,i_dspli
+     8                     ,nprcs  ,ovlp   ,mpi) 
            endif 
 c .....................................................................
          endif
@@ -363,17 +364,17 @@ c ...
 c .....................................................................
 c
 c ...
-         diag = .true.
+c        diag = .true.
 c ...    precondicionador diagonal:
-         if(diag) then 
+c        if(diag) then 
            precondtime = Mpi_Wtime() - precondtime    
            call pre_diag(m        ,ad        ,nequ,.false.)
            call pre_diag(m(nequ+1),ad(nequ+1),neqp,.false.)
            precondtime = Mpi_Wtime() - precondtime   
 c ...    
-         else                           
-           m(1:neq) = 1.d0  
-         endif           
+c        else                           
+c          m(1:neq) = 1.d0  
+c        endif           
 c ......................................................................
 c
 c ... BLOCK_IT_PCG :
@@ -726,9 +727,10 @@ c ...
      1                    ,ad     ,al    ,m     ,b       ,x    
      2                    ,ia(i_z),ia(i_h),ia(i_r) ,ia(i_s)     
      3                    ,tol    ,maxit ,precond,iparam ,fhist_solv
-     4                    ,my_id  ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     5                    ,i_xfi  ,i_rcvsi,i_dspli,ia(i_threads_y)
-     6                    ,nprcs  ,ovlp   ,mpi) 
+     4                    ,fprint
+     5                    ,my_id  ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     6                    ,i_xfi  ,i_rcvsi,i_dspli,ia(i_threads_y)
+     7                    ,nprcs  ,ovlp   ,mpi) 
 c .....................................................................
 c
 c ...
@@ -737,9 +739,10 @@ c ...
      1                ,ad       ,al    ,m       ,b       ,x    
      2                ,ia(i_z),ia(i_h),ia(i_r)  ,ia(i_s) 
      3                ,tol      ,maxit ,precond ,iparam  ,fhist_solv
-     4                ,my_id    ,neqf1i,neqf2i  ,neq_doti,i_fmapi
-     5                ,i_xfi    ,i_rcvsi,i_dspli
-     6                ,nprcs    ,ovlp   ,mpi) 
+     4                ,fprint
+     5                ,my_id    ,neqf1i,neqf2i  ,neq_doti,i_fmapi
+     6                ,i_xfi    ,i_rcvsi,i_dspli
+     7                ,nprcs    ,ovlp   ,mpi) 
        endif
 c .....................................................................
 c
@@ -1340,7 +1343,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 29/01/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SQMR:chama a versao do metodo QMR simetrico                   *    
 c * ------------------------------------------------------------------ * 
@@ -1376,6 +1379,7 @@ c *          - iparam(2) - numero de inversos da diagonal simples      *
 c *          - iparam(3) - numero de termos nos bloco                  *
 c *          - iparam(4) - tamanho do bloco                            *
 c * fhist_log- log do residuo por iteracao                             *
+c * fprint   -                                                         *
 c * my_id    - MPI                                                     *
 c * neqf1i   - MPI                                                     *
 c * neqf2i   - MPI                                                     *
@@ -1401,9 +1405,10 @@ c **********************************************************************
      1                    ,ad       ,al    ,m        ,b       ,x    
      2                    ,c        ,h     ,r        ,s    
      3                    ,tol      ,maxit ,pc       ,iparam ,fhist_log
-     4                    ,my_id    ,neqf1i,neqf2i   ,neq_doti,i_fmapi
-     5                    ,i_xfi    ,i_rcvsi,i_dspli
-     6                    ,nprcs    ,ovlp   ,mpi    )
+     4                    ,fprint
+     5                    ,my_id    ,neqf1i,neqf2i   ,neq_doti,i_fmapi
+     6                    ,i_xfi    ,i_rcvsi,i_dspli
+     7                    ,nprcs    ,ovlp   ,mpi    )
       implicit none
 c ... mpi
       integer my_id
@@ -1421,7 +1426,7 @@ c ... arranjos auxiliares
 c ...
       real*8  tol
       integer maxit  
-      logical fhist_log
+      logical fhist_log,fprint
 c ... precondicionador
       integer pc,iparam(*)
       real*8 m(*)
@@ -1453,7 +1458,7 @@ c ... overllaping
      4                ,matvec_csrcr_sym_pm,dot_par
      5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                ,i_xfi ,i_rcvsi,i_dspli
-     7                ,.true.,.true. ,fhist_log,.true.
+     7                ,fprint,.true. ,fhist_log,.true.
      8                ,nprcs ,mpi)
 c .....................................................................
 c
@@ -1466,7 +1471,7 @@ c ...non-overllaping
      4                ,matvec_csrc_sym_pm,dot_par
      5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                ,i_xfi ,i_rcvsi,i_dspli
-     7                ,.true.,.true. ,fhist_log,.true.
+     7                ,fprint,.true. ,fhist_log,.true.
      8                ,nprcs ,mpi)
           endif
 c .....................................................................
@@ -1478,7 +1483,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 29/01/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SQMR_OMP:chama a versao do metodo QMR simetrico               *    
 c * ------------------------------------------------------------------ * 
@@ -1514,6 +1519,7 @@ c *          - iparam(2) - numero de inversos da diagonal simples      *
 c *          - iparam(3) - numero de termos nos bloco                  *
 c *          - iparam(4) - tamanho do bloco                            *
 c * fhist_log- log do residuo por iteracao                             *
+c * fprint   -                                                         *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -1540,9 +1546,10 @@ c **********************************************************************
      1                    ,ad       ,al    ,m     ,b       ,x    
      2                    ,c        ,h     ,r     ,s    
      3                    ,tol      ,maxit ,pc    ,iparam ,fhist_log
-     4                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
-     5                    ,i_xfi    ,i_rcvsi,i_dspli,thread_y
-     6                    ,nprcs    ,ovlp   ,mpi    )
+     4                    ,fprint
+     5                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
+     6                    ,i_xfi    ,i_rcvsi,i_dspli,thread_y
+     7                    ,nprcs    ,ovlp   ,mpi    )
       implicit none
 c ... mpi
       integer my_id
@@ -1562,7 +1569,7 @@ c ... buffer do CSR omp
 c ...
       real*8  tol
       integer maxit  
-      logical fhist_log
+      logical fhist_log,fprint
 c ... precondicionador
       integer pc,iparam(*)
       real*8 m(*)
@@ -1587,7 +1594,7 @@ c ... overllaping
      4             ,matvec_csrcr_sym_pm_omp,dot_par_omp
      5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6             ,i_xfi ,i_rcvsi,i_dspli,thread_y
-     7             ,.true.,.true. ,fhist_log,.true.
+     7             ,fprint,.true. ,fhist_log,.true.
      8             ,nprcs ,mpi)
 c .....................................................................
 c
@@ -1600,7 +1607,7 @@ c ...non-overllaping
      4             ,matvec_csrc_sym_pm_omp,dot_par_omp
      5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6             ,i_xfi ,i_rcvsi,i_dspli,thread_y
-     7             ,.true.,.true. ,fhist_log,.true.
+     7             ,fprint,.true. ,fhist_log,.true.
      8             ,nprcs ,mpi)
         endif
 c .....................................................................
@@ -2165,7 +2172,7 @@ c *********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/11/2016                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 29/01/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_GMRES :chama a versao do GMRES desejada                       *    
 c * ------------------------------------------------------------------ * 
@@ -2195,6 +2202,9 @@ c *            2 - diag                                                *
 c *            3 - iLDLt                                               *
 c *            4 -                                                     *
 c *            5 - modulo da diagonal                                  *
+c * fhist_log- log do residuo por iteracao                             *
+c * fprint   - saida na tela                                           *
+c * nkrylov  - numero de bases krylov                                  *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -2203,11 +2213,9 @@ c * i_fmap   -                                                         *
 c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
-c * fprint   - saida na tela                                           *
-c * flog     - log do arquivo de saida                                 *
-c * mpi      - true|false                                              *
 c * ovlp     - overllaping                                             *
 c * nprcs    - numero de processos mpi                                 *
+c * mpi      - true|false                                              *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -2222,10 +2230,11 @@ c **********************************************************************
      1                     ,ia     ,ja     ,ad     ,al 
      2                     ,m      ,b      ,x      ,g
      3                     ,h      ,y      ,c      ,s        ,r     
-     4                     ,tol    ,maxit  ,precond,fhist_log,nkrylov
-     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     6                     ,i_xfi  ,i_rcvsi,i_dspli
-     7                     ,nprcs  ,ovlp   ,mpi) 
+     4                     ,tol    ,maxit  ,precond,fhist_log,fprint
+     5                     ,nkrylov
+     6                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7                     ,i_xfi  ,i_rcvsi,i_dspli
+     8                     ,nprcs  ,ovlp   ,mpi) 
       implicit none
       include 'time.fi'
 c ... mpi
@@ -2244,7 +2253,7 @@ c ... arranjos auxiliares
 c ...
       real*8  tol
       integer maxit  
-      logical fhist_log
+      logical fhist_log,fprint
 c ... precondicionador
       integer precond
       real*8  m(*)
@@ -2273,7 +2282,7 @@ c ... matvec comum:
      5                ,neqovlp
      6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
      7                ,i_xfi  ,i_rcvsi,i_dspli 
-     8                ,.true. ,.true. ,fhist_log,.true.
+     8                ,fprint ,.true. ,fhist_log,.true.
      8                ,nprcs  , mpi) 
 c .....................................................................
 c
@@ -2288,7 +2297,7 @@ c ... matvec comum:
      5                ,neqovlp
      6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
      7                ,i_xfi  ,i_rcvsi,i_dspli 
-     8                ,.true. ,.true. ,fhist_log,.true.
+     8                ,fprint ,.true. ,fhist_log,.true.
      8                ,nprcs  , mpi) 
          endif
 c .....................................................................
@@ -2309,7 +2318,7 @@ c *********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 29/12/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 29/01/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_GMRES_OMP : chama a versao do GMRES OMP desejada              *    
 c * ------------------------------------------------------------------ * 
@@ -2339,6 +2348,9 @@ c *            2 - diag                                                *
 c *            3 - iLDLt                                               *
 c *            4 -                                                     *
 c *            5 - modulo da diagonal                                  *
+c * fhist_log- log do residuo por iteracao                             *
+c * fprint   - saida na tela                                           *
+c * nkrylov  - numero de bases krylov                                  *
 c * my_id    -                                                         *
 c * neqf1i   -                                                         *
 c * neqf2i   -                                                         *
@@ -2347,11 +2359,10 @@ c * i_fmap   -                                                         *
 c * i_xfi    -                                                         *
 c * i_rvcs   -                                                         *
 c * i_dspli  -                                                         *
-c * fprint   - saida na tela                                           *
-c * flog     - log do arquivo de saida                                 *
-c * mpi      - true|false                                              *
+c * thread_y - buffer de equacoes do omp                               *
 c * ovlp     - overllaping                                             *
 c * nprcs    - numero de processos mpi                                 *
+c * mpi      - true|false                                              *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -2366,10 +2377,11 @@ c **********************************************************************
      1                     ,ia     ,ja     ,ad     ,al 
      2                     ,m      ,b      ,x      ,g
      3                     ,h      ,y      ,c      ,s        ,r     
-     4                     ,tol    ,maxit  ,precond,fhist_log,nkrylov
-     5                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
-     6                     ,i_xfi  ,i_rcvsi,i_dspli,thread_y
-     7                     ,nprcs  ,ovlp   ,mpi) 
+     4                     ,tol    ,maxit  ,precond,fhist_log,fprint
+     5                     ,nkrylov
+     6                     ,my_id  ,neqf1i ,neqf2i,neq_doti,i_fmapi
+     7                     ,i_xfi  ,i_rcvsi,i_dspli,thread_y
+     8                     ,nprcs  ,ovlp   ,mpi) 
       implicit none
       include 'time.fi'
 c ... mpi
@@ -2390,7 +2402,7 @@ c ... buffer do CSR omp
 c ...
       real*8  tol
       integer maxit  
-      logical fhist_log
+      logical fhist_log,fprint
 c ... precondicionador
       integer precond
       real*8  m(*)
@@ -2419,7 +2431,7 @@ c ... matvec comum:
      5                ,neqovlp
      6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
      7                ,i_xfi  ,i_rcvsi,i_dspli,thread_y 
-     8                ,.true. ,.true. ,fhist_log,.true.
+     8                ,fprint ,.true. ,fhist_log,.true.
      8                ,nprcs  , mpi) 
 c .....................................................................
 c
@@ -2434,7 +2446,7 @@ c ... matvec comum:
      5                ,neqovlp
      6                ,my_id  ,neqf1i ,neqf2i ,neq_doti,i_fmapi
      7                ,i_xfi  ,i_rcvsi,i_dspli,thread_y 
-     8                ,.true. ,.true. ,fhist_log,.true.
+     8                ,fprint ,.true. ,fhist_log,.true.
      8                ,nprcs  , mpi) 
          endif
 c .....................................................................

@@ -1657,7 +1657,9 @@ c ...
          jj = jj + 1
          if( jj .eq. 10) then
            jj = 0
-           if(my_id .eq.0) write(*,2300),l,nit,dabs(e(ni+1)),econv
+           if(my_id .eq.0  .and. fprint) then
+             write(*,2300),l,nit,dabs(e(ni+1)),econv
+           endif 
          endif
 c ......................................................................
 c
@@ -1699,7 +1701,7 @@ c ... r =M(-1)(b - Ax) (calculo do residuo explicito)
       norm_r   = dsqrt(norm_r)
       norm_m_r = dsqrt(norm_m_r)
       if(  norm_m_r .gt. econv ) then
-         if(my_id .eq.0 )then
+         if(my_id .eq.0  .and. fprint )then
            write(*,2400)  norm_m_r,econv
          endif 
       endif
@@ -6353,7 +6355,7 @@ c ... r =(b - Ax) (calculo do residuo explicito)
       norm_r = dot(r,r,neq_doti)
       norm_r = dsqrt(norm_r)
       if( norm_r .gt. conv ) then
-         if(my_id .eq.0)then
+         if(my_id .eq.0 .and. fprint )then
            write(*,1400) norm_r,conv
          endif 
       endif

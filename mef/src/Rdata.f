@@ -2243,7 +2243,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 13/10/2016                                   *
-c * Data de modificaco : 23/10/2016                                   *
+c * Data de modificaco : 29/01/2017                                   *
 c * ------------------------------------------------------------------*
 c * read_solver_config : leitura das configuracoes basicas do solver  *
 c * ------------------------------------------------------------------*
@@ -2255,6 +2255,7 @@ c * maxit     - nao definido                                          *
 c * precond   - nao definido                                          *
 c * nkrylov   - nao definido                                          *
 c * fhist_log - nao definido                                          *
+c * fprint    - nao definido                                          *
 c * prename   - prefixo do arquivo de entrada                         *
 c * nout      - arquivo de log do solver(it)                          *
 c * my_id     - id mpi                                                *
@@ -2269,16 +2270,21 @@ c * maxit     - numero de iteracoes                                   *
 c * precond   - precondicionador ( 1 - NONE; 2 - Diag )               *
 c * nkrylov   - numero de base de krylov                              *
 c * fhist_log - escreve o historico de iteracao do solver             *
+c * fprint    - saida de tela do solver                               *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine read_solver_config_pm(solver    ,tol
-     .                                ,maxit     ,precond
-     .                                ,nkrylov   ,fhist_log
-     .                                ,prename   ,nout
-     .                                ,alfap     ,alfau
-     .                                ,ctol      ,cmaxit 
-     .                                ,nprcs     ,my_id
-     .                                ,nin)
+     1                                ,maxit     ,precond
+     2                                ,nkrylov   ,fhist_log
+     3                                ,fprint
+     4                                ,prename   ,nout
+     5                                ,alfap     ,alfau
+     6                                ,ctol      ,cmaxit 
+     7                                ,nprcs     ,my_id
+     8                                ,nin)
       implicit none
       include 'string.fi'
       character*15 string,macro(12),ex(12)
@@ -2287,13 +2293,13 @@ c *********************************************************************
       integer my_id,nprcs,solver,maxit,cmaxit,precond,nkrylov
       integer i,j,nmacro,erro
       integer nin,nout
-      logical fhist_log  
+      logical fhist_log,fprint
       integer nincl /12/
       data nmacro /12/
       data macro/'name           ','it             ','tol            ',
      .           'precond        ','nkrylov        ','histlog        ',
      .           'alfap          ','alfau          ','ctol           ',
-     .           'cmaxit         ','               ','               '/
+     .           'cmaxit         ','fprint         ','               '/
 c ... exemplo
       data ex   /'name         cg','it         1000','tol      1.e-11',
      .           'precond    diag','end            ','               ',
@@ -2392,7 +2398,7 @@ c ... alphau
             if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'alpau  :',alfau
 c .....................................................................
 c
-c ... alphau 
+c ... ctol   
          elseif (string .eq. macro(9)) then
             i = 9
             call readmacrov2(nincl,.false.,erro)
@@ -2402,7 +2408,7 @@ c ... alphau
             if(my_id.eq.0) write(*,'(a10,1x,d13.6)')'ctol   :',ctol
 c .....................................................................
 c
-c ... alphau 
+c ... cmaxit 
          elseif (string .eq. macro(10)) then
             i = 10
             call readmacrov2(nincl,.false.,erro)
@@ -2410,6 +2416,19 @@ c ... alphau
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) cmaxit
             if(my_id.eq.0) write(*,'(a10,1x,i9)')'cmaxit :',cmaxit
+c .....................................................................
+c
+c ... fprint 
+         elseif (string .eq. macro(11)) then
+            i = 11
+            call readmacrov2(nincl,.false.,erro)
+            if(erro .eq. 1) goto 300 
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) fprint    
+            if(my_id.eq.0) then
+              write(*,'(a10,1x)',advance='no')'fprint :'
+              write(*,*)fprint   
+            endif
 c .....................................................................
          endif
 c .....................................................................

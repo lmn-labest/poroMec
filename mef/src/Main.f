@@ -45,6 +45,10 @@ c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)
       logical legacy_vtk
 c ......................................................................
 c
+c ... solver
+      logical fprint
+c ......................................................................
+c
 c ... Variaveis de controle de solucao:
 c
       integer maxit,maxnlit,tmaxnlit,ngram,stge,solver,istep
@@ -816,10 +820,6 @@ c ---------------------------------------------------------------------
 c loop nao linear:
 c ---------------------------------------------------------------------
   410 continue
-c ... Loop multi-corretor:      
-      if(my_id.eq.0) print*,'nonlinear iteration ',i
-c .....................................................................
-c
 c ...
       timei = MPI_Wtime()
       call aequalb(ia(i_b),ia(i_b0),neq)
@@ -862,7 +862,9 @@ c ......................................................................
       resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
       if(i .eq. 1) resid0 = max(resid0,resid)
       if(my_id.eq.0) then
-        print*,'resid/resid0',resid/resid0,'resid',resid
+        write(*,'(1x,a,i9)', advance = "no")'nonlinear iteration ',i
+        write(*,'(1x,a,d13.6,1x,a,d13.6)')'resid/resid0',resid/resid0
+     .                               ,'resid',resid
         write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid    
         if(fhist_log)write(log_hist_solv,'(a,i7)')'nlit',i   
       endif
@@ -877,7 +879,7 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
      3         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
      4         ,ngram   ,block_pu,n_blocks_pu,solver,istep
      5         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
-     6         ,fmec    ,fporomec,fhist_log
+     6         ,fmec    ,fporomec,fhist_log  ,fprint 
      7         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
      8         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1103,10 +1105,11 @@ c ......................................................................
       call read_solver_config_pm(solver   ,solvtol
      1                          ,maxit    ,precond
      2                          ,ngram    ,fhist_log
-     3                          ,prename  ,log_hist_solv
-     4                          ,alfap    ,alfau
-     5                          ,ctol     ,cmaxit
-     6                          ,nprcs    ,my_id,nin)
+     3                          ,fprint
+     4                          ,prename  ,log_hist_solv
+     5                          ,alfap    ,alfau
+     6                          ,ctol     ,cmaxit
+     7                          ,nprcs    ,my_id,nin)
       goto 50
 c ......................................................................
 c

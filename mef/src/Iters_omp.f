@@ -636,7 +636,7 @@ c$omp end do
       norm_r = dsqrt(norm_r)
       if( norm_r .gt. conv ) then
 c$omp single
-         if(my_id .eq.0 )then
+         if(my_id .eq.0  .and. fprint )then
            write(*,1400) norm_r,conv
          endif 
 c$omp end single
