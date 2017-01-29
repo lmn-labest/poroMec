@@ -112,7 +112,7 @@ c ... malha
       integer*8 i_ic,i_fnno
 c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl,i_plasticl
-      integer*8 i_tx1pl,i_tx2pl,i_depsl,i_dporosity,i_p0l
+      integer*8 i_tx1pl,i_tx2pl,i_depsl,i_porosity,i_dporo,i_p0l
 c ... forcas e graus de liberdade 
       integer*8 i_f
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_plastic,i_depsp,i_dp
@@ -450,22 +450,22 @@ c
       flag_macro_mesh = .true.
 c
 c.... Leitura de dados:
-      call rdat_pm(nnode ,nnodev  ,numel  ,numat  
-     1         ,nen      ,nenv    ,ntn    ,ndf
-     1         ,ndm      ,nst     ,i_ix   ,i_ie   
-     2         ,i_inum   ,i_e    ,i_x
-     3         ,i_id     ,i_nload ,i_eload,i_f  
-     4         ,i_u      ,i_u0    ,i_tx0  ,i_dp
-     5         ,i_tx1p   ,i_tx2p  ,i_depsp,i_plastic
-     6         ,i_fnno     
-     7         ,fstress0 ,fporomec,fmec   ,print_flag(1)
-     8         ,fplastic ,nin ) 
+      call rdat_pm(nnode  ,nnodev  ,numel  ,numat  
+     1         ,nen       ,nenv    ,ntn    ,ndf
+     1         ,ndm       ,nst     ,i_ix   ,i_ie   
+     2         ,i_inum    ,i_e    ,i_x
+     3         ,i_id      ,i_nload ,i_eload,i_f  
+     4         ,i_u       ,i_u0    ,i_tx0  ,i_dp
+     5         ,i_tx1p    ,i_tx2p  ,i_depsp,i_plastic
+     6         ,i_porosity,i_fnno     
+     7         ,fstress0  ,fporomec,fmec   ,print_flag(1)
+     8         ,fplastic  ,nin ) 
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | tx1p | tx2p | epsp | plastic | fnno |                                               
+c    | dp | tx1p | tx2p | epsp | plastic | porosity | fnno |                                               
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -891,8 +891,6 @@ c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
-c .....................................................................
-c
 c ...
       if (i .ge. maxnlit)then
         if(my_id.eq.0) then
@@ -906,12 +904,25 @@ c       goto 420
       goto 410 
 c .....................................................................
 c
-c ---------------------------------------------------------------------
+c .....................................................................
 c fim do loop nao linear:
-c ---------------------------------------------------------------------
+c .....................................................................
 c
 c ...
   420 continue 
+c ... calculo da porasidade
+      i_ic    = alloc_4('ic      ',    1,nnode)
+      i_dporo = alloc_8('dporo   ',    1,nnode)
+      call porosity_form(ia(i_ix),ia(i_x) ,ia(i_e) ,ia(i_ie)
+     1     ,ia(i_ic),ia(i_xl),ia(i_ul),ia(i_pl),ia(i_plasticl)
+     2     ,ia(i_u) ,ia(i_porosity),ia(i_plastic),ia(i_dporo),ia(i_fnno)
+     4     ,nnode   ,numel   ,nen    ,nenv
+     5     ,ndm     ,ndf     ,nst    ,npi 
+     6     ,7       ,ilib    ,i_xf   ,novlp,fplastic)
+      i_dporo = dealloc('dporo   ')
+      i_ic    = dealloc('ic      ') 
+c .....................................................................
+c
 c ... calculo da solucao no tempo t + dt e atualizacao dos valores do 
 c     passo de tempo anterior: 
 c     u(n+1)  = u(n) + du(n+1) 
@@ -1012,7 +1023,7 @@ c
 c ......................................................................
   700 continue
 c ... forcas internas devidos as tensoes inicias
-      print*, 'Macro PRESOLV'
+      if(my_id.eq.0) print*, 'Macro PRESOLV'
       if(fstress0 .and. fcstress0) then
         timei = MPI_Wtime()
         call initial_stress(ia(i_ix)     ,ia(i_ie)  ,ia(i_e)  
@@ -1032,6 +1043,15 @@ c ... inicializa as tensoes tx1p -> tx2p
         fcstress0= .false.
       endif 
 c ..................................................................... 
+c
+c ... porosidade inicial
+      i_ic        = alloc_4('ic      ',    1,nnode)
+      call initial_porosity(ia(i_ix)      ,ia(i_e)  ,ia(i_ie),ia(i_ic) 
+     1                     ,ia(i_porosity),ia(i_fnno)
+     2                     ,nnode         ,numel     ,nen ,nenv
+     3                     ,ndm           ,ndf       ,i_xf,novlp)     
+      i_ic       = dealloc('ic      ') 
+c ..................................................................... 
       goto 50
 c .....................................................................
 c
@@ -1039,7 +1059,7 @@ c ... Macro-comando: BLOCK_PU
 c
 c ......................................................................
   800 continue
-      if(my_id.eq.0)print*, 'Macro Block_pu'
+      if(my_id.eq.0) print*, 'Macro Block_pu'
       if(flag_macro_mesh) then
         print*,'This macro can only be used before macro mesh'
         goto 5000
@@ -1059,7 +1079,7 @@ c ... Macro-comando: GRAVITY
 c
 c ......................................................................
   900 continue
-      if (my_id .eq. 0)   print*, 'Macro Gravity'
+      if (my_id .eq. 0) print*, 'Macro Gravity'
       call read_gravity(gravity,gravity_mod,nin)
       goto 50
 c ----------------------------------------------------------------------
@@ -1230,7 +1250,7 @@ c ... Macro-comando: PRES
 c
 c ......................................................................
  1600 continue
-      if(my_id.eq.0)print*,'Macro PRES'
+      if(my_id.eq.0) print*,'Macro PRES'
 c ... print_flag (true| false)
 c     2  - desloc
 c     3  - pressao 
@@ -1269,7 +1289,6 @@ c ...
       i_txe       = alloc_8('txe     ',  ntn,nnode)
       i_txb       = alloc_8('txb     ',  ntn,nnode)
       i_flux      = alloc_8('flux    ',  ndm,nnode)
-      i_dporosity = alloc_8('dporo   ',    1,nnode)
       i_pc        = alloc_8('pc      ',    1,nnode)
 c .....................................................................
 c
@@ -1286,20 +1305,6 @@ c ...
      5        ,nnode      ,numel   ,nen       ,nenv
      6        ,ndm        ,ndf     ,nst       ,ntn  ,npi 
      7        ,3          ,ilib    ,i_xf      ,novlp,fplastic)
-          tformtime = tformtime + MPI_Wtime()-timei
-        endif
-c ......................................................................
-c
-c ... 
-        if(print_flag(9))then
-          timei = MPI_Wtime()
-          call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e),ia(i_ie)
-     1            ,ia(i_ic) ,ia(i_xl) ,ia(i_ul)  ,ia(i_dpl)
-     2            ,ia(i_pl) ,ia(i_u)  ,ia(i_dp)  ,ia(i_dporosity)
-     3            ,ia(i_fnno)
-     3            ,nnode      ,numel    ,nen      ,nenv
-     4            ,ndm        ,ndf      ,nst       
-     5            ,7          ,ilib     ,i_xf     ,novlp)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
 c ......................................................................
@@ -1348,9 +1353,9 @@ c ......................................................................
 c ... delta porosidade 
         if(print_flag(9)) then
           if(novlp) then
-            call global_v(1,nnode,i_dporosity,i_g9 ,'dporoG  ')
+            call global_v(1,nnode,i_porosity,i_g9 ,'poroG   ')
           else          
-            call global_v(1,nno_pload,i_dporosity,i_g9 ,'dporoG  ')
+            call global_v(1,nno_pload,i_porosity,i_g9 ,'poroG   ')
           endif
         endif
 c ......................................................................
@@ -1383,7 +1388,7 @@ c ...
           endif
 c   
           if(print_flag(9)) then
-            i_g9  = dealloc('dporoG  ')
+            i_g9  = dealloc('poroG   ')
           endif
 c
           if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
@@ -1418,20 +1423,6 @@ c ...
 c ......................................................................
 c
 c ...
-        if(print_flag(9))then
-          timei = MPI_Wtime()
-          call delta_porosity(ia(i_ix) ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1                    ,ia(i_ic) ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl)
-     2                    ,ia(i_pl) ,ia(i_u)  ,ia(i_dp) ,ia(i_dporosity)
-     3                    ,ia(i_fnno)  
-     3                    ,nnode      ,numel  ,nen      ,nenv
-     4                    ,ndm        ,ndf    ,nst       
-     5                    ,7          ,ilib   ,i_xf     ,novlp)
-          tformtime = tformtime + MPI_Wtime()-timei
-        endif
-c ......................................................................
-c
-c ...
         if(print_flag(10))then
           timei = MPI_Wtime()
           call consolidation_pressure(ia(i_ix),ia(i_ie),ia(i_ic)
@@ -1456,7 +1447,7 @@ c
 c ...
         call write_mesh_res_pm(ia(i_ix),ia(i_x)    ,ia(i_u)  ,ia(i_dp)
      1                 ,ia(i_pc)
-     2                 ,ia(i_dporosity),ia(i_tx)   ,ia(i_txb),ia(i_txe)
+     2                 ,ia(i_porosity) ,ia(i_tx)   ,ia(i_txb),ia(i_txe)
      3                 ,ia(i_flux)     ,print_nnode,numel    ,istep   
      4                 ,t              ,nen        ,ndm      ,ndf   
      5                 ,ntn            ,fname      ,prename   
@@ -1467,7 +1458,6 @@ c ......................................................................
 c
 c ...
       i_pc       = dealloc('pc      ')
-      i_dporosity= dealloc('dporo   ')
       i_flux     = dealloc('flux    ')
       i_txb      = dealloc('txb     ')
       i_txe      = dealloc('txe     ')
@@ -1624,7 +1614,7 @@ c ... Macro-comando: PMECRES
 c
 c ......................................................................
  1900 continue
-      if(my_id.eq.0)print*,'Macro PMECRES'
+      if(my_id.eq.0) print*,'Macro PMECRES'
 c ... print_flag (true| false)
 c     2  - desloc
 c     10 - stress
@@ -1811,11 +1801,11 @@ c ... Macro-comando: NLSTATIC
 c
 c ......................................................................
  2800 continue
-      if(my_id.eq.0)print*, 'Macro NLTOL'
+      if(my_id.eq.0) print*, 'Macro NLTOL'
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =2810,end =2810) tol
-      write(*,'(a,d10.2)')' Set noliner tol for ',tol
+      if(my_id.eq.0) write(*,'(a,d10.2)')' Set noliner tol for ',tol
       goto 50
  2810 continue
       print*,'Error reading macro (NLTOL) !'

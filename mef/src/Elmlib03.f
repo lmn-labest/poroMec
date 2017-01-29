@@ -824,11 +824,17 @@ c ... calculo da derivadas das funcoes de interpolacao
         call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel ,.false.)
 c .....................................................................
         call deform3d(hux,huy,huz,u,epsi,10)
-c ... variacao da porosidade = biot (eps11 + eps22 + eps33) + dp/M
-        dpm  = imod_biot*dp(i)
-c ... porosidade  
-        p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpm
 c .....................................................................
+c
+c ... variacao da porosidade 
+c       p(1...4) = u(31...34) 
+        l    = i  + 30 
+        pi   = imod_biot*u(l)
+c .....................................................................
+c
+c ... variacao da porosidade = biot*tr(deps)total + dp/M 
+        p(i) = coef_biot*(epsi(1) + epsi(2) + epsi(3) ) +  pi
+c ..................................................................... 
   710 continue
 c .....................................................................
       return
@@ -1627,18 +1633,30 @@ c ... variacao de porosidade
 c ... calculo do terminante
         call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
         call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel ,.true.)
+c .....................................................................
+c
 c ... calculo da derivadas das funcoes de interpolacao
         call sfhexa20_m(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
         call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
 c .....................................................................
+c
+c ... variacao da deformacao
         call deform3d(hux,huy,huz,u,epsi,20)
+c ......................................................................
+c
 c ... variacao da porosidade = biot (eps11 + eps22 + eps33) + dp/M
-        dpm  = imod_biot*dp(i)
-c ... porosidade  
-        p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpm
+c ...   p(1...8) = u(61...68) 
+        l    = i  + 60 
+        pi   = imod_biot*u(l)
 c .....................................................................
+c
+c ... variacao da porosidade = biot*tr(deps)total + dp/M 
+        p(i) = coef_biot*(epsi(1) + epsi(2) + epsi(3) ) + pi
+c ..................................................................... 
   710 continue
 c .....................................................................
+      return
+c ======================================================================
       return
       end
 c *********************************************************************
@@ -2535,37 +2553,53 @@ c
 c ...  
   700 continue                      
 c ... matriz constitutiva:
-c     ym        = e(1)
-c     ps        = e(2)
+      ym        = e(1)
+      ps        = e(2)
 c ... 
-c     coef_biot = e(5)
-c     imod_biot = 1.d0/e(4)
+      coef_biot = e(5)
+      imod_biot = 1.d0/e(4)
 c ...
-c     a1        = 1.d0 - ps
-c     a2        = 1.d0 - 2.d0*ps
-c     a3        = 1.d0 + ps
+      a1        = 1.d0 - ps
+      a2        = 1.d0 - 2.d0*ps
+      a3        = 1.d0 + ps
 c ...
-c     a         = (ym*a1)/(a3*a2)
-c     b         = ps/a1
-c     c         = 0.5d0*(a2/a1)
+      a         = (ym*a1)/(a3*a2)
+      b         = ps/a1
+      c         = 0.5d0*(a2/a1)
+c .....................................................................
+c
+c ... delta da variacao volumetrica plastica nos nos
+      igrau       = igrau_vol 
+      nint        = npint4(igrau) 
+      pci(1:nint) = vplastic(2,1:nint) - vplastic(1,1:nint)
+c ... pressao de consolidacao nodal total
+      call extrapol_tetra10(pci,pce,rn,sn,tn,1)
 c .....................................................................
 c
 c ... variacao de porosidade
-c     do 710 i = 1, 4
+      do 710 i = 1, 4
 c ... calculo do terminante
-c       call sftetra4(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
-c       call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel ,.true.)
+        call sftetra4(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,4,nel ,.true.)
 c ... calculo da derivadas das funcoes de interpolacao
-c       call sftetra10(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
-c       call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel ,.false.)
+        call sftetra10(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,10,nel ,.false.)
 c .....................................................................
-c       call deform3d(hux,huy,huz,u,epsi,10)
-c ... variacao da porosidade = biot (eps11 + eps22 + eps33) + dp/M
-c       dpi  = imod_biot*dp(i)
-c ... porosidade  
-c       p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpi
+        call deform3d(hux,huy,huz,u,epsi,10)
+c ....................................................................
+c
+c ... variacao da porosidade 
+c       p(1...4) = u(31...34) 
+        l    = i  + 30 
+        pi   = imod_biot*u(l)
 c .....................................................................
-c 710 continue
+c
+c ... variacao da porosidade = biot*tr(deps)total +
+c     (1-b)*tr(deps)pastic + dp/M 
+        p(i) = coef_biot*(epsi(1) + epsi(2) + epsi(3) ) 
+     .       + (1.d0-coef_biot)*pce(i) +  pi
+c ..................................................................... 
+  710 continue
 c .....................................................................
       return
 c ======================================================================
@@ -3072,10 +3106,6 @@ c ...
             call plasticity3d_pm(vplastic(2,inpi) ,vplastic(3,inpi),txi
      1                          ,mcs              ,alpha_exp 
      2                          ,ps               ,c14,g11,nel)  
-c           if(nel .eq. 1 .and. inpi .eq. 64 ) then 
-c             write(*,'(i3,3e11.2)')inpi,vplastic(3,inpi)
-c    .             ,vplastic(2,inpi)-vplastic(1,inpi),t 
-c           endif
 c .....................................................................
 c
 c ... tensao total 
@@ -3514,37 +3544,55 @@ c
 c ...  
   700 continue                      
 c ... matriz constitutiva:
-c     ym        = e(1)
-c     ps        = e(2)
+      ym        = e(1)
+      ps        = e(2)
 c ... 
-c     coef_biot = e(5)
-c     imod_biot = 1.d0/e(4)
+      coef_biot = e(5)
+      imod_biot = 1.d0/e(4)
 c ...
-c     a1        = 1.d0 - ps
-c     a2        = 1.d0 - 2.d0*ps
-c     a3        = 1.d0 + ps
+      a1        = 1.d0 - ps
+      a2        = 1.d0 - 2.d0*ps
+      a3        = 1.d0 + ps
 c ...
-c     a         = (ym*a1)/(a3*a2)
-c     b         = ps/a1
-c     c         = 0.5d0*(a2/a1)
+      a         = (ym*a1)/(a3*a2)
+      b         = ps/a1
+      c         = 0.5d0*(a2/a1)
+c .....................................................................
+c
+c ... delta da variacao volumetrica plastica nos nos
+      inpi        = nint*nint*nint
+      pci(1:inpi) = vplastic(2,1:inpi) - vplastic(1,1:inpi)
+      call extrapol_hexa20_v2(pci,pce,rn,sn,tn,1)
 c .....................................................................
 c
 c ... variacao de porosidade
-c     do 710 i = 1, 8
+      do 710 i = 1, 8
 c ... calculo do terminante
-c       call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
-c       call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel ,.true.)
-c ... calculo da derivadas das funcoes de interpolacao
-c       call sfhexa20_m(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
-c       call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
+        call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel ,.true.)
 c .....................................................................
-c       call deform3d(hux,huy,huz,u,epsi,20)
-c ... variacao da porosidade = biot (eps11 + eps22 + eps33) + dp/M
-c       dpm  = imod_biot*dp(i)
-c ... porosidade  
-c       p(i) = coef_biot*( epsi(1) + epsi(2) + epsi(3) ) + dpm
+c
+c ... calculo da derivadas das funcoes de interpolacao
+        call sfhexa20_m(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
+        call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
+c .....................................................................
+c
+c ... variacao da deformacao
+        call deform3d(hux,huy,huz,u,epsi,20)
+c ......................................................................
+c
+c ... variacao da porosidade
+c       p(1...8) = u(61...68) 
+        l    = i  + 60 
+        pi   = imod_biot*u(l)
+c .....................................................................
+c
+c ... variacao da porosidade = biot*tr(deps)total +
+c     (1-b)*tr(deps)pastic + dp/M 
+        p(i) = coef_biot*(epsi(1) + epsi(2) + epsi(3) ) 
+     .       + (1.d0-coef_biot)*pce(i) +  pi
 c ..................................................................... 
-c 710 continue
+  710 continue
 c .....................................................................
       return
 c ======================================================================
@@ -3559,8 +3607,11 @@ c ......................................................................
       pci(1:inpi) = vplastic(3,1:inpi)
 c ... pressao de consolidacao nodal total
       call extrapol_hexa20_v2(pci,pce,rn,sn,tn,1)
-      p(1:8) = pce(1:8) 
 c .....................................................................
+c
+c ...
+      p(1:8) = pce(1:8) 
+c ......................................................................
       return
 c ======================================================================
       end

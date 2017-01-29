@@ -282,8 +282,8 @@ c ... atualizacao dos incrementos dos deslocamentos
         k_plastic      = e(10,ma)
         alfa           = (1+e0)/(lambda_plastic-k_plastic)
         do j = 1, npi                  
-          de             = plastic(2,j,i) - plastic(1,j,i)          
-          plastic(1,j,i) = plastic(2,j,i) 
+          de             = plastic(2,j,i) - plastic(1,j,i) 
+          plastic(1,j,i) = plastic(2,j,i)
           plastic(3,j,i) = plastic(3,j,i)*dexp(-alfa*de)  
         enddo
       enddo

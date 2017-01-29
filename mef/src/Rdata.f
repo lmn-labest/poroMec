@@ -1,16 +1,16 @@
-      subroutine rdat_pm(nnode   ,nnodev    ,numel  ,numat
-     1                  ,nen     ,nenv      ,ntn    ,ndf
-     2                  ,ndm     ,nst       ,i_ix   ,i_ie 
-     3                  ,i_inum  ,i_e       ,i_x 
-     4                  ,i_id    ,i_nload   ,i_eload   ,i_f
-     5                  ,i_u     ,i_u0      ,i_tx0     ,i_dp
-     6                  ,i_tx1p  ,i_tx2p    ,i_epsp    ,i_plastic
-     7                  ,i_fnno
-     8                  ,fstress0,fporomec  ,fmec      ,print_quad
-     9                  ,plastic ,nin     )
+      subroutine rdat_pm(nnode     ,nnodev    ,numel  ,numat
+     1                  ,nen       ,nenv      ,ntn    ,ndf
+     2                  ,ndm       ,nst       ,i_ix   ,i_ie 
+     3                  ,i_inum    ,i_e       ,i_x       
+     4                  ,i_id      ,i_nload   ,i_eload   ,i_f
+     5                  ,i_u       ,i_u0      ,i_tx0     ,i_dp
+     6                  ,i_tx1p    ,i_tx2p    ,i_epsp    ,i_plastic
+     7                  ,i_porosity,i_fnno
+     8                  ,fstress0  ,fporomec  ,fmec      ,print_quad
+     9                  ,plastic   ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 23/01/2017                                    *
+c * Data de modificaco : 26/01/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -85,7 +85,7 @@ c ......................................................................
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_epsp,i_plastic,i_dp
-      integer*8 i_ix,i_id,i_ie
+      integer*8 i_ix,i_id,i_ie,i_porosity
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
 c ......................................................................
       integer nin
@@ -261,8 +261,10 @@ c     ---------------------------------------------------------------
         call azero(ia(i_tx0)  ,nnode*ntn)
 c ...
         if(fporomec) then
-          i_dp    = alloc_8('dpres   ',    1,nnode)
-          call azero(ia(i_dp)   ,nnode)
+          i_dp       = alloc_8('dpres   ',    1,nnode)
+          i_porosity = alloc_8('poro    ',    1,nnode)
+          call azero(ia(i_dp)      ,nnode)
+          call azero(ia(i_porosity),nnode)
         endif    
 c .....................................................................
       endif
@@ -859,7 +861,8 @@ c ...
             i_u0    =  locate('u0      ')
             i_tx0   =  locate('tx0     ')
             if(fporomec) then
-              i_dp    = alloc_8('dpres   ',    1,nnode)
+              i_dp       = locate('dpres   ')
+              i_porosity = locate('poros   ')
             endif
 c ...
             i_ix    = locate('ix      ')
@@ -1508,7 +1511,7 @@ c ...
       return
 c ......................................................................
   100 continue
-      print*,'*** In reading the control variables !'
+      print*,'*** Erro in reading the control variables !'
       call stop_mef()    
 c ......................................................................
       end
@@ -2014,7 +2017,7 @@ c ... no central
 c .....................................................................
 c
 c ...
-c     do i = 1, 70
+c     do i = 1, 44
 c       print*,i,f(1:4,i)
 c     enddo
 c .....................................................................
@@ -2229,10 +2232,10 @@ c ...
       return  
 c ......................................................................
  100  continue
-      print*,'*** Erro na leitura das config !',macro(i)
+      print*,'*** Erro in reading the config file !',macro(i)
       call stop_mef()                          
  200  continue
-      print*, trim(fname), ' arquivo nao existente !'
+      print*,'File ',trim(fname),' not found !'
       call stop_mef()      
 c ......................................................................
       end
@@ -2493,7 +2496,7 @@ c **********************************************************************
       data nmacro /10/
       data macro/'quadratic      ','desloc        ','pressure       '
      1          ,'dpressure      ','totalstress   ','biotstress     '
-     2          ,'terzaghistress ','darcyflux     ','dporosity      '
+     2          ,'terzaghistress ','darcyflux     ','porosity       '
      3          ,'pconsolidation ','              ','               '/
 c ......................................................................
 c
@@ -2506,7 +2509,7 @@ c
 c ...
       fexit = .true.
       call readmacro(nin,.false.)
-      write(string,'(15a)') (word(j),j=1,12)
+      write(string,'(15a)') (word(j),j=1,15)
       do while (strl .ne. 0 )
 c ... quadratic
         if (string .eq. macro(1)) then
@@ -2548,7 +2551,7 @@ c ... fdarcy
           fprint(8) = .true.
 c .....................................................................
 c
-c ... delta porosidade
+c ... porosidade
         elseif (string .eq. macro(9)) then
           fprint(9) = .true.
 c .....................................................................

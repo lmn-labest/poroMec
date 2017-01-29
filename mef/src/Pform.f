@@ -190,7 +190,6 @@ c...... loop nos nos do pressao
            enddo    
 c ......................................................................
 c
-c
 c ... plasticidade
            if(fplastic) then
              do j = 1, npi  
@@ -219,7 +218,7 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-           call elmlib_pm(el    ,iq(1,nel),xl  ,ul      ,p0l
+           call elmlib_pm(el   ,iq(1,nel),xl  ,ul      ,p0l
      1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
      2                  ,depsl ,plasticl
      3                  ,ndm   ,nst      ,nel ,iel,isw
@@ -751,18 +750,17 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine delta_porosity(ix    ,x    ,e   ,ie
-     1                         ,ic    ,xl   ,ul  ,dpl
-     2                         ,pl    ,u    ,dp  ,dporosity
-     3                         ,fnno
-     4                         ,nnode ,numel,nen ,nenv
-     5                         ,ndm   ,ndf  ,nst   
-     6                         ,isw   ,ilib ,i_xfi    ,novlp)
+      subroutine porosity_form(ix,x      ,e      ,ie
+     1                   ,ic    ,xl      ,ul     ,pl    ,plasticl 
+     2                   ,u     ,porosity,plastic,dporo ,fnno  
+     3                   ,nnode ,numel,nen  ,nenv
+     4                   ,ndm   ,ndf  ,nst  ,npi 
+     5                   ,isw   ,ilib ,i_xfi,novlp,fplastic)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 24/01/2017                                    * 
+c * Data de modificaco : 28/01/2017                                    * 
 c * ------------------------------------------------------------------ * 
-c * DELTA_PORISITY: calculo da porosidade                              *
+c * POROSITY : calculo da porosidade                                   *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -774,10 +772,10 @@ c * ic(nnode)        - nao definido                                    *
 c * xl(ndm,nen)      - nao definido                                    *
 c * ul(ndf,nen)      - nao definido                                    *
 c * pl(ntn*nen)      - nao definido                                    *
-c * dpl(nst)         - nao definido                                    *
+c * plasticl         - nao definido                                    *
 c * u(ndf,nnode)     - solucao corrente                                *
-c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
-c * dpososity(nnodev)- nao definido                                    *
+c * prosity(nnode)   - nao definido                                    *
+c * dposo(nnode)     - nao definido                                    *
 c * fnno             -  identifica dos nos de vertices                 *
 c *                     ( 1 - vertice | 0 )                            *
 c * nnodev           - numero de nos de vertices                       *
@@ -799,11 +797,11 @@ c * novlp            - chave indicativa de non-overlapping             *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
-c * dpososity(nnodev)- delta phi ( phi(n  ,0  ) - phi(0) )             *
+c * pososity(nnode)  - porosidade atualizada                           *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
-c * Calcula as tensoes apenas nos vertices                             *     
+c * Calcula as porosidades apenas nos vertices                         *     
 c **********************************************************************
       implicit none
       include 'mpif.h'
@@ -812,24 +810,26 @@ c ... mpi
       integer*8 i_xfi
       logical novlp
 c ...
-      integer nnode,numel,nen,nenv,ndf,nst,ndm,ntn
+      integer nnode,numel,nen,nenv,ndf,nst,ndm,ntn,npi
 c ......................................................................      
       integer ix(nen+1,*),ie(*),ic(*),fnno(*)
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw
-      real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv)
-      real*8  x(ndm,*),e(prop,*)
-      real*8  u(ndf,*),el(prop),dp(*),dporosity(*)
+      real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv),plasticl(3,npi)
+      real*8  x(ndm,*),e(prop,*),plastic(3,npi,*)
+      real*8  u(ndf,*),el(prop),porosity(*),dporo(*)
 c ...
       logical ldum
       integer idum
       real*8 ddum
+c ...
+      logical fplastic
 c ......................................................................
 c
 c ...
       do 30 i = 1, nnode
-        ic(i)        = 0
-        dporosity(i) = 0.d0
+        ic(i)    = 0
+        dporo(i) = 0.d0
    30 continue
 c ......................................................................
 c
@@ -837,9 +837,7 @@ c ... Loop nos elementos:
       do 900 nel = 1, numel
         kk = 0
 c ... 
-        do 300 i = 1, nenv
-          pl(i) = 0.d0
-  300   continue
+        pl(1:nenv) = 0.d0
 c .......................................................................
 c
 c ... loop nos arranjos locais 
@@ -859,34 +857,44 @@ c ... loop nas pressoes
           no     = ix(i,nel)
           kk     = kk + 1
           ul(kk) = u(ndf,no)
-          dpl(i) = dp(no)
           do 500 j = 1, ndm
             xl(j,i) = x(j,no)
   500     continue
   510   continue
 c ......................................................................
 c
-c ...... form element array
+c ... plasticidade
+        if(fplastic) then
+          do j = 1, npi  
+c ... dilatacao volumetrica plastica do passo de tempo anterior
+            plasticl(1,j) = plastic(1,j,nel)
+c ... dilatacao volumetrica plastica
+            plasticl(2,j) = plastic(2,j,nel)
+          enddo  
+        endif  
+c ...................................................................... 
+c
+c ...... Arranjos de elemento:
         ma  = ix(nen+1,nel)
-        iel = ie(ma)      
-        do 610 i = 1, prop
-          el(i) = e(i,ma)
-  610   continue
+        iel = ie(ma)
+        el(1:prop) = e(1:prop,ma)
 c ......................................................................
 c
+c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum,xl  ,ul  ,dpl
-     1                ,pl  ,ddum,ddum,ddum
-     2                ,ddum,ndm ,nst ,nel  ,iel,isw
-     3                ,ma  ,idum,ilib,ldum)
+        call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
+     1                ,ddum,pl      ,ddum,ddum,ddum
+     2                ,ddum,plasticl
+     2                ,ndm ,nst    ,nel  ,iel ,isw
+     3                ,ma  ,idum   ,ilib ,ldum)
 c ......................................................................
 c
 c ...... media do vetor global
         do 800 i = 1, nenv
            no = ix(i,nel)
            if (no .le. 0) go to 800
-           ic(no)        = ic(no) + 1
-           dporosity(no) = dporosity(no) + pl(i)
+           ic(no)    = ic(no) + 1
+           dporo(no) = dporo(no) + pl(i)
   800   continue
   900 continue
 c .......................................................................
@@ -896,11 +904,102 @@ c ... Comunica vetor de contagem de elementos por no'
 c .......................................................................
       do 1000 i = 1, nnode
         if(fnno(i) .eq. 1 ) then
-          dporosity(i) = dporosity(i)/ic(i)
+          porosity(i) = porosity(i) + dporo(i)/ic(i)
         endif
  1000 continue
 c ......................................................................
 c
+c ......................................................................
+      return
+      end      
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine initial_porosity(ix    ,e    ,ie   ,ic
+     1                         ,porosity,fnno
+     2                         ,nnode   ,numel,nen     ,nenv
+     3                         ,ndm     ,ndf  ,i_xfi   ,novlp)
+c **********************************************************************
+c * Data de criacao    : 26/09/2016                                    *
+c * Data de modificaco : 24/01/2017                                    * 
+c * ------------------------------------------------------------------ * 
+c * DELTA_PORISITY: calculo da porosidade                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel)  - conetividades nodais                            *
+c * e(10,numat)      - constantes fisicas dos materiais                *
+c * ie(numat)        - tipo de elemento                                *
+c * ic(nnode)        - nao definido                                    *
+c * pososity(nnodev) - nao definido                                    *
+c * fnno             -  identifica dos nos de vertices                 *
+c *                     ( 1 - vertice | 0 )                            *
+c * nnodev           - numero de nos de vertices                       *
+c * numel            - numero de elementos                             *
+c * nen              - numero max. de nos por elemento                 *
+c * nenv             - numero de nos de vertice por elemento           *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * ndm              - dimensao                                        *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * ilib             - determina a biblioteca do elemento              *
+c * i_xf             - buffer de comunicao para o numero de elementos  *
+c *                    conectidos aos nos                              *
+c * novlp            - chave indicativa de non-overlapping             * 
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * pososity(nnodev) - porosidade                                      *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Calcula as tensoes apenas nos vertices                             *     
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'termprop.fi'
+c ... mpi
+      integer*8 i_xfi
+      logical novlp
+c ...
+      integer nnode,numel,nen,nenv,ndf,ndm
+c ......................................................................      
+      integer ix(nen+1,*),ie(*),ic(*),fnno(*)
+      integer nel,ma,i,no
+      real*8  e(prop,*),porosity(*),poro
+c ......................................................................
+c
+c ...
+      do 30 i = 1, nnode
+        ic(i)        = 0
+        porosity(i)  = 0.d0
+   30 continue
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 900 nel = 1, numel
+c ...... Arranjos de elemento:
+        ma         = ix(nen+1,nel)
+        poro        = e(8,ma)/(1.d0+e(8,ma))
+c ......................................................................
+c
+c ...... media do vetor global
+        do 800 i = 1, nenv
+           no = ix(i,nel)
+           if (no .le. 0) go to 800
+           ic(no)        = ic(no) + 1
+           porosity(no)  = porosity(no) + poro
+  800   continue
+  900 continue
+c .......................................................................
+c
+c ... Comunica vetor de contagem de elementos por no'
+      if (novlp) call allgatheri(ic,i_xfi)
+c .......................................................................
+      do 1000 i = 1, nnode
+        if(fnno(i) .eq. 1 ) then
+          porosity(i) = porosity(i)/ic(i)
+        endif
+ 1000 continue
 c ......................................................................
       return
       end      

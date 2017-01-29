@@ -765,7 +765,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 24/01/2017                                   * 
+c * Data de modificaco : 28/01/2017                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
 c * poromecanico no formato vtk                                       *
@@ -1036,7 +1036,7 @@ c ...
 c .....................................................................
 c
 c ... delta porosidade    
-      write(aux1,'(15a)')'deltaPorosity'
+      write(aux1,'(15a)')'porosity'
 c ... gdb graus de liberdade
 c     cod  1 escalar
 c     cod2 3 real(8bytes) 

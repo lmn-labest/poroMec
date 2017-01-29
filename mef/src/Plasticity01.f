@@ -60,8 +60,7 @@ c ... update plastic strain trace
            epe1 = epe1 + a1(j)*dlamb
          enddo         
 c ... update hardening parameter
-c       ds = epe1-eps1
-c       if( ds .gt. 0.d0) ds = 0.d0
+        ds = epe1-eps1
         pc = epe2 - alfa*epe2*ds
 c ...compute elastoplastic stresses
          do 10 j = 1,6
@@ -75,8 +74,10 @@ c ...compute elastoplastic stresses
 c ... calculate equivalent plastic strain
       tx(1:6) = stot(1:6)
 c .....................................................................
+c     ds = epe1-eps1
+c     if( ds .gt. 0.d0) epe1 = 0.d0
       eps1 = epe1
-      eps2 = epe2
+      eps2 = epe2   
       return
       end
       subroutine effst3d(se,iyied,tx,devs,steff,sm,varj2,mcs,escur,pc)
