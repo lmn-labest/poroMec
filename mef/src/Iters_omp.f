@@ -603,7 +603,7 @@ c ......................................................................
 c$omp master
          if( jj .eq. 1000) then
            jj = 0
-           if(my_id .eq.0) write(*,1300),j,norm_r,conv 
+           if(my_id .eq.0 .and. fprint) write(*,1300),j,norm_r,conv 
          endif  
          jj = jj + 1
 c$omp end master
@@ -670,7 +670,7 @@ c ... Controle de flops
         if(my_id.eq.0) then
           write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
      .       'RPSQMR_OMP: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
-     .      ,' tol ',tol,' time ',time
+     .      ,' tol ',tol,' Mflops ',mflops,' time ',time
         endif
       endif
 c$omp end single
@@ -1022,7 +1022,9 @@ c ...
          jj = jj + 1
          if( jj .eq. 10) then
            jj = 0
-           if(my_id .eq.0) write(*,2300),l,nit,dabs(e(ni+1)),econv
+           if(my_id .eq.0 .and. fprint) then
+             write(*,2300),l,nit,dabs(e(ni+1)),econv
+           endif
          endif
 c ......................................................................
 c

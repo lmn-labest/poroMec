@@ -1119,7 +1119,7 @@ c ...... media do vetor global
         do 800 i = 1, nenv
            no = ix(i,nel)
            if (no .le. 0) go to 800
-           ic(no)        = ic(no) + 1
+           ic(no) = ic(no) + 1
            pc(no) = pc(no) + pl(i)
   800   continue
   900 continue
@@ -1148,7 +1148,7 @@ c **********************************************************************
      4                         ,my_id,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 15/11/2016                                    * 
+c * Data de modificaco : 30/01/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
 c * do SQRM                                                            *
@@ -1247,10 +1247,9 @@ c ...
       if( dtc_min .lt. dt ) then
         if(my_id .eq. 0 ) then
           print*,'Delta critico:',g_dtc_min
-          print*,'Delta t      :',dt
-          dt =  dtc_min
-          print*,'New Delta t  :',dt
+          print*,'Delta t      :',dt 
         endif
+        call stop_mef()
       endif 
 c ......................................................................
       return

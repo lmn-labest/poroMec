@@ -521,7 +521,6 @@ c ... Cria arranjo global
         i1  = alloc_4('g_v_elm ', nl, nelG)
         call  mzero(ia(i_g)  ,nl*nelG)
         call  mzero(ia(i1)   ,nl*nelG)      
-c
 c     Passa valores do arranjo local i_l para o arranjo global i1
         call map_v_elm(ia(i_l),ddum,nl,ncl,ia(i1),ddum,ia(i_elLG),cod)
 c

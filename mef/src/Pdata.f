@@ -707,26 +707,32 @@ c ......................................................................
       end
 c *********************************************************************
 c
-c *********************************************************************
-c * READPNODE : le o arquivo auxiliar com os nos que terao alguma     *
-c * de suas grandeza impressas no tempo                               *
-c * ----------------------------------------------------------------- *
-c * parametros de entrada :                                           *
-c * ----------------------------------------------------------------- *
-c * fname   - nome do arquivo de entrada                              *
-c * i_no    -                                                         *
-c * i_nfile -                                                         *
-c * num_node-                                                         *
-c * nout    - arquivo de entrada                                      *
-c * ----------------------------------------------------------------- *
-c * parametros de saida                                               *
-c * ----------------------------------------------------------------- *
-c * i_no    -ponteiros para os nos                                    *
-c * i_nfile -ponteiros para os arquivos                               *
-c * num_node-numero de nos                                            *
-c * flag    -verifica sucesso na abertura do arquivo                  *
-c * ----------------------------------------------------------------- *
-c *********************************************************************
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 29/01/2017                                    * 
+c * ------------------------------------------------------------------ *  
+c * READPNODE : le o arquivo auxiliar com os nos que terao alguma      *
+c * de suas grandeza impressas no tempo                                *
+c * ------------------------------------------------------------------ *
+c * parametros de entrada :                                            *
+c * ------------------------------------------------------------------ *
+c * fname   - nome do arquivo de entrada                               *
+c * i_no    -                                                          *
+c * i_nfile -                                                          *
+c * num_node-                                                          *
+c * flag    -                                                          *
+c * nout    - arquivo de entrada                                       *
+c * ------------------------------------------------------------------ *
+c * parametros de saida                                                *
+c * ------------------------------------------------------------------ *
+c * i_no    -ponteiros para os nos                                     *
+c * i_nfile -ponteiros para os arquivos                                *
+c * num_node-numero de nos                                             *
+c * flag    -verifica sucesso na abertura do arquivo                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
       subroutine readpnode(fname,i_no,i_nfile,num_node,flag,nout)
       use Malloc
       implicit none
@@ -749,6 +755,14 @@ c ... numero total de nos
       print*,num_node,' print set nodes'
 c .....................................................................
 c
+c ...
+      if(num_node .gt. 50) then
+        print*,'number max print node is 50 !!!' 
+        flag = .false.
+        return 
+      endif
+c .....................................................................
+c
 c ... memoria para os nos
       i_no        = alloc_4('no      ',1,num_node)
 c ... memoria para os arquivos      
@@ -759,34 +773,117 @@ c ... lendo nos
          write(string,'(30a)') (word(j),j=1,30)
          read(string,*) no
          ia(i_no+i-1) = no
-         ia(i_nfile+i-1) = 50 + (i-1)
+         ia(i_nfile+i-1) = 51 + (i-1)
       enddo
 c .....................................................................
       close(nout)
       return
  1000 continue
-      print*, '*** Erro na abertura de arquivos: ',trim(fname)
+      print*, '*** Error opening file: ',trim(fname)
       flag = .false.
       end
 c *********************************************************************
 c
+c **********************************************************************
+c * Data de criacao    : 29/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * READPPG : le o arquivo auxiliar com os nos que terao alguma        *
+c * de suas grandeza impressas no tempo                                *
+c * -----------------------------------------------------------------  *
+c * parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c * fname   - nome do arquivo de entrada                               *
+c * i_el    -                                                          *
+c * i_nfile -                                                          *
+c * num_nel -                                                          *
+c * flag    -                                                          *
+c * nout    - arquivo de entrada                                       *
+c * -----------------------------------------------------------------  *
+c * parametros de saida                                                *
+c * -----------------------------------------------------------------  *
+c * i_no    -ponteiros para os nos                                     *
+c * i_nfile -ponteiros para os arquivos                                *
+c * num_node-numero de nos                                             *
+c * flag    -verifica sucesso na abertura do arquivo                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine readppi(fname,i_el,i_nfile_pi,num_pel,flag,nout)
+      use Malloc
+      implicit none
+      include 'string.fi'
+      integer*8 i_el,i_nfile_pi
+      integer num_pel,i,j,el
+      integer nout
+      logical flag
+      character*80 fname
+      character*30 string
+c .....................................................................
+c
+c ... 
+      open(nout,file=fname,status= 'old' , err=1000 , action='read')
+      flag = .true.
+c ... numero total de nos      
+      call readmacro(nout,.true.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*) num_pel
+      print*,num_pel,' print set elements'
+c .....................................................................
+c
+c ...
+      if(num_pel .gt. 50) then
+        print*,'number max print elements is 50 !!!' 
+        flag = .false.
+        return 
+      endif
+c .....................................................................
+c
+c ... memoria para os nos
+      i_el        = alloc_4('elw     ',1,num_pel)
+c ... memoria para os arquivos      
+      i_nfile_pi  = alloc_4('pgw     ',1,num_pel)
+c ... lendo nos
+      do i = 1, num_pel
+         call readmacro(nout,.true.)
+         write(string,'(30a)') (word(j),j=1,30)
+         read(string,*) el
+         ia(i_el+i-1)  = el
+         ia(i_nfile_pi+i-1) = 101 + (i-1)
+      enddo
+c .....................................................................
+      close(nout)
+      return
+ 1000 continue
+      print*, '*** Error opening file: ',trim(fname)
+      flag = .false.
+      end
 c *********************************************************************
-c *  PRINTNODE: imprime uma grandeza do no pelo tempo                 *
-c *  ---------------------------------------------------------------- *
-c *  Parametro de Entrada :                                           *
-c *  ---------------------------------------------------------------- *
-c *  u       - vetor com a grandeza a ser escrita                     *
-c *  no      - numero do no                                           *
-c *  ndf     - graus de liberdade da grandeza                         *
-c *  istep   - passo de tempo                                         *
-c *  t       - tempo                                                  *
-c *  nameres - nome da gradeza a ser escrita                          *
-c *  prename - nome do arquivo de saida                               *
-c *  nout    - numero do arquivo a ser escrito                        *
-c *  open    - abertura de um novo arquivo .true.                     *
-c *  ---------------------------------------------------------------- *
-c *  Parametro de Saida :                                             *
-c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * PRINTNODE: imprime uma grandeza do no no tempo                     *
+c * ------------------------------------------------------------------ *
+c * Parametro de Entrada :                                             *
+c * ------------------------------------------------------------------ *
+c * u       - vetor com a grandeza a ser escrita                       *
+c * no      - numero do no                                             *
+c * ndf     - graus de liberdade da grandeza                           *
+c * istep   - passo de tempo                                           *
+c * t       - tempo                                                    *
+c * nameres - nome da gradeza a ser escrita                            *
+c * prename - nome do arquivo de saida                                 *
+c * nout    - numero do arquivo a ser escrito                          *
+c * open    - abertura de um novo arquivo .true.                       *
+c * ------------------------------------------------------------------ *
+c * Parametro de Saida :                                               *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
       subroutine printnode(u,no,ndf,istep,t,nameres,prename,nout,code
      .                    ,open)
       implicit none
@@ -814,12 +911,80 @@ c ... reabre o arquivo e add uma nova linha
 c =====================================================================        
 c
 c === 
-      write(nout,'(i9,f30.6,9f30.10)')istep,t,(u(i,no), i=1, ndf)
+      write(nout,'(i9,10e18.10)')istep,t,(u(i,no), i=1, ndf)
 c      write(nout,*)istep,',',istep*dt,',',u(no)
       close(nout)
       return
       end
-c =====================================================================
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 29/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * PRINTPI: imprime uma grandeza do ponto de integracao no tempo      *
+c * ------------------------------------------------------------------ *
+c * Parametro de Entrada :                                             *
+c * ------------------------------------------------------------------ *
+c * u       - vetor com a grandeza a ser escrita                       *
+c *elo      - numero do elemento                                       *
+c * ndf     - graus de liberdade da grandeza                           *
+c * npi     - pontos de integracao                                     *
+c * istep   - passo de tempo                                           *
+c * t       - tempo                                                    *
+c * nameres - nome da gradeza a ser escrita                            *
+c * prename - nome do arquivo de saida                                 *
+c * nout    - numero do arquivo a ser escrito                          *
+c * open    - abertura de um novo arquivo .true.                       *
+c * ------------------------------------------------------------------ *
+c * Parametro de Saida :                                               *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine printpi(u,el,ndf,npi,istep,t
+     1                  ,nameres,prename,nout
+     2                  ,code   ,open)
+      implicit none
+c ===        
+      character*30 nameres
+      integer el,istep,nout,ndf,npi,i,j,code
+      real*8 u(ndf,npi,*)
+      real*8 t
+      character*80 fileout,prename,name
+      logical open
+c .....................................................................
+c
+c ...
+c ... abre um novo arquivo
+      if(open) then
+        fileout = name(prename,el,code)
+        open(unit=nout,file=fileout)
+        write(nout,'(a,a,a,i9)')
+     .  '# Variacao ',trim(nameres)
+     .   ,' no tempo nos pontos de integracao no elemento',el
+      else
+c ... reabre o arquivo e add uma nova linha      
+        fileout = name(prename,el,code)
+        open(unit=nout,file=fileout,status ='old',access='append') 
+      endif
+c .....................................................................
+c
+c ...
+      write(nout,'(i9,e18.10)',advance='no')istep,t
+      do i = 1 , npi
+        write(nout,'(i3)',advance='no')i
+        do j = 1, ndf
+          write(nout,'(1x,e18.10)',advance='no')u(j,i,el)
+        enddo
+      enddo
+c .....................................................................
+c
+c ...
+      close(nout)
+      return
+      end
+c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 27/03/2016                                   *
@@ -831,7 +996,7 @@ c * Parametro de Entrada :                                            *
 c * ----------------------------------------------------------------- *
 c * ix      - conectividades                                          *
 c * numel   - numero do elmentos                                      *
-c * nen     - numero de nos por elemento   a                          *
+c * nen     - numero de nos por elemento                              *
 c * prename - nome do arquivo de saida                                *
 c * nplot   - numero da unidade de saida                              *
 c *  ---------------------------------------------------------------- *

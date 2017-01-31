@@ -34,7 +34,7 @@ c
 c ...    
       th    = 0.0d0
       maxit = 500000
-      tol   = 1.0e-07
+      tol   = 1.0e-14
 c ... t0 = t:
       call aequalb(stot,tx,6)
 c ...  eps1 = armazena deformacao plastica volumetrica do passo anterior      
@@ -60,8 +60,8 @@ c ... update plastic strain trace
            epe1 = epe1 + a1(j)*dlamb
          enddo         
 c ... update hardening parameter
-        ds = epe1-eps1
-        pc = epe2 - alfa*epe2*ds
+         ds = epe1-eps1
+         pc = epe2 - alfa*epe2*ds
 c ...compute elastoplastic stresses
          do 10 j = 1,6
            stot(j) = stot(j)-dlamb*d1(j)

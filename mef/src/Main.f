@@ -30,19 +30,18 @@ c
 c ... Variaveis para controle de arquivos:
 c
       character*80 prename,fname,name,filein
-      character*80 pnodename
+      character*80 pnodename,ppiname
       integer nin,nplot,nout,nout_face,nout_nonlinear
       integer logsolv,fconf,logsolvd,log_hist_solv
       integer totfiles,openflag
-      integer*8 i_no,i_nfile
+      integer*8 i_no,i_nfile,i_pi,i_nfile_pi
       integer print_nnode
-      integer num_pnode
+      integer num_pnode,num_pel
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
       integer nfiles,ifiles,num_print,n_opt_print_flag
-      parameter ( nfiles = 5,n_opt_print_flag = 10)
-      logical new_file(nfiles),flag_pnd,fhist_log
-      logical print_flag(n_opt_print_flag)
-      logical legacy_vtk
+      parameter ( nfiles = 10,n_opt_print_flag = 10)
+      logical new_file(nfiles),new_file_pi(nfiles),flag_pnd,flag_ppi
+      logical print_flag(n_opt_print_flag),fhist_log,legacy_vtk
 c ......................................................................
 c
 c ... solver
@@ -155,8 +154,8 @@ c
      7          ,'        ','        ','        '
      8          ,'        ','maxnlit ','        '
      9          ,'nltol   ','        ','        '
-     1          ,'setpnode','setprint','        '
-     2          ,'        ','pnup    ','pnsf    '
+     1          ,'setpnode','setprint','setpi   '
+     2          ,'ppi     ','pnup    ','pnsf    '
      3          ,'config  ','neqs    ','        '
      4          ,'stop    '/
 c ......................................................................
@@ -166,9 +165,10 @@ c
       data nin /1/, nplot /3/, nout_nonlinear /4/ , logsolv /10/
      .    , nout /15/,logsolvd /16/, nout_face /17/,log_hist_solv /18/ 
       data fconf /5/
-      data flag_pnd /.false./ 
+      data flag_pnd /.false./,flag_ppi /.false./
 c     arquivo de impressao de nos associados aos seguintes inteiros
-c     nfile = 50,51,52,...,num_pnode
+c     nfile    = 51 ,51 , 52,...,num_pnode,...,100
+c     nfile_pi = 101,102,103,...,num_pel  ,...,150
 c ......................................................................      
 c
 c ... Inicializacao MPI:
@@ -396,7 +396,7 @@ c ......................................................................
      7     ,2200,2300,2400 !'        ','        ','        '
      8     ,2500,2600,2700 !'        ','maxnlit ','        '
      9     ,2800,2900,3000 !'nltol   ','        ','        '
-     1     ,3100,3200,3300 !'setpnode','setprint','        '
+     1     ,3100,3200,3300 !'setpnode','setprint','setpg   '
      2     ,3400,3500,3600 !'        ','pnup    ','pnsf    '
      3     ,3700,3800,3900 !'config  ','neqs    ','        '
      4     ,5000) j        !'stop    ' 
@@ -1295,7 +1295,7 @@ c ...
       i_pc        = alloc_8('pc      ',    1,nnode)
 c .....................................................................
 c
-c ...
+c ... 
       if(mpi) then
 c ...
         if(print_flag(5) .or. print_flag(6) .or. print_flag(7) 
@@ -1353,6 +1353,8 @@ c ... add tensao incial
      .                         ,nnovG   ,ntn     ,ndf)
 c ......................................................................
         endif
+c ......................................................................
+c
 c ... delta porosidade 
         if(print_flag(9)) then
           if(novlp) then
@@ -1834,8 +1836,8 @@ c ... Macro-comando: SETPNODE impressao de grandezas por no no tempo
 c
 c ......................................................................
  3100 continue
-      if(my_id.eq.0) print*, 'Macro SETPNODE'
       if(my_id.eq.0) then
+        print*, 'Macro SETPNODE'
         call readmacro(nin,.false.)
         write(str,'(80a)') (word(i),i=1,80)
         read(str,*,err=3110,end = 3110) pnodename
@@ -1866,18 +1868,83 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:                                                    
+c ... Macro-comando: impressao das grandesas no pontos de integracao   
+c
 c ......................................................................
  3300 continue
-      if(my_id.eq.0) print*, 'Macro '
+      if(my_id.eq.0) then
+        print*, 'Macro SETPI'
+        call readmacro(nin,.false.)
+        write(str,'(80a)') (word(i),i=1,80)
+        read(str,*,err=3310,end = 3310) ppiname
+        goto 3320
+c ... problema no arquivo auxiliar        
+ 3310   continue
+        print*,'Error reading macro (SETPI)'
+        flag_ppi = .false.
+        goto 3330
+c ... leitura normal 
+ 3320   continue     
+        call readppi(ppiname,i_pi,i_nfile_pi,num_pel,flag_ppi,nout)
+        new_file_pi(1:nfiles) = .true.
+ 3330   continue
+      endif
+      call MPI_BCAST(flag_ppi,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+c ... erro na letura do nome do arquivo auxiliar      
+      if( flag_ppi .eqv. .false.) call stop_mef()
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: PNTEMP impressao do fluxo de Calor por no no tempo
-c     (SETPNODE)                                                   
+c ... Macro-comando: PPG impressao das variaveis por pontos de gauss
+c     no tempo (SETPG)                                                   
 c ......................................................................
  3400 continue
-      if(my_id.eq.0) print*, 'Macro '
+      if(my_id.eq.0) print*, 'Macro PGI'  
+      if(.not. fplastic) goto 50    
+      if(flag_pnd.eqv..false.) then
+        if(my_id.eq.0)print*,'No cell to print for PGP!'  
+        call stop_mef()
+      endif
+c ... codigo para o arquivo stress_pi.txt      
+      code   = 35
+      ifiles = 1
+c .....................................................................
+      call global_v_elm(ntn*npi,numel_nov,i_tx1p,i_g1,'stressG ',2)
+      string = 'Stress'
+      if( my_id .eq. 0) then
+        do j = 1, num_pel  
+          call printpi(ia(i_g1),ia(i_pi+j-1),ntn,npi     ,istep,t
+     1                ,string  ,prename       ,ia(i_nfile_pi+j-1)
+     2                ,code    ,new_file_pi(ifiles))
+        enddo
+        new_file_pi(ifiles) = .false.
+      endif
+      if(mpi) then
+        i_g1 = dealloc('stressG ')
+      endif
+c .....................................................................
+c
+c ... codigo para o arquivo pc_pi.txt      
+      code   = 36
+      ifiles = 2
+c .....................................................................
+      call global_v_elm(3*npi,numel_nov,i_plastic,i_g1,'plasticG',2)
+      string = 'Plastic'
+      if( my_id .eq. 0) then
+        do j = 1, num_pel  
+          call printpi(ia(i_g1),ia(i_pi+j-1),  3,npi     ,istep,t
+     1                ,string  ,prename       ,ia(i_nfile_pi+j-1)
+     2                ,code    ,new_file_pi(ifiles))
+        enddo
+        new_file_pi(ifiles) = .false.
+      endif
+      if(mpi) then
+        i_g1 = dealloc('plasticG')
+      endif
+c ......................................................................
+c
+c ...
+      call MPI_barrier(MPI_COMM_WORLD,ierr)
       goto 50
 c ----------------------------------------------------------------------
 c
