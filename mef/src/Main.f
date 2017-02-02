@@ -768,8 +768,8 @@ c ...
         write(*,'(a,i8,a,f15.5,a,f15.5,a,f15.5)')
      .                                  ,' STEP '      ,istep
      .                                  ,' Time(s)'    ,t
-     .                                  ,' Time(horas)',t/3600.d0
-     .                                  ,' Time(dias)' ,t/86400.d0
+     .                                  ,' Time(hours)',t/3600.d0
+     .                                  ,' Time(days)' ,t/86400.d0
         write(nout_nonlinear,'(a,i7,f15.5)')'step',istep,t
         if(fhist_log)write(log_hist_solv,'(a,i7,f15.5)')'step',istep,t
       endif

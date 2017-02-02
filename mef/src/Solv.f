@@ -2761,10 +2761,12 @@ c .....................................................................
 c
 c ...                         
       else
-        print*,'Error reading macro (SOLVER) !'
-        print*,'Solver available:'
         do i = 1, nmc
-          if(my_id.eq.0) print*,'Solver: ',macros(i)
+          if(my_id.eq.0) then
+            print*,'Error reading macro (SOLVER) !'
+            print*,'Solver available:'
+            print*,'Solver: ',macros(i)
+          endif
         enddo
         call stop_mef()
       endif 

@@ -2476,22 +2476,28 @@ c ......................................................................
       return  
 c ......................................................................
  100  continue
-      print*,'*** Error reading macro: '
+      if(my_id.eq.0) then
+        print*,'*** Error reading macro: '
      .      ,trim(macro(i)),' in macro solver!'
+      endif
       call stop_mef()                        
  200  continue
-      print*,'File ',trim(fname),' not found !'
+      if(my_id.eq.0) then
+        print*,'File ',trim(fname),' not found !'
+      endif
       call stop_mef()
  300  continue
-      print*,'*** Error reading solver macro !'
-      write(*,'(2x,a)') '******************************'
-      write(*,'(2x,a)') 'Example usage of macro solver:'
-      write(*,'(2x,a)') '------------------------------'
-      do i = 1, 5
-        write(*,'(2x,a)') ex(i)
-      enddo  
-      write(*,'(2x,a)') '------------------------------'
-      write(*,'(2x,a)') '******************************'
+      if(my_id.eq.0) then
+        print*,'*** Error reading solver macro !'
+        write(*,'(2x,a)') '******************************'
+        write(*,'(2x,a)') 'Example usage of macro solver:'
+        write(*,'(2x,a)') '------------------------------'
+        do i = 1, 5
+          write(*,'(2x,a)') ex(i)
+        enddo  
+        write(*,'(2x,a)') '------------------------------'
+        write(*,'(2x,a)') '******************************'
+      endif
       call stop_mef()
 c ......................................................................
       end
