@@ -320,11 +320,10 @@ c
 c ... forca distribuida constante no contorno com possibilidade de
 c     incremento de carga dentro da iteracao nao linear
       elseif (itype .eq. 40) then
-        if( t .le. 3600.0) then
-          vc(1:nparc)  = fload(1:nparc,1,nc)*(t/3600.0)      
-        else
-          vc(1:nparc)  = fload(1:nparc,1,nc)
-        endif            
+        nparc = load(3,nc)
+        call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,vc(1))
+        call interpol(fload(1,1,nc),fload(1,3,nc),t,nparc,vc(2))
+        call interpol(fload(1,1,nc),fload(1,4,nc),t,nparc,vc(3))  
 c .....................................................................
       endif
       return

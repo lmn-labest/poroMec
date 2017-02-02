@@ -1195,8 +1195,10 @@ c **********************************************************************
       implicit none
       include 'string.fi'
       include 'load.fi'
-      integer  nin,i,j,k,nc
-      character*30 string            
+      integer  nin,nincl,i,j,k,l,nc
+      parameter (nincl = 8)
+      character*30 string
+      character*80 fname  
 c ......................................................................
       call readmacro(nin,.true.)
       write(string,'(12a)') (word(i),i=1,12)
@@ -1309,24 +1311,44 @@ c .....................................................................
 c
 c ... forca distribuida constante no contorno
          elseif (load(1,i) .eq. 40) then
-c ...       numero de parcelas:            
+c ... nome do arquivo            
             call readmacro(nin,.false.)
+            write(fname,'(80a)') (word(j),j=1,strl)
+            open(nincl, file= fname,status= 'old',err=201,action='read')
+c ... numero de parcelas
+            call readmacro(nincl,.true.) 
             write(string,'(30a)') (word(j),j=1,30)
-            read(string,*,err = 200,end = 200) load(2,i)            
-            do k = 1, load(2,i)
-                call readmacro(nin,.false.)
-               write(string,'(30a)') (word(j),j=1,30)
-               read(string,*,err = 200,end = 200) fload(k,1,i)
-            enddo           
+            read(string,*,err = 200,end = 200) load(2,i)    
+c ... numero de parcelas temporais da carga
+            call readmacro(nincl,.false.) 
+            write(string,'(30a)') (word(j),j=1,30)
+            read(string,*,err = 200,end = 200) load(3,i)
+c ...
+            do l = 1, load(3,i)
+              call readmacro(nincl,.true.)
+              do k = 1, load(2,i)                 
+                 write(string,'(30a)') (word(j),j=1,30)
+                 read(string,*,err = 200,end = 200) fload(l,k,i)
+                 call readmacro(nincl,.false.)
+              enddo
+            enddo 
+c .....................................................................
+c
+c ... 
+            close(nincl)          
          endif
+c .....................................................................
          call readmacro(nin,.true.)
          write(string,'(12a)') (word(j),j=1,12)
   100 continue
       return
 c ......................................................................
   200 continue
-      print*,'*** Erro na leitura das cargas !'
-      stop
+      print*,'*** Load reading error !'
+      call stop_mef()
+  201 continue
+      print*,'File ',trim(fname),' not found !'
+      call stop_mef()
       end    
       subroutine rtermprop(numat,nin)
 c **********************************************************************
