@@ -863,9 +863,9 @@ c ......................................................................
       if(i .eq. 1) resid0 = max(resid0,resid)
       if(my_id.eq.0) then
         write(*,'(1x,a,i9)', advance = "no")'nonlinear iteration ',i
-        write(*,'(1x,a,d13.6,1x,a,d13.6)')'resid/resid0',resid/resid0
+        write(*,'(1x,a,e13.6,1x,a,e13.6)')'resid/resid0',resid/resid0
      .                               ,'resid',resid
-        write(nout_nonlinear,'(i7,2d20.10)')i,resid/resid0,resid    
+        write(nout_nonlinear,'(i7,2e20.10)')i,resid/resid0,resid    
         if(fhist_log)write(log_hist_solv,'(a,i7)')'nlit',i   
       endif
       if ((resid/resid0) .lt. tol) goto 420     

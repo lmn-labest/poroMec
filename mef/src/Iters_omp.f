@@ -354,10 +354,10 @@ c *********************************************************************
      5                 ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                 ,i_xfi ,i_rcvsi,i_dspli,thread_y
      7                 ,fprint,flog   ,fhist  ,fnew
-     8                 ,nprcs ,mpi)
+     8                 ,nprcs ,mpi    ,fsqmr)
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 02/02/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a direita                                                 *
@@ -398,13 +398,15 @@ c * fhist    - log dos resuduos por iteracao                           *
 c * fnew     - .true.  -> x0 igual a zero                              *
 c *            .false. -> x0 dado                                      *
 c * mpi      - true|false                                              *
-c * nprcs    - numero de processos mpi                                 *  
+c * nprcs    - numero de processos mpi                                 * 
+c * fsqmr    - nao definido                                            *  
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * x(neq) - vetor solucao                                             *
 c * b(neq) - modificado                                                *
 c * ad(*),al(*),au(*) - inalterados                                    *
+c * fsqmr    - true para falha do sqmr                                 *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * Fonte: A New Krylov-subspace method for symmetric indefinite       * 
@@ -432,7 +434,7 @@ c .....................................................................
       real*8 norm_r
       real*8 time0,time
       real*8 thread_y(*)
-      logical flog,fprint,fnew,fhist
+      logical flog,fprint,fnew,fhist,fsqmr
 c ...
       real*8 flop_sqrm
       real*8  mflops,vmean
@@ -459,7 +461,7 @@ c$omp.shared(neq,nequ,nad,ia,ja,al,ad,au,b,x,m,t,r,q,d)
 c$omp.shared(tol,maxit,thread_y)
 c$omp.shared(neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,i_dspli,neq_doti,flog)
 c$omp.shared(my_id,time,time0,fnew,fhist,fprint,mpi,mflops)
-c$omp.shared(vmean,nprcs,ierr)
+c$omp.shared(vmean,nprcs,ierr,fsqmr)
 c$omp.num_threads(nth_solv)                                          
 c ......................................................................
 c
@@ -610,9 +612,15 @@ c$omp end master
 c ......................................................................
   230 continue
 c ----------------------------------------------------------------------
-      write(*,1200) maxit
-      if(flog) write(10,1200) maxit
-      call stop_mef()
+c$omp master
+      if(my_id .eq. 0 .and. fprint ) then 
+        write(*,1200) maxit,norm_r
+        write(*,*)' *** Switching to Gmres(l) !'
+        if(flog) write(10,1200) maxit,norm_r
+      endif
+c$omp end master
+      fsqmr = .true.
+      goto 400
   300 continue
 c
 c ... Energy norm:  x*Kx
@@ -675,9 +683,11 @@ c ... Controle de flops
       endif
 c$omp end single
 c ......................................................................
+c
+c ...
+  400 continue
 c$omp end parallel
 c ...
-c
       return
 c ======================================================================
  1000 format (//,5x,'SUBROTINA LPSMRQ:',/,5x,'Diagonal coefficient ' 

@@ -1,7 +1,7 @@
 c **********************************************************************
 c *                                                                    *
 c *   SOLV_PM.F                                            06/12/2015  *
-c *                                                        28/06/2016  *
+c *                                                        02/02/2017  *
 c *   Metodos iterativos de solucao:                                   *
 c *                                                                    *
 c *   cg                                                               *
@@ -54,7 +54,8 @@ c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
 c ......................................................................
-      logical block_pu,fmec,fporomec,fhist_solv,fprint
+      logical fmec,fporomec,fhist_solv,fprint
+      logical fsqmr,block_pu
 c ... precondicionador
       integer precond
       real*8  max_block_a(max_block*max_block)
@@ -88,6 +89,11 @@ c ... matriz aramazenada no csrc simetrico (Kuu,-Kpp,-Kpu)
       endif
 c ......................................................................
 c
+c ... usa o gmres caso o sqmr falhar
+      fsqmr = .false.
+  100 continue
+c ......................................................................
+c  
 c ... PCG
       if (solver .eq. 1) then
 c ...
@@ -148,7 +154,7 @@ c ...
 c ......................................................................
 c
 c ... GMRES :
-      elseif(solver .eq. 2) then
+      elseif(solver .eq. 2 .or. fsqmr) then
 c ...
         if(block_pu) then
           if(n_blocks_up .eq. 1 ) then
@@ -730,7 +736,7 @@ c ...
      4                    ,fprint
      5                    ,my_id  ,neqf1i,neqf2i ,neq_doti,i_fmapi
      6                    ,i_xfi  ,i_rcvsi,i_dspli,ia(i_threads_y)
-     7                    ,nprcs  ,ovlp   ,mpi) 
+     7                    ,nprcs  ,ovlp   ,mpi    ,fsqmr) 
 c .....................................................................
 c
 c ...
@@ -742,7 +748,7 @@ c ...
      4                ,fprint
      5                ,my_id    ,neqf1i,neqf2i  ,neq_doti,i_fmapi
      6                ,i_xfi    ,i_rcvsi,i_dspli
-     7                ,nprcs    ,ovlp   ,mpi) 
+     7                ,nprcs    ,ovlp   ,mpi    ,fsqmr) 
        endif
 c .....................................................................
 c
@@ -751,7 +757,11 @@ c ...
         i_r = dealloc('rsolver ')
         i_h = dealloc('hsolver ')
         i_z = dealloc('zsolver ')
-c .....................................................................
+c ......................................................................
+c
+c ...
+        if(fsqmr) goto 100
+c ......................................................................
       endif
 c ......................................................................           
 c
@@ -1343,7 +1353,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 29/01/2017                                    * 
+c * Data de modificaco : 02/02/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SQMR:chama a versao do metodo QMR simetrico                   *    
 c * ------------------------------------------------------------------ * 
@@ -1391,12 +1401,14 @@ c * i_dspli  - MPI                                                     *
 c * mpi      - true|false                                              *
 c * ovlp     - overllaping                                             *
 c * nprcs    - numero de processos mpi                                 *
+c * fsqmr    - nao definido                                            *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * x(neq) - vetor solucao                                             *
 c * b(neq) - modificado                                                *
 c * ad(*),al(*),au(*) - inalterados                                    *
+c * fsqmr    - true para falha do sqmr                                 *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
@@ -1408,7 +1420,7 @@ c **********************************************************************
      4                    ,fprint
      5                    ,my_id    ,neqf1i,neqf2i   ,neq_doti,i_fmapi
      6                    ,i_xfi    ,i_rcvsi,i_dspli
-     7                    ,nprcs    ,ovlp   ,mpi    )
+     7                    ,nprcs    ,ovlp   ,mpi     ,fsqmr)
       implicit none
 c ... mpi
       integer my_id
@@ -1426,7 +1438,7 @@ c ... arranjos auxiliares
 c ...
       real*8  tol
       integer maxit  
-      logical fhist_log,fprint
+      logical fhist_log,fprint,fsqmr
 c ... precondicionador
       integer pc,iparam(*)
       real*8 m(*)
@@ -1459,7 +1471,7 @@ c ... overllaping
      5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                ,i_xfi ,i_rcvsi,i_dspli
      7                ,fprint,.true. ,fhist_log,.true.
-     8                ,nprcs ,mpi)
+     8                ,nprcs ,mpi,fsqmr)
 c .....................................................................
 c
 c ...non-overllaping
@@ -1472,7 +1484,7 @@ c ...non-overllaping
      5                ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                ,i_xfi ,i_rcvsi,i_dspli
      7                ,fprint,.true. ,fhist_log,.true.
-     8                ,nprcs ,mpi)
+     8                ,nprcs ,mpi,fsqmr)
           endif
 c .....................................................................
         endif
@@ -1483,7 +1495,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 22/09/2016                                    *
-c * Data de modificaco : 29/01/2017                                    * 
+c * Data de modificaco : 02/02/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_SQMR_OMP:chama a versao do metodo QMR simetrico               *    
 c * ------------------------------------------------------------------ * 
@@ -1531,13 +1543,15 @@ c * i_dspli  -                                                         *
 c * thread_y - buffer de equacoes para o vetor y (openmp)              * 
 c * mpi      - true|false                                              *
 c * ovlp     - overllaping                                             *
-c * nprcs    - numero de processos mpi                                 *     
+c * nprcs    - numero de processos mpi                                 *
+c * fsqmr    - nao definido                                            *     
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * x(neq) - vetor solucao                                             *
 c * b(neq) - modificado                                                *
 c * ad(*),al(*),au(*) - inalterados                                    *
+c * fsqmr    - true para falha do sqmr                                 *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
@@ -1549,7 +1563,7 @@ c **********************************************************************
      4                    ,fprint
      5                    ,my_id    ,neqf1i,neqf2i ,neq_doti,i_fmapi
      6                    ,i_xfi    ,i_rcvsi,i_dspli,thread_y
-     7                    ,nprcs    ,ovlp   ,mpi    )
+     7                    ,nprcs    ,ovlp   ,mpi    ,fsqmr )
       implicit none
 c ... mpi
       integer my_id
@@ -1569,7 +1583,7 @@ c ... buffer do CSR omp
 c ...
       real*8  tol
       integer maxit  
-      logical fhist_log,fprint
+      logical fhist_log,fprint,fsqmr
 c ... precondicionador
       integer pc,iparam(*)
       real*8 m(*)
@@ -1595,7 +1609,7 @@ c ... overllaping
      5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6             ,i_xfi ,i_rcvsi,i_dspli,thread_y
      7             ,fprint,.true. ,fhist_log,.true.
-     8             ,nprcs ,mpi)
+     8             ,nprcs ,mpi,fsqmr)
 c .....................................................................
 c
 c ...non-overllaping
@@ -1608,7 +1622,7 @@ c ...non-overllaping
      5             ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6             ,i_xfi ,i_rcvsi,i_dspli,thread_y
      7             ,fprint,.true. ,fhist_log,.true.
-     8             ,nprcs ,mpi)
+     8             ,nprcs ,mpi,fsqmr)
         endif
 c .....................................................................
       endif

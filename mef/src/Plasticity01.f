@@ -34,7 +34,7 @@ c
 c ...    
       th    = 0.0d0
       maxit = 500000
-      tol   = 1.0e-14
+      tol   = 1.0e-11
 c ... t0 = t:
       call aequalb(stot,tx,6)
 c ...  eps1 = armazena deformacao plastica volumetrica do passo anterior      

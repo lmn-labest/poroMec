@@ -6100,10 +6100,10 @@ c *********************************************************************
      5                 ,my_id ,neqf1i ,neqf2i,neq_doti,i_fmapi
      6                 ,i_xfi ,i_rcvsi,i_dspli
      7                 ,fprint,flog   ,fhist  ,fnew
-     8                 ,nprcs  ,mpi)
+     8                 ,nprcs  ,mpi   ,fsqmr)
 c **********************************************************************
 c * Data de criacao    : 28/06/2016                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 02/02/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * RPSQRM : Solucao de sistemas de equacoes pelo metodo QMR simetrico *
 c * diagonal a direita                                                 *
@@ -6143,13 +6143,15 @@ c * fhist     - log dos resuduos por iteracao                          *
 c * fnew      - .true.  -> x0 igual a zero                             *
 c *             .false. -> x0 dado                                     *
 c * mpi       - true|false                                             *
-c * nprcs     - numero de processos mpi                                *  
+c * nprcs     - numero de processos mpi                                *
+c * fsqmr    - nao definido                                            * 
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * x(neq) - vetor solucao                                             *
 c * b(neq) - modificado                                                *
 c * ad(*),al(*),au(*) - inalterados                                    *
+c * fsqmr    - true para falha do sqmr                                 *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -6183,7 +6185,7 @@ c .....................................................................
       real*8 norm_r
       real*8 time0,time
       real*8 dum1
-      logical flog,fprint,fnew,fhist
+      logical flog,fprint,fnew,fhist,fsqmr
 c ...
       real*8 flop_sqrm
       real*8  mflops,vmean
@@ -6333,9 +6335,13 @@ c ......................................................................
 c ......................................................................
   230 continue
 c ----------------------------------------------------------------------
-      write(*,1200) maxit,norm_r
-      if(flog) write(10,1200) maxit,norm_r
-      call stop_mef()
+      if(my_id .eq. 0 .and. fprint ) then 
+        write(*,1200) maxit,norm_r
+        write(*,*)' *** Switching to Gmres(l) !'
+        if(flog) write(10,1200) maxit,norm_r
+      endif
+      fsqmr = .true.
+      return
   300 continue
 c
 c ... Energy norm:  x*Kx
