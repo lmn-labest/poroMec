@@ -2337,7 +2337,7 @@ c .....................................................................
 c
 c ...
       call readmacrov2(nincl,.true.,erro)
-      if(erro .eq. 1) goto 200 
+      if(erro .eq. 1) goto 100 
       write(string,'(15a)') (word(j),j=1,12)
       do while (string .ne. 'end')
 c ... solver
@@ -2536,15 +2536,23 @@ c **********************************************************************
       implicit none
       include 'string.fi'
       character*15 string,macro(12)
+      character*80 fname
       logical fprint(*),fexit
       integer j,nmacro,my_id
       integer nin
       logical fplastic
+      integer nincl /12/
       data nmacro /10/
       data macro/'quadratic      ','desloc        ','pressure       '
      1          ,'dpressure      ','totalstress   ','biotstress     '
      2          ,'terzaghistress ','darcyflux     ','porosity       '
-     3          ,'pconsolidation ','              ','               '/
+     3          ,'pconsolidation ','              ','end            '/
+c ......................................................................
+c
+c ...
+      call readmacro(nin,.false.)
+      write(fname,'(80a)') (word(j),j=1,strl)
+      open(nincl, file= fname,status= 'old',err=200,action='read')
 c ......................................................................
 c
 c ...
@@ -2554,10 +2562,9 @@ c ...
 c ......................................................................
 c
 c ...
-      fexit = .true.
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.true.)
       write(string,'(15a)') (word(j),j=1,15)
-      do while (strl .ne. 0 )
+      do while (string .ne. 'end')
 c ... quadratic
         if (string .eq. macro(1)) then
           fprint(1) = .true.
@@ -2608,7 +2615,7 @@ c ... pconsolidation
           fprint(10) = .true.
         endif
 c .....................................................................
-        call readmacro(nin,.false.)
+        call readmacro(nincl,.true.)
         write(string,'(15a)') (word(j),j=1,15)
       end do
 c .....................................................................
@@ -2620,7 +2627,16 @@ c ...
 c ......................................................................
 c
 c ...
+      close(nincl)
       return
+c ......................................................................
+c
+c ...
+ 200  continue
+      if(my_id.eq.0) then
+        print*,'File ',trim(fname),' not found !'
+      endif
+      call stop_mef()
       end
 c **********************************************************************
 c
@@ -2647,32 +2663,48 @@ c **********************************************************************
       subroutine read_gravity(g,mg,nin)
       include 'string.fi'
       character*30 string
+      character*80 fname
       integer nin
+      integer nincl /12/
       real*8 g(3),mg
 c ...
       g(1:3) = 0.d0
 c .....................................................................
 c
-c ... gx
+c ...
       call readmacro(nin,.false.)
+      write(fname,'(80a)') (word(j),j=1,strl)
+      open(nincl, file= fname,status= 'old',err=900,action='read')
+c ......................................................................
+c
+c ... gx
+      call readmacro(nincl,.true.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =910,end =910) g(1)
 c .....................................................................
 c
 c ... gy
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =920,end =920) g(2)  
 c .....................................................................
 c  
 c ... gz
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =930,end =930) g(3)    
       mg = dsqrt(g(1)*g(1)+g(2)*g(2)+g(3)*g(3))
 c .....................................................................
 c
       return
+c .....................................................................
+c
+c ...
+ 900  continue
+      if(my_id.eq.0) then
+        print*,'File ',trim(fname),' not found !'
+      endif
+      call stop_mef()
 c .....................................................................
 c
 c ...
@@ -2828,10 +2860,10 @@ c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ie      - tipo de elemento por material                            *
 c * ix      - conectividade do material                                *
-c * e       - propriedade do material
-c * plastic - true|false                                               *
-c * npi     - numero de pontos de integracao 
-c * numel   - numero de elementos                                   
+c * e       - propriedade do material                                  *
+c * plastic - true|false                                               * 
+c * npi     - numero de pontos de integracao                           *
+c * numel   - numero de elementos                                      *
 c * nen     - numero de nos por elemento                               *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
@@ -2868,7 +2900,7 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************
-      subroutine  init_stress(ix,ie,e,x,tx0,numel,nenv,nen,ndm,ntn)
+      subroutine init_stress(ix,ie,e,x,tx0,numel,nenv,nen,ndm,ntn)
       implicit none
       include 'gravity.fi'
       include 'termprop.fi'
