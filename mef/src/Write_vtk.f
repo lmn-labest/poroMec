@@ -1,6 +1,6 @@
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 03/04/2016                                   * 
+c * Data de modificaco : 05/02/2017                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_GEO: escreve a malha no vtk                            *
 c * ------------------------------------------------------------------*
@@ -69,7 +69,7 @@ c === cabecalho
         write(aux,'(30a)')"Malha poro mec" 
         call head_vtk(aux,bvtk,ddum,idum,.false.,nout)
       else  
-        call head_vtu(nnode,numel,bvtk,nout) 
+        call head_vtu(nnode,numel,bvtk,ddum,idum,.false.,nout) 
       endif  
 c =====================================================================
 c
@@ -175,7 +175,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 03/04/2016                                   *
-c * Data de modificaco : 09/04/2016                                   * 
+c * Data de modificaco : 05/02/2017                                   * 
 c * ------------------------------------------------------------------* 
 c * WRITE_MESH_GEO_PM: escreve a malha global com carregamento        *
 c * no formato vtk.                                                   *
@@ -288,7 +288,7 @@ c === cabecalho
         write(aux,'(30a)')"Geometria lida" 
         call head_vtk(aux,bvtk,ddum,idum,.false.,nout)
       else
-        call head_vtu(nnode,numel,bvtk,nout)
+        call head_vtu(nnode,numel,bvtk,ddum,idum,.false.,nout)
       endif
 c =====================================================================
 c
@@ -651,7 +651,7 @@ c ... cabecalho
       if(legacy) then
         call head_vtk(aux,bvtk,ddum,idum,.false.,nelemtload)
       else
-        call head_vtu(nnode,nface,bvtk,nelemtload)
+        call head_vtu(nnode,nface,bvtk,ddum,idum,.false.,nelemtload)
       endif
 c .....................................................................
 c
@@ -765,7 +765,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 28/01/2017                                   * 
+c * Data de modificaco : 05/02/2017                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
 c * poromecanico no formato vtk                                       *
@@ -866,7 +866,7 @@ c === cabecalho
         write(aux,'(30a)')'Malha poro mec' 
         call head_vtk(aux,bvtk,t,istep,.true.,nout) 
       else  
-        call head_vtu(nnode,numel,bvtk,nout) 
+        call head_vtu(nnode,numel,bvtk,t,istep,.true.,nout) 
       endif  
 c =====================================================================
 c
@@ -1333,7 +1333,7 @@ c === cabecalho
         write(aux,'(30a)')'Malha Res' 
         call head_vtk(aux,bvtk,ddum,idum,.false.,nout) 
       else  
-        call head_vtu(nnode,numel,bvtk,nout) 
+        call head_vtu(nnode,numel,bvtk,ddum,idum,.false.,nout) 
       endif  
 c =====================================================================
 c

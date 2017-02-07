@@ -764,7 +764,7 @@ c .....................................................................
 c =====================================================================
 c
 c === sem Mpi
-      if (mpi .eqv. .false.) then
+      if (.not. mpi) then
         nno_pload = nnode
         nnovG     = nnodev
         nnoG      = nnode
@@ -831,7 +831,7 @@ c * Data de criacao    : 00/00/0000                                    *
 c * Data de modificaco : 00/00/0000                                    *
 c * ------------------------------------------------------------------ *  
 c * FRONTB: Calcula neqs por tipo de noh e Transforma o mapa           *
-c * Interface->Global de noh em mapa Interface -> Local de equacoes    *                          *
+c * Interface->Global de noh em mapa Interface -> Local de equacoes    *   
 c * ------------------------------------------------------------------ * 
 c * Parâmetros de entrada:                                             *
 c * ------------------------------------------------------------------ * 

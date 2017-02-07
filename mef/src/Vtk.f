@@ -1824,7 +1824,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 09/04/2016                                    * 
+c * Data de modificaco : 05/02/2017                                    * 
 c * ------------------------------------------------------------------ *  
 c * HEAD_VTK : escreve o vabecalho do arquivo vtk                      *
 c * -------------------------------------------------------------------*
@@ -1866,14 +1866,17 @@ c ... legacy binario
         buffer = 'DATASET UNSTRUCTURED_GRID'//lf
         write(nfile) trim(buffer)
         if(time) then          
-          buffer = 'FIELD FieldData 3'//lf
+          buffer = 'FIELD FieldData 4'//lf
           write(nfile) trim(buffer)
-          buffer = 'TIME(s) 1 1 double'//lf
+          buffer = 'TIME_S 1 1 double'//lf
           write(nfile) trim(buffer)
           write(nfile) t           
-          buffer = 'TIME(h) 1 1 double'//lf
+          buffer = 'TIME_H 1 1 double'//lf
           write(nfile) trim(buffer)
-          write(nfile) t/3600.0d0           
+          write(nfile) t/3600.0d0
+          buffer = 'TIME_D 1 1 double'//lf
+          write(nfile) trim(buffer)
+          write(nfile) t/(24.d0*3600.0d0)                      
           buffer = 'CYCLE 1 1 int'//lf
           write(nfile) trim(buffer)
           write(nfile) istep 
@@ -1885,11 +1888,13 @@ c ... legacy ascii
         write(nfile,'(a)') 'ASCII'
         write(nfile,'(a)') 'DATASET UNSTRUCTURED_GRID'
         if(time) then
-          write(nfile,'(a)') 'FIELD FieldData 3'
-          write(nfile,'(a)') 'TIME(s) 1 1 double'
+          write(nfile,'(a)') 'FIELD FieldData 4'
+          write(nfile,'(a)') 'TIME_S 1 1 double'
           write(nfile,'(f16.6)') t
-          write(nfile,'(a)') 'TIME(h) 1 1 double'
+          write(nfile,'(a)') 'TIME_H 1 1 double'
           write(nfile,'(f16.6)') t/3600.0d0
+          write(nfile,'(a)') 'TIME_D 1 1 double'
+          write(nfile,'(f16.6)') t/(24.d0*3600.0d0)
           write(nfile,'(a)') 'CYCLE 1 1 int'
           write(nfile,'(i9)') istep
         endif  
@@ -1902,7 +1907,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 05/02/2017                                    * 
 c * ------------------------------------------------------------------ *  
 c * HEAD_VTU : escreve o cabecalho do arquivo vtu (xml)                *
 c * -------------------------------------------------------------------*
@@ -1912,18 +1917,26 @@ c * nnode    - numero de nos                                           *
 c * numel    - numero de elementos                                     *
 c * bvtk     - true formato binary false ascii                         *
 c * nfile    - numero associado ao arquivo de saida                    *
+c * t        - tempo real                                              *
+c * istep    - passo de tempo                                          *
+c * nfile    - numero associado ao arquivo de saida                    *
 c * -------------------------------------------------------------------*
 c * Parmetros de saida:                                                *
 c * -------------------------------------------------------------------*
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
-      subroutine head_vtu(nnode,numel,bvtk,nfile)
+      subroutine head_vtu(nnode,numel,bvtk,t,istep,time,nfile)
 c ===
       implicit none
       integer nnode,numel
       character lf*1, buffer*1024
       character buffer1*80,buffer2*80,str1*15,str2*15
       integer nfile
-      logical bvtk
+      integer istep
+      real*8 t
+      logical bvtk,time
       lf =char(10)
 c ====================================================================== 
 c
@@ -1941,7 +1954,44 @@ c ... xml ascii
         write(nfile,'(a)') trim(buffer)
         buffer='<UnstructuredGrid>'
         write(nfile,'(a)') trim(buffer)
-        write(str1(1:15),'(i15)') nnode
+c ...
+        if(time) then
+          buffer='<FieldData>'
+          write(nfile,'(a)') trim(buffer)
+c
+          buffer='<DataArray type="Int32" '//
+     .         'Name="CYCLE" NumberOfTuples="1" format="ascii">'
+          write(nfile,'(a)') trim(buffer)
+          write(nfile,*) istep
+          buffer = '</DataArray>' 
+          write(nfile,'(a)') trim(buffer)
+c
+          buffer='<DataArray type="Float64" '//
+     .         'Name="TIME_S" NumberOfTuples="1" format="ascii">'
+          write(nfile,'(a)') trim(buffer)
+          write(nfile,*) t    
+          buffer = '</DataArray>'
+          write(nfile,'(a)') trim(buffer)    
+c
+          buffer='<DataArray type="Float64" '//
+     .         'Name="TIME_H" NumberOfTuples="1" format="ascii">'
+          write(nfile,'(a)') trim(buffer)
+          write(nfile,*) t/3600.0
+          buffer = '</DataArray>'    
+          write(nfile,'(a)') trim(buffer)
+c
+          buffer='<DataArray type="Float64" '//
+     .         'Name="TIME_D" NumberOfTuples="1" format="ascii">'
+          write(nfile,'(a)') trim(buffer)
+          write(nfile,*) t/(24.d0*3600.0d0) 
+          buffer = '</DataArray>'    
+          write(nfile,'(a)') trim(buffer)
+c
+          buffer = '</FieldData>'
+          write(nfile,'(a)') trim(buffer)
+        endif
+c .....................................................................
+         write(str1(1:15),'(i15)') nnode
         write(str2(1:15),'(i15)') numel
         buffer1='<Piece NumberOfPoints="'//trim(str1)//'" '
         buffer2=' NumberOfCells="'//trim(str2)//'">'

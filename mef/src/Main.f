@@ -31,7 +31,7 @@ c ... Variaveis para controle de arquivos:
 c
       character*80 prename,fname,name,filein
       character*80 pnodename,ppiname
-      integer nin,nplot,nout,nout_face,nout_nonlinear
+      integer nin,nincl,naux,nplot,nout,nout_face,nout_nonlinear
       integer logsolv,fconf,logsolvd,log_hist_solv
       integer totfiles,openflag
       integer*8 i_no,i_nfile,i_pi,i_nfile_pi
@@ -51,7 +51,7 @@ c
 c ... Variaveis de controle de solucao:
 c
       integer maxit,maxnlit,tmaxnlit,ngram,stge,solver,istep
-      integer ilib,ntn,code
+      integer ilib,ntn,code,istop,stop_crit
       real*8  tol,solvtol,resid,resid0
       logical reordf,unsym
 c ... pcg duplo
@@ -152,8 +152,8 @@ c
      5          ,'pres    ','        ','solvm   '
      6          ,'pmecres ','        ','        '
      7          ,'        ','        ','        '
-     8          ,'        ','maxnlit ','        '
-     9          ,'nltol   ','        ','        '
+     8          ,'        ','nl      ','        '
+     9          ,'        ','        ','return  '
      1          ,'setpnode','setprint','setpi   '
      2          ,'ppi     ','pnup    ','pnsf    '
      3          ,'config  ','neqs    ','run     '
@@ -162,8 +162,9 @@ c ......................................................................
 c
 c ... Arquivos de entrada e saida:
 c
-      data nin /1/, nplot /3/, nout_nonlinear /4/ , logsolv /10/
-     .    , nout /15/,logsolvd /16/, nout_face /17/,log_hist_solv /18/ 
+      data nin /1/, nplot /3/, nout_nonlinear /4/ , nincl / 7/
+     .    , logsolv /10/, nout /15/,logsolvd /16/, nout_face /17/
+     .    ,log_hist_solv /18/ 
       data fconf /5/
       data flag_pnd /.false./,flag_ppi /.false./
 c     arquivo de impressao de nos associados aos seguintes inteiros
@@ -232,16 +233,23 @@ c ... maxit   =  numero max. de iteracoes do solver iterativo
 c ... solvtol =  tolerancia para o solver iterativo
 c ... maxnlit =  numero max. de iteracoes nao-lineares
 c ... tol     =  tolerancia do algoritmo nao-linear
+c ... resid_type = tipo do criterio de para do algoritmo nao-linear
+c                  1 - |R|/|R0| < tol
+c                  2 - |Ru|/|Ru0| < tol
+c                      |Rp|/|Rp0| < tol
+c                  3 - |du|/|du0| < tol
+c                      |dp|/|dp0| < tol
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
 c ... precond =  1 - NONE , 2 - diag, 3 - iLDLt(0), 4 - iC(0)
 c                5 - diagm, 6 - bdiag, 7 -diagS
-      maxit     =  50000
-      solvtol   =  1.d-11
-      maxnlit   =  2 
-      tol       =  1.d-05
-      ngram     =  50
-      precond   =  2
-      fhist_log = .false.
+      maxit      =  50000
+      solvtol    =  1.d-11
+      maxnlit    =  500
+      tol        =  1.d-04
+      stop_crit  =  2
+      ngram      =  150
+      precond    =  2
+      fhist_log  = .false.
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -388,16 +396,16 @@ c ......................................................................
    70 continue
       goto (100 , 200, 300 !'loop    ','hextotet','mesh    '
      1     ,400 , 500, 600 !'solv    ','dt      ','pgeo    '
-     2     ,700 , 800, 900 !'        ','block_pu','gravity '
+     2     ,700 , 800, 900 !'presolv ','block_pu','gravity '
      3     ,1000,1100,1200 !'        ','solver  ','deltatc '
      4     ,1300,1400,1500 !'pcoo    ','        ','        '
      5     ,1600,1700,1800 !'pres    ','        ','solvm   '
      6     ,1900,2000,2100 !'pmecres ','        ','        '
      7     ,2200,2300,2400 !'        ','        ','        '
-     8     ,2500,2600,2700 !'        ','maxnlit ','        '
-     9     ,2800,2900,3000 !'nltol   ','        ','        '
+     8     ,2500,2600,2700 !'        ','nl      ','        '
+     9     ,2800,2900,3000 !'        ','        ','return  '
      1     ,3100,3200,3300 !'setpnode','setprint','setpg   '
-     2     ,3400,3500,3600 !'        ','pnup    ','pnsf    '
+     2     ,3400,3500,3600 !'ppi     ','pnup    ','pnsf    '
      3     ,3700,3800,3900 !'config  ','neqs    ','run     '
      4     ,5000) j        !'stop    ' 
 c ......................................................................
@@ -759,7 +767,6 @@ c ...
       ilib   = 1
       i      = 1
       istep  = istep + 1
-      resid0 = 0.d0
       t      = t + dt
 c .....................................................................
 c
@@ -858,17 +865,15 @@ c ... Comunicacao do residuo para o caso non-overlapping:
      .                            i_rcvs,i_dspl)
 c ......................................................................
 c
-c ......................................................................
-      resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
-      if(i .eq. 1) resid0 = max(resid0,resid)
-      if(my_id.eq.0) then
-        write(*,'(1x,a,i9)', advance = "no")'nonlinear iteration ',i
-        write(*,'(1x,a,e13.6,1x,a,e13.6)')'resid/resid0',resid/resid0
-     .                               ,'resid',resid
-        write(nout_nonlinear,'(i7,2e20.10)')i,resid/resid0,resid    
-        if(fhist_log)write(log_hist_solv,'(a,i7)')'nlit',i   
+c ...
+      if( stop_crit .eq. 1 .or. stop_crit .eq. 2) then
+        call cal_residuo(ia(i_id) ,ia(i_b)   ,ia(i_x0)
+     1                  ,nno_pload,ndf       ,neq_dot,i     
+     3                  ,istop    ,stop_crit ,tol
+     4                  ,my_id    ,mpi       ,nout_nonlinear)
+        if (istop .eq. 2) goto 420 
       endif
-      if ((resid/resid0) .lt. tol) goto 420     
+      if(fhist_log)write(log_hist_solv,'(a,i7)')'nlit',i       
 c ......................................................................            
 c
 c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
@@ -891,6 +896,16 @@ c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
      1                    ,ia(i_id),ia(i_u)
      2                    ,ia(i_x0),ia(i_fnno))
       vectime = vectime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ...
+      if( stop_crit .eq. 3 ) then
+        call cal_residuo(ia(i_id) ,ia(i_b)   ,ia(i_x0)
+     1                  ,nno_pload,ndf       ,neq_dot,i     
+     3                  ,istop    ,stop_crit ,tol
+     4                  ,my_id    ,mpi       ,nout_nonlinear)
+        if (istop .eq. 2) goto 420   
+      endif
 c .....................................................................
 c
 c ...
@@ -1783,15 +1798,35 @@ c ... Macro-comando:
 c
 c ......................................................................
  2600 continue
-      if(my_id.eq.0)print*, 'Macro MAXNLIT    '
+      if(my_id.eq.0)print*, 'Macro NL    '
+c
       call readmacro(nin,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =2610,end =2610) maxnlit
-      if(my_id .eq. 0) write(*,'(a,i10)')' Set max nonlinear it for '
+      if(my_id.eq.0)write(*,'(a,i10)')' Setting max nonlinear it for '
      .                      ,maxnlit
+c
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2650,end =2650) tol
+      if(my_id.eq.0) write(*,'(a,d10.2)')' Setting nonlinear tol for '
+     .                                    ,tol
+c
+      call readmacro(nin,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =2655,end =2655) stop_crit 
+      if(my_id.eq.0) write(*,'(a,i2)')' Setting stoping criterion for '
+     .              ,stop_crit
+c
       goto 50
  2610 continue
-      print*,'Error reading macro (MAXNLIT) !'
+      print*,'Error reading maxit in macro (NL) !'
+      goto 5000
+ 2650 continue
+      print*,'Error reading tol in macro (NL) !'
+      goto 5000
+ 2655 continue
+      print*,'Error reading stop_crit macro (NL) !'
       goto 5000
 c ----------------------------------------------------------------------
 c
@@ -1802,19 +1837,11 @@ c ......................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando: NLSTATIC
+c ... Macro-comando: 
 c
 c ......................................................................
  2800 continue
-      if(my_id.eq.0) print*, 'Macro NLTOL'
-      call readmacro(nin,.false.)
-      write(string,'(30a)') (word(i),i=1,30)
-      read(string,*,err =2810,end =2810) tol
-      if(my_id.eq.0) write(*,'(a,d10.2)')' Set noliner tol for ',tol
       goto 50
- 2810 continue
-      print*,'Error reading macro (NLTOL) !'
-      goto 5000
 c ----------------------------------------------------------------------
 c
 c ... Macro-comando: 
@@ -1828,7 +1855,8 @@ c ... Macro-comando:
 c
 c ......................................................................
  3000 continue
-      print*, 'Macro     '
+      if(my_id.eq.0) print*, 'Macro RETURN'
+      nin   = naux 
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -2183,8 +2211,9 @@ c ......................................................................
       if(my_id .eq. 0 )print*, 'Macro RUN'
       call readmacro(nin,.false.)
       write(fname,'(80a)') (word(j),j=1,strl)
-      close(nin)
-      open(nin, file= fname,status= 'old',err=3951,action='read')
+      naux = nin
+      open(nincl, file= fname,status= 'old',err=3951,action='read')
+      nin = nincl  
       goto 50
  3951 continue
       print*,'File ',trim(fname),' not found !'
