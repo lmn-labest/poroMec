@@ -49,7 +49,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 17/01/2017                                    * 
+c * Data de modificaco : 09/02/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT16_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -146,6 +146,9 @@ c ...
       integer tetra_face_node10(6,4),no
       real*8 tetra_vol,volum
 c ...
+      real*8 scale
+      parameter (scale = 1.d-06)
+c ...
       logical block_pu
       data tetra_face_node10 / 2, 3, 4, 8, 9,10
      .                       , 1, 4, 3, 7, 9, 6
@@ -177,7 +180,7 @@ c
 c ......................................................................
   100 continue
 c ...
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ... matriz constitutiva:
@@ -216,7 +219,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 
@@ -428,7 +431,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ... matriz constitutiva:
@@ -509,8 +512,8 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ...
-      pm_d      = e(6)*1.0d-06           
-      fluid_d   = e(7)*1.0d-06
+      pm_d      = e(6)*scale          
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ...      
@@ -844,7 +847,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 15/01/2017                                    * 
+c * Data de modificaco : 09/02/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT17_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -937,6 +940,9 @@ c ...
       integer hexa_face_node20(8,6),no
       real*8 hexa_vol,volum
 c ...
+      real*8 scale
+      parameter (scale = 1.d-06)
+c ...
       logical block_pu
       data hexa_face_node20 / 1, 2, 3, 4, 9,10,11,12
      .                      , 5, 6, 7, 8,13,14,15,16
@@ -973,7 +979,7 @@ c
 c ......................................................................
   100 continue
 c ...
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
@@ -1013,7 +1019,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 
@@ -1227,11 +1233,10 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
-
 c ... matriz constitutiva:
       ym        = e(1)
       ps        = e(2)
@@ -1310,8 +1315,8 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ...
-      pm_d      = e(6)*1.0d-06             
-      fluid_d   = e(7)*1.0d-06
+      pm_d      = e(6)*scale            
+      fluid_d   = e(7)*scale
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
@@ -1320,7 +1325,7 @@ c ...
       ps        = e(2)
 c ...
       coef_biot = e(5)
-      perm      = e(3)/fluid_sw
+      perm      =  e(3)/fluid_sw
 c .....................................................................
 c
 c ...
@@ -1668,7 +1673,7 @@ c *********************************************************************
      3                    ,nel  ,isw     ,block_pu,nlit)
 c **********************************************************************
 c * Data de criacao    : 22/12/2016                                    *
-c * Data de modificaco : 15/01/2017                                    * 
+c * Data de modificaco : 09/02/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -1782,6 +1787,9 @@ c ... plasticidade
 c ... 
       integer tetra_face_node10(6,4),no
       real*8 tetra_vol,volum
+c ...
+      real*8 scale
+      parameter (scale = 1.d-06)
 c ... 
       integer nlit
 c ...
@@ -1816,7 +1824,7 @@ c
 c ......................................................................
   100 continue
 c ...
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ... matriz constitutiva:
@@ -1855,7 +1863,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 
@@ -2219,7 +2227,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ... matriz constitutiva:
@@ -2302,8 +2310,8 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ...
-      pm_d      = e(6)*1.0d-06           
-      fluid_d   = e(7)*1.0d-06
+      pm_d      = e(6)*scale         
+      fluid_d   = e(7)*scale
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ...      
@@ -2626,7 +2634,7 @@ c *********************************************************************
      3                    ,nel  ,isw     ,block_pu,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 15/01/2017                                    * 
+c * Data de modificaco : 09/02/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -2740,6 +2748,9 @@ c ...
       integer hexa_face_node20(8,6),no
       real*8 hexa_vol,volum
 c ...
+      real*8 scale
+      parameter (scale = 1.d-06)
+c ...
       integer nlit
 c ...
       logical block_pu
@@ -2778,7 +2789,7 @@ c
 c ......................................................................
   100 continue
 c ...
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
@@ -2818,7 +2829,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale  
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 
@@ -3192,7 +3203,7 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ... 
-      fluid_d   = e(7)*1.0d-06
+      fluid_d   = e(7)*scale
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
@@ -3272,8 +3283,8 @@ c ...
       gl(2)     =  gravity(2)
       gl(3)     =  gravity(3)
 c ...
-      pm_d      = e(6)*1.0d-06             
-      fluid_d   = e(7)*1.0d-06
+      pm_d      = e(6)*scale            
+      fluid_d   = e(7)*scale
 
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod

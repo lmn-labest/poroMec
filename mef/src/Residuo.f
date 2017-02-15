@@ -50,7 +50,11 @@ c **********************************************************************
 c ...
       if(type_crit .eq. 1) then
         res = dsqrt(dot_par(b,b,neq_dot))
-        if(nli .eq. 1) res0 = res
+        if(nli .eq. 1) then
+          res0 = res
+        elseif(nli .eq. 2) then
+          res0 = max(res0,res)
+        endif
         if(my_id.eq.0) then
           write(*,'(1x,a,i9)')'nonlinear iteration ',nli
           write(*,'(2(1x,a,e13.6))')'resid/resid0',res/res0,'resid',res
@@ -116,7 +120,6 @@ c
      .    'resid(p)/resid0(p)',gresp/resp0,'resid(p)',gresp
           write(nout,'(i7,4e20.10)')nli
      .         ,gresu/resu0,gresu,gresp/resp0,gresp   
-
         endif
 c .....................................................................
 c 
@@ -191,3 +194,4 @@ c
 c ...        
       return
       end
+c ********************************************************************** 

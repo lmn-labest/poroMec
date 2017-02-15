@@ -2932,4 +2932,158 @@ c     stop
       return
       end
 c ......................................................................
-
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 29/01/2017                                    * 
+c * ------------------------------------------------------------------ *  
+c * READPNODE : le o arquivo auxiliar com os nos que terao alguma      *
+c * de suas grandeza impressas no tempo                                *
+c * ------------------------------------------------------------------ *
+c * parametros de entrada :                                            *
+c * ------------------------------------------------------------------ *
+c * fname   - nome do arquivo de entrada                               *
+c * i_no    -                                                          *
+c * i_nfile -                                                          *
+c * num_node-                                                          *
+c * flag    -                                                          *
+c * nout    - arquivo de entrada                                       *
+c * ------------------------------------------------------------------ *
+c * parametros de saida                                                *
+c * ------------------------------------------------------------------ *
+c * i_no    -ponteiros para os nos                                     *
+c * i_nfile -ponteiros para os arquivos                                *
+c * num_node-numero de nos                                             *
+c * flag    -verifica sucesso na abertura do arquivo                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine readpnode(fname,i_no,i_nfile,num_node,flag,nout)
+      use Malloc
+      implicit none
+      include 'string.fi'
+      integer*8 i_no,i_nfile
+      integer num_node,i,j,no
+      integer nout
+      logical flag
+      character*80 fname
+      character*30 string
+c .....................................................................
+c
+c ... 
+      open(nout,file=fname,status= 'old' , err=1000 , action='read')
+      flag = .true.
+c ... numero total de nos      
+      call readmacro(nout,.true.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*) num_node
+      print*,num_node,' print set nodes'
+c .....................................................................
+c
+c ...
+      if(num_node .gt. 50) then
+        print*,'number max print node is 50 !!!' 
+        flag = .false.
+        return 
+      endif
+c .....................................................................
+c
+c ... memoria para os nos
+      i_no        = alloc_4('no      ',1,num_node)
+c ... memoria para os arquivos      
+      i_nfile     = alloc_4('nnodew  ',1,num_node)
+c ... lendo nos
+      do i = 1, num_node
+         call readmacro(nout,.true.)
+         write(string,'(30a)') (word(j),j=1,30)
+         read(string,*) no
+         ia(i_no+i-1) = no
+         ia(i_nfile+i-1) = 51 + (i-1)
+      enddo
+c .....................................................................
+      close(nout)
+      return
+ 1000 continue
+      print*, '*** Error opening file: ',trim(fname)
+      flag = .false.
+      end
+c *********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 29/01/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * READPPG : le o arquivo auxiliar com os nos que terao alguma        *
+c * de suas grandeza impressas no tempo                                *
+c * -----------------------------------------------------------------  *
+c * parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c * fname   - nome do arquivo de entrada                               *
+c * i_el    -                                                          *
+c * i_nfile -                                                          *
+c * num_nel -                                                          *
+c * flag    -                                                          *
+c * nout    - arquivo de entrada                                       *
+c * -----------------------------------------------------------------  *
+c * parametros de saida                                                *
+c * -----------------------------------------------------------------  *
+c * i_no    -ponteiros para os nos                                     *
+c * i_nfile -ponteiros para os arquivos                                *
+c * num_node-numero de nos                                             *
+c * flag    -verifica sucesso na abertura do arquivo                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine readppi(fname,i_el,i_nfile_pi,num_pel,flag,nout)
+      use Malloc
+      implicit none
+      include 'string.fi'
+      integer*8 i_el,i_nfile_pi
+      integer num_pel,i,j,el
+      integer nout
+      logical flag
+      character*80 fname
+      character*30 string
+c .....................................................................
+c
+c ... 
+      open(nout,file=fname,status= 'old' , err=1000 , action='read')
+      flag = .true.
+c ... numero total de nos      
+      call readmacro(nout,.true.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*) num_pel
+      print*,num_pel,' print set elements'
+c .....................................................................
+c
+c ...
+      if(num_pel .gt. 50) then
+        print*,'number max print elements is 50 !!!' 
+        flag = .false.
+        return 
+      endif
+c .....................................................................
+c
+c ... memoria para os nos
+      i_el        = alloc_4('elw     ',1,num_pel)
+c ... memoria para os arquivos      
+      i_nfile_pi  = alloc_4('pgw     ',1,num_pel)
+c ... lendo nos
+      do i = 1, num_pel
+         call readmacro(nout,.true.)
+         write(string,'(30a)') (word(j),j=1,30)
+         read(string,*) el
+         ia(i_el+i-1)  = el
+         ia(i_nfile_pi+i-1) = 101 + (i-1)
+      enddo
+c .....................................................................
+      close(nout)
+      return
+ 1000 continue
+      print*, '*** Error opening file: ',trim(fname)
+      flag = .false.
+      end
+c *********************************************************************
