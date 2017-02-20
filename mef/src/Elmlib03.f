@@ -2629,12 +2629,12 @@ c *********************************************************************
 c
 c *********************************************************************
       subroutine elmt37_pm(e    ,iq      ,x       ,u    ,p0      
-     1                    ,p    ,s       ,tx0     ,tx 
-     2                    ,depsi,vplastic,ndm     ,nst
-     3                    ,nel  ,isw     ,block_pu,nlit)
+     1                    ,p    ,s       ,tx0     ,tx   ,depsi
+     2                    ,vplastic,elplastic,ndm ,nst  ,nel
+     3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 09/02/2017                                    * 
+c * Data de modificaco : 07/02/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -2662,6 +2662,7 @@ c * vplastic(3,*)- deformacao volumetricas plasticas no passo de tempo *
 c *                anterior                                            *
 c *                deformacao volumetricas plasticas                   *
 c *                paramentro de endurecimento nos pontos de integracao*
+c * eplastic - identificao se o elemento plastificou ou nao (0 ou 1)   *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento (3*10 + 1*4)       *
 c * nel - numero do elemento                                           *
@@ -2675,7 +2676,9 @@ c *  5 = Tensoes iniciais                                              *
 c *  6 =                                                               *
 c *  7 =                                                               *
 c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
-c *            false- aramzenamento em unico bloco                     *           
+c *            false- aramzenamento em unico bloco                     *
+c * eplastic - identificao se o elemento plastificou ou nao (0 ou 1)   *
+c * nlit     - iteracao nao linear                                     *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -2744,6 +2747,8 @@ c ...
 c ... plasticidade
       real*8 alpha_exp,pc0,mcs,c14,g11,def_vol_plast,lambda_plastic
       real*8 k_plastic
+      integer elplastic
+      logical sup 
 c ... 
       integer hexa_face_node20(8,6),no
       real*8 hexa_vol,volum
@@ -2779,7 +2784,8 @@ c
      .         -1.d0,-1.d0,-1.d0,-1.d0, !t13,t14,t15,t16      
      .          0.d0, 0.d0, 0.d0, 0.d0/ !t17,t18,t19,t20       
 c
-      data nen/20/   
+      data nen/20/  
+c 
 c ......................................................................
       goto (100,200,300,400,500,600,700,800) isw
 c ======================================================================
@@ -2869,6 +2875,11 @@ c ... Matriz de rigidez:
         enddo
         p(i) = 0.d0
       enddo
+c .....................................................................
+c
+c ...
+      elPlastic = 0
+      sup       =.false.
 c .....................................................................
 c
 c ... 
@@ -3115,8 +3126,13 @@ c .....................................................................
 c
 c ... 
             call plasticity3d_pm(vplastic(2,inpi) ,vplastic(3,inpi),txi
-     1                          ,mcs              ,alpha_exp 
-     2                          ,ps               ,c14,g11,nel)  
+     1                          ,mcs              ,alpha_exp       ,ps 
+     2                          ,c14              ,g11             ,sup 
+     3                          ,nel)  
+c .....................................................................
+c
+c ...         
+            if(sup) elPlastic = 1
 c .....................................................................
 c
 c ... tensao total 
@@ -3189,8 +3205,6 @@ c ... p = [kpu kpp ] [u p]
         p(68) = p(68) + s(68,j)*u(j)
       enddo   
 c ......................................................................
-c
-c .....................................................................  
       return  
 c ======================================================================
 c

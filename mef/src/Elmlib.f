@@ -1,6 +1,6 @@
       subroutine elmlib_pm(e  ,iq  ,x   ,u       ,p0 
      1                    ,dp ,p   ,s   ,v1      ,v2 
-     2                    ,v3 ,v4        
+     2                    ,v3 ,v4  ,ep
      3                    ,ndm,nst ,nel ,iel     ,isw
      4                    ,ma ,nlit,ilib,block_pu)
 c **********************************************************************
@@ -25,7 +25,7 @@ c *         tensoes nodal                                              *
 c *       plasticidade:                                                *
 c *         tensao nos pontos de integeracao no passo de tempo         *
 c *         anterior                                                   *
-c * v2(*) - vetor auxiliar com micelania de variaveis                  *                                         *
+c * v2(*) - vetor auxiliar com micelania de variaveis                  *
 c *       plasticidade:                                                *
 c *         tensao nos pontos de integeracao                           *
 c * v3(*) - vetor auxiliar com micelania de variaveis                  *    
@@ -37,6 +37,7 @@ c *        deformacao volumetricas plasticas no passo de tempo         *
 c *        anterior                                                    *
 c *        deformacao volumetricas plasticas                           *
 c *        paramentro de endurecimento nos pontos de integracao        *
+c * eplastic - identificao se o elemento plastificou ou nao (0 ou 1)   *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento                    *
 c * nel - numero do elemento                                           *
@@ -58,7 +59,7 @@ c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *     de tempo anterior                                              *
 c **********************************************************************
       implicit none
-      integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit
+      integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit,ep
       real*8 e(*),x(*),u(*),p0(*),p(*),s(nst,*),v1(*),v2(*),v3(*),v4(*)
       real*8 dp(*)
       logical block_pu
@@ -108,8 +109,10 @@ c ......................................................................
  3700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-plastic)
-        call elmt37_pm(e,iq,x,u,p0,p,s,v1,v2,v3,v4,ndm,nst,nel,isw
-     .                ,block_pu,nlit)
+        call elmt37_pm(e  ,iq      ,x       ,u  ,p0
+     1                ,p  ,s       ,v1      ,v2 ,v3
+     2                ,v4 ,ep      ,ndm     ,nst,nel
+     3                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................

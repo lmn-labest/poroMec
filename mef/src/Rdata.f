@@ -5,12 +5,12 @@
      4                  ,i_id      ,i_nload   ,i_eload   ,i_f
      5                  ,i_u       ,i_u0      ,i_tx0     ,i_dp
      6                  ,i_tx1p    ,i_tx2p    ,i_epsp    ,i_plastic
-     7                  ,i_porosity,i_fnno
+     7                  ,i_porosity,i_fnno    ,i_elplastic
      8                  ,fstress0  ,fporomec  ,fmec      ,print_quad
      9                  ,plastic   ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 26/01/2017                                    *
+c * Data de modificaco : 17/02/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -46,6 +46,7 @@ c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
 c * i_txp   - ponteiro para o arranjo txp(poro_mecanico)               *
 c * i_epsp  - ponteiro para o arranjo espp(poro_mecanico)              *
 c * i_fnno  - ponteiro para o arranjo fnno                             *
+c * i_elplastic - ponteiro para o arranjo elplastic                    *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *
 c * print_quad - escrita da malha com elmentos quadraticos(true|false) *
 c * plastic  - (true/false)                                            * 
@@ -66,6 +67,7 @@ c * epsp  - delta deformacao e pressao entre iteracoes nao lineares    *
 c *         deformacao volumetrica plastica total e parametro          *
 c *         de encruamento nos pontos de integracao                    *
 c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
+c * elplastic - dentificao se o elemento plastificou ou nao (0 ou 1)   *
 c * nload(i,j) - numero identificador da carga na direcao i do no j    *
 c * load(1,n)  - tipo da carga n                                       *
 c * load(2,n)  - numero de termos da carga n                           *
@@ -85,7 +87,7 @@ c ......................................................................
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_epsp,i_plastic,i_dp
-      integer*8 i_ix,i_id,i_ie,i_porosity
+      integer*8 i_ix,i_id,i_ie,i_porosity,i_elplastic
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
 c ......................................................................
       integer nin
@@ -224,14 +226,16 @@ c     ---------------------------------------------------------------
         call mzero(ia(i_eload),numel*7)
         call azero(ia(i_x),nnodev*ndm)        
         if(plastic) then  
-          i_tx1p    = alloc_8('tx1p    ',ntn*npi,numel)
-          i_tx2p    = alloc_8('tx2p    ',ntn*npi,numel)
-          i_epsp    = alloc_8('epsp    ',7*npi,numel)
-          i_plastic = alloc_8('vplastic',3*npi,numel)
-          call azero(ia(i_tx1p)   ,ntn*npi,numel)
-          call azero(ia(i_tx2p)   ,ntn*npi,numel)
-          call azero(ia(i_epsp)   ,7*npi,numel)
-          call azero(ia(i_plastic),3*npi,numel)
+          i_elplastic= alloc_4('elplast ',      1,numel)
+          i_tx1p     = alloc_8('tx1p    ',ntn*npi,numel)
+          i_tx2p     = alloc_8('tx2p    ',ntn*npi,numel)
+          i_epsp     = alloc_8('epsp    ',7*npi,numel)
+          i_plastic  = alloc_8('vplastic',3*npi,numel)
+          call mzero(ia(i_elplastic),       numel)
+          call azero(ia(i_tx1p)     ,ntn*npi*numel)
+          call azero(ia(i_tx2p)     ,ntn*npi*numel)
+          call azero(ia(i_epsp)     ,7*npi*numel)
+          call azero(ia(i_plastic)  ,3*npi*numel)
         endif
       endif 
 c ......................................................................
@@ -871,10 +875,11 @@ c ...
             i_e     = locate('e       ')
             i_fnno  = locate('ffno    ')
             if(plastic) then  
-              i_tx1p    = locate('tx1p    ')
-              i_tx2p    = locate('tx2p    ')
-              i_epsp    = locate('epsp    ')
-              i_plastic = locate('plastic ')
+              i_elplastic = locate('elplast ')
+              i_tx1p      = locate('tx1p    ')
+              i_tx2p      = locate('tx2p    ')
+              i_epsp      = locate('epsp    ')
+              i_plastic   = locate('plastic ')
             endif
 c .....................................................................
 c
@@ -2505,7 +2510,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 27/09/2016                                    *
-c * Data de modificaco : 23/01/2017                                    *
+c * Data de modificaco : 18/02/2017                                    *
 c * ------------------------------------------------------------------ *
 c * SET_PRINT_VTK : leitualeitura das configuracoes basicas de excucao *
 c * ------------------------------------------------------------------ *
@@ -2528,6 +2533,7 @@ c *          stress Terzaghi (7)                                       *
 c *          fluxo de darcy  (8)                                       *
 c *          delta prosidade (9)                                       *
 c *          pconsolidation  (10)                                      *
+c *          pconsolidation  (11)                                      *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -2542,11 +2548,11 @@ c **********************************************************************
       integer nin
       logical fplastic
       integer nincl /12/
-      data nmacro /10/
+      data nmacro /12/
       data macro/'quadratic      ','desloc        ','pressure       '
      1          ,'dpressure      ','totalstress   ','biotstress     '
      2          ,'terzaghistress ','darcyflux     ','porosity       '
-     3          ,'pconsolidation ','              ','end            '/
+     3          ,'pconsolidation ','elplastic     ','end            '/
 c ......................................................................
 c
 c ...
@@ -2556,7 +2562,7 @@ c ...
 c ......................................................................
 c
 c ...
-      do j = 1,nmacro
+      do j = 1,nmacro-1
         fprint(j) = .false.
       enddo
 c ......................................................................
@@ -2613,6 +2619,11 @@ c
 c ... pconsolidation 
         elseif (string .eq. macro(10)) then
           fprint(10) = .true.
+c .....................................................................
+c
+c ... pconsolidation 
+        elseif (string .eq. macro(11)) then
+          fprint(11) = .true.
         endif
 c .....................................................................
         call readmacro(nincl,.true.)
@@ -2621,7 +2632,7 @@ c .....................................................................
 c .....................................................................
 c
 c ...
-      do j = 1, nmacro
+      do j = 1, nmacro-1
         if(my_id.eq.0)print*,macro(j),fprint(j)
       enddo
 c ......................................................................

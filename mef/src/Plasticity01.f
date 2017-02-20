@@ -1,23 +1,29 @@
       subroutine plasticity3d_pm(eps1 ,eps2 ,tx
-     1                          ,mcs  ,alfa 
-     2                          ,pr   ,c14  ,g,nel)
+     1                          ,mcs  ,alfa ,pr 
+     2                          ,c14  ,g    ,sup       
+     3                          ,nel)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 22/12/2016                                    *
+c * Data de modificaco : 17/02/2017                                    *
 c * ------------------------------------------------------------------ *
 c * PLASTICST3D_PM: calcula tensoes 3D, considerando plasticidade      *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
-c * eps(6)       - deformacao plastica + elastica                      *
-c * c14,g        -  coeficientes da matriz constitutiva                *
 c * eps1         - armazena deformacao plastica                        *
 c *                volumetrica do passo anterior                       *
 c * eps2         - armazena pc do passo anterior                       *
 c * tx(6)        - delta tensao efetiva                                *
+c * alfa         - camclay                                             *
+c * c14,g,pr     -  coeficientes da matriz constitutiva                *
+c * sup          - antingui a superficie true| false                   *
+c * nel          - numero do elemento                                  *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
+c * tx(1:6)      - tensao efetiva atualizada (Total)                   *
+c * eps1         - atualizado                                          *
+c * sup          - true|false
 c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
@@ -28,12 +34,13 @@ c **********************************************************************
       real*8 snphi,pr,se1,steff,varj2,theta,sint3,c14,devs(6)
       real*8 stot(6),abeta,dlamb,hl1,escur1,tol,a1(6),d1(6)
       real*8 lamb,mcs,pc,sm,alfa
-      real*8 th,ds
+      real*8 ds
+      logical sup
 c ......................................................................
 c   
 c ...    
-      th    = 0.0d0
-      maxit = 1000000
+      sup   = .true.
+      maxit = 100000
       tol   = 1.0e-11
 c ... t0 = t:
       call aequalb(stot,tx,6)
@@ -45,7 +52,10 @@ c ...  eps2 = armazena pc do passo anterior
 c ... evaluate effective stress
       call effst3d(se1,iyied,stot,devs,steff,sm,varj2,mcs,escur1,pc) 
 c ... check for yielding durint this iterations
-      if(escur1 .le. 1.0e-10) return
+      if(escur1 .le. 1.0e-10) then
+        sup = .false.        
+        return
+      endif
 c ... loop Newton-Raphson
       do 8 i = 1, maxit
 c ... calculate vectors A and D
@@ -68,14 +78,13 @@ c ...compute elastoplastic stresses
    10    continue
     8  continue
        write(*,*) 'numero maximo de iteracoes excedido - plasticidade'
+       write(*,*) 'Elemento: ',nel
        write(*,*) 'it:',maxit,'res:',dabs(escur1),'tol:',tol
-      stop
+       call stop_mef()
    11 continue
 c ... calculate equivalent plastic strain
       tx(1:6) = stot(1:6)
 c .....................................................................
-c     ds = epe1-eps1
-c     if( ds .gt. 0.d0) epe1 = 0.d0
       eps1 = epe1
       eps2 = epe2   
       return
@@ -102,7 +111,7 @@ c **********************************************************************
       integer iyied
       real*8 root3,sm,tx(*),devs(*),varj2,steff,se
       real*8 mcs,escur,pc
-      root3   = 1.73205080757d0
+      parameter ( root3   = 1.73205080757d0 )      
 c ... sm = s11+s22+s33/3 = tr(sigma)/3
       sm      = (tx(1)+tx(2)+tx(3))/3.d0
 c ... sij = sigmaij - sm*deltaij
@@ -124,7 +133,7 @@ c ... meam  effective stress = steff = sqrt(s:s/2) = sqrt(sij*sji/2)
 c ... Von Mises effective stress sqrt(3(sij*sji)/2)
       se = root3*steff
 c ... Modified Cam-Clays
-      escur = se*se +mcs*mcs*sm*(sm+pc)
+      escur = se*se + mcs*mcs*sm*(sm+pc)
       return
       end
       subroutine flow3d(a,d,devs,abeta,steff,theta,varj2,sint3,hl,snphi,

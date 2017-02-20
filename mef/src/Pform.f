@@ -2,7 +2,7 @@
      1                   ,x       ,id         ,ia       ,ja
      2                   ,au      ,al         ,ad       ,b
      3                   ,u0      ,u          ,tx1      ,tx2
-     4                   ,deps    ,dp         ,plastic   
+     4                   ,deps    ,dp         ,plastic  ,elplastic
      5                   ,xl      ,ul         ,p0l      ,dpl   
      6                   ,pl      ,sl         ,ld       ,txnl
      7                   ,tx1l    ,tx2l       ,depsl    ,plasticl 
@@ -16,7 +16,7 @@
      6                   ,block_pu,n_blocks_pu,fplastic)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 17/01/2017                                    * 
+c * Data de modificaco : 17/02/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * PFORM_PM:                                                          *
 c * ------------------------------------------------------------------ *                                                             *
@@ -55,6 +55,7 @@ c * plastic(3,*) - deformacao volumetricas plasticas no passo de tempo *
 c *                anterior                                            *
 c *                deformacao volumetricas plasticas                   *
 c *                paramentro de endurecimento nos pontos de integracao*
+c * elplastic(*) - identificao se o elemento plastificou ou nao(0 ou 1)*
 c * xl(ndm,nen)     - nao definido                                     *
 c * ul(nst)         - nao definido                                     *
 c * dpl(nst)        - nao definido                                     *
@@ -121,7 +122,7 @@ c **********************************************************************
       integer stge,isw,numat,nlit,ntn,npi
       integer neq,nequ,neqp,n_blocks_pu
       integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
-      integer ja(*)
+      integer ja(*),elplastic(*)
       integer iel,ma,nel,no,i,j,k,kk,ilib
       integer i_colorg(2,*),i_elcolor(*),numcolors
       integer ic,jc
@@ -131,6 +132,7 @@ c **********************************************************************
       real*8  xl(ndm,nenv),ul(nst),p0l(nenv),el(prop)
       real*8  pl(nst),sl(nst,nst),plasticl(3,npi),txnl(ntn,nen)
       real*8  tx1l(ntn,npi),tx2l(ntn,npi),depsl(ntn+1,npi),dpl(nen)
+      integer ep
       logical lhs,rhs,unsym,block_pu,fplastic
 c .....................................................................
 c
@@ -150,10 +152,10 @@ c ... loop nos cores
 c$omp parallel num_threads(nth_elmt)
 c$omp.default(none)
 c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
-c$omp.private(p0l,tx1l,tx2l,depsl,plasticl,txnl)
+c$omp.private(p0l,tx1l,tx2l,depsl,plasticl,txnl,ep)
 c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
 c$omp.shared(id,u,u0,ix,dp,tx1,tx2,ie,e,block_pu,n_blocks_pu)
-c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,ntn,npi,isw,nst,dt)
+c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,ntn,npi,isw,nst,dt,elplastic)
 c$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu,plastic,fplastic)
        do ic = 1, numcolors
 c$omp do
@@ -192,22 +194,31 @@ c ......................................................................
 c
 c ... plasticidade
            if(fplastic) then
-             do j = 1, npi  
+c ...
+            do j = 1, npi              
 c ... tensoes no passo de tempo anterior
-               tx1l(1:ntn,j) = tx1(1:ntn,j,nel)
+              tx1l(1:ntn,j) = tx1(1:ntn,j,nel)
+            enddo
+c .....................................................................
+c
+c ...
+            if(isw .eq. 2) then
+c ...
+              do j = 1, npi
 c ... tensoes
-               tx2l(1:ntn,j) = tx2(1:ntn,j,nel)
+                tx2l(1:ntn,j) = tx2(1:ntn,j,nel)
 c ... delta deformacoes
-               depsl(1:6,j)  = deps(1:6,j,nel)
+                depsl(1:6,j)  = deps(1:6,j,nel)
 c ... delta pressao                        
-               depsl(7,j)    = deps(7,j,nel)
+                depsl(7,j)    = deps(7,j,nel)
 c ... dilatacao volumetrica plastica do passo de tempo anterior
-               plasticl(1,j) = plastic(1,j,nel)
+                plasticl(1,j) = plastic(1,j,nel)
 c ... dilatacao volumetrica plastica
-               plasticl(2,j) = plastic(2,j,nel)
+                plasticl(2,j) = plastic(2,j,nel)
 c ... paramentro de endurecimento 
-               plasticl(3,j) = plastic(3,j,nel)
-             enddo  
+                plasticl(3,j) = plastic(3,j,nel)
+              enddo
+            endif  
            endif  
 c ......................................................................   
 c
@@ -220,13 +231,14 @@ c
 c ...... Chama biblioteca de elementos:
            call elmlib_pm(el   ,iq(1,nel),xl  ,ul      ,p0l
      1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
-     2                  ,depsl ,plasticl
+     2                  ,depsl ,plasticl ,ep
      3                  ,ndm   ,nst      ,nel ,iel,isw
      4                  ,ma    ,nlit     ,ilib,block_pu)   
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
-           if(fplastic) then
+           if(fplastic .and. isw .eq. 2) then      
+             if( ep .ne. 0 )  elplastic(nel) = ep 
 c ...
              do j = 1, npi  
 c ... tensoes
@@ -295,22 +307,31 @@ c .....................................................................
 c
 c ... plasticidade
           if(fplastic) then
-            do j = 1, npi  
+c ...
+            do j = 1, npi              
 c ... tensoes no passo de tempo anterior
               tx1l(1:ntn,j) = tx1(1:ntn,j,nel)
+            enddo
+c .....................................................................
+c
+c ...
+            if(isw .eq. 2) then
+c ...
+              do j = 1, npi
 c ... tensoes
-              tx2l(1:ntn,j) = tx2(1:ntn,j,nel)
+                tx2l(1:ntn,j) = tx2(1:ntn,j,nel)
 c ... delta deformacoes
-              depsl(1:6,j)  = deps(1:6,j,nel)
+                depsl(1:6,j)  = deps(1:6,j,nel)
 c ... delta pressao                        
-              depsl(7,j)    = deps(7,j,nel)
+                depsl(7,j)    = deps(7,j,nel)
 c ... dilatacao volumetrica plastica do passo de tempo anterior
-              plasticl(1,j) = plastic(1,j,nel)
+                plasticl(1,j) = plastic(1,j,nel)
 c ... dilatacao volumetrica plastica
-              plasticl(2,j) = plastic(2,j,nel)
+                plasticl(2,j) = plastic(2,j,nel)
 c ... paramentro de endurecimento 
-              plasticl(3,j) = plastic(3,j,nel)
-            enddo  
+                plasticl(3,j) = plastic(3,j,nel)
+              enddo
+            endif  
           endif  
 c ......................................................................     
 c
@@ -323,13 +344,14 @@ c
 c ...... Chama biblioteca de elementos:
           call elmlib_pm(el    ,iq(1,nel),xl  ,ul      ,p0l
      1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
-     2                  ,depsl ,plasticl
+     2                  ,depsl ,plasticl ,ep
      3                  ,ndm   ,nst      ,nel ,iel,isw
      4                  ,ma    ,nlit     ,ilib,block_pu)        
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
-          if(fplastic) then
+          if(fplastic .and. isw .eq. 2) then     
+            if( ep .ne. 0 )  elplastic(nel) = ep 
 c ...
             do j = 1, npi  
 c ... tensoes
@@ -533,7 +555,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum,xl  ,ul  ,ddum
      1                ,dpl ,pl  ,ddum,tx1l,tx1l 
-     2                ,ddum,ddum
+     2                ,ddum,ddum,idum
      3                ,ndm ,nst ,nel,iel,isw 
      4                ,ma  ,idum,ilib,ldum)
 c ......................................................................
@@ -717,9 +739,9 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum    ,xl   ,ul  ,ddum
-     1                ,dpl ,pl      ,ddum ,txnl,tx1l  
-     2                ,ddum,ddum    
+        call elmlib_pm(el  ,idum     ,xl   ,ul  ,ddum
+     1                ,dpl ,pl       ,ddum ,txnl,tx1l  
+     2                ,ddum,ddum     ,idum
      2                ,ndm ,nst ,nel ,iel ,5
      3                ,ma  ,idum     ,ilib,block_pu)        
 c ......................................................................
@@ -884,9 +906,9 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
      1                ,ddum,pl      ,ddum,ddum,ddum
-     2                ,ddum,plasticl
-     2                ,ndm ,nst    ,nel  ,iel ,isw
-     3                ,ma  ,idum   ,ilib ,ldum)
+     2                ,ddum,plasticl,idum
+     2                ,ndm ,nst     ,nel  ,iel ,isw
+     3                ,ma  ,idum    ,ilib ,ldum)
 c ......................................................................
 c
 c ...... media do vetor global
@@ -1110,7 +1132,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(ddum,idum    ,ddum,ddum,ddum
      1                ,ddum,pl      ,ddum,ddum,ddum
-     2                ,ddum,plasticl
+     2                ,ddum,plasticl,idum
      3                ,ndm ,nst     ,nel  ,iel,isw
      4                ,ma  ,idum    ,ilib,ldum)
 c ......................................................................
@@ -1223,9 +1245,9 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,iq(1,nel),xl  ,ddum,ddum
      1                ,ddum,dtc      ,ddum,ddum,ddum
-     2                ,ddum,ddum
-     3                ,ndm,nst      ,nel ,iel,isw
-     4                ,ma ,idum     ,ilib,ldum)
+     2                ,ddum,ddum     ,idum
+     3                ,ndm,nst       ,nel ,iel,isw
+     4                ,ma ,idum      ,ilib,ldum)
 c ......................................................................
 c 
 c ...
@@ -2112,6 +2134,4 @@ c .......................................................................
 c     return
 c     end 
 c ***********************************************************************
-c
-
-
+cr

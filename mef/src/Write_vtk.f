@@ -765,7 +765,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 05/02/2017                                   * 
+c * Data de modificaco : 18/02/2017                                   * 
 c * ------------------------------------------------------------------*    
 c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
 c * poromecanico no formato vtk                                       *
@@ -778,6 +778,8 @@ c *  u(ndf,*)   - deslocamento e pressoes                             *
 c * dp(*)       - delta p total ( p(n) - p(0) )                       *
 c * tx(6,*)     - tensao total nodal                                  *
 c * pc(*)       - pressao de consolidacao (plastico)                  *
+c * elplastic(*)- identificao se o elemento plastificou ou nao        *
+c *               (0 ou 1)                                            *
 c * txb(6,*)    - tensao biot nodal                                   *  
 c * txe(6,*)    - tensao evetiva de Terzaghi nodal                    *
 c * flux(ndm,*) - fluxo de darcy nodal                                *              
@@ -811,7 +813,7 @@ c * 1 - deslocamento do no i- u(1,i), u(2,i) e u(3,i)                 *
 c * 2-  pressao do no i     - u(4,i)                                  *       
 c ********************************************************************* 
        subroutine write_mesh_res_pm(el     ,x     ,u     ,dp
-     1                           ,pc
+     1                           ,pc       ,elplastic
      2                           ,dporosity,tx    ,txb   ,txe 
      3                           ,flux     ,nnode ,numel ,istep 
      4                           ,t        ,nen    ,ndm  ,ndf
@@ -822,7 +824,7 @@ c ===
       implicit none
 c ... variaveis da malha      
       integer nnode,numel,nen,ndm,ndf,ntn,ntn1
-      integer el(nen+1,numel)
+      integer el(nen+1,numel),elplastic(*)
       real*8  x(ndm,*),u(ndf,*),dp(*),dporosity(*),pc(*)
       real*8 tx(ntn,*),txb(ntn,*),txe(ntn,*),flux(ndm,*)
       integer nel,nno
@@ -928,6 +930,22 @@ c ... cod = 1 variaveis interias
      .                    ,nout)
       endif 
       i_p = dealloc('p       ')
+c .....................................................................
+c
+c ... elplastic
+      if(fprint(11)) then
+        write(aux1,'(15a)')'elPlastic' 
+c ... cod = 1 variaveis interias
+        cod = 1
+        gdl = 1
+        if(legacy) then
+          call cell_prop_vtk(elPlastic,fdum,ddum,numel,aux1
+     .                      ,cod,gdl,bvtk,nout)
+        else
+          call cell_prop_vtu(elPlastic,fdum,ddum,numel,aux1
+     .                      ,cod,gdl,bvtk,nout)
+        endif
+      endif 
 c .....................................................................
 c
 c ...

@@ -39,7 +39,7 @@ c
       integer num_pnode,num_pel
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
       integer nfiles,ifiles,num_print,n_opt_print_flag
-      parameter ( nfiles = 10,n_opt_print_flag = 10)
+      parameter ( nfiles = 10,n_opt_print_flag = 20)
       logical new_file(nfiles),new_file_pi(nfiles),flag_pnd,flag_ppi
       logical print_flag(n_opt_print_flag),fhist_log,legacy_vtk
 c ......................................................................
@@ -53,7 +53,7 @@ c
       integer maxit,maxnlit,tmaxnlit,ngram,stge,solver,istep
       integer ilib,ntn,code,istop,stop_crit
       real*8  tol,solvtol,resid,resid0
-      logical reordf,unsym
+      logical reordf,unsym,lhs
 c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
@@ -119,13 +119,14 @@ c ... arranjos locais ao elemento
 c ... forcas e graus de liberdade 
       integer*8 i_f
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_plastic,i_depsp,i_dp
-      integer*8 i_tx,i_txb,i_txe,i_flux,i_pc
+      integer*8 i_tx,i_txb,i_txe,i_flux,i_pc,i_elplastic
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
 c ... precondicionador
       integer*8 i_m
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2,i_g3,i_g4,i_g5,i_g6,i_g7,i_g8,i_g9,i_g10
+      integer*8 i_g11
 c ... coo
       integer*8 i_lin,i_col,i_acoo
       integer*8 i_linuu,i_coluu,i_acoouu
@@ -207,6 +208,7 @@ c ... stress Terzaghi  (7)
 c ... fluxo de darcy   (8)
 c ... delta prosidade  (9)
 c ... pconsolidation  (10)
+c ... plastic elemt   (11)
       print_flag(1) = .false. 
       print_flag(2) = .true.
       print_flag(3) = .true.  
@@ -217,6 +219,7 @@ c ... pconsolidation  (10)
       print_flag(8) = .false. 
       print_flag(9) = .false.
       print_flag(10)= .false. 
+      print_flag(11)= .false. 
 c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
@@ -396,7 +399,7 @@ c ......................................................................
    70 continue
       goto (100 , 200, 300 !'loop    ','hextotet','mesh    '
      1     ,400 , 500, 600 !'solv    ','dt      ','pgeo    '
-     2     ,700 , 800, 900 !'presolv ','block_pu','gravity '
+     2     ,700 , 800, 900 !'        ','block_pu','gravity '
      3     ,1000,1100,1200 !'        ','solver  ','deltatc '
      4     ,1300,1400,1500 !'pcoo    ','        ','        '
      5     ,1600,1700,1800 !'pres    ','        ','solvm   '
@@ -462,15 +465,15 @@ c
       flag_macro_mesh = .true.
 c
 c.... Leitura de dados:
-      call rdat_pm(nnode  ,nnodev  ,numel  ,numat  
-     1         ,nen       ,nenv    ,ntn    ,ndf
-     1         ,ndm       ,nst     ,i_ix   ,i_ie   
+      call rdat_pm(nnode  ,nnodev  ,numel     ,numat  
+     1         ,nen       ,nenv    ,ntn       ,ndf
+     1         ,ndm       ,nst     ,i_ix      ,i_ie   
      2         ,i_inum    ,i_e    ,i_x
-     3         ,i_id      ,i_nload ,i_eload,i_f  
-     4         ,i_u       ,i_u0    ,i_tx0  ,i_dp
-     5         ,i_tx1p    ,i_tx2p  ,i_depsp,i_plastic
-     6         ,i_porosity,i_fnno     
-     7         ,fstress0  ,fporomec,fmec   ,print_flag(1)
+     3         ,i_id      ,i_nload ,i_eload   ,i_f  
+     4         ,i_u       ,i_u0    ,i_tx0     ,i_dp
+     5         ,i_tx1p    ,i_tx2p  ,i_depsp   ,i_plastic
+     6         ,i_porosity,i_fnno  ,i_elplastic
+     7         ,fstress0  ,fporomec,fmec       ,print_flag(1)
      8         ,fplastic  ,nin ) 
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
@@ -514,7 +517,10 @@ c ......................................................................
 c
 c ... desabilita a impressao da pressao de consolidacao no problemas 
 c     elasticos
-      if(.not.fplastic) print_flag(10) = .false.
+      if(.not.fplastic) then
+        print_flag(10) = .false.
+        print_flag(11) = .false.
+      endif  
 c .....................................................................
 c
 c.... Controle de tempos:
@@ -755,6 +761,36 @@ c ...
 c ......................................................................
 c
 c ...
+      if(fstress0 .and. fcstress0) then
+        timei = MPI_Wtime()
+        call initial_stress(ia(i_ix)     ,ia(i_ie)  ,ia(i_e)  
+     1       ,ia(i_x)     ,ia(i_id)      ,ia(i_bst0) 
+     2       ,ia(i_u0)    ,ia(i_tx1p)    ,ia(i_tx0) ,ia(i_dp)
+     3       ,ia(i_xl)    ,ia(i_ul)      ,ia(i_dpl) ,ia(i_pl)
+     4       ,ia(i_ld)    ,ia(i_txnl)    ,ia(i_tx1pl) 
+     5       ,numel       ,nen           ,nenv     ,ndf 
+     6       ,ndm         ,nst           ,npi      ,ntn
+     7       ,neq         ,stge          ,ilib      
+     8       ,block_pu    ,fplastic)
+        elmtime = elmtime + MPI_Wtime()-timei
+c ... inicializa as tensoes tx1p -> tx2p
+        if(fplastic) then 
+          call aequalb(ia(i_tx2p),ia(i_tx1p),ntn*npi*numel) 
+        endif
+        fcstress0= .false.
+      endif 
+c ..................................................................... 
+c
+c ... porosidade inicial
+      i_ic        = alloc_4('ic      ',    1,nnode)
+      call initial_porosity(ia(i_ix)      ,ia(i_e)  ,ia(i_ie),ia(i_ic) 
+     1                     ,ia(i_porosity),ia(i_fnno)
+     2                     ,nnode         ,numel     ,nen ,nenv
+     3                     ,ndm           ,ndf       ,i_xf,novlp)     
+      i_ic       = dealloc('ic      ') 
+c ..................................................................... 
+c
+c ...
       go to 50
 c ......................................................................
 c
@@ -796,7 +832,7 @@ c     do passo t:
      1           ,ia(i_x)     ,ia(i_id)   ,ia(i_ia)  ,ia(i_ja) 
      2           ,ia(i_au)    ,ia(i_al)   ,ia(i_ad)  ,ia(i_b0) 
      3           ,ia(i_u0)    ,ia(i_u)    ,ia(i_tx1p),ia(i_tx2p)
-     4           ,ia(i_depsp) ,ia(i_dp)   ,ia(i_plastic)
+     4           ,ia(i_depsp) ,ia(i_dp)   ,ia(i_plastic),ia(i_elplastic)
      5           ,ia(i_xl)    ,ia(i_ul)   ,ia(i_p0l)  ,ia(i_dpl)
      6           ,ia(i_pl)    ,ia(i_sl)   ,ia(i_ld)   ,ia(i_txnl)
      7           ,ia(i_tx1pl) ,ia(i_tx2pl),ia(i_depsl),ia(i_plasticl)
@@ -826,6 +862,7 @@ c
 c ---------------------------------------------------------------------
 c loop nao linear:
 c ---------------------------------------------------------------------
+      lhs = .true.  
   410 continue
 c ...
       timei = MPI_Wtime()
@@ -842,21 +879,21 @@ c              Fu = Fu - K.du(n+1,i)
 c              bp = Fp - K.dp(n+1,i)
       timei = MPI_Wtime()
       call pform_pm(ia(i_ix)    ,ia(i_eload) ,ia(i_ie)  ,ia(i_e)
-     1             ,ia(i_x)     ,ia(i_id)    ,ia(i_ia)  ,ia(i_ja)
-     2             ,ia(i_au)    ,ia(i_al)    ,ia(i_ad)  ,ia(i_b)
-     3             ,ia(i_u0)    ,ia(i_u)     ,ia(i_tx1p),ia(i_tx2p)
-     4             ,ia(i_depsp) ,ia(i_dp)    ,ia(i_plastic) 
-     5             ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
-     6             ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
-     7             ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
-     8             ,numel       ,nen         ,nenv     ,ndf
-     9             ,ndm         ,nst         ,npi      ,ntn
-     1             ,neq         ,nequ        ,neqp
-     2             ,nad         ,naduu       ,nadpp    ,nadpu,nadr
-     3             ,.true.      ,.true.      ,unsym
-     4             ,stge        ,2           ,ilib     ,i
-     5             ,ia(i_colorg),ia(i_elcolor),numcolors
-     6             ,block_pu    ,n_blocks_pu  ,fplastic)
+     1         ,ia(i_x)     ,ia(i_id)    ,ia(i_ia)  ,ia(i_ja)
+     2         ,ia(i_au)    ,ia(i_al)    ,ia(i_ad)  ,ia(i_b)
+     3         ,ia(i_u0)    ,ia(i_u)     ,ia(i_tx1p),ia(i_tx2p)
+     4         ,ia(i_depsp) ,ia(i_dp)    ,ia(i_plastic),ia(i_elplastic) 
+     5         ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
+     6         ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
+     7         ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
+     8         ,numel       ,nen         ,nenv     ,ndf
+     9         ,ndm         ,nst         ,npi      ,ntn
+     1         ,neq         ,nequ        ,neqp
+     2         ,nad         ,naduu       ,nadpp    ,nadpu,nadr
+     3         ,lhs         ,.true.      ,unsym
+     4         ,stge        ,2           ,ilib     ,i
+     5         ,ia(i_colorg),ia(i_elcolor),numcolors
+     6         ,block_pu    ,n_blocks_pu  ,fplastic)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -918,6 +955,11 @@ c ...
 c       goto 420
       endif
       i = i + 1
+c .....................................................................
+c
+c ... matriz K global calculada apenas na primeira iteracao
+      lhs = .false.
+c .....................................................................
       goto 410 
 c .....................................................................
 c
@@ -1035,40 +1077,12 @@ c .....................................................................
       goto 50
 c .....................................................................
 c
-c ... Macro-comando: PRESOLV -
+c ... Macro-comando:           
 c
 c ......................................................................
   700 continue
-c ... forcas internas devidos as tensoes inicias
-      if(my_id.eq.0) print*, 'Macro PRESOLV'
-      if(fstress0 .and. fcstress0) then
-        timei = MPI_Wtime()
-        call initial_stress(ia(i_ix)     ,ia(i_ie)  ,ia(i_e)  
-     1       ,ia(i_x)     ,ia(i_id)      ,ia(i_bst0) 
-     2       ,ia(i_u0)    ,ia(i_tx1p)    ,ia(i_tx0) ,ia(i_dp)
-     3       ,ia(i_xl)    ,ia(i_ul)      ,ia(i_dpl) ,ia(i_pl)
-     4       ,ia(i_ld)    ,ia(i_txnl)    ,ia(i_tx1pl) 
-     5       ,numel       ,nen           ,nenv     ,ndf 
-     6       ,ndm         ,nst           ,npi      ,ntn
-     7       ,neq         ,stge          ,ilib      
-     8       ,block_pu    ,fplastic)
-        elmtime = elmtime + MPI_Wtime()-timei
-c ... inicializa as tensoes tx1p -> tx2p
-        if(fplastic) then 
-          call aequalb(ia(i_tx2p),ia(i_tx1p),ntn*npi*numel) 
-        endif
-        fcstress0= .false.
-      endif 
-c ..................................................................... 
-c
-c ... porosidade inicial
-      i_ic        = alloc_4('ic      ',    1,nnode)
-      call initial_porosity(ia(i_ix)      ,ia(i_e)  ,ia(i_ie),ia(i_ic) 
-     1                     ,ia(i_porosity),ia(i_fnno)
-     2                     ,nnode         ,numel     ,nen ,nenv
-     3                     ,ndm           ,ndf       ,i_xf,novlp)     
-      i_ic       = dealloc('ic      ') 
-c ..................................................................... 
+c ...                                             
+      if(my_id.eq.0) print*, 'Macro '
       goto 50
 c .....................................................................
 c
@@ -1092,7 +1106,7 @@ c ... n_blocks_pu
       goto 5000
 c ......................................................................
 c
-c ... Macro-comando: GRAVITY
+c ... Macro-comando: GRAVITY - aceleracao da gravidade
 c
 c ......................................................................
   900 continue
@@ -1108,7 +1122,7 @@ c ......................................................................
       goto 50
 c ......................................................................
 c
-c ... Macro-comando: SOLVER
+c ... Macro-comando: SOLVER configuracao do solver
 c
 c ......................................................................
  1100 continue
@@ -1341,11 +1355,11 @@ c ...
 c ......................................................................
 c
 c ... comunicao ( nno_pload = no1 + no2 )
-        call global_v(ndf   ,nno_pload,i_u   ,i_g ,'upG     ')
-        call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
-        call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
-        call global_v(1     ,nno_pload,i_dp  ,i_g3,'dpG     ')
-        call global_v(ntn   ,nno_pload,i_tx0 ,i_g4,'tx0G    ')
+        call global_v(ndf   ,nno_pload,i_u        ,i_g ,'upG     ')
+        call global_ix(nen+1,numel_nov,i_ix       ,i_g1,'ixG     ')
+        call global_v(ndm   ,nno_pload,i_x        ,i_g2,'xG      ')
+        call global_v(1     ,nno_pload,i_dp       ,i_g3,'dpG     ')
+        call global_v(ntn   ,nno_pload,i_tx0      ,i_g4,'tx0G    ')
 c ... tensao e fluxo 
         if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
           if(novlp) then
@@ -1390,10 +1404,16 @@ c ... pressao de consolidacao
         endif
 c ......................................................................
 c
+c ... indica se o elemento plastificou ou nao ( 0 ou 1 )
+        if(print_flag(11)) then
+          call global_v_elm(1 ,numel_nov,i_elplastic,i_g11,'eplG    ',1)
+        endif
+c ......................................................................
+c
 c ...
         if(my_id .eq. 0) then
           call write_mesh_res_pm(ia(i_g1),ia(i_g2) ,ia(i_g)   ,ia(i_g3)
-     1               ,ia(i_g10)
+     1               ,ia(i_g10)        ,ia(i_g11)
      2               ,ia(i_g9)         ,ia(i_g5)   ,ia(i_g6)  ,ia(i_g7)
      3               ,ia(i_g8)         ,print_nnode,nelG      ,istep   
      4               ,t                ,nen        ,ndm       ,ndf   
@@ -1403,13 +1423,11 @@ c ...
 c ......................................................................
 c
 c ...
-          if(print_flag(10)) then
-            i_g10 = dealloc('pcG     ')
-          endif
+          if(print_flag(11)) i_g11 = dealloc('eplG    ')
+c
+          if(print_flag(10)) i_g10 = dealloc('pcG     ')
 c   
-          if(print_flag(9)) then
-            i_g9  = dealloc('poroG   ')
-          endif
+          if(print_flag(9)) i_g9  = dealloc('poroG   ')
 c
           if(print_flag(5) .or. print_flag(6) .or. print_flag(7) ) then
             i_g8  = dealloc('fluxG   ')
@@ -1466,12 +1484,12 @@ c ......................................................................
 c
 c ...
         call write_mesh_res_pm(ia(i_ix),ia(i_x)    ,ia(i_u)  ,ia(i_dp)
-     1                 ,ia(i_pc)
-     2                 ,ia(i_porosity) ,ia(i_tx)   ,ia(i_txb),ia(i_txe)
-     3                 ,ia(i_flux)     ,print_nnode,numel    ,istep   
-     4                 ,t              ,nen        ,ndm      ,ndf   
-     5                 ,ntn            ,fname      ,prename   
-     6                 ,bvtk           ,legacy_vtk ,print_flag,nplot)
+     1              ,ia(i_pc)       ,ia(i_elplastic)
+     2              ,ia(i_porosity) ,ia(i_tx)   ,ia(i_txb),ia(i_txe)
+     3              ,ia(i_flux)     ,print_nnode,numel    ,istep   
+     4              ,t              ,nen        ,ndm      ,ndf   
+     5              ,ntn            ,fname      ,prename   
+     6              ,bvtk           ,legacy_vtk ,print_flag,nplot)
 c ......................................................................
       endif
 c ......................................................................
