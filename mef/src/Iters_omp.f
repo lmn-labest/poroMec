@@ -676,8 +676,8 @@ c
 c ... Controle de flops
       if(flog) then
         if(my_id.eq.0) then
-          write(10,'(a,a,i9,a,d20.10,a,d20.10,a,d20.10,a,f20.2)')
-     .       'RPSQMR_OMP: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
+          write(10,'(a,a,i9,3(a,d20.10),2(a,f20.2))')
+     .       'RPSQMR: ',' it ',j, ' x * Kx ',xkx,' ||x|| ',norm
      .      ,' tol ',tol,' Mflops ',mflops,' time ',time
         endif
       endif

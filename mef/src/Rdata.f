@@ -10,7 +10,7 @@
      9                  ,plastic   ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 17/02/2017                                    *
+c * Data de modificaco : 24/02/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -130,11 +130,12 @@ c ... tipo do problema
 c ......................................................................
 c
 c ...
-      i_tx1p    = 1 
-      i_tx2p    = 1 
-      i_epsp    = 1
-      i_plastic = 1
-      plastic   = .false.
+      i_tx1p      = 1 
+      i_tx2p      = 1 
+      i_epsp      = 1
+      i_plastic   = 1
+      i_elplastic = 1
+      plastic     = .false.
       if( iplastic .ne. 0) plastic = .true.           
 c ... temporario
       if( nen .eq. 10 )then
@@ -822,11 +823,6 @@ c ... Inicializa as condicoes de contorno no vetor u:
 c
       if(ndf.gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
       call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
-c .....................................................................
-c
-c ... inicializa o paramentro de encruamento
-      if(plastic) call init_pc0(ia(i_ie),ia(i_ix),ia(i_e),ia(i_plastic)
-     .                         ,npi,numel,nen)
 c .....................................................................
 c
 c ... 

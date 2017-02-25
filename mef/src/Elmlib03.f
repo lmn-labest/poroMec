@@ -1667,13 +1667,13 @@ c ======================================================================
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine elmt36_pm(e    ,iq      ,x       ,u    ,p0      
-     1                    ,p    ,s       ,tx0     ,tx 
-     2                    ,depsi,vplastic,ndm     ,nst
-     3                    ,nel  ,isw     ,block_pu,nlit)
+      subroutine elmt36_pm(e       ,iq       ,x       ,u    ,p0      
+     1                    ,p       ,s        ,tx0     ,tx   ,depsi
+     2                    ,vplastic,elplastic,ndm     ,nst  ,nel
+     3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 22/12/2016                                    *
-c * Data de modificaco : 09/02/2017                                    * 
+c * Data de modificaco : 24/02/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -1712,7 +1712,10 @@ c *  4 = forcas de volume, superficies e integrais do passo            *
 c *    de tempo anterior                                               *
 c *  5 = Tensoes iniciais                                              *
 c *  6 =                                                               *
-c *  7 =                                                               *
+c *  7 = variacao da porosidades                                       *
+c *  8 = extrapolacao das pressoes de consolidacao nos vertices        *
+c *  9 = incializacao da pressao de consolidacao nos pontos de         *
+c *  integracao                                                        *
 c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
 c *            false- aramzenamento em unico bloco                     *      
 c * ------------------------------------------------------------------ * 
@@ -1783,7 +1786,9 @@ c ...
       real*8 a1,a2,a3,tmp
 c ... plasticidade
       real*8 alpha_exp,pc0,mcs,c14,g11,def_vol_plast,lambda_plastic
-      real*8 k_plastic
+      real*8 k_plastic,cam_clay_pc
+      integer elplastic
+      logical sup 
 c ... 
       integer tetra_face_node10(6,4),no
       real*8 tetra_vol,volum
@@ -1816,7 +1821,7 @@ c
 c
       data nen/10/,igrau_vol/2/,igrau_face/2/    
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800) isw
+      goto (100,200,300,400,500,600,700,800,900) isw
 c ======================================================================
 c
 c.... calculo do delta t critico               
@@ -1903,6 +1908,11 @@ c ... Matriz de rigidez:
         enddo
         p(i) = 0.d0
       enddo
+c .....................................................................
+c
+c ...
+      elPlastic = 0
+      sup       =.false.
 c .....................................................................
 c
 c ... 
@@ -2143,13 +2153,13 @@ c .....................................................................
 c
 c ... 
         call plasticity3d_pm(vplastic(2,lx) ,vplastic(3,lx),txi
-     1                      ,mcs            ,alpha_exp 
-     2                      ,ps             ,c14           ,g11,nel)  
-c ...
-c       if(nel .eq.  1 .or. nel .eq. 54 .or. nel .eq. 60) then
-c         write(*,'(i3,3e11.2)'),nel,vplastic(2,lx)-vplastic(1,lx)
-c    .                          ,vplastic(3,lx)
-c       endif
+     1                          ,mcs              ,alpha_exp       ,ps 
+     2                          ,c14              ,g11             ,sup 
+     3                          ,nel)  
+c .....................................................................
+c
+c ...         
+        if(sup) elPlastic = 1
 c .....................................................................
 c
 c ... tensao total 
@@ -2624,6 +2634,54 @@ c ... pressao de consolidacao nodal total
       p(1:4)      = pce(1:4)    
 c .....................................................................
       return
+c ======================================================================
+c
+c ======================================================================
+c
+c ... calculo do parametro de encruamento                
+c
+c ......................................................................
+  900 continue
+c ...     
+      pc0  = e(12)
+      mcs  = e(11)
+      igrau = igrau_vol 
+      nint  = npint4(igrau) 
+      do 910 lx = 1, nint
+c ...
+        ti = pti4(lx,igrau)
+        si = psi4(lx,igrau)
+        ri = pri4(lx,igrau)
+c ...                                               
+        call sftetra4(hp,hpx,hpy,hpz,ri,si,ti,.true.,.false.)
+c .....................................................................
+c  
+c ...
+        pi       = 0.d0
+        txi(1:6) = 0.d0
+        do 915 j = 1,   4
+          l      = j  + 30 
+          txi(1) = txi(1) + hp(j)*tx0(1,j)
+          txi(2) = txi(2) + hp(j)*tx0(2,j) 
+          txi(3) = txi(3) + hp(j)*tx0(3,j) 
+          txi(4) = txi(4) + hp(j)*tx0(4,j) 
+          txi(5) = txi(5) + hp(j)*tx0(5,j)
+          txi(6) = txi(6) + hp(j)*tx0(6,j) 
+          pi     = pi     + hp(j)*u(l)
+  915   continue
+c .....................................................................
+c
+c ... tensao efetiva
+        txi(1:3) =  txi(1:3) + pi
+c ..................................................................... 
+c
+c ...
+        vplastic(3,lx) = max(pc0,cam_clay_pc(txi,mcs))
+c ..................................................................... 
+  910 continue 
+c .....................................................................
+      return
+c =====================================================================
       end
 c *********************************************************************
 c
@@ -2634,7 +2692,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 07/02/2017                                    * 
+c * Data de modificaco : 24/02/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -2746,7 +2804,7 @@ c ...
       real*8 a1,a2,a3,tmp
 c ... plasticidade
       real*8 alpha_exp,pc0,mcs,c14,g11,def_vol_plast,lambda_plastic
-      real*8 k_plastic
+      real*8 k_plastic,cam_clay_pc
       integer elplastic
       logical sup 
 c ... 
@@ -2787,7 +2845,7 @@ c
       data nen/20/  
 c 
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800) isw
+      goto (100,200,300,400,500,600,700,800,900) isw
 c ======================================================================
 c
 c.... calculo do delta t critico               
@@ -3636,6 +3694,58 @@ c .....................................................................
 c
 c ...
       p(1:8) = pce(1:8) 
+      return
+c ======================================================================
+c
+c ======================================================================
+c
+c ... calculo do parametro de encruamento                
+c
+c ......................................................................
+  900 continue
+      pc0  = e(12)
+      mcs  = e(11)
+      inpi = 0  
+      do 910 lz = 1, nint
+        ti = pg(lz,nint)
+        do 920 ly = 1, nint
+          si = pg(ly,nint)
+          do 930 lx = 1, nint
+            ri   = pg(lx,nint)
+c ...
+            inpi = inpi + 1
+c .....................................................................
+c
+c ...
+            call sfhexa8_m(hp,hpx,hpy,hpz,ri,si,ti,.true.,.false.)
+c .....................................................................
+c
+c ... interpolacao da tensoes e pressoes nos pontos de integracoes
+            txi(1:6)= 0.d0
+            pi      = 0.d0
+            do 940 j = 1,   8
+              l      = j  + 60 
+              txi(1) = txi(1) + hp(j)*tx0(1,j)
+              txi(2) = txi(2) + hp(j)*tx0(2,j) 
+              txi(3) = txi(3) + hp(j)*tx0(3,j) 
+              txi(4) = txi(4) + hp(j)*tx0(4,j) 
+              txi(5) = txi(5) + hp(j)*tx0(5,j)
+              txi(6) = txi(6) + hp(j)*tx0(6,j) 
+              pi     = pi     + hp(j)*u(l)
+  940       continue 
+c .....................................................................
+c
+c ... tensao efetiva
+             txi(1:3) =  txi(1:3) + pi
+c ..................................................................... 
+c
+c ...
+             vplastic(3,inpi) = max(pc0,cam_clay_pc(txi,mcs))
+c ..................................................................... 
+c
+  930     continue
+  920   continue
+  910 continue
 c ......................................................................
       return
 c ======================================================================

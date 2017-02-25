@@ -5,7 +5,7 @@
      4                    ,ma ,nlit,ilib,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 17/01/2017                                    * 
+c * Data de modificaco : 24/02/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMLIB_PM: biblioteca de elementos do poromecanico                 *
 c * ------------------------------------------------------------------ * 
@@ -99,8 +99,10 @@ c ......................................................................
  3600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-plastic)
-        call elmt36_pm(e,iq,x,u,p0,p,s,v1,v2,v3,v4,ndm,nst,nel,isw
-     .                ,block_pu,nlit)
+        call elmt36_pm(e ,iq ,x    ,u  ,p0
+     1                ,p ,s  ,v1   ,v2 ,v3
+     2                ,v4,ep ,ndm  ,nst,nel
+     3                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................

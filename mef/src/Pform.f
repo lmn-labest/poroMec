@@ -74,7 +74,7 @@ c * ndf   - numero max. de graus de liberdade por no                   *
 c * ndm   - dimensao                                                   *
 c * nst   - nen*ndf                                                    *
 c * npi   - numero de pontos de integracao por elemento                *
-c * ntn              - numero max. de derivadas por no                 *
+c * ntn   - numero max. de derivadas por no                            *
 c * neq   - numero de equacoes                                         *
 c * nequ  - numero de equacoes em kuu                                  *   
 c * nad   - numero de posicoes no CSR (storage = 1)                    *
@@ -350,7 +350,7 @@ c ...... Chama biblioteca de elementos:
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
-          if(fplastic .and. isw .eq. 2) then     
+          if(fplastic .and. isw .eq. 2) then  
             if( ep .ne. 0 )  elplastic(nel) = ep 
 c ...
             do j = 1, npi  
@@ -762,6 +762,133 @@ c ...... Monta o vetor b global: elastico
             if (k .gt. 0 .and. k .le. neq) b(k) = b(k) - pl(j)
           enddo
         endif
+c ...................................................................... 
+      enddo 
+c ......................................................................
+c
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine initial_pc0(ix    ,ie       ,e
+     1                   ,x        ,tx0      ,u        ,plastic
+     3                   ,xl       ,ul       ,txnl     ,plasticl   
+     5                   ,numel    ,nen      ,nenv     ,ndf 
+     6                   ,ndm      ,nst      ,npi      ,ntn       
+     7                   ,ilib)
+c **********************************************************************
+c * Data de criacao    : 24/02/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * INITIAL_STRESS: calculo da influencia das tensoes iniciais         *
+c * ------------------------------------------------------------------ *                                                             *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * ie(numat)       - tipo de elemento                                 *
+c * e(10,numat)     - constantes fisicas dos materiais                 *
+c * x(ndm,nnode)    - coordenadas nodais                               *
+c * u(ndf,nnode) - solucao (com valores prescritos)                    *
+c * tx0         - tensao inicial nodal                                 *
+c * plastic(3,*) - deformacao volumetricas plasticas no passo de tempo *
+c *                anterior                                            *
+c *                deformacao volumetricas plasticas                   *
+c *                paramentro de endurecimento nos pontos de integracao*
+c * xl(ndm,nen)     - nao definido                                     *
+c * ul(nst)         - nao definido                                     *
+c * txnl(ntn  ,nen) - nao definido                                     *
+c * plastic(3,npi)  - nao definido                                     *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * nenv  - numero de nos de vertice por elemento                      *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * ndm   - dimensao                                                   *
+c * nst   - nen*ndf                                                    *
+c * npi   - numero de pontos de integracao por elemento                *
+c * npi   - numero de pontos de integracao por elemento                *
+c * ntn   - numero max. de tensoes por no                              *
+c * ilib  - determina a biblioteca do elemento                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * plastic(3,j,nel) - inicializado                                    *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'openmp.fi'
+      include 'omp_lib.h'
+      include 'transiente.fi'
+      include 'termprop.fi'
+      integer idum,ddum
+      integer numel,nen,nenv,ntn,ndf,ndm,nst
+      integer stge,numat,npi
+      integer neq
+      integer ix(nen+1,*),ie(*)
+      integer iel,ma,nel,no,i,j,k,kk,ilib
+      integer ic,jc
+      real*8  e(prop,*),x(ndm,*)
+      real*8  u(ndf,*),tx0(ntn,*),plastic(3,npi,*)
+      real*8  xl(ndm,nenv),ul(nst),el(prop)
+      real*8  pl(nst),txnl(ntn,nen),plasticl(3,npi)
+      logical ldum
+c .....................................................................
+c
+c ... Loop nos elementos:
+c     ------------------
+      do nel = 1, numel
+        kk = 0
+c ... loop nos nos de deslocamentos
+        do i = 1, nen
+          no = ix(i,nel)
+          do j = 1, ndf - 1
+            kk     = kk + 1
+            ul(kk) = u(j,no)
+          enddo
+c ......................................................................
+        enddo
+c ......................................................................      
+c
+c...... loop nos nos do pressao
+        do i = 1, nenv
+          no       = ix(i,nel)
+          kk       = kk + 1
+          ul(kk)   = u(ndf,no)
+          do j = 1, ndm
+            xl(j,i) = x(j,no)
+          enddo   
+        enddo
+c .....................................................................
+c            
+c ... tensao inicial
+        do i = 1, nen  
+          no            = ix(i,nel)  
+          txnl(1:ntn,i) = tx0(1:ntn,no)
+        enddo  
+c ......................................................................     
+c
+c ...... Arranjos de elemento:
+        ma  = ix(nen+1,nel)
+        iel = ie(ma)
+        el(1:prop) = e(1:prop,ma)
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+        call elmlib_pm(el  ,idum     ,xl   ,ul  ,ddum
+     1                ,ddum,ddum     ,ddum ,txnl,ddum  
+     2                ,ddum,plasticl ,idum
+     2                ,ndm ,nst ,nel ,iel ,9
+     3                ,ma  ,idum     ,ilib,ldum)        
+c ......................................................................
+
+c ... atualiza as tensoes no pontos de integracao: plastico
+        do j = 1, npi  
+c ... paramentro de endurecimento 
+          plastic(3,j,nel) = plasticl(3,j)
+        enddo
 c ...................................................................... 
       enddo 
 c ......................................................................

@@ -790,6 +790,15 @@ c ... porosidade inicial
       i_ic       = dealloc('ic      ') 
 c ..................................................................... 
 c
+c ... inicializa o paramentro de encruamento
+      if(fplastic) call initial_pc0(ia(i_ix),ia(i_ie) ,ia(i_e)
+     1                   ,ia(i_x) ,ia(i_tx0),ia(i_u)   ,ia(i_plastic)
+     3                   ,ia(i_xl),ia(i_ul) ,ia(i_txnl),ia(i_plasticl)  
+     5                   ,numel    ,nen     ,nenv     ,ndf 
+     6                   ,ndm      ,nst     ,npi      ,ntn       
+     7                   ,ilib    )
+c .....................................................................
+c
 c ...
       go to 50
 c ......................................................................
