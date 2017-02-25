@@ -339,7 +339,7 @@ c     if( nen .eq. 3) then
 c     endif
 c ...
 c .....................................................................
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................
 c
@@ -358,7 +358,7 @@ c ... transforma os elementos lineares em quadraticos (8 nos)
 c     if( nen .eq. 8) then
 c     endif
 c .....................................................................
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50  
 c ......................................................................
 c
@@ -405,7 +405,7 @@ c ...
 c .....................................................................
       endif
 c .....................................................................
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................
 c
@@ -452,7 +452,7 @@ c ...
 c .....................................................................
       endif
 c .....................................................................
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................
 c
@@ -474,7 +474,7 @@ c
       nhexa20(2)  = totnel+1
       totnel      = totnel + nhexa20(1)
 c ......................................................................
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................
 c
@@ -496,7 +496,7 @@ c
       ntetra10(2)  = totnel+1
       totnel       = totnel + ntetra10(1)
 c ......................................................................
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................
 c
@@ -511,7 +511,7 @@ c
   850 continue
       if(my_id .eq. 0) print*,'loading coordinates ...'
       call coord(ia(i_x),nnodev,ndm,nin)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -530,7 +530,7 @@ c ......................................................................
         print*,'MACRO: constrainpmec !! Unread Elements'
         call stop_mef()
       endif
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -549,7 +549,7 @@ c ......................................................................
         print*,'MACRO: constraindisp !! Unread Elements'
         call stop_mef()
       endif
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -568,7 +568,7 @@ c ......................................................................
         print*,'MACRO: nodalforces !! Unread Elements'
         call stop_mef()
       endif
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -582,7 +582,7 @@ c
         print*,'MACRO: elmtloads !! Unread Elements'
         call stop_mef()
       endif
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -621,7 +621,7 @@ c
  1300 continue
       if(my_id .eq. 0) print*,'loading loads ...'
       call rload(nin)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       goto 100
 c ......................................................................
 c
@@ -651,14 +651,14 @@ c
 c ... intialpres
 c
  1500 continue
-      if(my_id .eq. 0) print*,'loading intialpres ...'
+      if(my_id .eq. 0) print*,'loading initialpres ...'
       if(f_read_el) then
         call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)
       else
         print*,'MACRO: initialpres !! Unread Elements'
         call stop_mef()
       endif
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100 
 c ......................................................................
 c
@@ -680,7 +680,7 @@ c ......................................................................
         print*,'MACRO: initialstress !! Unread Elements'
         call stop_mef()
       endif
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -689,7 +689,7 @@ c
  1600 continue
       if(my_id .eq. 0) print*,'loading read_par...'
       call read_par(nin,nnode,numel) 
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 100 
 c ......................................................................
 c
@@ -725,7 +725,7 @@ c
       call elconn(ia(i_ix),nen+1,3,ntria3(3),numel,nin)
       ntria3(4) = totnel+1
       totnel    = totnel + ntria3(3)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................  
 c
@@ -737,7 +737,7 @@ c
       call elconn(ia(i_ix),nen+1,4,nquad4(3),numel,nin)
       nquad4(4) = totnel+1
       totnel     = totnel + nquad4(3)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50
 c ......................................................................
 c
@@ -749,7 +749,7 @@ c
       call elconn(ia(i_ix),nen+1,4,ntetra4(3),numel,nin)
       ntetra4(4) = totnel+1
       totnel     = totnel + ntetra4(3)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50                   
 c ......................................................................
 c
@@ -761,7 +761,7 @@ c
       call elconn(ia(i_ix),nen+1,8,nhexa8(3),numel,nin)
       nhexa8(4) = totnel+1
       totnel    = totnel + nhexa8(3)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50                  
 c ......................................................................
 c
@@ -773,7 +773,7 @@ c
       call elconn(ia(i_ix),nen+1,10,ntetra10(3),numel,nin)
       ntetra10(4) = totnel+1
       totnel     = totnel + ntetra10(3)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50                  
 c ......................................................................
 c
@@ -785,7 +785,7 @@ c
       call elconn(ia(i_ix),nen+1,20,nhexa20(3),numel,nin)
       nhexa20(4) = totnel+1
       totnel    = totnel + nhexa20(3)
-      if(my_id .eq. 0) print*,'load.'
+      if(my_id .eq. 0) print*,'done.'
       go to 50                                
 c ......................................................................
 c

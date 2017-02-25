@@ -817,7 +817,7 @@ c .....................................................................
 c
 c ...
       if(my_id.eq.0) then
-        write(*,'(a,i8,a,f15.5,a,f15.5,a,f15.5)')
+        write(*,'(a,i8,a,f15.1,a,f15.5,a,f15.5)')
      .                                  ,' STEP '      ,istep
      .                                  ,' Time(s)'    ,t
      .                                  ,' Time(hours)',t/3600.d0
@@ -913,7 +913,7 @@ c ......................................................................
 c
 c ...
       if( stop_crit .eq. 1 .or. stop_crit .eq. 2) then
-        call cal_residuo(ia(i_id) ,ia(i_b)   ,ia(i_x0)
+        call cal_residuo_pm(ia(i_id) ,ia(i_b)   ,ia(i_x0)
      1                  ,nno_pload,ndf       ,neq_dot,i     
      3                  ,istop    ,stop_crit ,tol
      4                  ,my_id    ,mpi       ,nout_nonlinear)
@@ -945,8 +945,8 @@ c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
 c .....................................................................
 c
 c ...
-      if( stop_crit .eq. 3 ) then
-        call cal_residuo(ia(i_id) ,ia(i_b)   ,ia(i_x0)
+      if( stop_crit .eq. 3 .or. stop_crit .eq. 4) then
+        call cal_residuo_pm(ia(i_id) ,ia(i_b)   ,ia(i_x0)
      1                  ,nno_pload,ndf       ,neq_dot,i     
      3                  ,istop    ,stop_crit ,tol
      4                  ,my_id    ,mpi       ,nout_nonlinear)
