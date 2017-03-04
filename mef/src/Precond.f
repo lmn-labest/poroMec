@@ -49,7 +49,7 @@ c * Data de criacao    : 10/04/2016                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ *
 c * PRE_DIAG_SCHUR : precondicionador diagonal com complemento schur   *
-c * aproximado ( problema poro mecanico)
+c * aproximado ( problema poro mecanico)                               *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *

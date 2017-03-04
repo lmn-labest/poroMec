@@ -822,8 +822,8 @@ c ...
      .                                  ,' Time(s)'    ,t
      .                                  ,' Time(hours)',t/3600.d0
      .                                  ,' Time(days)' ,t/86400.d0
-        write(nout_nonlinear,'(a,i7,f15.5)')'step',istep,t
-        if(fhist_log)write(log_hist_solv,'(a,i7,f15.5)')'step',istep,t
+        write(nout_nonlinear,'(a,i9,e13.6)')'step',istep,t
+        if(fhist_log)write(log_hist_solv,'(a,i9,e13.6)')'step',istep,t
       endif
 c .....................................................................
 c

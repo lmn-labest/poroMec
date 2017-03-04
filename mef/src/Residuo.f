@@ -59,8 +59,8 @@ c ...
         res = dsqrt(dot_par(b,b,neq_dot))
         if(nli .eq. 1) then
           res0 = res
-c       elseif(nli .eq. 2) then
-c         res0 = max(res0,res)
+        elseif(nli .eq. 2) then
+          res0 = max(res0,res)
         endif
         if(my_id.eq.0) then
           write(*,'(1x,a,i9)')'nonlinear iteration ',nli

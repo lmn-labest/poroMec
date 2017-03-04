@@ -510,7 +510,7 @@ c ......................................................................
 c ...                        
       gl(1)     =  gravity(1)
       gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
+      gl(3)     =  gravity(3)      
 c ...
       pm_d      = e(6)*scale          
       fluid_d   = e(7)*scale
@@ -847,7 +847,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 09/02/2017                                    * 
+c * Data de modificaco : 04/03/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT17_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -980,7 +980,6 @@ c ......................................................................
   100 continue
 c ...
       fluid_d   = e(7)*scale
-
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ... matriz constitutiva:
@@ -1014,10 +1013,6 @@ c ... Matriz de rigidez:
 c
 c ......................................................................
   200 continue
-c ...
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
 c ... 
       fluid_d   = e(7)*scale
 c ... fluid specific weight

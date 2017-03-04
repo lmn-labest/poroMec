@@ -2649,7 +2649,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 23/10/2016                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 04/03/2017                                    *
 c * ------------------------------------------------------------------ *
 c * READ_GRAVITY : leitura do campo de gravidade                       *
 c * ------------------------------------------------------------------ *
@@ -2700,7 +2700,12 @@ c ... gz
       call readmacro(nincl,.false.)
       write(string,'(30a)') (word(i),i=1,30)
       read(string,*,err =930,end =930) g(3)    
-      mg = dsqrt(g(1)*g(1)+g(2)*g(2)+g(3)*g(3))
+c .....................................................................
+c  
+c ... mg
+      call readmacro(nincl,.false.)
+      write(string,'(30a)') (word(i),i=1,30)
+      read(string,*,err =940,end =940) mg    
 c .....................................................................
 c
       return
@@ -2729,6 +2734,12 @@ c
 c ...
   930 continue
       print*,'Erro na leitura da macro (GRAVITY) gz !'
+      call stop_mef()
+c .....................................................................
+c
+c ...
+  940 continue
+      print*,'Erro na leitura da macro (GRAVITY) mg !'
       call stop_mef()
 c .....................................................................
 c
