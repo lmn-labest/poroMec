@@ -317,13 +317,18 @@ c ...  kdu/dx = emiss * const(Stef-Boltz) *(uext4-u4)+H(uext-u)
         call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)
 c ......................................................................
 c
-c ... forca distribuida constante no contorno com possibilidade de
-c     incremento de carga dentro da iteracao nao linear
+c ... forca distribuida constante no contorno 
       elseif (itype .eq. 40) then
         nparc = load(3,nc)
         call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,vc(1))
         call interpol(fload(1,1,nc),fload(1,3,nc),t,nparc,vc(2))
         call interpol(fload(1,1,nc),fload(1,4,nc),t,nparc,vc(3))  
+c .....................................................................
+c
+c ... tensao normal 
+      elseif (itype .eq. 41) then
+        nparc = load(3,nc)
+        call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)  
 c .....................................................................
       endif
       return

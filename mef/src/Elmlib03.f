@@ -49,7 +49,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 09/02/2017                                    * 
+c * Data de modificaco : 10/03/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT16_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -114,7 +114,7 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(3),face_f(3),n_flux
+      real*8 face_u(3),face_f(3),n_carg,ddum
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -661,16 +661,34 @@ c ...
               xf(2,i) = x(2,no) 
               xf(3,i) = x(3,no)
   445      continue
-c ...    
-            call rotmatrix(xf,r)
-            call rotate(xf(1,1),r,xf(1,1),.false.)
-            call rotate(xf(1,2),r,xf(1,2),.false.)
-            call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
 c ...
             carg = load(1,iq(j))
-c ... forcas
-            if( carg .eq. 40 ) then
-              call tload(iq(j),t,face_u,n_flux,face_f)
+c ... forcas qualquer direcao ou normal
+            if( carg .eq. 40 .or. carg .eq. 41) then
+c ... calculo do verto normal externo a face o elemento
+              if( carg .eq. 41) call face_normal_vector(xf,face_f,ndm)
+c .....................................................................
+c
+c ... rotacionando os eixos    
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
+c ... carga normal ao elemento
+              if( carg .eq. 41) then
+                call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga distribuida
+              elseif ( carg .eq. 40) then
+                call tload(iq(j),t,face_u,ddum,face_f)
+              endif
+c ......................................................................
+c
+c ...
               igrau = igrau_face 
               nint = npint(igrau)
               do 450 lx = 1, nint
@@ -708,7 +726,7 @@ c .....................................................................
 c .....................................................................
 c
 c ... fluxo 
-            elseif( carg .eq. 41) then
+            elseif( carg .eq. 42) then
             endif
 c .....................................................................
           endif
@@ -910,7 +928,7 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(8),face_f(3),n_flux
+      real*8 face_u(8),face_f(3),n_carg,ddum
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -1441,12 +1459,12 @@ c
 c .....................................................................
 c
 c ... forca e fluxo distribuida no contorno
-c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
-c             2 | no 5 6 7 8 13 14 15 16 |
-c             3 | no 1 5 6 2 17 13 18  9 |     
-c             4 | no 4 3 7 8 11 19 15 20 |
-c             5 | no 1 4 8 5 12 20 16 17 |
-c             6 | no 2 6 7 3 18 14 19 10 |
+c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 | normal externa
+c             2 | no 5 6 7 8 13 14 15 16 | normal interna
+c             3 | no 1 5 6 2 17 13 18  9 | normal externa    
+c             4 | no 4 3 7 8 11 19 15 20 | normal externa
+c             5 | no 1 4 8 5 12 20 16 17 | normal externa
+c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
       tp = 0
@@ -1467,17 +1485,38 @@ c ...
               xf(2,i) = x(2,no) 
               xf(3,i) = x(3,no)
   445       continue
-c ...    
-            call rotmatrix(xf,r)
-            call rotate(xf(1,1),r,xf(1,1),.false.)
-            call rotate(xf(1,2),r,xf(1,2),.false.)
-            call rotate(xf(1,3),r,xf(1,3),.false.)
-            call rotate(xf(1,4),r,xf(1,4),.false.)
+c .....................................................................
+c
 c ...
             carg = load(1,iq(j))
 c ... forcas
-            if( carg .eq. 40 ) then
-              call tload(iq(j),t,face_u,n_flux,face_f)
+            if( carg .eq. 40 .or. carg .eq. 41) then
+c ... calculo do verto normal externo a face o elemento
+              if( carg .eq. 41) then
+                call face_normal_vector(xf,face_f,ndm)
+                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+              endif
+c .....................................................................
+c          
+c ... rotacionando os eixos 
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+              call rotate(xf(1,4),r,xf(1,4),.false.)
+c ...................................................................
+c
+c ... carga normal ao elemento
+              if( carg .eq. 41) then
+                call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga distribuida
+              elseif ( carg .eq. 40) then
+                call tload(iq(j),t,face_u,ddum,face_f)
+              endif
+c ......................................................................
+c
+c ...
               nint = 3
               do 450 ly = 1, nint
                 si = pg(ly,nint)
@@ -1668,7 +1707,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 22/12/2016                                    *
-c * Data de modificaco : 24/02/2017                                    * 
+c * Data de modificaco : 10/03/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -1747,7 +1786,8 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(3),face_f(3),n_flux
+      real*8 face_u(3),face_f(3),n_carg
+      real*8 ddum
       integer carg
 c ...
       real*8 u(*),p0(*)
@@ -2451,16 +2491,34 @@ c ...
               xf(2,i) = x(2,no) 
               xf(3,i) = x(3,no)
   445      continue
-c ...    
-            call rotmatrix(xf,r)
-            call rotate(xf(1,1),r,xf(1,1),.false.)
-            call rotate(xf(1,2),r,xf(1,2),.false.)
-            call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
 c ...
             carg = load(1,iq(j))
-c ... forcas
-            if( carg .eq. 40 ) then
-              call tload(iq(j),t,face_u,n_flux,face_f)
+c ... forcas qualquer direcao ou normal
+            if( carg .eq. 40 .or. carg .eq. 41) then
+c ... calculo do verto normal externo a face o elemento
+              if( carg .eq. 41) call face_normal_vector(xf,face_f,ndm)
+c .....................................................................
+c
+c ... rotacionando o eixos    
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
+c ... carga normal ao elemento
+              if( carg .eq. 41) then
+                call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga distribuida
+              elseif ( carg .eq. 40) then
+                call tload(iq(j),t,face_u,ddum,face_f)
+              endif
+c ......................................................................
+c
+c ...
               igrau = igrau_face 
               nint = npint(igrau)
               do 450 lx = 1, nint
@@ -2497,8 +2555,9 @@ c .....................................................................
   450         continue
 c .....................................................................
 c
-c ... fluxo 
-            elseif( carg .eq. 41) then
+c ... fluxo de massa
+            elseif( carg .eq. 42) then             
+c .....................................................................
             endif
 c .....................................................................
           endif
@@ -2687,7 +2746,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 24/02/2017                                    * 
+c * Data de modificaco : 20/03/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -2767,7 +2826,7 @@ c ...
       integer nen,nints,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(8),face_f(3),n_flux
+      real*8 face_u(8),face_f(3),n_carg,ddum
       integer carg
 c ...
       real*8 u(*),p0(*)
@@ -3498,17 +3557,38 @@ c ...
               xf(2,i) = x(2,no) 
               xf(3,i) = x(3,no)
   445       continue
-c ...    
-            call rotmatrix(xf,r)
-            call rotate(xf(1,1),r,xf(1,1),.false.)
-            call rotate(xf(1,2),r,xf(1,2),.false.)
-            call rotate(xf(1,3),r,xf(1,3),.false.)
-            call rotate(xf(1,4),r,xf(1,4),.false.)
+c .....................................................................
+c
 c ...
             carg = load(1,iq(j))
 c ... forcas
-            if( carg .eq. 40 ) then
-              call tload(iq(j),t,face_u,n_flux,face_f)
+            if( carg .eq. 40 .or. carg .eq. 41) then
+c ... calculo do verto normal externo a face o elemento
+              if( carg .eq. 41) then
+                call face_normal_vector(xf,face_f,ndm)
+                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+              endif
+c .....................................................................
+c          
+c ... rotacionando os eixos 
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+              call rotate(xf(1,4),r,xf(1,4),.false.)
+c ...................................................................
+c
+c ... carga normal ao elemento
+              if( carg .eq. 41) then
+                call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga distribuida
+              elseif ( carg .eq. 40) then
+                call tload(iq(j),t,face_u,ddum,face_f)
+              endif
+c ......................................................................
+c
+c ...
               nints = 3
               do 450 ly = 1, nint
                 si = pg(ly,nint)
@@ -3547,7 +3627,7 @@ c .....................................................................
 c .....................................................................
 c
 c ... fluxo 
-            elseif( carg .eq. 41) then
+            elseif( carg .eq. 42) then
             endif
 c .....................................................................
           endif

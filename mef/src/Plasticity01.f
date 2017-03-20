@@ -60,7 +60,6 @@ c ... loop Newton-Raphson
       do 8 i = 1, maxit
 c ... calculate vectors A and D
          call effst3d(se1,iyied,stot,devs,steff,sm,varj2,mcs,escur1,pc) 
-         print*,i,dabs(escur1)
          if( dabs(escur1) .lt. tol)  goto 11
          call flow3d(a1,d1,devs,abeta,steff,theta,varj2,sint3,hl1,
      .          snphi,c14,g,pr,mcs,pc,sm,epe2,alfa)

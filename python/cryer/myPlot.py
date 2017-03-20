@@ -10,14 +10,17 @@ param['logy']    = False
 param['log']     = False
 param['xrange']  = False
 param['yrange']  = False
+param['grid']    = False
 
 def grafico(eixos,legenda,icod):
+
+    global param
 
     fig = plt.figure(icod,figsize=(6,6))
     plt.xlabel(eixos[0])
     plt.ylabel(eixos[1])
     plt.title(legenda, fontsize="medium")   
-    plt.grid(True)
+    plt.grid(param['grid'])
     
     return fig
 

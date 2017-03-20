@@ -1336,7 +1336,37 @@ c ...
 c .....................................................................
 c
 c ... 
-            close(nincl)          
+            close(nincl)   
+c .....................................................................
+c
+c ... carga normal constante no contorno 
+c     (F=carga*normal,normal - calculado nivel elemento)
+         elseif (load(1,i) .eq. 41) then
+c ... nome do arquivo            
+            call readmacro(nin,.false.)
+            write(fname,'(80a)') (word(j),j=1,strl)
+            open(nincl, file= fname,status= 'old',err=201,action='read')
+c ... numero de parcelas
+            call readmacro(nincl,.true.) 
+            write(string,'(30a)') (word(j),j=1,30)
+            read(string,*,err = 200,end = 200) load(2,i)    
+c ... numero de parcelas temporais da carga
+            call readmacro(nincl,.false.) 
+            write(string,'(30a)') (word(j),j=1,30)
+            read(string,*,err = 200,end = 200) load(3,i)
+c ...
+            do l = 1, load(3,i)
+              call readmacro(nincl,.true.)
+              do k = 1, load(2,i)                 
+                 write(string,'(30a)') (word(j),j=1,30)
+                 read(string,*,err = 200,end = 200) fload(l,k,i)
+                 call readmacro(nincl,.false.)
+              enddo
+            enddo 
+c .....................................................................
+c
+c ... 
+            close(nincl)         
          endif
 c .....................................................................
          call readmacro(nin,.true.)
