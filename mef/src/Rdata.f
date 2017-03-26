@@ -10,7 +10,7 @@
      9                  ,plastic   ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 24/02/2017                                    *
+c * Data de modificaco : 20/03/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -112,13 +112,13 @@ c ......................................................................
      .           'parallel       ','insert         ','return         ',
      .           'tria3ov        ','quad4ov        ','tetra4ov       ',
      .           'hexa8ov        ','tetra10ov      ','hexa20ov       ',
-     .           '               ','               ','end            '/
+     .           '               ','fmaterials     ','end            '/
       data nmc /36/      
 c ......................................................................
 c
 c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
       if(my_id .eq. 0) print*,'loading parameters ...'
-      call parameters(nnodev,numel,numat,nen,ndf,ndm,iplastic,nin)
+      call parameters(nnodev,numel,numat,nen,ndf,ndm,nin)
       if(my_id .eq. 0) print*,'load.'
       nnode  = nnodev
       nst    = 0
@@ -135,8 +135,6 @@ c ...
       i_epsp      = 1
       i_plastic   = 1
       i_elplastic = 1
-      plastic     = .false.
-      if( iplastic .ne. 0) plastic = .true.           
 c ... temporario
       if( nen .eq. 10 )then
         npi = 4
@@ -302,14 +300,16 @@ c ......................................................................
      .      1600,1650,1700,    !parallel   ,insert       ,return
      .      1750,1800,1850,    !tria3ov    ,quad4ov      ,tetra4ov
      .      1900,1950,2000,    !hexa8ov    ,tetra10ov    ,hexa20ov
-     .      2050,2100,2150) j  !           ,             ,end
+     .      2050,2100,2150) j  !           ,fmaterials   ,end
 c ......................................................................
 c
 c ... Propriedades dos materiais:
 c
   400 continue
+c     if(my_id .eq. 0) print*,'loading materials ...'
       call mate(ia(i_ie),ia(i_e),numat,nin)
       call check_plastic(ia(i_ie),numat,plastic)
+c     if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -795,9 +795,13 @@ c
       go to 100
 c ...................................................................... 
 c
-c ... 
+c ... fmaterials - arquivos com propriedades do materias
 c      
  2100 continue
+      if(my_id .eq. 0) print*,'loading fmaterials ...'
+      call fmate(ia(i_ie),ia(i_e),numat,my_id,nin)
+      call check_plastic(ia(i_ie),numat,plastic)
+      if(my_id .eq. 0) print*,'done.'
       go to 100                  
 c ......................................................................
 c
@@ -947,6 +951,9 @@ c ......................................................................
       print*,'*** Erro na leitura dos elementos !',k,j
       stop                   
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine coord(x,nnode,ndm,nin)
 c **********************************************************************
 c *                                                                    *
@@ -986,6 +993,9 @@ c ......................................................................
       print*,'*** Erro na leitura das coordenadas !'
       stop             
       end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine mate(ie,e,numat,nin)
 c **********************************************************************
 c *                                                                    *
@@ -1034,7 +1044,62 @@ c ......................................................................
   200 continue
       print*,'*** Erro na leitura dos materiais !'
       stop             
-      end      
+      end 
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine fmate(ie,e,numat,my_id,nin)
+c **********************************************************************
+c *                                                                    *
+c *   Materiais.                                                       *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'string.fi'
+      include 'termprop.fi'
+      character*80 fname
+      integer ie(*),numat,nin,i,j,m,ma,my_id
+      integer nincl /12/
+      real*8  e(prop,*)
+      character*30 string
+c ......................................................................
+      call readmacro(nin,.true.)
+      write(string,'(12a)') (word(j),j=1,12)
+c .....................................................
+      do 110 while(string .ne. 'end')
+         read(string,*,err = 200,end = 200) ma
+         if(ma .lt. 1 .or. ma .gt. numat) goto 200
+c .....................................................
+c
+c ... abrindo arquivo
+         call readmacro(nin,.false.)
+         write(fname,'(80a)') (word(j),j=1,strl)
+         open(nincl, file= fname,status= 'old',err=900,action='read')
+         call file_prop(ie(ma),e(1,ma),my_id,nincl)
+         close(nincl)
+c .....................................................................
+c
+c ...
+         call readmacro(nin,.true.)
+         write(string,'(12a)') (word(j),j=1,12)
+  110 continue
+      return
+c ......................................................................
+  200 continue
+      print*,'*** Erro na leitura dos materiais !'
+      call stop_mef()
+c ...
+ 900  continue
+      if(my_id.eq.0) then
+        print*,'File ',trim(fname),' not found !'
+      endif
+      call stop_mef()
+c .....................................................................
+      stop             
+      end 
+c **********************************************************************
+c
+c **********************************************************************          
       subroutine forces(f,nnode,ndf,nin)
 c **********************************************************************
 c *                                                                    *
@@ -1480,7 +1545,8 @@ c ......................................................................
 c ......................................................................
       return
       end   
-      subroutine parameters(nnode,numel,numat,nen,ndf,ndm,plastic,nin)
+      subroutine parameters_pm(nnode,numel,numat,nen,ndf,ndm,plastic
+     .                         ,nin)
 c **********************************************************************
 c *                                                                    *
 c *   Parameters                                                       *
@@ -1568,6 +1634,91 @@ c ......................................................................
       call stop_mef()    
 c ......................................................................
       end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine parameters(nnode,numel,numat,nen,ndf,ndm,nin)
+c **********************************************************************
+c *                                                                    *
+c *   Parameters                                                       *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'string.fi'
+      character*12 string
+      integer nnode,numel,numat,nen,ndf,ndft,ndm,nin,n,j
+      logical flag(6)
+      character*8 macro(6)
+      integer i,nmc         
+      data macro/'nnode   ' ,'numel   ','numat   '
+     .          ,'maxno   ' ,'ndf     ','dim     '/
+      data nmc /6/
+c ......................................................................
+      flag(1:nmc) = .false.
+c ......................................................................
+      n       = 0
+      call readmacro(nin,.true.)
+      write(string,'(8a)') (word(j),j=1,8)
+      do while (strl .ne. 0)
+         if     (string .eq. 'nnode') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) nnode
+            flag(1) = .true.
+            n = n + 1
+         elseif (string .eq. 'numel') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) numel
+            flag(2) = .true.
+            n = n + 1
+         elseif (string .eq. 'numat') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) numat
+            flag(3) = .true.
+            n = n + 1
+         elseif (string .eq. 'maxno') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) nen
+            flag(4) = .true.
+            n = n + 1
+         elseif (string .eq. 'ndf') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) ndf
+            flag(5) = .true.
+            n = n + 1
+         elseif (string .eq. 'dim') then
+            call readmacro(nin,.false.)
+            write(string,'(12a)') (word(j),j=1,12)
+            read(string,*,err = 100,end = 100) ndm
+            flag(6) = .true.
+            n = n + 1
+         endif
+         call readmacro(nin,.false.)
+         write(string,'(8a)') (word(j),j=1,8)
+      end do
+c .....................................................................
+c
+c ...
+      do i = 1, nmc
+        if(.not. flag(i)) then 
+          print *,"Missing macro: ",macro(i)
+          call stop_mef()
+        endif
+      enddo
+      return
+c ......................................................................
+  100 continue
+      print*,'*** Erro in reading the control variables !'
+      call stop_mef()    
+c ......................................................................
+      end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine readmacro(nin,newline)
 c **********************************************************************
 c *                                                                    *
@@ -2145,6 +2296,320 @@ c .....................................................................
 c *********************************************************************
 c
 c *********************************************************************
+c * Data de criacao    : 20/03/2017                                   *
+c * Data de modificaco : 00/00/0000                                   *
+c * ------------------------------------------------------------------*
+c * read_constitutive_equation : leitura do tipo regime das relacoes  *
+c * constitutivas                                                     *
+c * ------------------------------------------------------------------*
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * iplastic  - plasticidade (true|false)                             *
+c * nin       - arquivo de entrada                                    *
+c * ----------------------------------------------------------------- *
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
+c * ----------------------------------------------------------------- *
+c *********************************************************************
+      subroutine read_constitutive_equation(iplastic,nin)
+      implicit none
+      include 'string.fi'
+      character*15 string,macro(9)
+      character*80 fname
+      logical iplastic
+      integer i,j,nmacro
+      integer nin,nprcs
+      logical mpi
+      integer nincl /7/
+      data nmacro /9/
+      data macro/'plastic        ','               ','               ',
+     .           '               ','               ','               ',
+     .           '               ','               ','               '/
+c .....................................................................
+c
+c ...
+      iplastic = .false.
+c .....................................................................
+c      
+c ... arquivo de config
+      call readmacro(nin,.false.)
+      write(fname,'(80a)') (word(j),j=1,strl)
+      open(nincl, file= fname,status= 'old',err=200,action='read')
+c .....................................................................
+c
+c ...
+      call readmacro(nincl,.true.)
+      write(string,'(15a)') (word(j),j=1,12)
+      do while (string .ne. 'end')
+c ... plastic
+         if (string .eq. macro(1)) then
+           iplastic = .true. 
+c .....................................................................
+         endif 
+c .....................................................................
+c
+c ... 
+         call readmacro(nincl,.true.)
+         write(string,'(15a)') (word(j),j=1,15)
+      end do
+c ......................................................................
+c
+c ...
+      close(nincl)
+      return  
+c ......................................................................
+ 100  continue
+      print*,'*** Erro in reading the matprop file !',macro(i)
+      call stop_mef()                          
+ 200  continue
+      print*,'File ',trim(fname),' not found !'
+      call stop_mef()      
+c ......................................................................
+      end
+c *********************************************************************
+c
+c *********************************************************************
+c * Data de criacao    : 20/03/2017                                   *
+c * Data de modificaco : 26/03/2017                                   *
+c * ------------------------------------------------------------------*
+c * file_prop : : leitura do arquivo com as propriedades do material  *
+c * ------------------------------------------------------------------*
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * etype     - tipo do elemento                                      *
+c * e(*)      - propriedades fisicas do material                      *
+c * my_id     - id do mpi                                             *
+c * nin       - arquivo de entrada                                    *
+c * ----------------------------------------------------------------- *
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
+c * ----------------------------------------------------------------- *
+c *********************************************************************
+      subroutine file_prop(etype,e,my_id,nin)
+      implicit none
+      include 'string.fi'
+      character*15 string,macro(15)
+      character*16 ex(14)
+      character*80 fname
+      logical etyp,fread(15)
+      real*8 e(*)
+      integer i,j,nmacro,etype
+      integer nin
+      integer my_id
+      data nmacro /15/
+      data macro/'modE           ','poisson        ','permeability   ',
+     1           'mbiot          ','cbiot          ','density        ',
+     2           'fdensity       ','ivoid          ','l_plastic      ',
+     3           'k_plastic      ','mcs            ','pc0            ',
+     4           'elType         ','               ','               '/
+c ... exemplo
+      data ex/'elType        37',
+     1        'modE         1.0',
+     2        'poisson      0.3',
+     3        'permeability 1.0',
+     4        'mbiot        1.0',
+     5        'cbiot        1.0',
+     6        'density      1.0', 
+     7        'fdensity     1.0',
+     8        'ivoid        0.9',
+     9        'l_plastic    0.2',
+     1        'k_plastic    0.2',
+     2        'mcs          1.2',
+     3        'pc0          1.0',
+     4        'end             '/
+c .....................................................................
+c
+c ...
+      fread(1:15) = .false.
+      call readmacro(nin,.true.)
+      write(string,'(15a)') (word(j),j=1,12)
+      do while (string .ne. 'end')
+c ... modulo de elasticidade
+         if (string .eq. macro(1)) then
+            i = 1
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(1)
+c .....................................................................
+c
+c ... poisson
+         else if (string .eq. macro(2)) then
+            i = 2
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(2)
+c .....................................................................
+c
+c ... permeability
+         else if (string .eq. macro(3)) then
+            i = 3
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(3)
+c .....................................................................
+c
+c ... mbiot        
+         else if (string .eq. macro(4)) then
+            i = 4
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(4)
+c .....................................................................
+c
+c ... cbiot        
+         else if (string .eq. macro(5)) then
+            i = 5
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(5)
+c .....................................................................
+c
+c ... density      
+         else if (string .eq. macro(6)) then
+            i = 6
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(6)
+c .....................................................................
+c
+c ... fdensity      
+         else if (string .eq. macro(7)) then
+            i = 7
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(7)
+c .....................................................................
+c
+c ... ivoid      
+         else if (string .eq. macro(8)) then
+            i = 8
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(8)
+c .....................................................................
+c
+c ... l_plastic      
+         else if (string .eq. macro(9)) then
+            i = 9
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(9)
+c .....................................................................
+c
+c ... k_plastic      
+         else if (string .eq. macro(10)) then
+            i = 10
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(10)
+c .....................................................................
+c
+c ... mcs      
+         else if (string .eq. macro(11)) then
+            i = 11
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(11)
+c .....................................................................
+c
+c ... pc0      
+         else if (string .eq. macro(12)) then
+            i = 12
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) e(12)
+c .....................................................................
+c
+c ... elType   
+         else if (string .eq. macro(13)) then
+            i = 13
+            fread(i) = .true.
+            call readmacro(nin,.false.)
+            write(string,'(15a)') (word(j),j=1,15)            
+            read(string,*,err = 100,end = 100) etype
+c .....................................................................
+         endif 
+c .....................................................................
+c
+c ... 
+         call readmacro(nin,.true.)
+         write(string,'(15a)') (word(j),j=1,15)
+      end do
+c ......................................................................
+c
+c ...
+c ... elemento elasticos
+      if( (etype .eq. 16) .or. (etype .eq. 17) ) then
+        do i = 1, 7
+          if(.not. fread(i)) then
+            write(*,'(1x,a,a)') 'Property missing: ',trim(macro(i))
+            call stop_mef()                    
+          endif
+        enddo
+c ......................................................................
+c
+c ... elementos plasticos
+      else if( (etype .eq. 36) .or. (etype .eq. 37) ) then
+        do i = 1, 12
+          if(.not. fread(i)) then
+            write(*,'(1x,a,a)') 'Property missing: ',trim(macro(i))
+            call stop_mef()      
+          endif
+        enddo
+c ......................................................................
+c
+c ... 
+      else
+        if(.not. fread(13)) then
+          write(*,'(1x,a,a)') 'Property missing: ',trim(macro(13))
+          call stop_mef()      
+        endif
+      endif
+c ......................................................................
+c
+c ...
+      return  
+c ......................................................................
+ 100  continue
+      print*,'*** Erro in reading the matprop file ! ',macro(i)
+      if(my_id.eq.0) then
+        print*,'*** Error reading solver fmaterials macro !'
+        write(*,'(2x,a)') '******************************'
+        write(*,'(2x,a)') 'Example prop file usage :'
+        write(*,'(2x,a)') '------------------------------'
+        do i = 1, 14
+          write(*,'(2x,a)') ex(i)
+        enddo  
+        write(*,'(2x,a)') '------------------------------'
+        write(*,'(2x,a)') '******************************'
+      endif
+      call stop_mef()                          
+ 200  continue
+      print*,'File ',trim(fname),' not found !'
+      call stop_mef()      
+c ......................................................................
+      end
+c *********************************************************************
+c
+c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
 c * Data de modificaco : 19/11/2016                                   *
 c * ------------------------------------------------------------------*
@@ -2159,7 +2624,7 @@ c * omp_solv  - flag do openmp na fase do solver                      *
 c * nth_solv  - numero de threads usado do solver                     *
 c * reord     - reordanaco do sistema de equacao                      *
 c * bvtk      - saida binario para o vtk legacy                       *
-c * legacy    - saida legacy do vtk
+c * legacy    - saida legacy do vtk                                   *
 c * mpi       - true|fasle                                            *
 c * nprcs     - numero de processos do MPI                            *
 c * nin       - arquivo de entrada                                    *

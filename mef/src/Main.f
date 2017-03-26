@@ -148,7 +148,7 @@ c
       data macro/'loop    ','hextotet','mesh    '
      1          ,'solv    ','dt      ','pgeo    '
      2          ,'presolv ','block_pu','gravity '
-     3          ,'        ','solver  ','deltatc '
+     3          ,'conseq  ','solver  ','deltatc '
      4          ,'pcoo    ','        ','        '
      5          ,'pres    ','        ','solvm   '
      6          ,'pmecres ','        ','        '
@@ -223,8 +223,11 @@ c ... plastic elemt   (11)
 c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
+c ... fplastic  = plasticidade
+c ... felastic  = elasticidade
       fporomec = .false.
       fmec     = .false.
+      fplastic = .false.
 c ... tensoes iniciais
 c ... fstress0  = tensoes iniciais como condicao inicial
 c ... fcstress0 = tensoes iniciais utilizadas       
@@ -400,7 +403,7 @@ c ......................................................................
       goto (100 , 200, 300 !'loop    ','hextotet','mesh    '
      1     ,400 , 500, 600 !'solv    ','dt      ','pgeo    '
      2     ,700 , 800, 900 !'        ','block_pu','gravity '
-     3     ,1000,1100,1200 !'        ','solver  ','deltatc '
+     3     ,1000,1100,1200 !'conseq  ','solver  ','deltatc '
      4     ,1300,1400,1500 !'pcoo    ','        ','        '
      5     ,1600,1700,1800 !'pres    ','        ','solvm   '
      6     ,1900,2000,2100 !'pmecres ','        ','        '
@@ -1128,7 +1131,15 @@ c ... Macro-comando:
 c
 c ......................................................................
  1000 continue
+      if(my_id.eq.0)print*, 'Macro CONSEQ'
+      if(flag_macro_mesh) then
+        print*,'This macro can only be used before macro mesh'
+        goto 5000
+      endif
+      call read_constitutive_equation(fplastic,nin)
       goto 50
+c ......................................................................
+c
 c ......................................................................
 c
 c ... Macro-comando: SOLVER configuracao do solver
