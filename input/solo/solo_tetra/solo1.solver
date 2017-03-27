@@ -1,6 +1,0 @@
-solver
-name    sqrm
-it      1000000
-tol     1.d-11
-end solver
-

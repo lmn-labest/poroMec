@@ -1477,6 +1477,16 @@ c ...
      5       ,ndm        ,ndf       ,nst       ,ntn  ,npi 
      6       ,3          ,ilib      ,i_xf      ,novlp,fplastic)
           tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+c
+c ... add tensao inicial
+          if(.not. fplastic) then
+            call vsum(ia(i_tx) ,ia(i_tx0),nnodev*ntn,ia(i_tx))
+            call vsum(ia(i_txb),ia(i_tx0),nnodev*ntn,ia(i_txb))
+          endif
+          call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
+     .                         ,nnodev  ,ntn     ,ndf)
+c ......................................................................
         endif
 c ......................................................................
 c
@@ -1491,15 +1501,6 @@ c ...
      5                    ,8          ,ilib   ,i_xf     ,novlp)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
-c ......................................................................
-c
-c ... add tensao inicial
-        if(.not. fplastic) then
-          call vsum(ia(i_tx) ,ia(i_tx0),nnodev*ntn,ia(i_tx))
-          call vsum(ia(i_txb),ia(i_tx0),nnodev*ntn,ia(i_txb))
-        endif
-        call effective_stress(ia(i_txe),ia(i_tx),ia(i_u) 
-     .                       ,nnodev  ,ntn     ,ndf)
 c ......................................................................
 c
 c ...

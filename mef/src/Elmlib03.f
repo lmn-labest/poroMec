@@ -49,7 +49,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 10/03/2017                                    * 
+c * Data de modificaco : 36/03/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT16_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -172,6 +172,54 @@ c
 c
       data nen/10/,igrau_vol/2/,igrau_face/2/    
 c ......................................................................
+c
+c ...                        
+      gl(1)     =  gravity(1)
+      gl(2)     =  gravity(2)
+      gl(3)     =  gravity(3)
+c ......................................................................
+c
+c ...
+      pm_d      = e(6)*scale            
+      fluid_d   = e(7)*scale
+c ......................................................................
+c
+c ... fluid specific weight
+      fluid_sw  = fluid_d*gravity_mod
+c ......................................................................
+c
+c ... matriz constitutiva:
+      ym       = e(1)
+      ps       = e(2)
+c ......................................................................
+c
+c ... 
+      perm     = e(3)/fluid_sw
+c ......................................................................
+c
+c ...
+      imod_biot= 1.d0/e(4)
+      coef_biot= e(5)
+c ......................................................................
+c
+c ... 
+      dt_perm  = perm*dt
+      dt_fluid_perm = fluid_d*dt_perm
+c ......................................................................
+c
+c ...
+      a1       = 1.d0 - ps
+      a2       = 1.d0 - 2.d0*ps
+      a3       = 1.d0 + ps
+c ......................................................................
+c
+c ...
+      a        = (ym*a1)/(a3*a2)
+      b        = ps/a1
+      c        = 0.5d0*(a2/a1) 
+c .....................................................................
+c
+c ===
       goto (100,200,300,400,500,600,700) isw
 c ======================================================================
 c
@@ -179,26 +227,6 @@ c.... calculo do delta t critico
 c
 c ......................................................................
   100 continue
-c ...
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
-c ... 
-      perm     = e(3)/fluid_sw
-c ...
-      imod_biot= 1.d0/e(4)
-      coef_biot= e(5)
-c ... 
-      dt_perm  = perm*dt
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c .....................................................................
-c
 c ...
       volum = tetra_vol(x)
       l_c   = volum**(1.0d0/3.d0)
@@ -214,35 +242,6 @@ c ... Matriz de rigidez:
 c
 c ......................................................................
   200 continue
-c ...
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ... 
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-
-c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
-c ... 
-      perm     = e(3)/fluid_sw
-c ...
-      imod_biot= 1.d0/e(4)
-      coef_biot= e(5)
-c ... 
-      dt_perm  = perm*dt
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c ...
-      a        = (ym*a1)/(a3*a2)
-      b        = ps/a1
-      c        = 0.5d0*(a2/a1) 
-c .....................................................................
-c
 c ... Matriz de rigidez:
       do i = 1, nst
         do j = 1, nst
@@ -425,31 +424,6 @@ c ... Tensoes nodais e fluxo nodais:
 c
 c ......................................................................
   300 continue
-
-c ...                        
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ... 
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ... matriz constitutiva:
-      ym        = e(1)
-      ps        = e(2)
-c ... 
-      coef_biot = e(5)
-      perm      = e(3)/fluid_sw
-c ...
-      a1        = 1.d0 - ps
-      a2        = 1.d0 - 2.d0*ps
-      a3        = 1.d0 + ps
-c ...
-      a         = (ym*a1)/(a3*a2)
-      b         = ps/a1
-      c         = 0.5d0*(a2/a1)
-c .....................................................................
-c
 c ... tensao nodal total
       do 310 i = 1, 4
 c       tp = (i-1)*6 + 1
@@ -507,39 +481,6 @@ c     anterior:
 c
 c ......................................................................
  400  continue
-c ...                        
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)      
-c ...
-      pm_d      = e(6)*scale          
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ...      
-      ym        = e(1)
-      ps        = e(2)
-c ...
-      coef_biot = e(5)
-      perm      = e(3)/fluid_sw
-c .....................................................................
-c
-c ...
-      dt_perm       = perm*dt
-      dt_fluid      = fluid_d*dt
-      dt_fluid_perm = fluid_d*dt_perm
-c .....................................................................
-c
-c ...
-      a1      = 1.d0 - ps
-      a2      = 1.d0 - 2.d0*ps
-      a3      = 1.d0 + ps
-c ...
-      a       = (ym*a1)/(a3*a2)
-      b       = ps/a1
-      c       = 0.5d0*(a2/a1) 
-c .....................................................................
-c
 c ...     
       igrau = igrau_vol 
       nint  = npint4(igrau) 
@@ -819,22 +760,6 @@ c ......................................................................
 c 
 c ...  
   700 continue                      
-c ... matriz constitutiva:
-      ym        = e(1)
-      ps        = e(2)
-c ... 
-      coef_biot = e(5)
-      imod_biot = 1.d0/e(4)
-c ...
-      a1        = 1.d0 - ps
-      a2        = 1.d0 - 2.d0*ps
-      a3        = 1.d0 + ps
-c ...
-      a         = (ym*a1)/(a3*a2)
-      b         = ps/a1
-      c         = 0.5d0*(a2/a1)
-c .....................................................................
-c
 c ... variacao de porosidade
       do 710 i = 1, 4
 c ... calculo do terminante
@@ -989,6 +914,54 @@ c
 c
       data nen/20/
 c ......................................................................
+c
+c ...                        
+      gl(1)     =  gravity(1)
+      gl(2)     =  gravity(2)
+      gl(3)     =  gravity(3)
+c ......................................................................
+c
+c ...
+      pm_d      = e(6)*scale            
+      fluid_d   = e(7)*scale
+c ......................................................................
+c
+c ... fluid specific weight
+      fluid_sw  = fluid_d*gravity_mod
+c ......................................................................
+c
+c ... matriz constitutiva:
+      ym       = e(1)
+      ps       = e(2)
+c ......................................................................
+c
+c ... 
+      perm     = e(3)/fluid_sw
+c ......................................................................
+c
+c ...
+      imod_biot= 1.d0/e(4)
+      coef_biot= e(5)
+c ......................................................................
+c
+c ... 
+      dt_perm  = perm*dt
+      dt_fluid_perm = fluid_d*dt_perm
+c ......................................................................
+c
+c ...
+      a1       = 1.d0 - ps
+      a2       = 1.d0 - 2.d0*ps
+      a3       = 1.d0 + ps
+c ......................................................................
+c
+c ...
+      a        = (ym*a1)/(a3*a2)
+      b        = ps/a1
+      c        = 0.5d0*(a2/a1) 
+c .....................................................................
+c
+c ===
       goto (100,200,300,400,500,600,700) isw
 c ======================================================================
 c
@@ -996,26 +969,6 @@ c.... calculo do delta t critico
 c
 c ......................................................................
   100 continue
-c ...
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
-c ... 
-      perm     = e(3)/fluid_sw
-c ...
-      imod_biot= 1.d0/e(4)
-      coef_biot= e(5)
-c ... 
-      dt_perm  = perm*dt
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c .....................................................................
-c
 c ...
       volum = hexa_vol(x)
       l_c   = volum**(1.0d0/3.d0)
@@ -1031,31 +984,6 @@ c ... Matriz de rigidez:
 c
 c ......................................................................
   200 continue
-c ... 
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-
-c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
-c ... 
-      perm     = e(3)/fluid_sw
-c ...
-      imod_biot= 1.d0/e(4)
-      coef_biot= e(5)
-c ... 
-      dt_perm  = perm*dt
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c ...
-      a        = (ym*a1)/(a3*a2)
-      b        = ps/a1
-      c        = 0.5d0*(a2/a1) 
-c .....................................................................
-c
 c ... Matriz de rigidez:
       do i = 1, nst
         do j = 1, nst
@@ -1241,31 +1169,6 @@ c ... Tensoes nodais e fluxo nodais:
 c
 c ......................................................................
   300 continue
-c ...                        
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ... 
-      fluid_d   = e(7)*scale
-
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ... matriz constitutiva:
-      ym        = e(1)
-      ps        = e(2)
-c ... 
-      coef_biot = e(5)
-      perm      = e(3)/fluid_sw
-c ...
-      a1        = 1.d0 - ps
-      a2        = 1.d0 - 2.d0*ps
-      a3        = 1.d0 + ps
-c ...
-      a         = (ym*a1)/(a3*a2)
-      b         = ps/a1
-      c         = 0.5d0*(a2/a1)
-c .....................................................................
-c
 c ... tensao nodal total
       do 310 i = 1, 8
 c       tp = (i-1)*6 + 1
@@ -1323,40 +1226,6 @@ c     anterior:
 c
 c ......................................................................
  400  continue
-c ...                        
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ...
-      pm_d      = e(6)*scale            
-      fluid_d   = e(7)*scale
-
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ...      
-      ym        = e(1)
-      ps        = e(2)
-c ...
-      coef_biot = e(5)
-      perm      =  e(3)/fluid_sw
-c .....................................................................
-c
-c ...
-      dt_perm       = perm*dt
-      dt_fluid      = fluid_d*dt
-      dt_fluid_perm = fluid_d*dt_perm
-c .....................................................................
-c
-c ...
-      a1      = 1.d0 - ps
-      a2      = 1.d0 - 2.d0*ps
-      a3      = 1.d0 + ps
-c ...
-      a       = (ym*a1)/(a3*a2)
-      b       = ps/a1
-      c       = 0.5d0*(a2/a1) 
-c .....................................................................
-c
 c ...                            
       nint = 4 
       do 405 lz = 1, nint
@@ -1651,22 +1520,6 @@ c ......................................................................
 c 
 c ...  
   700 continue                      
-c ... matriz constitutiva:
-      ym        = e(1)
-      ps        = e(2)
-c ... 
-      coef_biot = e(5)
-      imod_biot = 1.d0/e(4)
-c ...
-      a1        = 1.d0 - ps
-      a2        = 1.d0 - 2.d0*ps
-      a3        = 1.d0 + ps
-c ...
-      a         = (ym*a1)/(a3*a2)
-      b         = ps/a1
-      c         = 0.5d0*(a2/a1)
-c .....................................................................
-c
 c ... variacao de porosidade
       do 710 i = 1, 8
 c ... calculo do terminante
@@ -1707,7 +1560,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 22/12/2016                                    *
-c * Data de modificaco : 10/03/2017                                    * 
+c * Data de modificaco : 26/03/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -1855,7 +1708,50 @@ c
      .        , 0.0d0/              ! t10              
 c
       data nen/10/,igrau_vol/2/,igrau_face/2/    
+c ...
+      if(isw .eq. 8) goto 10
+c ...
+      gl(1)     =  gravity(1)
+      gl(2)     =  gravity(2)
+      gl(3)     =  gravity(3)
+c ... 
+      pm_d      = e(6)*scale            
+      fluid_d   = e(7)*scale  
+c ... fluid specific weight
+      fluid_sw  = fluid_d*gravity_mod
+c ... matriz constitutiva:
+      ym       = e(1)
+      ps       = e(2)
+c ... 
+      perm     = e(3)/fluid_sw
+c ...
+      imod_biot= 1.d0/e(4)
+      coef_biot= e(5)
+c ... 
+      dt_perm       = perm*dt
+      dt_fluid_perm = fluid_d*dt_perm
+c ...
+      a1       = 1.d0 - ps
+      a2       = 1.d0 - 2.d0*ps
+      a3       = 1.d0 + ps
+c ...
+      a        = (ym*a1)/(a3*a2)
+      b        = ps/a1
+      c        = 0.5d0*(a2/a1) 
+c ... plasticidade
+      e0             = e(8) 
+      lambda_plastic = e(9)
+      k_plastic      = e(10)
+      mcs            = e(11)
+      pc0            = e(12)
+      alpha_exp      = (1+e0)/(lambda_plastic-k_plastic)
+c ...
+      c14 = ps/a2
+      g11 = 0.5d0*(ym/a3)
 c ......................................................................
+c
+c ===
+   10 continue  
       goto (100,200,300,400,500,600,700,800,900) isw
 c ======================================================================
 c
@@ -2746,7 +2642,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 20/03/2017                                    * 
+c * Data de modificaco : 26/03/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -2897,18 +2793,17 @@ c
      .          0.d0, 0.d0, 0.d0, 0.d0/ !t17,t18,t19,t20       
 c
       data nen/20/  
-c 
 c ......................................................................
-      goto (100,200,300,400,500,600,700,800,900) isw
-c ======================================================================
 c
-c.... calculo do delta t critico               
-c
-c ......................................................................
-  100 continue
 c ...
-      fluid_d   = e(7)*scale
-
+      if(isw .eq. 8) goto 10
+c ...
+      gl(1)     =  gravity(1)
+      gl(2)     =  gravity(2)
+      gl(3)     =  gravity(3)
+c ... 
+      pm_d      = e(6)*scale            
+      fluid_d   = e(7)*scale  
 c ... fluid specific weight
       fluid_sw  = fluid_d*gravity_mod
 c ... matriz constitutiva:
@@ -2920,13 +2815,37 @@ c ...
       imod_biot= 1.d0/e(4)
       coef_biot= e(5)
 c ... 
-      dt_perm  = perm*dt
+      dt_perm       = perm*dt
+      dt_fluid_perm = fluid_d*dt_perm
 c ...
       a1       = 1.d0 - ps
       a2       = 1.d0 - 2.d0*ps
       a3       = 1.d0 + ps
-c .....................................................................
+c ...
+      a        = (ym*a1)/(a3*a2)
+      b        = ps/a1
+      c        = 0.5d0*(a2/a1) 
+c ... plasticidade
+      e0             = e(8) 
+      lambda_plastic = e(9)
+      k_plastic      = e(10)
+      mcs            = e(11)
+      pc0            = e(12)
+      alpha_exp      = (1+e0)/(lambda_plastic-k_plastic)
+c ...
+      c14 = ps/a2
+      g11 = 0.5d0*(ym/a3)
+c ......................................................................
 c
+c ===
+   10 continue
+      goto (100,200,300,400,500,600,700,800,900) isw
+c ======================================================================
+c
+c.... calculo do delta t critico               
+c
+c ......................................................................
+  100 continue
 c ...
       volum = hexa_vol(x)
       l_c   = volum**(1.0d0/3.d0)
@@ -2942,42 +2861,6 @@ c ... Matriz de rigidez:
 c
 c ......................................................................
   200 continue
-c ...
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ... 
-      fluid_d   = e(7)*scale  
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-
-c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
-c ... 
-      perm     = e(3)/fluid_sw
-c ...
-      imod_biot= 1.d0/e(4)
-      coef_biot= e(5)
-c ... 
-      dt_perm  = perm*dt
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c ...
-      a        = (ym*a1)/(a3*a2)
-      b        = ps/a1
-      c        = 0.5d0*(a2/a1) 
-c ... plasticidade
-      e0             = e(8) 
-      lambda_plastic = e(9)
-      k_plastic      = e(10)
-      mcs            = e(11)
-      alpha_exp      = (1+e0)/(lambda_plastic-k_plastic)
-c ...
-      c14 = ps/a2
-      g11 = 0.5d0*(ym/a3)
 c .....................................................................
 c
 c ... Matriz de rigidez:
@@ -3324,32 +3207,6 @@ c ... Tensoes nodais e fluxo nodais:
 c
 c ......................................................................
   300 continue
-c ...                        
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ... 
-      fluid_d   = e(7)*scale
-
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-
-c ... matriz constitutiva:
-      ym        = e(1)
-      ps        = e(2)
-c ... 
-      coef_biot = e(5)
-      perm      = e(3)/fluid_sw
-c ...
-      a1        = 1.d0 - ps
-      a2        = 1.d0 - 2.d0*ps
-      a3        = 1.d0 + ps
-c ...
-      a         = (ym*a1)/(a3*a2)
-      b         = ps/a1
-      c         = 0.5d0*(a2/a1)
-c .....................................................................
-c
 c ...    
       call extrapol_hexa20_v2(tx,etx,rn,sn,tn,6)
 c .....................................................................
@@ -3404,40 +3261,6 @@ c     anterior:
 c
 c ......................................................................
  400  continue
-c ...                        
-      gl(1)     =  gravity(1)
-      gl(2)     =  gravity(2)
-      gl(3)     =  gravity(3)
-c ...
-      pm_d      = e(6)*scale            
-      fluid_d   = e(7)*scale
-
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ...      
-      ym        = e(1)
-      ps        = e(2)
-c ...
-      coef_biot = e(5)
-      perm      = e(3)/fluid_sw
-c .....................................................................
-c
-c ...
-      dt_perm       = perm*dt
-      dt_fluid      = fluid_d*dt
-      dt_fluid_perm = fluid_d*dt_perm
-c .....................................................................
-c
-c ...
-      a1      = 1.d0 - ps
-      a2      = 1.d0 - 2.d0*ps
-      a3      = 1.d0 + ps
-c ...
-      a       = (ym*a1)/(a3*a2)
-      b       = ps/a1
-      c       = 0.5d0*(a2/a1) 
-c .....................................................................
-c
 c ...  
       inpi = 0                          
       do 405 lz = 1, nint
@@ -3701,22 +3524,6 @@ c ......................................................................
 c 
 c ...  
   700 continue                      
-c ... matriz constitutiva:
-      ym        = e(1)
-      ps        = e(2)
-c ... 
-      coef_biot = e(5)
-      imod_biot = 1.d0/e(4)
-c ...
-      a1        = 1.d0 - ps
-      a2        = 1.d0 - 2.d0*ps
-      a3        = 1.d0 + ps
-c ...
-      a         = (ym*a1)/(a3*a2)
-      b         = ps/a1
-      c         = 0.5d0*(a2/a1)
-c .....................................................................
-c
 c ... delta da variacao volumetrica plastica nos nos
       inpi        = nint*nint*nint
       pci(1:inpi) = vplastic(2,1:inpi) - vplastic(1,1:inpi)
@@ -3778,8 +3585,6 @@ c ... calculo do parametro de encruamento
 c
 c ......................................................................
   900 continue
-      pc0  = e(12)
-      mcs  = e(11)
       inpi = 0  
       do 910 lz = 1, nint
         ti = pg(lz,nint)

@@ -3519,7 +3519,7 @@ c .....................................................................
       close(nout)
       return
  1000 continue
-      print*, '*** Error opening file: ',trim(fname)
+      print*,'File ',trim(fname),' not found !'
       flag = .false.
       end
 c *********************************************************************
@@ -3596,7 +3596,7 @@ c .....................................................................
       close(nout)
       return
  1000 continue
-      print*, '*** Error opening file: ',trim(fname)
+      print*,'File ',trim(fname),' not found !'
       flag = .false.
       end
 c *********************************************************************

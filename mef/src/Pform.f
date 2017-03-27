@@ -1183,7 +1183,7 @@ c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
 c * dpososity(nnodev)- nao definido                                    *
 c * fnno             -  identifica dos nos de vertices                 *
 c *                     ( 1 - vertice | 0 )                            *
-c * nnodev           - numero de nos de vertices                       *
+c * nnode            - numero de nos                                   *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
 c * nenv             - numero de nos de vertice por elemento           *
