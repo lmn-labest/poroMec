@@ -2,15 +2,15 @@
      1                  ,nen       ,nenv      ,ntn    ,ndf
      2                  ,ndm       ,nst       ,i_ix   ,i_ie 
      3                  ,i_inum    ,i_e       ,i_x       
-     4                  ,i_id      ,i_nload   ,i_eload   ,i_f
-     5                  ,i_u       ,i_u0      ,i_tx0     ,i_dp
-     6                  ,i_tx1p    ,i_tx2p    ,i_epsp    ,i_plastic
-     7                  ,i_porosity,i_fnno    ,i_elplastic
-     8                  ,fstress0  ,fporomec  ,fmec      ,print_quad
-     9                  ,plastic   ,nin     )
+     4                  ,i_id      ,i_nload   ,i_eload    ,i_f
+     5                  ,i_u       ,i_u0      ,i_tx0      ,i_dp
+     6                  ,i_tx1p    ,i_tx2p    ,i_epsp     ,i_plastic
+     7                  ,i_porosity,i_fnno    ,i_elplastic,i_vpropel
+     8                  ,fstress0  ,fporomec  ,fmec       ,print_quad
+     9                  ,plastic   ,vprop     ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 20/03/2017                                    *
+c * Data de modificaco : 28/03/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -43,13 +43,24 @@ c * i_u     - ponteiro para o arranjo u (poro_mecanico)                *
 c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
 c * i_tx0   - ponteiro para o arranjo tx0(poro_mecanico)               *
 c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
-c * i_txp   - ponteiro para o arranjo txp(poro_mecanico)               *
+c * i_txp1  - ponteiro para o arranjo txp(poro_mecanico)               *
+c * i_txp2  - ponteiro para o arranjo txp(poro_mecanico)               *
 c * i_epsp  - ponteiro para o arranjo espp(poro_mecanico)              *
-c * i_fnno  - ponteiro para o arranjo fnno                             *
+c * i_plastic   - ponteiro para o arranjo espp(poro_mecanico)          *
+c * i_porosity  - ponteiro para o arranjo espp(poro_mecanico)          *
+c * i_fnno      - ponteiro para o arranjo fnno                         *
 c * i_elplastic - ponteiro para o arranjo elplastic                    *
+c * i_vporel    - ponteiro para o arranjo vpropel                      *
+c * fstress0- leitura de tensoes iniciais (true/false)                 *
+c * fpropmec- (true/false)                                             *
+c * fmec    - (true/false)                                             *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *
 c * print_quad - escrita da malha com elmentos quadraticos(true|false) *
 c * plastic  - (true/false)                                            * 
+c * vprop(*) - propriedades variaveis                                  *
+c *           1 - prop variavel  (true|false)                          *
+c *           2 - konzey-Caraman (true|false)                          *
+c *           3 - mecanico       (true|false)                          *
 c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
@@ -67,7 +78,9 @@ c * epsp  - delta deformacao e pressao entre iteracoes nao lineares    *
 c *         deformacao volumetrica plastica total e parametro          *
 c *         de encruamento nos pontos de integracao                    *
 c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
-c * elplastic - dentificao se o elemento plastificou ou nao (0 ou 1)   *
+c * elplastic - identificao se o elemento plastificou ou nao (0 ou 1)  *
+c * vpropel   - propriedades variaveis por ponto de integracao         *
+c *                                                                    *
 c * nload(i,j) - numero identificador da carga na direcao i do no j    *
 c * load(1,n)  - tipo da carga n                                       *
 c * load(2,n)  - numero de termos da carga n                           *
@@ -87,7 +100,7 @@ c ......................................................................
 c ... ponteiros      
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_epsp,i_plastic,i_dp
-      integer*8 i_ix,i_id,i_ie,i_porosity,i_elplastic
+      integer*8 i_ix,i_id,i_ie,i_porosity,i_elplastic,i_vpropel
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
 c ......................................................................
       integer nin
@@ -96,7 +109,7 @@ c ......................................................................
       character*80 fname
       integer naux
       integer nincl /7/
-      logical fstress0,fporomec,fmec,plastic,print_quad
+      logical fstress0,fporomec,fmec,plastic,print_quad,vprop(*)
       logical f_read_el /.false./
       logical el_quad  /.false./
       logical mk_el_quad  /.false./
@@ -213,6 +226,10 @@ c     plastic
 c     ---------------------------------------------------------------
 c     | ix | ie | e | x | eload | txp1 | txp2 | espsp | plastcic |
 c     ---------------------------------------------------------------
+c     proppriedades variaveis com a porosidade
+c     ---------------------------------------------------------------
+c     | vpropel |                                                    
+c     ---------------------------------------------------------------
       if(fporomec) then
         i_ix    = alloc_4('ix      ',nen+1,numel)
         i_ie    = alloc_4('ie      ',    1,numat)
@@ -235,6 +252,10 @@ c     ---------------------------------------------------------------
           call azero(ia(i_tx2p)     ,ntn*npi*numel)
           call azero(ia(i_epsp)     ,7*npi*numel)
           call azero(ia(i_plastic)  ,3*npi*numel)
+        endif
+        if(vprop(1))then
+          i_vpropel  = alloc_8('vpropel ',nvprop*npi,numel)
+          call azero(ia(i_vpropel)       ,nvprop*npi*numel)
         endif
       endif 
 c ......................................................................
@@ -308,7 +329,7 @@ c
   400 continue
 c     if(my_id .eq. 0) print*,'loading materials ...'
       call mate(ia(i_ie),ia(i_e),numat,nin)
-      call check_plastic(ia(i_ie),numat,plastic)
+      call check_element(ia(i_ie),numat,plastic,vprop)
 c     if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
@@ -800,7 +821,7 @@ c
  2100 continue
       if(my_id .eq. 0) print*,'loading fmaterials ...'
       call fmate(ia(i_ie),ia(i_e),numat,my_id,nin)
-      call check_plastic(ia(i_ie),numat,plastic)
+      call check_element(ia(i_ie),numat,plastic,vprop)
       if(my_id .eq. 0) print*,'done.'
       go to 100                  
 c ......................................................................
@@ -880,6 +901,9 @@ c ...
               i_tx2p      = locate('tx2p    ')
               i_epsp      = locate('epsp    ')
               i_plastic   = locate('plastic ')
+            endif
+            if(vprop(1)) then
+              i_vpropel  = locate('vpropel ')
             endif
 c .....................................................................
 c
@@ -2297,7 +2321,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 20/03/2017                                   *
-c * Data de modificaco : 00/00/0000                                   *
+c * Data de modificaco : 02/04/2017                                   *
 c * ------------------------------------------------------------------*
 c * read_constitutive_equation : leitura do tipo regime das relacoes  *
 c * constitutivas                                                     *
@@ -2305,6 +2329,11 @@ c * ------------------------------------------------------------------*
 c * Parametros de entrada :                                           *
 c * ----------------------------------------------------------------- *
 c * iplastic  - plasticidade (true|false)                             *
+c * ivprop    - propriedades variaveis                                *
+c *           1 - prop por pontos de integracao (true|false)          * 
+c *           2 - konzey-Caraman (true|false)                         *
+c *           3 - mecanico       (true|false)                         *
+c *           4 - massa especifica              (true|false)          *                       
 c * nin       - arquivo de entrada                                    *
 c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
@@ -2314,24 +2343,25 @@ c * ----------------------------------------------------------------- *
 c * OBS:                                                              *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-      subroutine read_constitutive_equation(iplastic,nin)
+      subroutine read_constitutive_equation(iplastic,ivprop,my_id,nin)
       implicit none
       include 'string.fi'
       character*15 string,macro(9)
       character*80 fname
-      logical iplastic
+      logical iplastic,ivprop(*)
       integer i,j,nmacro
       integer nin,nprcs
-      logical mpi
+      integer my_id
       integer nincl /7/
       data nmacro /9/
-      data macro/'plastic        ','               ','               ',
+      data macro/'plastic        ','vprop          ','konzeycarman   ',
      .           '               ','               ','               ',
      .           '               ','               ','               '/
 c .....................................................................
 c
 c ...
-      iplastic = .false.
+      iplastic   = .false.
+      ivprop(1:3)= .false.
 c .....................................................................
 c      
 c ... arquivo de config
@@ -2346,7 +2376,18 @@ c ...
       do while (string .ne. 'end')
 c ... plastic
          if (string .eq. macro(1)) then
+      
            iplastic = .true. 
+c .....................................................................
+c
+c ... vprop
+         else if (string .eq. macro(2)) then
+           ivprop(1) = .true. 
+c .....................................................................
+c
+c ... konzeycarman
+         else if (string .eq. macro(3)) then
+           ivprop(2) = .true. 
 c .....................................................................
          endif 
 c .....................................................................
@@ -2359,6 +2400,22 @@ c ......................................................................
 c
 c ...
       close(nincl)
+c ......................................................................
+c
+c ... caso variacao da permeabilidade, prop mecanicas ou massa
+c     especifica habilitadas 
+      if( ivprop(2) .or. ivprop(3) .or. ivprop(4) ) then
+        if ( .not.  ivprop(1)) ivprop(1) = .true.
+      endif
+c ......................................................................
+c
+c ... 
+      if(my_id .eq. 0 ) then
+        print*,'Plastic      :',iplastic
+        print*,'vprop        :',ivprop(1)
+        print*,'Konzey-Carman:',ivprop(2)
+      endif
+c .....................................................................
       return  
 c ......................................................................
  100  continue
@@ -3124,7 +3181,7 @@ c .....................................................................
 c
 c ...
       do j = 1, nmacro-1
-        if(my_id.eq.0)print*,macro(j),fprint(j)
+        if(my_id.eq.0)print*,macro(j),':',fprint(j)
       enddo
 c ......................................................................
 c
@@ -3305,16 +3362,16 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 20/01/2017                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 02/04/2017                                    *
 c * ------------------------------------------------------------------ *
-c * CHECK_PLASTIC : verifica a escolha dos elementos entre o elastico  *
-c * e plastico                                                         *
+c * CHECK_ELEMENT : verifica a escolha dos elementos                   *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ie      - tipo de elemento por material                            *
 c * numat   - numero de materiais                                      *
 c * plastic - true|false                                               *
+c * vpro    - true|false                                               *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -3322,23 +3379,72 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c **********************************************************************
-      subroutine check_plastic(ie,numat,plastic)
+      subroutine check_element(ie,numat,plastic,vprop)
       implicit none
-      integer ie(*),numat,i,pel(2),eel(2),ty
-      logical flag,plastic
+      common /el_lib3/ element_library_3
+      character*1024 str
+      character*60 element_library_3(8)
+      integer ie(*),numat,i,pel(4),eel(4),vel(4),nvel(4),ty
+      logical flag,plastic,vprop(*)
 c ... elementos de plasticidade
-      pel(1) = 36
-      pel(2) = 37
+      pel(1) = 35
+      pel(2) = 36
+      pel(3) = 37
+      pel(4) = 38
 c ...
-      eel(1) = 16
-      eel(2) = 17  
+      eel(1) = 15
+      eel(2) = 16
+      eel(2) = 17
+      eel(2) = 18
+c ... elementos com propriedades nos pontos de integracao
+      vel(1) = 16
+      vel(2) = 18
+      vel(3) = 36
+      vel(4) = 38  
+c ... elementos com propriedades nos pontos de integracao
+      nvel(1) = 15
+      nvel(2) = 17
+      nvel(3) = 35
+      nvel(4) = 37  
 c .....................................................................
 c
-c ...
+c ... checa a variacao das propriedade nos elementos
       flag = .false.
       do i = 1, numat
         ty = ie(i)
-        if( ty .eq. pel(1) .or. ty .eq. pel(2) ) flag = .true.
+        if( ty .eq. vel(1) .or. ty .eq. vel(2) 
+     .   .or. ty .eq. vel(3) .or. ty .eq. vel(4) ) then
+          flag = .true.
+        endif
+      enddo
+c .....................................................................
+c
+c ...
+      if(vprop(1)) then
+        if(.not. flag) then 
+          print*,'Erro: Invalid elements!!'
+          str ='Elements without properties at integration points are: '
+          print*,trim(str),nvel(1:4)
+          goto 100
+        endif
+      else
+        if(flag) then 
+          print*,'Erro: Invalid elements!!'
+          str ='Elements with properties at integration points are: '
+          print*,trim(str),vel(1:4)
+          goto 100
+        endif    
+      endif  
+c .....................................................................
+c
+c ... checa elementos plasticos
+      flag = .false.
+      do i = 1, numat
+        ty = ie(i)
+        if( ty .eq. pel(1) .or. ty .eq. pel(2)
+     .   .or. ty .eq. pel(3) .or. ty .eq. pel(4) ) then
+          flag = .true.
+        endif
       enddo
 c .....................................................................
 c
@@ -3347,19 +3453,29 @@ c ...
         if(.not. flag) then 
           print*,'Erro: Invalid elements!!'
           print*,'Plastic elements are: ',pel(1:2)
-          call stop_mef()
+          goto 100
         endif
       else
         if(flag) then 
           print*,'Erro: Invalid elements!!'
           print*,'Elastic elements are: ',eel(1:2)
-          call stop_mef()
+          goto 100
         endif    
       endif  
 c .....................................................................
 c
 c ...
       return
+c ......................................................................
+c
+c ...
+  100 continue
+      print*,'Elements library:' 
+      do i = 1, 8
+        print*,element_library_3(i) 
+      enddo
+      call stop_mef()
+c ......................................................................
       end
 c **********************************************************************
 c

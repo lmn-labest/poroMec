@@ -16,6 +16,7 @@ c **********************************************************************
       include 'elementos.fi'
       include 'time.fi'
       include 'openmp.fi'
+      include 'termprop.fi'
 c ......................................................................
 c
 c ... Variaveis da estrutura interna de macro-comandos:
@@ -46,6 +47,10 @@ c ......................................................................
 c
 c ... solver
       logical fprint
+c ......................................................................
+c
+c ... propriedades variaveis
+      logical vprop(4)
 c ......................................................................
 c
 c ... Variaveis de controle de solucao:
@@ -116,6 +121,7 @@ c ... malha
 c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl,i_plasticl
       integer*8 i_tx1pl,i_tx2pl,i_depsl,i_porosity,i_dporo,i_p0l
+      integer*8 i_vpropell
 c ... forcas e graus de liberdade 
       integer*8 i_f
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_plastic,i_depsp,i_dp
@@ -124,6 +130,8 @@ c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
 c ... precondicionador
       integer*8 i_m
+c ... variacao das propriedades por elemento
+      integer*8 i_vpropel
 c ... arranjos globais (MPI - escrita)
       integer*8 i_g,i_g1,i_g2,i_g3,i_g4,i_g5,i_g6,i_g7,i_g8,i_g9,i_g10
       integer*8 i_g11
@@ -224,10 +232,18 @@ c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
 c ... fplastic  = plasticidade
-c ... felastic  = elasticidade
-      fporomec = .false.
-      fmec     = .false.
-      fplastic = .false.
+c ... vprop     = propriedades variaveis
+c             1 - prop por pontos de integracao (true|false)                          
+c             2 - konzey-Caraman                (true|false)                          
+c             3 - mecanico                      (true|false)                          
+c             4 - massa especifica              (true|false)                          
+      fporomec   = .false.
+      fmec       = .false.
+      fplastic   = .false.
+      vprop(1)   = .false.
+      vprop(2)   = .false.
+      vprop(3)   = .false.
+      vprop(4)   = .false.
 c ... tensoes iniciais
 c ... fstress0  = tensoes iniciais como condicao inicial
 c ... fcstress0 = tensoes iniciais utilizadas       
@@ -468,22 +484,26 @@ c
       flag_macro_mesh = .true.
 c
 c.... Leitura de dados:
-      call rdat_pm(nnode  ,nnodev  ,numel     ,numat  
-     1         ,nen       ,nenv    ,ntn       ,ndf
-     1         ,ndm       ,nst     ,i_ix      ,i_ie   
+      call rdat_pm(nnode  ,nnodev  ,numel      ,numat  
+     1         ,nen       ,nenv    ,ntn        ,ndf
+     1         ,ndm       ,nst     ,i_ix       ,i_ie   
      2         ,i_inum    ,i_e    ,i_x
-     3         ,i_id      ,i_nload ,i_eload   ,i_f  
-     4         ,i_u       ,i_u0    ,i_tx0     ,i_dp
-     5         ,i_tx1p    ,i_tx2p  ,i_depsp   ,i_plastic
-     6         ,i_porosity,i_fnno  ,i_elplastic
+     3         ,i_id      ,i_nload ,i_eload    ,i_f  
+     4         ,i_u       ,i_u0    ,i_tx0      ,i_dp
+     5         ,i_tx1p    ,i_tx2p  ,i_depsp    ,i_plastic
+     6         ,i_porosity,i_fnno  ,i_elplastic,i_vpropel
      7         ,fstress0  ,fporomec,fmec       ,print_flag(1)
-     8         ,fplastic  ,nin ) 
+     8         ,fplastic  ,vprop   ,nin )
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | tx1p | tx2p | epsp | plastic | porosity | fnno |                                               
+c    | dp | tx1p | tx2p | epsp | plastic | porosity | fnno | elpastic |                                                
+c    -----------------------------------------------------------------
+c
+c    -----------------------------------------------------------------
+c    | vpropel |                                                
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -665,6 +685,12 @@ c    , dilatacao volumetrica plastica do passo de tempo anterior
 c     e paramentro de endurecimento
           i_plasticl = alloc_8('plasticl', 3,npi)
         endif
+c ...
+        i_vpropell  = 1 
+        if(vprop(1)) then 
+c ... propriedades variaveis nos pontos de integracao
+          i_vpropell = alloc_8('vpropell ',nvprop,npi)
+        endif
 c ...      
         i_sl  = alloc_8('sl      ',nst,nst)
         i_ld  = alloc_4('ld      ',  1,nst)
@@ -675,7 +701,7 @@ c     ---------------------------------------------
 c     | xl | ul | dpl | pl | txl | txnl | sl | ld |
 c     ---------------------------------------------
 c
-c ... Memoria para a estrutura de dados do sistema de equacoes:
+c ... -emoria para a estrutura de dados do sistema de equacoes:
 c
       timei = MPI_Wtime()
 c ... poromecanico
@@ -763,6 +789,22 @@ c ...
       if(print_flag(1)) print_nnode = nnoG  
 c ......................................................................
 c
+c ... porosidade nodal inicial
+      i_ic        = alloc_4('ic      ',    1,nnode)
+      call initial_porosity(ia(i_ix)      ,ia(i_e)  ,ia(i_ie),ia(i_ic) 
+     1                     ,ia(i_porosity),ia(i_fnno)
+     2                     ,nnode         ,numel     ,nen ,nenv
+     3                     ,ndm           ,ndf       ,i_xf,novlp)     
+      i_ic       = dealloc('ic      ') 
+c ..................................................................... 
+c
+c ... 
+      if( vprop(1) ) then                    
+        call initial_prop(ia(i_ix),ia(i_e),ia(i_ie),ia(i_vpropel) 
+     1                   ,numel,nen,npi)
+      endif
+c ..................................................................... 
+c
 c ...
       if(fstress0 .and. fcstress0) then
         timei = MPI_Wtime()
@@ -782,15 +824,6 @@ c ... inicializa as tensoes tx1p -> tx2p
         endif
         fcstress0= .false.
       endif 
-c ..................................................................... 
-c
-c ... porosidade inicial
-      i_ic        = alloc_4('ic      ',    1,nnode)
-      call initial_porosity(ia(i_ix)      ,ia(i_e)  ,ia(i_ie),ia(i_ic) 
-     1                     ,ia(i_porosity),ia(i_fnno)
-     2                     ,nnode         ,numel     ,nen ,nenv
-     3                     ,ndm           ,ndf       ,i_xf,novlp)     
-      i_ic       = dealloc('ic      ') 
 c ..................................................................... 
 c
 c ... inicializa o paramentro de encruamento
@@ -845,17 +878,19 @@ c     do passo t:
      2           ,ia(i_au)    ,ia(i_al)   ,ia(i_ad)  ,ia(i_b0) 
      3           ,ia(i_u0)    ,ia(i_u)    ,ia(i_tx1p),ia(i_tx2p)
      4           ,ia(i_depsp) ,ia(i_dp)   ,ia(i_plastic),ia(i_elplastic)
-     5           ,ia(i_xl)    ,ia(i_ul)   ,ia(i_p0l)  ,ia(i_dpl)
-     6           ,ia(i_pl)    ,ia(i_sl)   ,ia(i_ld)   ,ia(i_txnl)
-     7           ,ia(i_tx1pl) ,ia(i_tx2pl),ia(i_depsl),ia(i_plasticl)
-     8           ,numel       ,nen        ,nenv       ,ndf 
-     9           ,ndm         ,nst        ,npi        ,ntn
-     1           ,neq         ,nequ       ,neqp 
-     2           ,nad         ,naduu      ,nadpp      ,nadpu,nadr 
-     3           ,.false.     ,.true.     ,unsym 
-     4           ,stge        ,4          ,ilib     ,i
-     5           ,ia(i_colorg),ia(i_elcolor),numcolors
-     6           ,block_pu    ,n_blocks_pu  ,fplastic)
+     5           ,ia(i_vpropel)   
+     6           ,ia(i_xl)    ,ia(i_ul)   ,ia(i_p0l)  ,ia(i_dpl)
+     7           ,ia(i_pl)    ,ia(i_sl)   ,ia(i_ld)   ,ia(i_txnl)
+     8           ,ia(i_tx1pl) ,ia(i_tx2pl),ia(i_depsl),ia(i_plasticl)
+     9           ,ia(i_vpropell)   
+     1           ,numel       ,nen        ,nenv       ,ndf 
+     2           ,ndm         ,nst        ,npi        ,ntn
+     3           ,neq         ,nequ       ,neqp 
+     4           ,nad         ,naduu      ,nadpp      ,nadpu,nadr 
+     5           ,.false.     ,.true.     ,unsym 
+     6           ,stge        ,4          ,ilib     ,i
+     7           ,ia(i_colorg),ia(i_elcolor),numcolors
+     8           ,block_pu    ,n_blocks_pu  ,fplastic,vprop)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -895,17 +930,19 @@ c              bp = Fp - K.dp(n+1,i)
      2         ,ia(i_au)    ,ia(i_al)    ,ia(i_ad)  ,ia(i_b)
      3         ,ia(i_u0)    ,ia(i_u)     ,ia(i_tx1p),ia(i_tx2p)
      4         ,ia(i_depsp) ,ia(i_dp)    ,ia(i_plastic),ia(i_elplastic) 
-     5         ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
-     6         ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
-     7         ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
-     8         ,numel       ,nen         ,nenv     ,ndf
-     9         ,ndm         ,nst         ,npi      ,ntn
-     1         ,neq         ,nequ        ,neqp
-     2         ,nad         ,naduu       ,nadpp    ,nadpu,nadr
-     3         ,lhs         ,.true.      ,unsym
-     4         ,stge        ,2           ,ilib     ,i
-     5         ,ia(i_colorg),ia(i_elcolor),numcolors
-     6         ,block_pu    ,n_blocks_pu  ,fplastic)
+     5         ,ia(i_vpropel)   
+     6         ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
+     7         ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
+     8         ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
+     9         ,ia(i_vpropell)   
+     1         ,numel       ,nen         ,nenv     ,ndf
+     2         ,ndm         ,nst         ,npi      ,ntn
+     3         ,neq         ,nequ        ,neqp
+     4         ,nad         ,naduu       ,nadpp    ,nadpu,nadr
+     5         ,lhs         ,.true.      ,unsym
+     6         ,stge        ,2           ,ilib     ,i
+     7         ,ia(i_colorg),ia(i_elcolor),numcolors
+     8         ,block_pu    ,n_blocks_pu  ,fplastic,vprop)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -980,16 +1017,28 @@ c fim do loop nao linear:
 c .....................................................................
 c
 c ...
-  420 continue 
-c ... calculo da porasidade
+  420 continue
+c ... atualizacao da propriedades 
+      if(vprop(1)) then
+        call update_prop(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),ia(i_vpropel)
+     1                  ,ia(i_u) ,ia(i_xl),ia(i_ul),ia(i_vpropell)  
+     3                  ,numel,nen ,nenv
+     4                  ,ndm  ,ndf ,nst  ,npi 
+     5                  ,10   ,ilib,vprop)
+      endif
+c ....................................................................
+c
+c ... calculo da porasidade nodal
       i_ic    = alloc_4('ic      ',    1,nnode)
       i_dporo = alloc_8('dporo   ',    1,nnode)
       call porosity_form(ia(i_ix),ia(i_x) ,ia(i_e) ,ia(i_ie)
-     1     ,ia(i_ic),ia(i_xl),ia(i_ul),ia(i_pl),ia(i_plasticl)
-     2     ,ia(i_u) ,ia(i_porosity),ia(i_plastic),ia(i_dporo),ia(i_fnno)
+     1     ,ia(i_u) ,ia(i_porosity),ia(i_plastic),ia(i_dporo)
+     2     ,ia(i_vpropel),ia(i_ic),ia(i_fnno)
+     3     ,ia(i_xl),ia(i_ul),ia(i_pl),ia(i_plasticl),ia(i_vpropell)
      4     ,nnode   ,numel   ,nen    ,nenv
      5     ,ndm     ,ndf     ,nst    ,npi 
-     6     ,7       ,ilib    ,i_xf   ,novlp,fplastic)
+     6     ,7       ,ilib    ,i_xf   ,novlp
+     7     ,fplastic,vprop)
       i_dporo = dealloc('dporo   ')
       i_ic    = dealloc('ic      ') 
 c .....................................................................
@@ -1136,7 +1185,7 @@ c ......................................................................
         print*,'This macro can only be used before macro mesh'
         goto 5000
       endif
-      call read_constitutive_equation(fplastic,nin)
+      call read_constitutive_equation(fplastic,vprop,my_id,nin)
       goto 50
 c ......................................................................
 c
@@ -1351,12 +1400,13 @@ c ...
      .     .or. print_flag(8)) then
           timei = MPI_Wtime()
           call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
-     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul) ,ia(i_dpl),ia(i_tx1pl)
-     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp),ia(i_tx1p) 
-     3        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
+     1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul),ia(i_dpl),ia(i_tx1pl)
+     2        ,ia(i_vpropell) 
+     3        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp),ia(i_tx1p),ia(i_vpropel) 
+     4        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
      5        ,nnode      ,numel   ,nen       ,nenv
      6        ,ndm        ,ndf     ,nst       ,ntn  ,npi 
-     7        ,3          ,ilib    ,i_xf      ,novlp,fplastic)
+     7        ,3          ,ilib    ,i_xf      ,novlp,fplastic,vprop)
           tformtime = tformtime + MPI_Wtime()-timei
         endif
 c ......................................................................
@@ -1471,11 +1521,12 @@ c ...
           timei = MPI_Wtime()
           call tform_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_e)  ,ia(i_ie)
      1       ,ia(i_ic)   ,ia(i_xl)  ,ia(i_ul)  ,ia(i_dpl),ia(i_tx1pl)
-     2       ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp)  ,ia(i_tx1p)
-     3       ,ia(i_tx)   ,ia(i_txb) ,ia(i_flux),ia(i_fnno) 
-     4       ,nnode      ,numel     ,nen       ,nenv
-     5       ,ndm        ,ndf       ,nst       ,ntn  ,npi 
-     6       ,3          ,ilib      ,i_xf      ,novlp,fplastic)
+     2       ,ia(i_vpropell) 
+     3       ,ia(i_txl)  ,ia(i_u)   ,ia(i_dp)  ,ia(i_tx1p),ia(i_vpropel)
+     4       ,ia(i_tx)   ,ia(i_txb) ,ia(i_flux),ia(i_fnno) 
+     5       ,nnode      ,numel     ,nen       ,nenv
+     6       ,ndm        ,ndf       ,nst       ,ntn  ,npi 
+     7       ,3          ,ilib      ,i_xf      ,novlp,fplastic,vprop)
           tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
 c
@@ -2066,11 +2117,12 @@ c ...
       timei = MPI_Wtime()
       call tform_pm(ia(i_ix)   ,ia(i_x)  ,ia(i_e)   ,ia(i_ie)
      1        ,ia(i_ic)   ,ia(i_xl) ,ia(i_ul)  ,ia(i_dpl),ia(i_tx1pl)
-     2        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp)  ,ia(i_tx1p) 
-     3        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
+     2        ,ia(i_vpropell) 
+     3        ,ia(i_txl)  ,ia(i_u)  ,ia(i_dp),ia(i_tx1p),ia(i_vpropel)
+     4        ,ia(i_tx)   ,ia(i_txb),ia(i_flux),ia(i_fnno) 
      5        ,nnode      ,numel   ,nen        ,nenv
      6        ,ndm        ,ndf     ,nst        ,ntn   ,npi
-     7        ,3          ,ilib    ,i_xf       ,novlp,fplastic)
+     7        ,3          ,ilib    ,i_xf       ,novlp,fplastic,vprop)
       tformtime = tformtime + MPI_Wtime()-timei
 c ......................................................................
 c

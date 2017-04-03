@@ -1642,6 +1642,7 @@ c
 c ...  haxaedros      
         else if( (ty .eq.  7)  
      .      .or. (ty .eq. 17) 
+     .      .or. (ty .eq. 18) 
      .      .or. (ty .eq. 27)
      .      .or. (ty .eq. 37) ) then
 c ... verifica se ha carga nas faces do elemento
@@ -1670,7 +1671,7 @@ c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
 c * Data de modificaco : 25/10/2016                                    * 
 c * ------------------------------------------------------------------ *   
-c * SPLIT_U_P : pega a solucoes dois vetores                           *                                                           *
+c * SPLIT_U_P : pega a solucoes dois vetores                           *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada :                                            *
 c * ------------------------------------------------------------------ *

@@ -3,23 +3,25 @@
      2                   ,au      ,al         ,ad       ,b
      3                   ,u0      ,u          ,tx1      ,tx2
      4                   ,deps    ,dp         ,plastic  ,elplastic
-     5                   ,xl      ,ul         ,p0l      ,dpl   
-     6                   ,pl      ,sl         ,ld       ,txnl
-     7                   ,tx1l    ,tx2l       ,depsl    ,plasticl 
-     8                   ,numel   ,nen        ,nenv     ,ndf 
-     9                   ,ndm     ,nst        ,npi      ,ntn
-     1                   ,neq     ,nequ       ,neqp 
-     2                   ,nad     ,nadu       ,nadp     ,nadpu,nadr
-     3                   ,lhs     ,rhs        ,unsym 
-     4                   ,stge    ,isw        ,ilib     ,nlit
-     5                   ,i_colorg,i_elcolor  ,numcolors
-     6                   ,block_pu,n_blocks_pu,fplastic)
+     5                   ,vpropel 
+     6                   ,xl      ,ul         ,p0l      ,dpl   
+     7                   ,pl      ,sl         ,ld       ,txnl
+     8                   ,tx1l    ,tx2l       ,depsl    ,plasticl 
+     9                   ,vpropell  
+     1                   ,numel   ,nen        ,nenv     ,ndf 
+     2                   ,ndm     ,nst        ,npi      ,ntn
+     3                   ,neq     ,nequ       ,neqp 
+     4                   ,nad     ,nadu       ,nadp     ,nadpu,nadr
+     5                   ,lhs     ,rhs        ,unsym 
+     6                   ,stge    ,isw        ,ilib     ,nlit
+     7                   ,i_colorg,i_elcolor  ,numcolors
+     8                   ,block_pu,n_blocks_pu,fplastic ,vprop)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 17/02/2017                                    * 
+c * Data de modificaco : 28/03/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * PFORM_PM:                                                          *
-c * ------------------------------------------------------------------ *                                                             *
+c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel) - conetividades nodais                             *
@@ -56,6 +58,9 @@ c *                anterior                                            *
 c *                deformacao volumetricas plasticas                   *
 c *                paramentro de endurecimento nos pontos de integracao*
 c * elplastic(*) - identificao se o elemento plastificou ou nao(0 ou 1)*
+c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c *     1 - porosideade nos pontos de integracao                       *
+c *     2 - permeabilidade konzey-Carman                               *
 c * xl(ndm,nen)     - nao definido                                     *
 c * ul(nst)         - nao definido                                     *
 c * dpl(nst)        - nao definido                                     *
@@ -67,6 +72,7 @@ c * tx1l(6,npi)     - nao definido                                     *
 c * tx2l(6,npi)     - nao definido                                     *
 c * despl(6,npi)    - nao definido                                     *
 c * plastic(3,npi)  - nao definido                                     *
+c * vpropell(5,npi) - nao definido                                     *
 c * numel - numero de elementos                                        *
 c * nen   - numero de nos por elemento                                 *
 c * nenv  - numero de nos de vertice por elemento                      *
@@ -101,6 +107,10 @@ c * block_pu    - true - armazenamento em blocos Kuu,Kpp e kpu         *
 c *               false- aramzenamento em unico bloco                  *      
 c * n_block_pu  - numeros de blocos                                    *
 c * plastic  - (true/false)                                            * 
+c * vprop(*) -                                                         * 
+c *           1 - prop variavel  (true|false)                          *
+c *           2 - konzey-Caraman (true|false)                          *
+c *           3 - mecanico       (true|false)                          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -128,12 +138,13 @@ c **********************************************************************
       integer ic,jc
       real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
       real*8  u(ndf,*),u0(ndf,*),tx1(ntn,npi,*),tx2(ntn,npi,*),dp(*)
-      real*8  deps(ntn+1,npi,*),plastic(3,npi,*)
+      real*8  deps(ntn+1,npi,*),plastic(3,npi,*),vpropel(nvprop,npi,*)
       real*8  xl(ndm,nenv),ul(nst),p0l(nenv),el(prop)
       real*8  pl(nst),sl(nst,nst),plasticl(3,npi),txnl(ntn,nen)
       real*8  tx1l(ntn,npi),tx2l(ntn,npi),depsl(ntn+1,npi),dpl(nen)
+      real*8  vpropell(nvprop,npi)
       integer ep
-      logical lhs,rhs,unsym,block_pu,fplastic
+      logical lhs,rhs,unsym,block_pu,fplastic,vprop(*)
 c .....................................................................
 c
 c ... Zera a matriz de coeficientes:
@@ -150,7 +161,7 @@ c ... openmp
       if(omp_elmt)then
 c ... loop nos cores
 c$omp parallel num_threads(nth_elmt)
-c$omp.default(none)
+cc$omp.default(none)
 c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
 c$omp.private(p0l,tx1l,tx2l,depsl,plasticl,txnl,ep)
 c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
@@ -333,6 +344,14 @@ c ... paramentro de endurecimento
               enddo
             endif  
           endif  
+c ......................................................................
+c
+c ... propriedade variavel 
+          if(vprop(1)) then
+            do j = 1, npi
+              vpropell(1:nvprop,j) = vpropel(1:nvprop,j,nel)  
+            enddo
+          endif
 c ......................................................................     
 c
 c ...... Arranjos de elemento:
@@ -342,11 +361,11 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-          call elmlib_pm(el    ,iq(1,nel),xl  ,ul      ,p0l
-     1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
-     2                  ,depsl ,plasticl ,ep
-     3                  ,ndm   ,nst      ,nel ,iel,isw
-     4                  ,ma    ,nlit     ,ilib,block_pu)        
+          call elmlib_pm(el    ,iq(1,nel),xl   ,ul      ,p0l
+     1                  ,dpl   ,pl       ,sl   ,tx1l    ,tx2l
+     2                  ,depsl ,plasticl ,vpropell,ep
+     3                  ,ndm   ,nst      ,nel  ,iel,isw
+     4                  ,ma    ,nlit     ,ilib ,block_pu)        
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
@@ -390,17 +409,18 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine tform_pm(ix    ,x    ,e    ,ie
-     1                   ,ic    ,xl   ,ul   ,dpl,tx1l    
-     2                   ,pl    ,u    ,dp   ,tx1
-     3                   ,t     ,tb   ,flux ,fnno
+     1                   ,ic    ,xl   ,ul   ,dpl     ,tx1l   
+     2                   ,vpropell 
+     3                   ,pl    ,u    ,dp   ,tx1     ,vpropel
+     4                   ,t     ,tb   ,flux ,fnno
      5                   ,nnode ,numel,nen  ,nenv
      6                   ,ndm   ,ndf  ,nst  ,ntn  ,npi
-     7                   ,isw   ,ilib ,i_xfi,novlp,plastic)
+     7                   ,isw   ,ilib ,i_xfi,novlp,plastic,vprop)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 24/01/2017                                    * 
+c * Data de modificaco : 02/04/2017                                    * 
 c * ------------------------------------------------------------------ * 
-c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
+c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -414,10 +434,14 @@ c * ul(ndf,nen)      - nao definido                                    *
 c * pl(ntn*nen)      - nao definido                                    *
 c * dpl(nst)         - nao definido                                    *
 c * tx1l(ntn,npi)    - nao definido                                    *
+c * vpropell         - nao definido                                    *
 c * u(ndf,nnode)     - solucao corrente                                *
 c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
 c * tx1              - elastico : nao definido                         *
 c *                    plastico : tensao nos pontos de integracao      *
+c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c *     1 - porosideade nos pontos de integracao                       *
+c *     2 - permeabilidade konzey-Carman                               *
 c * t(ntn,nnodev)    - nao definido                                    *
 c * tb(ntn,nnodev)   - nao definido                                    *
 c * te(ntn,nnodev)   - nao definido                                    *
@@ -442,6 +466,10 @@ c * i_xf             - buffer de comunicao para o numero de elementos  *
 c *                    conectidos aos nos                              *
 c * novlp            - chave indicativa de non-overlapping             *
 c * plastic  - (true/false)                                            *  
+c * vprop(*) -                                                         * 
+c *           1 - prop variavel  (true|false)                          *
+c *           2 - konzey-Caraman (true|false)                          *
+c *           3 - mecanico       (true|false)                          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -467,11 +495,11 @@ c ......................................................................
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw,desloc1,desloc2
       real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv*(2*ntn+ndm))
-      real*8  tx1l(ntn,npi)
-      real*8  x(ndm,*),e(prop,*),tx1(ntn,npi,*)
-      real*8  u(ndf,*),el(prop),dp(*)
+      real*8  tx1l(ntn,npi),vpropell(nvprop,npi)
+      real*8  x(ndm,*),e(prop,*),tx1(ntn,npi,*),vpropel(nvprop,npi,*)
+      real*8  u(ndf,*),el(prop) ,dp(*) 
       real*8  t(ntn,*),tb(ntn,*),flux(ndm,*)
-      logical plastic
+      logical plastic,vprop(*)
 c ...
       logical ldum
       integer idum
@@ -546,6 +574,14 @@ c ... tensoes
           endif  
 c ......................................................................  
 c
+c ... propriedade variavel 
+          if(vprop(1)) then
+            do j = 1, npi
+              vpropell(1:nvprop,j) = vpropel(1:nvprop,j,nel)
+            enddo
+          endif
+c ......................................................................     
+c
 c ...... form element array
         ma  = ix(nen+1,nel)
         iel = ie(ma)      
@@ -555,7 +591,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum,xl  ,ul  ,ddum
      1                ,dpl ,pl  ,ddum,tx1l,tx1l 
-     2                ,ddum,ddum,idum
+     2                ,ddum,ddum,vpropel  ,idum
      3                ,ndm ,nst ,nel,iel,isw 
      4                ,ma  ,idum,ilib,ldum)
 c ......................................................................
@@ -625,7 +661,7 @@ c * Data de criacao    : 26/12/2015                                    *
 c * Data de modificaco : 17/01/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * INITIAL_STRESS: calculo da influencia das tensoes iniciais         *
-c * ------------------------------------------------------------------ *                                                             *
+c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel) - conetividades nodais                             *
@@ -741,7 +777,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum     ,xl   ,ul  ,ddum
      1                ,dpl ,pl       ,ddum ,txnl,tx1l  
-     2                ,ddum,ddum     ,idum
+     2                ,ddum,ddum     ,ddum ,idum
      2                ,ndm ,nst ,nel ,iel ,5
      3                ,ma  ,idum     ,ilib,block_pu)        
 c ......................................................................
@@ -780,10 +816,10 @@ c **********************************************************************
      7                   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 24/02/2017                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 28/03/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * INITIAL_STRESS: calculo da influencia das tensoes iniciais         *
-c * ------------------------------------------------------------------ *                                                             *
+c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel) - conetividades nodais                             *
@@ -879,9 +915,9 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum     ,xl   ,ul  ,ddum
      1                ,ddum,ddum     ,ddum ,txnl,ddum  
-     2                ,ddum,plasticl ,idum
-     2                ,ndm ,nst ,nel ,iel ,9
-     3                ,ma  ,idum     ,ilib,ldum)        
+     2                ,ddum,plasticl ,ddum ,idum
+     2                ,ndm ,nst ,nel ,iel  ,9
+     3                ,ma  ,idum     ,ilib ,ldum)        
 c ......................................................................
 
 c ... atualiza as tensoes no pontos de integracao: plastico
@@ -899,15 +935,17 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine porosity_form(ix,x      ,e      ,ie
-     1                   ,ic    ,xl      ,ul     ,pl    ,plasticl 
-     2                   ,u     ,porosity,plastic,dporo ,fnno  
-     3                   ,nnode ,numel,nen  ,nenv
-     4                   ,ndm   ,ndf  ,nst  ,npi 
-     5                   ,isw   ,ilib ,i_xfi,novlp,fplastic)
+      subroutine porosity_form(ix ,x       ,e      ,ie   
+     1                   ,u       ,porosity,plastic,dporo 
+     2                   ,vpropel ,ic      ,fnno 
+     3                   ,xl      ,ul      ,pl,plasticl,vpropell 
+     4                   ,nnode   ,numel   ,nen    ,nenv
+     5                   ,ndm     ,ndf     ,nst    ,npi 
+     6                   ,isw     ,ilib    ,i_xfi  ,novlp
+     7                   ,fplastic,vprop)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 28/01/2017                                    * 
+c * Data de modificaco : 28/03/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * POROSITY : calculo da porosidade                                   *
 c * ------------------------------------------------------------------ * 
@@ -917,22 +955,31 @@ c * ix(nen+1,numel)  - conetividades nodais                            *
 c * x(ndm,nnode)     - coordenadas nodais                              *
 c * e(10,numat)      - constantes fisicas dos materiais                *
 c * ie(numat)        - tipo de elemento                                *
+c * u(ndf,nnode)     - solucao corrente                                *
+c * porosity(nnode)  - nao definido                                    *
+c * plastic(3,*) - deformacao volumetricas plasticas no passo de tempo *
+c *                anterior                                            *
+c *                deformacao volumetricas plasticas                   *
+c *                paramentro de endurecimento nos pontos de integracao*
+c * dporo(nnode)     - nao definido                                    *
+c * fnno             -  identifica dos nos de vertices                 *
+c *                     ( 1 - vertice | 0 )                            *
 c * ic(nnode)        - nao definido                                    *
+c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c *     1 - porosideade nos pontos de integracao                       *
+c *     2 - permeabilidade konzey-Carman                               *
 c * xl(ndm,nen)      - nao definido                                    *
 c * ul(ndf,nen)      - nao definido                                    *
 c * pl(ntn*nen)      - nao definido                                    *
-c * plasticl         - nao definido                                    *
-c * u(ndf,nnode)     - solucao corrente                                *
-c * prosity(nnode)   - nao definido                                    *
-c * dposo(nnode)     - nao definido                                    *
-c * fnno             -  identifica dos nos de vertices                 *
-c *                     ( 1 - vertice | 0 )                            *
+c * plastic(3,npi)  - nao definido                                     *
+c * vpropell(5,npi) - nao definido                                     *
 c * nnodev           - numero de nos de vertices                       *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
 c * nenv             - numero de nos de vertice por elemento           *
 c * ndf              - numero max. de graus de liberdade por no        *
 c * nst              - nst = nen*ndf                                   *
+c * npi              - numero de pontos de integracao por elemento     *
 c * ndm              - dimensao                                        *
 c * ndf              - numero max. de graus de liberdade por no        *
 c * ntn              - numero max. de derivadas por no                 *
@@ -943,6 +990,10 @@ c * ilib             - determina a biblioteca do elemento              *
 c * i_xf             - buffer de comunicao para o numero de elementos  *
 c *                    conectidos aos nos                              *
 c * novlp            - chave indicativa de non-overlapping             * 
+c * vprop(*) -                                                         * 
+c *           1 - prop variavel  (true|false)                          *
+c *           2 - konzey-Caraman (true|false)                          *
+c *           3 - mecanico       (true|false)                          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -964,15 +1015,16 @@ c ......................................................................
       integer ix(nen+1,*),ie(*),ic(*),fnno(*)
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw
-      real*8  xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv),plasticl(3,npi)
-      real*8  x(ndm,*),e(prop,*),plastic(3,npi,*)
-      real*8  u(ndf,*),el(prop),porosity(*),dporo(*)
+      real*8 xl(ndm,nenv),ul(nst),dpl(nenv),pl(nenv),plasticl(3,npi)
+      real*8 vpropell(nvprop,*)
+      real*8 x(ndm,*),e(prop,*),plastic(3,npi,*),vpropel(nvprop,npi,*)
+      real*8 u(ndf,*),el(prop),porosity(*),dporo(*)
 c ...
       logical ldum
       integer idum
       real*8 ddum
 c ...
-      logical fplastic
+      logical fplastic,vprop(*)
 c ......................................................................
 c
 c ...
@@ -1023,6 +1075,15 @@ c ... dilatacao volumetrica plastica
         endif  
 c ...................................................................... 
 c
+c ...
+        if(vprop(1)) then
+          do j = 1, npi  
+c ... porosidade nos pontos de inegracao
+            vpropell(1,j) = vpropel(1,j,nel)
+          enddo  
+        endif
+c ...................................................................... 
+c
 c ...... Arranjos de elemento:
         ma  = ix(nen+1,nel)
         iel = ie(ma)
@@ -1032,10 +1093,10 @@ c
 c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
-     1                ,ddum,pl      ,ddum,ddum,ddum
-     2                ,ddum,plasticl,idum
-     2                ,ndm ,nst     ,nel  ,iel ,isw
-     3                ,ma  ,idum    ,ilib ,ldum)
+     1                ,ddum,pl      ,ddum     ,ddum,ddum
+     2                ,ddum,plasticl,vpropell ,idum
+     2                ,ndm ,nst     ,nel      ,iel ,isw
+     3                ,ma  ,idum    ,ilib     ,ldum)
 c ......................................................................
 c
 c ...... media do vetor global
@@ -1051,12 +1112,157 @@ c
 c ... Comunica vetor de contagem de elementos por no'
       if (novlp) call allgatheri(ic,i_xfi)
 c .......................................................................
-      do 1000 i = 1, nnode
-        if(fnno(i) .eq. 1 ) then
-          porosity(i) = porosity(i) + dporo(i)/ic(i)
-        endif
- 1000 continue
+c
+c ...
+      if (vprop(1)) then
+        do i = 1, nnode
+          if(fnno(i) .eq. 1 ) then
+            porosity(i) = dporo(i)/ic(i)
+          endif
+        enddo
+      else
+        do i = 1, nnode
+          if(fnno(i) .eq. 1 ) then
+            porosity(i) = porosity(i) + dporo(i)/ic(i)
+          endif
+        enddo
+      endif   
 c ......................................................................
+c
+c ......................................................................
+      return
+      end      
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine update_prop(ix   ,x     ,e   ,ie      ,vpropel
+     1                      ,u    ,xl    ,ul  ,vpropell  
+     3                      ,numel,nen   ,nenv
+     4                      ,ndm   ,ndf  ,nst  ,npi 
+     5                      ,isw   ,ilib,vprop)
+c **********************************************************************
+c * Data de criacao    : 26/09/2016                                    *
+c * Data de modificaco : 28/03/2017                                    * 
+c * ------------------------------------------------------------------ * 
+c * POROSITY : calculo da porosidade                                   *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel)  - conetividades nodais                            *
+c * x(ndm,nnode)     - coordenadas nodais                              *
+c * e(10,numat)      - constantes fisicas dos materiais                *
+c * ie(numat)        - tipo de elemento                                *
+c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c *     1 - porosideade nos pontos de integracao                       *
+c *     2 - permeabilidade konzey-Carman                               *
+c * u(ndf,nnode)     - delta u e p                                     *
+c * xl(ndm,nen)      - nao definido                                    *
+c * ul(ndf,nen)      - nao definido                                    *
+c * vpropell(5,npi)  - nao definido                                    *
+c * numel            - numero de elementos                             *
+c * nen              - numero max. de nos por elemento                 *
+c * nenv             - numero de nos de vertice por elemento           *
+c * ndm              - dimensao                                        *
+c * ndf              - numero max. de graus de liberdade por no        *
+c * isw              - codigo de instrucao para as rotinas             *
+c * ilib             - determina a biblioteca do elemento              *
+c * vprop(*) -                                                         * 
+c *           1 - prop variavel  (true|false)                          *
+c *           2 - konzey-Caraman (true|false)                          *
+c *           3 - mecanico       (true|false)                          *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * vpropel(5,npi,*) - atualizados                                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'termprop.fi'
+c ... mpi
+      integer*8 i_xfi
+      logical novlp
+c ...
+      integer nnode,numel,nen,nenv,ndf,nst,ndm,npi
+c ......................................................................      
+      integer ix(nen+1,*),ie(*)
+      integer nel,ma,iel,i,j,k,k1,no,kk
+      integer ilib,isw
+      real*8  xl(ndm,nenv),ul(nst),vpropell(nvprop,*)
+      real*8  x(ndm,*),e(prop,*),vpropel(nvprop,npi,*)
+      real*8  u(ndf,*),el(prop)
+c ...
+      logical ldum
+      integer idum
+      real*8 ddum
+c ...
+      logical vprop(*)
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 900 nel = 1, numel
+        kk = 0
+c ... loop nos arranjos locais 
+        do 400 i = 1, nen
+          no = ix(i,nel)
+c ... loop nos deslocamentos
+          do 410 j = 1, ndf - 1
+            kk     = kk + 1
+            ul(kk) = u(j,no)
+  410     continue
+c ......................................................................
+  400   continue
+c ......................................................................
+c
+c ... loop nas pressoes
+        do 510 i = 1, nenv
+          no     = ix(i,nel)
+          kk     = kk + 1
+          ul(kk) = u(ndf,no)
+          do 500 j = 1, ndm
+            xl(j,i) = x(j,no)
+  500     continue
+  510   continue
+c ......................................................................
+c
+c ... propriedade variavel 
+        do j = 1, npi
+          vpropell(1:nvprop,j) = vpropel(1:nvprop,j,nel)             
+        enddo
+c ......................................................................     
+c
+c ...... Arranjos de elemento:
+        ma  = ix(nen+1,nel)
+        iel = ie(ma)
+        el(1:prop) = e(1:prop,ma)
+c ......................................................................
+c
+c
+c ...... Chama biblioteca de elementos:
+        call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
+     1                ,ddum,ddum    ,ddum,ddum,ddum
+     2                ,ddum,ddum    ,vpropell,idum
+     2                ,ndm ,nst     ,nel ,iel ,isw
+     3                ,ma  ,idum    ,ilib,ldum)
+c ......................................................................
+c
+c ... propriedade variavel 
+        do j = 1, npi
+c ... porosidade
+          vpropel(1,j,nel) = vpropell(1,j) 
+c ... permeabilidade
+          if(vprop(2)) vpropel(2,j,nel) = vpropell(2,j)
+c ... mecanico
+c         if(vprop(3)) then
+c           vpropel(3:5,j,nel) = vpropell(3:5,j) 
+c         endif 
+c .....................................................................           
+        enddo
+c ......................................................................     
+  900 continue
+c .......................................................................
 c
 c ......................................................................
       return
@@ -1155,6 +1361,75 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
+      subroutine initial_prop(ix    ,e      ,ie   ,vprop   
+     1                       ,numel,nen     ,npi)
+c **********************************************************************
+c * Data de criacao    : 28/07/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * DELTA_PORISITY: calculo da porosidade                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ix(nen+1,numel)  - conetividades nodais                            *
+c * e(10,numat)      - constantes fisicas dos materiais                *
+c * ie(numat)        - tipo de elemento                                *
+c * vprop            - nao definido                                    *
+c * numel            - numero de elementos                             *
+c * nen              - numero max. de nos por elemento                 *
+c * npi              - numero de pontos de integracao por elemento     *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * vprop            - vetor inicializado                              *
+c *     1 - porosideade nos pontos de integracao                       *
+c *     2 - permeabilidade konzey-Carman                               *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Calcula as tensoes apenas nos vertices                             *     
+c **********************************************************************
+      implicit none
+      include 'mpif.h'
+      include 'termprop.fi'
+c ... mpi
+      integer*8 i_xfi
+      logical novlp
+c ...
+      integer numel,nen,npi
+c ......................................................................      
+      integer ix(nen+1,*),ie(*)
+      integer nel,ma,i
+      real*8  e(prop,*),vprop(nvprop,npi,*),perm,poro
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 900 nel = 1, numel
+c ...... Arranjos de elemento:
+        ma         = ix(nen+1,nel)
+c ...
+        poro       = e(8,ma)/(1.d0+e(8,ma))
+        perm       = e(3,ma)
+c ......................................................................
+c
+c ...
+        do i = 1, npi
+c ... porosidade
+          vprop(1,i,nel) = poro
+c ......................................................................
+c
+c ... permebilidade
+          vprop(2,i,nel) = perm
+c ......................................................................
+        enddo
+c ......................................................................
+  900 continue
+c ......................................................................
+      return
+      end      
+c **********************************************************************
+c
+c **********************************************************************
       subroutine consolidation_pressure(ix  ,ie        ,ic   
      1                         ,plasticl,pl   
      2                         ,pc      ,plastic ,fnno
@@ -1163,7 +1438,7 @@ c **********************************************************************
      5                         ,isw     ,ilib ,i_xfi   ,novlp)
 c **********************************************************************
 c * Data de criacao    : 24/01/2017                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 28/03/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * CONSILADATION_PRESURE:  da porosidade                              *
 c * ------------------------------------------------------------------ * 
@@ -1259,7 +1534,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(ddum,idum    ,ddum,ddum,ddum
      1                ,ddum,pl      ,ddum,ddum,ddum
-     2                ,ddum,plasticl,idum
+     2                ,ddum,plasticl,ddum,idum
      3                ,ndm ,nst     ,nel  ,iel,isw
      4                ,ma  ,idum    ,ilib,ldum)
 c ......................................................................
@@ -1297,7 +1572,7 @@ c **********************************************************************
      4                         ,my_id,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 30/01/2017                                    * 
+c * Data de modificaco : 28/03/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
 c * do SQRM                                                            *
@@ -1372,7 +1647,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,iq(1,nel),xl  ,ddum,ddum
      1                ,ddum,dtc      ,ddum,ddum,ddum
-     2                ,ddum,ddum     ,idum
+     2                ,ddum,ddum     ,ddum,idum
      3                ,ndm,nst       ,nel ,iel,isw
      4                ,ma ,idum      ,ilib,ldum)
 c ......................................................................
@@ -1424,7 +1699,7 @@ c * ------------------------------------------------------------------ *
 c * PFORM_MEC:                                                         *
 c * ------------------------------------------------------------------ *      
 c * Parametros de entrada:                                             *
-c * ------------------------------------------------------------------ *                                                                  *
+c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel) - conetividades nodais                             *
 c * iq(7,numel)     - cargas nos elementos                             *
 c * ie(numat)       - tipo de elemento                                 *
@@ -1670,7 +1945,7 @@ c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
 c * Data de modificaco : 31/10/2016                                    * 
 c * ------------------------------------------------------------------ * 
-c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
+c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1821,7 +2096,7 @@ c **********************************************************************
 c * Data de criacao    : 24/11/2016                                    *
 c * Data de modificaco : 00/00/0006                                    * 
 c * ------------------------------------------------------------------ * 
-c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *                                                   *
+c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 

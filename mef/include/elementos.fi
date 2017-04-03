@@ -15,4 +15,3 @@ c
      .       ,nprism6(4),ntetra10(4),nhexa20(4)
       common /elementos/ nbar2  ,ntria3 ,nquad4,ntetra4,nhexa8
      .                  ,nprism6,ntetra10,nhexa20,npi
-

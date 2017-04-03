@@ -1,6 +1,6 @@
       subroutine elmlib_pm(e  ,iq  ,x   ,u       ,p0 
      1                    ,dp ,p   ,s   ,v1      ,v2 
-     2                    ,v3 ,v4  ,ep
+     2                    ,v3 ,v4  ,v5  ,ep
      3                    ,ndm,nst ,nel ,iel     ,isw
      4                    ,ma ,nlit,ilib,block_pu)
 c **********************************************************************
@@ -37,6 +37,9 @@ c *        deformacao volumetricas plasticas no passo de tempo         *
 c *        anterior                                                    *
 c *        deformacao volumetricas plasticas                           *
 c *        paramentro de endurecimento nos pontos de integracao        *
+c * v5(*) - propriedades variaveis por elemento:                       *    
+c *         porosideade nos pontos de integracao                       *
+c *         permeabilidade konzey-Carman                               *
 c * eplastic - identificao se o elemento plastificou ou nao (0 ou 1)   *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento                    *
@@ -61,7 +64,7 @@ c **********************************************************************
       implicit none
       integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit,ep
       real*8 e(*),x(*),u(*),p0(*),p(*),s(nst,*),v1(*),v2(*),v3(*),v4(*)
-      real*8 dp(*)
+      real*8 dp(*),v5(*)
       logical block_pu
 c ......................................................................
       goto (100 , 200, 300      !           ,            ,
@@ -69,14 +72,14 @@ c ......................................................................
      2     ,700 , 800, 900      !           ,            ,
      3     ,1000,1100,1200      !           ,            ,
      4     ,1300,1400,1500      !           ,            ,
-     5     ,1600,1700,1800      !elmt16_pm  ,elmt16_pm   ,
+     5     ,1600,1700,1800      !elmt16_pm  ,elmt17_pm   ,elmt18_pm
      6     ,1900,2000,2100      !           ,            ,  
      7     ,2200,2300,2400      !           ,            ,
      8     ,2500,2600,2700      !           ,            ,
      9     ,2800,2900,3000      !           ,            ,
      1     ,3100,3200,3300      !           ,            ,
-     2     ,3400,3500,3600      !           ,elmt36_pm   ,
-     3     ,3700,3800,3900      !           ,            , 
+     2     ,3400,3500,3600      !           ,            ,elmt36_pm 
+     3     ,3700,3800,3900      !elmt37_pm  ,            , 
      4     ) iel
 c ......................................................................
    10 write(*,9000) iel,nel
@@ -93,6 +96,13 @@ c ......................................................................
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-elastic)
         call elmt17_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
+      endif
+      return 
+c ......................................................................
+ 1800 continue
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 20 nos (poromec-elastic-propvariavel)
+        call elmt18_pm(e,iq,x,u,dp,p,s,v1,v5,ndm,nst,nel,isw,block_pu)
       endif
       return 
 c ......................................................................
@@ -135,7 +145,6 @@ c ... campos reservados para expancoes futuras de elementos
  1300 continue
  1400 continue
  1500 continue
- 1800 continue
  1900 continue
  2000 continue
  2100 continue
@@ -2973,7 +2982,7 @@ c * nen    - numero de pontos por elemento                             *
 c * p      - nao definido                                              *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
-c * ------------------------------------------------------------------ *                                                                     *
+c * ------------------------------------------------------------------ *
 c * p(3) - fluxo de darcy( k( grad(P) + ro_fluid*g)                    *
 c * ------------------------------------------------------------------ *       
 c * OBS:                                                               *
@@ -3033,14 +3042,14 @@ c **********************************************************************
 c ... v1 - no1 - no5
       d(1,1) = x(1,1)-x(1,5)
       d(1,2) = x(2,1)-x(2,5)
-	d(1,3) = x(3,1)-x(3,5)
+      d(1,3) = x(3,1)-x(3,5)
 c ... v2 - no6 - no5     
       d(2,1) = x(1,6)-x(1,5)
-	d(2,2) = x(2,6)-x(2,5)
+      d(2,2) = x(2,6)-x(2,5)
       d(2,3) = x(3,6)-x(3,5)
 c ... v3 - no8 - no5        
       d(3,1) = x(1,8)-x(1,5)
-	d(3,2) = x(2,8)-x(2,5)
+      d(3,2) = x(2,8)-x(2,5)
       d(3,3) = x(3,8)-x(3,5)
 c
 c ... Determinante:  
@@ -3081,12 +3090,12 @@ c **********************************************************************
 c ... 
       d(1,1) = x(1,1)-x(1,4)
       d(1,2) = x(2,1)-x(2,4)
-	d(1,3) = x(3,1)-x(3,4)
+      d(1,3) = x(3,1)-x(3,4)
       d(2,1) = x(1,2)-x(1,4)
-	d(2,2) = x(2,2)-x(2,4)
+      d(2,2) = x(2,2)-x(2,4)
       d(2,3) = x(3,2)-x(3,4)
       d(3,1) = x(1,3)-x(1,4)
-	d(3,2) = x(2,3)-x(2,4)
+      d(3,2) = x(2,3)-x(2,4)
       d(3,3) = x(3,3)-x(3,4)
 c
 c ... Determinante da matriz Jacobiana:  
@@ -3354,7 +3363,7 @@ c ...
       c1 = 0.125000000000000d0
       c2 = 0.145157042290566d0
       c3 = 0.168564535400043d0
-      c4 = 0.195746635145486d0  
+      c4 = 0.195746635145486d0 
 c .......................................................................
 c
 c ...
@@ -3511,6 +3520,69 @@ c ...
 c .....................................................................
       return
       end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 28/03/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * KONZEY_CARMAN : calcula a permeabilidade em funcao da porosidade   *
+c * usando a relação Konzey-Carman                                     * 
+c * -------------------------------------------------------------------* 
+c * perm   - permebilidade inicial                                     *
+c * poro   - porosidade atual                                          *
+c * poro0  - porosidade inicial                                        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * permeabilidade para porosidade                                     *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c **********************************************************************
+      real*8 function konzey_carman(perm0,poro,poro0)
+      implicit none
+      real*8 perm0,poro,poro0,tmp1,tmp2
+      tmp1 = (poro**3)/((1.d0-poro)**2)   
+      tmp2 = ((1.d0-poro0)**2)/(poro0**3) 
+      konzey_carman = perm0*tmp1*tmp2
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 02/04/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * ELMMENT_LIBRARY_NAMES - elementos disponiveis                      *
+c * -------------------------------------------------------------------* 
+c * element_library_1 : elementos termicos                             *
+c * element_library_2 : elementos mecanicos                            *
+c * element_library_3 : elementos poro-mecanicos                       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c **********************************************************************
+      block data element_library
+      implicit none
+      common /el_lib1/ element_library_1
+      common /el_lib2/ element_library_2
+      common /el_lib3/ element_library_3
+c
+      character*60 element_library_1(8)
+      character*60 element_library_2(8)
+      character*60 element_library_3(8)
+c
+      data element_library_3/ '15 - tetraedra elastic '
+     1 , '16 - tetraedra elastic with gauss point properties' 
+     2 , '17 - hexaedra elastic ' 
+     3 , '18 - hexaedra elastic with gauss point properties' 
+     4 , '35 - tetraedra plastic' 
+     5 , '36 - tetraedra plastic with gauss point properties' 
+     5 , '37 - hexaedra plastic ' 
+     6 , '38 - hexaedra plastic with gauss point properties'/
+c
+      end    
+c **********************************************************************
+c
 c **********************************************************************
       block data
 c **********************************************************************
