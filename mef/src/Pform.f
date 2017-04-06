@@ -18,7 +18,7 @@
      8                   ,block_pu,n_blocks_pu,fplastic ,vprop)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 28/03/2017                                    * 
+c * Data de modificaco : 05/04/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * PFORM_PM:                                                          *
 c * ------------------------------------------------------------------ *
@@ -58,9 +58,14 @@ c *                anterior                                            *
 c *                deformacao volumetricas plasticas                   *
 c *                paramentro de endurecimento nos pontos de integracao*
 c * elplastic(*) - identificao se o elemento plastificou ou nao(0 ou 1)*
-c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c * vpropel(7,npi,*) - propriedades variaveis por pontos de itegracao  *
 c *     1 - porosideade nos pontos de integracao                       *
 c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica                                           *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - inverso do modulo de biot                                  *
+c *     7 - coeficiente de biot                                        *
 c * xl(ndm,nen)     - nao definido                                     *
 c * ul(nst)         - nao definido                                     *
 c * dpl(nst)        - nao definido                                     *
@@ -72,7 +77,7 @@ c * tx1l(6,npi)     - nao definido                                     *
 c * tx2l(6,npi)     - nao definido                                     *
 c * despl(6,npi)    - nao definido                                     *
 c * plastic(3,npi)  - nao definido                                     *
-c * vpropell(5,npi) - nao definido                                     *
+c * vpropell(7,npi) - nao definido                                     *
 c * numel - numero de elementos                                        *
 c * nen   - numero de nos por elemento                                 *
 c * nenv  - numero de nos de vertice por elemento                      *
@@ -108,9 +113,10 @@ c *               false- aramzenamento em unico bloco                  *
 c * n_block_pu  - numeros de blocos                                    *
 c * plastic  - (true/false)                                            * 
 c * vprop(*) -                                                         * 
-c *           1 - prop variavel  (true|false)                          *
-c *           2 - konzey-Caraman (true|false)                          *
-c *           3 - mecanico       (true|false)                          *
+c *           1 - prop variavel                 (true|false)           *
+c *           2 - konzey-Caraman                (true|false)           *
+c *           3 - massa especifica homogenizada (true|false)           *
+c *           4 - mecanico                      (true|false)           *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -139,11 +145,13 @@ c **********************************************************************
       real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
       real*8  u(ndf,*),u0(ndf,*),tx1(ntn,npi,*),tx2(ntn,npi,*),dp(*)
       real*8  deps(ntn+1,npi,*),plastic(3,npi,*),vpropel(nvprop,npi,*)
+c ... varaiaveis locais por elemento
       real*8  xl(ndm,nenv),ul(nst),p0l(nenv),el(prop)
       real*8  pl(nst),sl(nst,nst),plasticl(3,npi),txnl(ntn,nen)
       real*8  tx1l(ntn,npi),tx2l(ntn,npi),depsl(ntn+1,npi),dpl(nen)
       real*8  vpropell(nvprop,npi)
       integer ep
+c ... 
       logical lhs,rhs,unsym,block_pu,fplastic,vprop(*)
 c .....................................................................
 c
@@ -161,13 +169,13 @@ c ... openmp
       if(omp_elmt)then
 c ... loop nos cores
 c$omp parallel num_threads(nth_elmt)
-cc$omp.default(none)
+c$omp.default(none)
 c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
-c$omp.private(p0l,tx1l,tx2l,depsl,plasticl,txnl,ep)
+c$omp.private(p0l,tx1l,tx2l,vpropell,depsl,plasticl,txnl,ep)
 c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
-c$omp.shared(id,u,u0,ix,dp,tx1,tx2,ie,e,block_pu,n_blocks_pu)
+c$omp.shared(id,u,u0,ix,dp,tx1,tx2,ie,e,vpropel,block_pu,n_blocks_pu)
 c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,ntn,npi,isw,nst,dt,elplastic)
-c$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu,plastic,fplastic)
+c$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu,plastic,fplastic,vprop)
        do ic = 1, numcolors
 c$omp do
 c ... Loop nos elementos:
@@ -233,6 +241,14 @@ c ... paramentro de endurecimento
            endif  
 c ......................................................................   
 c
+c ... propriedade variavel 
+          if(vprop(1)) then
+            do j = 1, npi
+              vpropell(1:nvprop,j) = vpropel(1:nvprop,j,nel)  
+            enddo
+          endif
+c ......................................................................     
+c
 c ...... Arranjos de elemento:
            ma  = ix(nen+1,nel)
            iel = ie(ma)
@@ -242,9 +258,9 @@ c
 c ...... Chama biblioteca de elementos:
            call elmlib_pm(el   ,iq(1,nel),xl  ,ul      ,p0l
      1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
-     2                  ,depsl ,plasticl ,ep
+     2                  ,depsl ,plasticl ,vpropell,ep
      3                  ,ndm   ,nst      ,nel ,iel,isw
-     4                  ,ma    ,nlit     ,ilib,block_pu)   
+     4                  ,ma    ,nlit     ,ilib,block_pu) 
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
@@ -418,7 +434,7 @@ c **********************************************************************
      7                   ,isw   ,ilib ,i_xfi,novlp,plastic,vprop)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 02/04/2017                                    * 
+c * Data de modificaco : 05/04/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * TFORM: caluclo das tensoes e dos fluxo nodal nos vertices          *
 c * ------------------------------------------------------------------ * 
@@ -439,9 +455,14 @@ c * u(ndf,nnode)     - solucao corrente                                *
 c * dp(nnodev)       - delta p ( p(n  ,0  ) - p(0) )                   *
 c * tx1              - elastico : nao definido                         *
 c *                    plastico : tensao nos pontos de integracao      *
-c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c * vpropel(7,npi,*) - propriedades variaveis por pontos de itegracao  *
 c *     1 - porosideade nos pontos de integracao                       *
 c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica                                           *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - inverso do modulo de biot                                  *
+c *     7 - coeficiente de biot                                        *
 c * t(ntn,nnodev)    - nao definido                                    *
 c * tb(ntn,nnodev)   - nao definido                                    *
 c * te(ntn,nnodev)   - nao definido                                    *
@@ -467,9 +488,10 @@ c *                    conectidos aos nos                              *
 c * novlp            - chave indicativa de non-overlapping             *
 c * plastic  - (true/false)                                            *  
 c * vprop(*) -                                                         * 
-c *           1 - prop variavel  (true|false)                          *
-c *           2 - konzey-Caraman (true|false)                          *
-c *           3 - mecanico       (true|false)                          *
+c *           1 - prop variavel                 (true|false)           *
+c *           2 - konzey-Caraman                (true|false)           *
+c *           3 - massa especifica homogenizada (true|false)           *
+c *           4 - mecanico                      (true|false)           *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -965,9 +987,14 @@ c * dporo(nnode)     - nao definido                                    *
 c * fnno             -  identifica dos nos de vertices                 *
 c *                     ( 1 - vertice | 0 )                            *
 c * ic(nnode)        - nao definido                                    *
-c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c * vpropel(7,npi,*) - propriedades variaveis por pontos de itegracao  *
 c *     1 - porosideade nos pontos de integracao                       *
 c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica                                           *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - inverso do modulo de biot                                  *
+c *     7 - coeficiente de biot                                        *
 c * xl(ndm,nen)      - nao definido                                    *
 c * ul(ndf,nen)      - nao definido                                    *
 c * pl(ntn*nen)      - nao definido                                    *
@@ -991,9 +1018,10 @@ c * i_xf             - buffer de comunicao para o numero de elementos  *
 c *                    conectidos aos nos                              *
 c * novlp            - chave indicativa de non-overlapping             * 
 c * vprop(*) -                                                         * 
-c *           1 - prop variavel  (true|false)                          *
-c *           2 - konzey-Caraman (true|false)                          *
-c *           3 - mecanico       (true|false)                          *
+c *           1 - prop variavel                 (true|false)           *
+c *           2 - konzey-Caraman                (true|false)           *
+c *           3 - massa especifica homogenizada (true|false)           *
+c *           4 - mecanico                      (true|false)           *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
@@ -1139,7 +1167,7 @@ c **********************************************************************
      1                      ,u    ,xl    ,ul  ,vpropell  
      3                      ,numel,nen   ,nenv
      4                      ,ndm   ,ndf  ,nst  ,npi 
-     5                      ,isw   ,ilib,vprop)
+     5                      ,isw   ,ilib,vprop ,up_porosity)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
 c * Data de modificaco : 28/03/2017                                    * 
@@ -1152,13 +1180,18 @@ c * ix(nen+1,numel)  - conetividades nodais                            *
 c * x(ndm,nnode)     - coordenadas nodais                              *
 c * e(10,numat)      - constantes fisicas dos materiais                *
 c * ie(numat)        - tipo de elemento                                *
-c * vpropel(5,npi,*) - propriedades variaveis por pontos de itegracao  *
+c * vpropel(7,npi,*) - propriedades variaveis por pontos de itegracao  *
 c *     1 - porosideade nos pontos de integracao                       *
 c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica                                           *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - inverso do modulo de biot                                  *
+c *     7 - coeficiente de biot                                        *
 c * u(ndf,nnode)     - delta u e p                                     *
 c * xl(ndm,nen)      - nao definido                                    *
 c * ul(ndf,nen)      - nao definido                                    *
-c * vpropell(5,npi)  - nao definido                                    *
+c * vpropell(7,npi)  - nao definido                                    *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
 c * nenv             - numero de nos de vertice por elemento           *
@@ -1167,13 +1200,15 @@ c * ndf              - numero max. de graus de liberdade por no        *
 c * isw              - codigo de instrucao para as rotinas             *
 c * ilib             - determina a biblioteca do elemento              *
 c * vprop(*) -                                                         * 
-c *           1 - prop variavel  (true|false)                          *
-c *           2 - konzey-Caraman (true|false)                          *
-c *           3 - mecanico       (true|false)                          *
+c *           1 - prop variavel                 (true|false)           *
+c *           2 - konzey-Caraman                (true|false)           *
+c *           3 - massa especifica homogenizada (true|false)           *
+c *           4 - mecanico                      (true|false)           *
+c * up_porosity - atualizada o porosidade para o proximo passo de tempo*
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
-c * vpropel(5,npi,*) - atualizados                                     *
+c * vpropel(7,npi,*) - atualizados                                     *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -1198,7 +1233,7 @@ c ...
       integer idum
       real*8 ddum
 c ...
-      logical vprop(*)
+      logical vprop(*),up_porosity
 c ......................................................................
 c
 c ... Loop nos elementos:
@@ -1251,13 +1286,18 @@ c
 c ... propriedade variavel 
         do j = 1, npi
 c ... porosidade
-          vpropel(1,j,nel) = vpropell(1,j) 
+          if(up_porosity)vpropel(1,j,nel) = vpropell(1,j) 
 c ... permeabilidade
           if(vprop(2)) vpropel(2,j,nel) = vpropell(2,j)
-c ... mecanico
-c         if(vprop(3)) then
-c           vpropel(3:5,j,nel) = vpropell(3:5,j) 
-c         endif 
+c ... massa especifica
+          if(vprop(3)) vpropel(3,j,nel) = vpropell(3,j) 
+c ... propriedades mecanicas
+          if(vprop(4)) then
+            vpropel(4,j,nel) = vpropell(4,j)
+            vpropel(5,j,nel) = vpropell(5,j)
+            vpropel(6,j,nel) = vpropell(6,j)
+            vpropel(7,j,nel) = vpropell(7,j)
+          endif 
 c .....................................................................           
         enddo
 c ......................................................................     
@@ -1361,11 +1401,12 @@ c ......................................................................
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine initial_prop(ix    ,e      ,ie   ,vprop   
-     1                       ,numel,nen     ,npi)
+      subroutine initial_prop(ix    ,e      ,ie   ,vpropel   
+     1                       ,numel,nen     ,numat,npi
+     2                       ,vprop)
 c **********************************************************************
-c * Data de criacao    : 28/07/2017                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de criacao    : 28/02/2017                                    *
+c * Data de modificaco : 03/04/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * DELTA_PORISITY: calculo da porosidade                              *
 c * ------------------------------------------------------------------ * 
@@ -1374,20 +1415,30 @@ c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel)  - conetividades nodais                            *
 c * e(10,numat)      - constantes fisicas dos materiais                *
 c * ie(numat)        - tipo de elemento                                *
-c * vprop            - nao definido                                    *
+c * vpropel          - nao definido                                    *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
+c * numat            - numero de elementos                             * 
 c * npi              - numero de pontos de integracao por elemento     *
+c * vprop(*) -                                                         * 
+c *           1 - prop variavel                 (true|false)           *
+c *           2 - konzey-Caraman                (true|false)           *
+c *           3 - massa especifica homogenizada (true|false)           *
+c *           4 - mecanico                      (true|false)           *
 c * ------------------------------------------------------------------ * 
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ * 
 c * vprop            - vetor inicializado                              *
 c *     1 - porosideade nos pontos de integracao                       *
 c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica homogenizada                              *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - modulo de biot                                             *
+c *     7 - coeficiente de biot                                        *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
-c * Calcula as tensoes apenas nos vertices                             *     
 c **********************************************************************
       implicit none
       include 'mpif.h'
@@ -1399,31 +1450,94 @@ c ...
       integer numel,nen,npi
 c ......................................................................      
       integer ix(nen+1,*),ie(*)
-      integer nel,ma,i
-      real*8  e(prop,*),vprop(nvprop,npi,*),perm,poro
+      integer nel,ma,i,numat
+      real*8  e(prop,*),vpropel(nvprop,npi,*)
+      real*8  perm,poro,ym,ps,mod_biot,coef_biot,ro,rof,lam,mu,k
+      real*8 scale
+      parameter (scale = 1.d-06)
+      logical vprop(*)
 c ......................................................................
 c
 c ... Loop nos elementos:
-      do 900 nel = 1, numel
+      do 100 nel = 1, numel
 c ...... Arranjos de elemento:
         ma         = ix(nen+1,nel)
 c ...
-        poro       = e(8,ma)/(1.d0+e(8,ma))
+        ym         = e(1,ma)
+        ps         = e(2,ma)
         perm       = e(3,ma)
+        mod_biot   = e(4,ma)
+        coef_biot  = e(5,ma)
+        ro         = e(6,ma)
+        poro       = e(8,ma)/(1.d0+e(8,ma))
 c ......................................................................
 c
 c ...
-        do i = 1, npi
+        lam  = ym*ps/( (1.0+ps)*( 1.0 - 2.0*ps ) )
+        mu   = (0.5d0*ym)/(1.0+ps)
+        k    = lam + (2.d0/3.d0)*mu 
+c ......................................................................
+c
+c ...
+        do 200 i = 1, npi
 c ... porosidade
-          vprop(1,i,nel) = poro
+          vpropel(1,i,nel) = poro
 c ......................................................................
 c
 c ... permebilidade
-          vprop(2,i,nel) = perm
+          vpropel(2,i,nel) = perm
 c ......................................................................
-        enddo
+c
+c ... massa especifica homogenizada
+          vpropel(3,i,nel) = ro*scale  
 c ......................................................................
-  900 continue
+c
+c ... modulo de volumetrico         
+          vpropel(4,i,nel) = k  
+c ......................................................................
+c
+c ... modulo de cisalhamento         
+          vpropel(5,i,nel) = mu 
+c ......................................................................
+c
+c ... modulo de volumetrico         
+          vpropel(6,i,nel) = 1.d0/mod_biot 
+c ......................................................................
+c
+c ... modulo de volumetrico         
+          vpropel(7,i,nel) = coef_biot  
+c ......................................................................
+  200   continue
+c ......................................................................
+  100 continue
+c ......................................................................
+c
+c ... calculo das propriedades da fase solida
+      do 300 ma = 1, numat
+c ...
+        ym   = e(1,ma)
+        ps   = e(2,ma)
+        ro   = e(6,ma)
+        rof  = e(7,ma)
+        poro = e(8,ma)/( 1.d0 + e(8,ma) )
+c .....................................................................
+c
+c ...
+        lam  = ym*ps/( (1.0+ps)*( 1.0 - 2.0*ps ) )
+        mu   = (0.5d0*ym)/(1.0+ps)
+        k    = lam + (2.d0/3.d0)*mu 
+c ......................................................................
+c
+c ... massa especifica da parte solida
+        if( vprop(3) ) e(6,ma) = (ro - poro*rof)/(1.d0 - poro)
+c .....................................................................
+c
+c ... calculo modulo volumetrico e de cisalhamento da parte solida
+        if( vprop(4) ) call ks_and_mus(ym,ps,poro,k,mu)
+        e(1,ma) = k
+        e(2,ma) = mu
+c .....................................................................
+  300 continue
 c ......................................................................
       return
       end      

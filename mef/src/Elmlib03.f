@@ -1425,9 +1425,6 @@ c .....................................................................
 c .....................................................................             
   450         continue
 c .....................................................................
-c
-c ... fluxo 
-            elseif( carg .eq. 41) then
             endif
 c .....................................................................
           endif
@@ -1561,7 +1558,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 28/03/2017                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 05/03/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT18_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos variação das propriedades                   *
@@ -1569,8 +1566,8 @@ c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
 c * e(10) - constantes fisicas iniciais                                *
-c *           e(1) = modulo de Young                                   *
-c *           e(2) = coeficiente de Poisson                            *
+c *           e(1) = modulo volumetrico (K)                            *
+c *           e(2) = modulo de cisalhamento (mu = G)                   *
 c *           e(3) = coeficiente de Darcy                              *
 c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
@@ -1582,9 +1579,14 @@ c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
 c * p(nst)     - nao definido                                          *
 c * s(nst,nst) - nao definido                                          *
 c * txn(6,nen) - tensoes nodais                                        *  
-c * vpropel(5,npi) - propriedade variavel por pontos de itegração      *   
+c * vpropel(7,npi) - propriedade variavel por pontos de itegração      *   
 c *     1 - porosideade nos pontos de integracao                       *
 c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica                                           *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - inverso do modulo de biot                                  *
+c *     7 - coeficiente de biot                                        *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento (3*20 + 1*8)       *
 c * nel - numero do elemento                                           *
@@ -1595,8 +1597,12 @@ c *  3 = tesnsoes e fluxos                                             *
 c *  4 = forcas de volume, superficies e integrais do passo            *
 c *    de tempo anterior                                               *
 c *  5 = Tensoes iniciais                                              *
-c *  6 =                                                               *
+c *  6 = livre                                                         *
 c *  7 = variacao da porosidade                                        *
+c *  8 = livre                                                         *
+c *  9 = livre                                                         *
+c * 10 =  atualizacao das porosidade e propriedades nos pontosde       *
+c *       integracao                                                   *
 c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
 c *            false- aramzenamento em unico bloco                     *      
 c * ------------------------------------------------------------------ * 
@@ -1610,6 +1616,7 @@ c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *     de tempo anterior                                              *
 c *     isw = 5  forca interna devido as tensao iniciais               *  
 c *     isw = 7  porosidade                                            *
+c *     isw = 10 atualizacao das propriedades em funcao da porosidade  *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -1626,7 +1633,7 @@ c **********************************************************************
       common /gauss/ pg, wg
       integer ndm,nst,nel,isw
       integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,inpi
-      integer nen,nint,lx,ly,lz
+      integer nen,nint,nint_face,lx,ly,lz
       integer iq(*)
 c ...
       real*8 face_u(8),face_f(3),n_carg,ddum
@@ -1652,13 +1659,16 @@ c ...
       real*8 konzey_carman
       external konzey_carman
 c ...
-      real*8 ip(64),pe(8),iflux(3,64),eflux(3,8)
+      real*8 ip(64),pe(8)
+      real*8 iflux(3,64),eflux(3,8)
+      real*8 itx(6,64),etx(6,8)
+      real*8 itxb(6,64),etxb(6,8)
 c ...
       real*8 l_c
-      real*8 poro0,perm0,perm,a,b,c,ym,ps
+      real*8 poro,poro0,perm0,perm,a,b,c,modK,mu,cm
       real*8 fluid_d,dt_perm,pm_d
       real*8 dt_fluid,dt_fluid_perm,lambda,mi,gl(3)
-      real*8 imod_biot,coef_biot
+      real*8 mod_biot,imod_biot,coef_biot
       real*8 fluid_sw
       real*8 a1,a2,a3,tmp
 c ... 
@@ -1667,6 +1677,10 @@ c ...
 c ...
       real*8 scale
       parameter (scale = 1.d-06)
+c ...
+      real*8 div23,div43
+      parameter (div43 = 0.133333333333333d+01)
+      parameter (div23 = 0.666666666666667d0)
 c ...
       logical block_pu
       data hexa_face_node20 / 1, 2, 3, 4, 9,10,11,12
@@ -1695,7 +1709,7 @@ c
      .          0.d0, 0.d0, 0.d0, 0.d0/ !t17,t18,t19,t20       
 c
       data nen/20/
-      data nint/4/
+      parameter (nint = 4,  nint_face = 3)
 c ......................................................................
 c
 c ...
@@ -1714,8 +1728,8 @@ c ... fluid specific weight
 c ......................................................................
 c
 c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
+      modK     = e(1)
+      mu       = e(2)
 c ......................................................................
 c
 c ... 
@@ -1724,7 +1738,8 @@ c ...
 c ......................................................................
 c
 c ...
-      imod_biot= 1.d0/e(4)
+      mod_biot = e(4)
+      imod_biot= 1.d0/mod_biot
       coef_biot= e(5)
 c ......................................................................
 c
@@ -1733,16 +1748,10 @@ c ...
       dt_fluid_perm = fluid_d*dt_perm
 c ......................................................................
 c
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c ......................................................................
-c
-c ...
-      a        = (ym*a1)/(a3*a2)
-      b        = ps/a1
-      c        = 0.5d0*(a2/a1) 
+c ... matriz contitutiva E(modK,mu)
+      a    = modK  + div43*mu
+      b    = (modK - div23*mu)/a 
+      c    = mu/a 
 c .....................................................................
 c
 c ...
@@ -1753,16 +1762,19 @@ c ===
       goto (100,200,300,400,500,600,700,800,900,1000) isw
 c ======================================================================
 c
-c.... calculo do delta t critico               
+c.... calculo do delta t critico com as propriedades iniciais              
 c
 c ......................................................................
   100 continue
+c ....
+      a1  = modK + div43*mu
+      a2  = a1 + mod_biot*coef_biot*coef_biot 
+      cm  = perm*mod_biot*(a1/a2)
 c ...
       volum = hexa_vol(x)
       l_c   = volum**(1.0d0/3.d0)
 c ...
-      dt_c  = ((l_c*l_c)/perm) 
-     .      * ( imod_biot+( coef_biot*coef_biot*a3*a2 )/( ym*a1 ) )
+      dt_c  = (l_c*l_c)/cm
       p(1)  = dt_c
 c .....................................................................
       return
@@ -1783,7 +1795,6 @@ c .....................................................................
 c
 c ... 
       inpi = 0
-      nint = 4 
       do 205 lz = 1, nint
         ti = pg(lz,nint)
         do 210 ly = 1, nint
@@ -1792,6 +1803,28 @@ c ...
 c ...
             inpi = inpi + 1
             ri = pg(lx,nint)
+c ....................................................................
+c
+c ...
+            modK = vpropel(4,inpi)
+            mu   = vpropel(5,inpi)
+c ....................................................................
+c
+c ... matriz contitutiva E(modK,mu)
+            a    = modK  + div43*mu
+            b    = (modK - div23*mu)/a 
+            c    = mu/a 
+c ....................................................................
+c
+c ... coef biot e inverso do modulo de biot
+            imod_biot = vpropel(6,inpi)
+            coef_biot = vpropel(7,inpi)
+c ....................................................................
+c
+c ... k = k(porosity)           
+            perm = vpropel(2,inpi)/fluid_sw
+c ....................................................................
+c
 c ...                                               
             call sfhexa8_m(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
             call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel,.true.)
@@ -1868,10 +1901,6 @@ c .....................................................................
 c .....................................................................
   230       continue    
 c .....................................................................
-c
-c ... k = k(porosity)           
-            perm = vpropel(2,inpi)/fluid_sw
-c ....................................................................
 c
 c ...    
             wt1 = w*imod_biot
@@ -1964,45 +1993,8 @@ c ... Tensoes nodais e fluxo nodais:
 c
 c ......................................................................
   300 continue
-c ... tensao nodal total
-      do 310 i = 1, 8
-c       tp = (i-1)*6 + 1
-        tp  = 6*i - 5
-c ... tensao efetiva de biot (8x6+1=49)         
-c       tp1 = (i-1)*6 + 49  
-        tp1 = 6*i +43
-c ...   p(1...8) = u(61...68) 
-        l   = i  + 60 
-c ... calculo do terminante
-        call sfhexa8_m(hp,hpx,hpy,hpz,rn(i),sn(i),tn(i),.false.,.true.)
-        call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel ,.true.)
-c ... calculo da derivadas das funcoes de interpolacao
-        call sfhexa20_m(hu,hux,huy,huz,rn(i),sn(i),tn(i),.false.,.true.)
-        call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
-c .....................................................................
-        call deform3d(hux,huy,huz,u,epsi,20)
-        call stress3d(a,b,c,epsi,p(tp))
-c ... Tensao = D*deformacao elastica - biot*dp
-        dpm     = coef_biot*dp(i)
-         pm     = coef_biot*u(l)
-c ... tensao total
-        p(tp)   = p(tp)   - dpm
-        p(tp+1) = p(tp+1) - dpm
-        p(tp+2) = p(tp+2) - dpm
-c ... tensao efetiva de biot
-        p(tp1)  = p(tp)   + pm
-        p(tp1+1)= p(tp+1) + pm
-        p(tp1+2)= p(tp+2) + pm
-        p(tp1+3)= p(tp+3) 
-        p(tp1+4)= p(tp+4) 
-        p(tp1+5)= p(tp+5) 
-c .....................................................................
-  310 continue
-c .....................................................................
-c
 c ...
       inpi = 0
-      nint = 4
       do 315 lz = 1, nint
         ti = pg(lz,nint)
         do 320 ly = 1, nint
@@ -2012,12 +2004,59 @@ c ...
             inpi = inpi + 1
             ri = pg(lx,nint)
 c ...
-           call sfhexa8_m(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
-           call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel,.true.)
+            modK = vpropel(4,inpi)
+            mu   = vpropel(5,inpi)
+c ....................................................................
+c
+c ... matriz contitutiva E(modK,mu)
+            a    = modK  + div43*mu
+            b    = (modK - div23*mu)/a 
+            c    = mu/a
+c ....................................................................
+c
+c ... coef biot e inverso do modulo de biot
+            coef_biot = vpropel(7,inpi)
+c ....................................................................
+c
+c ... k = k(porosity)           
+            perm = vpropel(2,inpi)/fluid_sw
+c ....................................................................
+c
 c ...
-           perm = vpropel(2,inpi)/fluid_sw
+            call sfhexa8_m(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
+            call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel,.true.)
+c ... calculo da derivadas das funcoes de interpolacao
+            call sfhexa20_m(hu,hux,huy,huz,ri,si,ti,.false.,.true.)
+            call jacob3d_m(hux,huy,huz,xj,xji,x,det,20,nel ,.false.)
+c .....................................................................
+c
+c ...
+            call deform3d(hux,huy,huz,u,epsi,20)
+            call stress3d(a,b,c,epsi,itx(1,inpi))
+c .....................................................................
+c
+c ...  
+            dpm = hp(1)*dp(1) + hp(2)*dp(2) + hp(3)*dp(3) + hp(4)*dp(4) 
+     .          + hp(5)*dp(5) + hp(6)*dp(6) + hp(7)*dp(7) + hp(8)*dp(8)
+c ...   p(1...8) = u(61...68) 
+            pi = hp(1)*u(61) + hp(2)*u(62) + hp(3)*u(63) + hp(4)*u(64) 
+     .         + hp(5)*u(65) + hp(6)*u(66) + hp(7)*u(67) + hp(8)*u(68) 
+c ...            
+            dpm = coef_biot*dpm
+            pm  = coef_biot*pi
+c ... Tensao Total= D*deformacao elastica - biot*dp
+            itx(1,inpi) = itx(1,inpi) - dpm
+            itx(2,inpi) = itx(2,inpi) - dpm
+            itx(3,inpi) = itx(3,inpi) - dpm
+c ... tensao efetiva de biot
+            itxb(1,inpi) = itx(1,inpi) + pm
+            itxb(2,inpi) = itx(2,inpi) + pm
+            itxb(3,inpi) = itx(3,inpi) + pm
+            itxb(4,inpi) = itx(4,inpi)
+            itxb(5,inpi) = itx(5,inpi)
+            itxb(6,inpi) = itx(6,inpi)
 c ... fluxo nos pontos de integracao
-           call darcy_flux(perm,gl,fluid_d,hpx,hpy,hpz,u(61),8
+            call darcy_flux(perm,gl,fluid_d,hpx,hpy,hpz,u(61),8
      .                    ,iflux(1,inpi))
 c .....................................................................
   325     continue 
@@ -2027,12 +2066,33 @@ c .....................................................................
 c
 c ... extropolacao para o nos
       call extrapol_hexa20_v2(iflux,eflux,rn,sn,tn,3)
+      call extrapol_hexa20_v2(itx  ,etx  ,rn,sn,tn,6)
+      call extrapol_hexa20_v2(itxb ,etxb ,rn,sn,tn,6)
 c .....................................................................
 c
 c ... fluxo nodal 
       do 330 i = 1, 8
+        tp = (i-1)*6 + 1
+        tp  = 6*i - 5
+c ... tensao efetiva de biot (8x6+1=49)         
+        tp1 = (i-1)*6 + 49  
+        tp1 = 6*i +43
+c ... tensao total
+        p(tp)   = etx(1,i)   
+        p(tp+1) = etx(2,i) 
+        p(tp+2) = etx(3,i) 
+        p(tp+3) = etx(4,i) 
+        p(tp+4) = etx(5,i) 
+        p(tp+5) = etx(6,i) 
+c ... tensao efetiva de biot
+        p(tp1)   = etxb(1,i)   
+        p(tp1+1) = etxb(2,i) 
+        p(tp1+2) = etxb(3,i) 
+        p(tp1+3) = etxb(4,i) 
+        p(tp1+4) = etxb(5,i) 
+        p(tp1+5) = etxb(6,i) 
 c ... fuxo (8x6 + 8x6 + 1 = 97)                 
-c       tp = (i-1)*3 + 97
+        tp = (i-1)*3 + 97
         tp = 3*i + 94
 c ...                              
         p(tp)   = eflux(1,i)  
@@ -2051,7 +2111,6 @@ c ......................................................................
  400  continue
 c ...                            
       inpi = 0
-      nint = 4 
       do 405 lz = 1, nint
         ti = pg(lz,nint)
         do 410 ly = 1, nint
@@ -2060,6 +2119,32 @@ c ...
 c ...
           do 415 lx = 1, nint
             ri = pg(lx,nint)
+c ....................................................................
+c
+c ...
+            modK = vpropel(4,inpi)
+            mu   = vpropel(5,inpi)
+c ....................................................................
+c
+c ... matriz contitutiva E(modK,mu)
+            a    = modK  + div43*mu
+            b    = (modK - div23*mu)/a 
+            c    = mu/a 
+c ....................................................................
+c
+c ... coef biot e inverso do modulo de biot
+            imod_biot = vpropel(6,inpi)
+            coef_biot = vpropel(7,inpi)
+c ....................................................................
+c
+c ... k = k(porosity)           
+            perm = vpropel(2,inpi)/fluid_sw
+c ....................................................................
+c
+c ... variacao da porosidade 
+            pm_d = vpropel(3,inpi)
+c ....................................................................
+c
 c ...                                               
             call sfhexa8_m(hp,hpx,hpy,hpz,ri,si,ti,.true.,.true.)
             call jacob3d_m(hpx,hpy,hpz,xj,xji,x,det,8,nel,.true.)
@@ -2120,12 +2205,8 @@ c ... Fu = int(pm_d*(N~T)*ge*dv)
   420       continue    
 c .....................................................................
 c
-c ... k = k(porosity)           
-            perm = vpropel(2,inpi)/fluid_sw
-c ....................................................................
-c
 c ...
-            wt1 = w*dt_fluid_perm 
+            wt1 = w*dt*fluid_d*perm 
             wt2 = w*dt*perm
 c .....................................................................
 c
@@ -2153,8 +2234,6 @@ c .....................................................................
   410   continue
 c .....................................................................
   405 continue
-c .....................................................................
-c
 c .....................................................................
 c
 c ... forca e fluxo distribuida no contorno
@@ -2216,11 +2295,10 @@ c ... carga distribuida
 c ......................................................................
 c
 c ...
-              nint = 3
-              do 450 ly = 1, nint
-                si = pg(ly,nint)
-                do 455 lx = 1, nint
-                  ri = pg(lx,nint)
+              do 450 ly = 1, nint_face
+                si = pg(ly,nint_face)
+                do 455 lx = 1, nint_face
+                  ri = pg(lx,nint_face)
 c ...                                               
                   call sfquad4_m(hp,hpx,hpy,ri,si,.false.,.true.)
                   call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,4,ndm
@@ -2228,7 +2306,7 @@ c ...
 c .....................................................................
 c
 c ...                                               
-                  w   = wg(lx,nint)*wg(ly,nint)*det
+                  w   = wg(lx,nint_face)*wg(ly,nint_face)*det
 c .....................................................................
 c
 c ...                                               
@@ -2252,9 +2330,6 @@ c .....................................................................
 c .....................................................................             
   450         continue
 c .....................................................................
-c
-c ... fluxo 
-            elseif( carg .eq. 41) then
             endif
 c .....................................................................
           endif
@@ -2276,7 +2351,7 @@ c ... forca interna devido as Tensao iniciais:
 c
 c ......................................................................
   500 continue
-      nint = 4 
+c ...
       do 510 lz = 1, nint
         ti = pg(lz,nint)
         do 520 ly = 1, nint
@@ -2350,7 +2425,6 @@ c ......................................................................
 c 
 c ...  
   700 continue                      
-      nint        = 4 
       inpi        = nint*nint*nint
       ip(1:inpi)  = vpropel(1,1:inpi)
 c ... porisidade nodal 
@@ -2384,7 +2458,6 @@ c ...
  1000 continue
 c ... 
       inpi = 0
-      nint = 4 
       do 1005 lz = 1, nint
         ti = pg(lz,nint)
         do 1010 ly = 1, nint
@@ -2417,10 +2490,21 @@ c ... variacao da porosidade = biot*tr(deps)total + dp/M
              tmp = coef_biot*(epsi(1) + epsi(2) + epsi(3) ) + pi
 c ... porosidade
              vpropel(1,inpi) = vpropel(1,inpi) + tmp
+             poro = vpropel(1,inpi) 
 c .....................................................................
 c
 c ... konzey-carman 
-             vpropel(2,inpi)=konzey_carman(perm0,vpropel(1,inpi),poro0)
+             vpropel(2,inpi)=konzey_carman(perm0,poro,poro0)
+c .....................................................................
+c 
+c ... massa especifica homogenizada
+             vpropel(3,inpi)= (1.0 - poro)*pm_d +  poro*fluid_d
+c .....................................................................
+c
+c ... hashin-shtrikman                      
+             call hashin_shtrikman(poro,modK,mu
+     .                            ,vpropel(4,inpi),vpropel(5,inpi)
+     .                            ,vpropel(6,inpi),vpropel(7,inpi))     
 c .....................................................................
  1015     continue
 c .....................................................................
@@ -2639,26 +2723,6 @@ c.... calculo do delta t critico
 c
 c ......................................................................
   100 continue
-c ...
-      fluid_d   = e(7)*scale
-c ... fluid specific weight
-      fluid_sw  = fluid_d*gravity_mod
-c ... matriz constitutiva:
-      ym       = e(1)
-      ps       = e(2)
-c ... 
-      perm     = e(3)/fluid_sw
-c ...
-      imod_biot= 1.d0/e(4)
-      coef_biot= e(5)
-c ... 
-      dt_perm  = perm*dt
-c ...
-      a1       = 1.d0 - ps
-      a2       = 1.d0 - 2.d0*ps
-      a3       = 1.d0 + ps
-c .....................................................................
-c
 c ...
       volum = tetra_vol(x)
       l_c   = volum**(1.0d0/3.d0)
@@ -4512,3 +4576,5 @@ c ......................................................................
 c ======================================================================
       end
 c *********************************************************************
+c     subroutine elmt18_pm(e,iq,x,u,dp,p,s,txn,vpropel,ndm,nst,nel,isw
+c    .                    ,block_pu)

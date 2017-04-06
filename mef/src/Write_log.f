@@ -1,6 +1,6 @@
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 15/12/2016                                    * 
+c * Data de modificaco : 05/04/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * WRITE_LOG : Escrever o arquivo de log de excuacao                 *
 c * ----------------------------------------------------------------- *
@@ -43,12 +43,12 @@ c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine write_log_file(nnode   ,numel,numel_nov ,numel_ov,ndf 
-     .                         ,neq     ,nequ ,neqp ,neq1   ,neq2
-     .                         ,neq32   ,neq4 ,neq1a,neqf1  ,neqf2 
-     .                         ,nad     ,nadu ,nadp ,nadpu  ,nad1
-     .                         ,omp_elmt,nth_elmt,omp_solv  ,nth_solv
-     .                         ,fporomec,fmec    ,num_colors,prename
-     .                         ,my_id ,nprcs      ,nlog)
+     1                         ,neq     ,nequ ,neqp ,neq1   ,neq2
+     2                         ,neq32   ,neq4 ,neq1a,neqf1  ,neqf2 
+     3                         ,nad     ,nadu ,nadp ,nadpu  ,nad1
+     4                         ,omp_elmt,nth_elmt,omp_solv  ,nth_solv
+     5                         ,fporomec,fmec    ,num_colors,prename
+     6                         ,my_id ,nprcs      ,nlog)
       use Malloc
       implicit none
       include 'time.fi'
@@ -187,6 +187,13 @@ c ... Tempo levado na escrita dos resultados
 c
       call MPI_GATHER(writetime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
       if (my_id.eq.0) call twrite('WRES   ',ia(i_ts),nprcs,nlog)
+c
+c ... Tempo levado atualizacao da propriedades poromecanicas
+c
+      if(fporomec)then
+        call MPI_GATHER(upproptime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+        if (my_id.eq.0) call twrite('UPPROP ',ia(i_ts),nprcs,nlog)
+      endif
 c
 c ... Tempo Total
       call MPI_GATHER(totaltime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
@@ -352,7 +359,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 15/10/2016                                   *
-c * Data de modificaco : 00/00/0000                                   * 
+c * Data de modificaco : 05/04/2017                                   * 
 c * ------------------------------------------------------------------*
 c * MPI_LOG_MEAN_TIME : Escrever o arquivo de log de excuacao com     *
 c * valores medios dos processos do mpi                               *
@@ -366,6 +373,8 @@ c * omp_elmt  - flag do openmp na fase de elemento                    *
 c * nth_elmt  - numero de threads usado na fase de elemento           *
 c * omp_solv  - flag do openmp na fase do solver                      *
 c * nth_solv  - numero de threads usado do solver                     *
+c * fporomec  - problema poromec (true|false)                         *
+c * fmec      - problema poromec (true|false)                         *
 c * num_colors- numero de cores usado para colorir a malha            *
 c * prename   - prefixo do nome do arquivo de saida                   *
 c * my_id     - rank do porcesso mpi                                  *
@@ -376,10 +385,12 @@ c * parametros de saida                                               *
 c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-      subroutine mpi_log_mean_time(nnovG   ,nnoG ,nelG 
-     .                         ,omp_elmt,nth_elmt,omp_solv  ,nth_solv
-     .                         ,fmec    ,num_colors,prename
-     .                         ,my_id ,nprcs      ,nlog)
+      subroutine mpi_log_mean_time(nnovG  ,nnoG ,nelG 
+     1                         ,omp_elmt  ,nth_elmt
+     2                         ,omp_solv  ,nth_solv
+     3                         ,fporomec  ,fmec
+     4                         ,num_colors,prename
+     5                         ,my_id     ,nprcs      ,nlog)
       use Malloc
       implicit none
       include 'time.fi'
@@ -387,7 +398,7 @@ c *********************************************************************
 c ... malha
       integer nnovG,nnoG,nelG
 c ...
-      logical fmec
+      logical fmec,fporomec
 c ... mpi      
       integer mcw,mi,mdp,ierr
       integer my_id,nprcs
@@ -499,6 +510,11 @@ c ... Tempo levado no matix partition
         call mpi_mean(vmean,pmatrixtime,nprcs)
         if(my_id.eq.0) write(nlog,'(a,f18.6)')'PMATRI',vmean
       endif   
+c .....................................................................
+c
+c ... Tempo levado atualizacao da propriedades poromecanicas
+      call mpi_mean(vmean,upproptime,nprcs)
+      if(my_id.eq.0) write(nlog,'(a,f18.6)')'UPPROP',vmean
 c .....................................................................
 c
 c ... Tempo levado na escrita dos resultados

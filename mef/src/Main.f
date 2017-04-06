@@ -58,7 +58,7 @@ c
       integer maxit,maxnlit,tmaxnlit,ngram,stge,solver,istep
       integer ilib,ntn,code,istop,stop_crit
       real*8  tol,solvtol,resid,resid0
-      logical reordf,unsym,lhs
+      logical reordf,unsym,lhs,newton_raphson
 c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
@@ -264,14 +264,15 @@ c                      |dp|/|dp0| < tol
 c ... ngram   =  base de Krylov (utilizada somente no gmres)
 c ... precond =  1 - NONE , 2 - diag, 3 - iLDLt(0), 4 - iC(0)
 c                5 - diagm, 6 - bdiag, 7 -diagS
-      maxit      =  50000
-      solvtol    =  1.d-11
-      maxnlit    =  500
-      tol        =  1.d-04
-      stop_crit  =  2
-      ngram      =  150
-      precond    =  2
-      fhist_log  = .false.
+      maxit          =  50000
+      solvtol        =  1.d-11
+      maxnlit        =  500
+      tol            =  1.d-04
+      stop_crit      =  2
+      ngram          =  150
+      precond        =  2
+      fhist_log      = .false.
+      newton_raphson = .false.
 c ... cmaxit  =  numero max. de iteracoes do ciclo externo do pcg duplo
 c ... ctol    =  tolerancia do ciclo externo do pcg duplo
       cmaxit  =  200
@@ -499,7 +500,7 @@ c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | tx1p | tx2p | epsp | plastic | porosity | fnno | elpastic |                                                
+c    | dp | tx1p | tx2p | epsp | plastic | porosity | fnno | elpastic | 
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
@@ -801,7 +802,8 @@ c
 c ... 
       if( vprop(1) ) then                    
         call initial_prop(ia(i_ix),ia(i_e),ia(i_ie),ia(i_vpropel) 
-     1                   ,numel,nen,npi)
+     1                   ,numel   ,nen    ,numat   ,npi
+     2                   ,vprop)
       endif
 c ..................................................................... 
 c
@@ -984,6 +986,19 @@ c ... atualizacao :      du(n+1,i+1) = du(n+1,i)      + dv(n+1,i+1)
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................
 c
+c ... atualizacao da propriedades nos pontos de integracao sem atualizar
+c     as porosidades
+      timei = MPI_Wtime()
+      if(vprop(1) .and. newton_raphson) then
+        call update_prop(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),ia(i_vpropel)
+     1                  ,ia(i_u) ,ia(i_xl),ia(i_ul),ia(i_vpropell)  
+     3                  ,numel,nen ,nenv
+     4                  ,ndm  ,ndf ,nst  ,npi 
+     5                  ,10   ,ilib,vprop,.false.)
+      endif
+      upproptime = upproptime + MPI_Wtime()-timei
+c ....................................................................
+c
 c ...
       if( stop_crit .eq. 3 .or. stop_crit .eq. 4) then
         call cal_residuo_pm(ia(i_id) ,ia(i_b)   ,ia(i_x0)
@@ -1007,7 +1022,7 @@ c       goto 420
 c .....................................................................
 c
 c ... matriz K global calculada apenas na primeira iteracao
-      lhs = .false.
+      if (.not. newton_raphson) lhs = .false.
 c .....................................................................
       goto 410 
 c .....................................................................
@@ -1018,17 +1033,20 @@ c .....................................................................
 c
 c ...
   420 continue
-c ... atualizacao da propriedades 
+c ... atualizacao da propriedades nos pontos de integracao e as
+c     porosidades
+      timei = MPI_Wtime()
       if(vprop(1)) then
         call update_prop(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),ia(i_vpropel)
      1                  ,ia(i_u) ,ia(i_xl),ia(i_ul),ia(i_vpropell)  
      3                  ,numel,nen ,nenv
      4                  ,ndm  ,ndf ,nst  ,npi 
-     5                  ,10   ,ilib,vprop)
+     5                  ,10   ,ilib,vprop,.true.)
       endif
+      upproptime = upproptime + MPI_Wtime()-timei
 c ....................................................................
 c
-c ... calculo da porasidade nodal
+c ... calculo da porosidade nodal
       i_ic    = alloc_4('ic      ',    1,nnode)
       i_dporo = alloc_8('dporo   ',    1,nnode)
       call porosity_form(ia(i_ix),ia(i_x) ,ia(i_e) ,ia(i_ie)
@@ -1203,7 +1221,7 @@ c ......................................................................
       call read_solver_config_pm(solver   ,solvtol
      1                          ,maxit    ,precond
      2                          ,ngram    ,fhist_log
-     3                          ,fprint
+     3                          ,fprint   
      4                          ,prename  ,log_hist_solv
      5                          ,alfap    ,alfau
      6                          ,ctol     ,cmaxit
@@ -2278,10 +2296,10 @@ c ......................................................................
       call read_config(maxmem
      1                ,omp_elmt ,omp_solv
      2                ,nth_elmt ,nth_solv
-     3                ,reordf   
+     3                ,reordf   ,newton_raphson
      4                ,bvtk     ,legacy_vtk 
      5                ,mpi      ,nprcs
-     6                ,nin)
+     6                ,my_id    ,nin)
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -2330,21 +2348,22 @@ c ...
 c
 c ... arquivo de tempo      
       call write_log_file(nnode    ,numel   ,numel_nov,numel_ov,ndf 
-     .                   ,neq      ,nequ    ,neqp     ,neq1    ,neq2
-     .                   ,neq32    ,neq4    ,neq1a    ,neqf1   ,neqf2 
-     .                   ,nad      ,naduu   ,nadpp    ,nadpu   ,nadr
-     .                   ,omp_elmt ,nth_elmt,omp_solv ,nth_solv
-     .                   ,fporomec ,fmec    ,numcolors,prename
-     .                   ,my_id    ,nprcs   ,nout)
+     1                   ,neq      ,nequ    ,neqp     ,neq1    ,neq2
+     2                   ,neq32    ,neq4    ,neq1a    ,neqf1   ,neqf2 
+     3                   ,nad      ,naduu   ,nadpp    ,nadpu   ,nadr
+     4                   ,omp_elmt ,nth_elmt,omp_solv ,nth_solv
+     5                   ,fporomec ,fmec    ,numcolors,prename
+     6                   ,my_id    ,nprcs   ,nout)
 c .....................................................................
 c
 c ... media do tempo mpi 
       if(mpi) then    
         call mpi_log_mean_time(nnovG,nnoG,nelG
-     .                        ,omp_elmt ,nth_elmt
-     .                        ,omp_solv ,nth_solv
-     .                        ,fmec     ,numcolors,prename
-     .                        ,my_id    ,nprcs   ,nout)
+     1                        ,omp_elmt ,nth_elmt
+     2                        ,omp_solv ,nth_solv
+     3                        ,fporomec ,fmec 
+     4                        ,numcolors,prename
+     5                        ,my_id    ,nprcs   ,nout)
       endif
 c .....................................................................
 c

@@ -2331,9 +2331,9 @@ c * ----------------------------------------------------------------- *
 c * iplastic  - plasticidade (true|false)                             *
 c * ivprop    - propriedades variaveis                                *
 c *           1 - prop por pontos de integracao (true|false)          * 
-c *           2 - konzey-Caraman (true|false)                         *
-c *           3 - mecanico       (true|false)                         *
-c *           4 - massa especifica              (true|false)          *                       
+c *           2 - konzey-Caraman                (true|false)          *
+c *           3 - massa especifica              (true|false)          *                       
+c *           4 - mecanico                      (true|false)          *
 c * nin       - arquivo de entrada                                    *
 c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
@@ -2346,17 +2346,18 @@ c *********************************************************************
       subroutine read_constitutive_equation(iplastic,ivprop,my_id,nin)
       implicit none
       include 'string.fi'
-      character*15 string,macro(9)
-      character*80 fname
+      character(len=16) string,macro(8)
+      character(len=80) fname
       logical iplastic,ivprop(*)
       integer i,j,nmacro
       integer nin,nprcs
       integer my_id
       integer nincl /7/
       data nmacro /9/
-      data macro/'plastic        ','vprop          ','konzeycarman   ',
-     .           '               ','               ','               ',
-     .           '               ','               ','               '/
+      data macro/'plastic         ','vprop           ',
+     1           'konzeycarman    ','density         ',
+     2           'hashin_shtrikman','                ',
+     3           '                ','                '/
 c .....................................................................
 c
 c ...
@@ -2372,7 +2373,7 @@ c .....................................................................
 c
 c ...
       call readmacro(nincl,.true.)
-      write(string,'(15a)') (word(j),j=1,12)
+      write(string,'(16a)') (word(j),j=1,16)
       do while (string .ne. 'end')
 c ... plastic
          if (string .eq. macro(1)) then
@@ -2389,12 +2390,22 @@ c ... konzeycarman
          else if (string .eq. macro(3)) then
            ivprop(2) = .true. 
 c .....................................................................
+c
+c ... density         
+         else if (string .eq. macro(4)) then
+           ivprop(3) = .true. 
+c .....................................................................
+c
+c ... Hashin-Shtrikman
+         else if (string .eq. macro(5)) then
+           ivprop(4) = .true. 
+c .....................................................................
          endif 
 c .....................................................................
 c
 c ... 
          call readmacro(nincl,.true.)
-         write(string,'(15a)') (word(j),j=1,15)
+         write(string,'(16a)') (word(j),j=1,16)
       end do
 c ......................................................................
 c
@@ -2411,10 +2422,14 @@ c ......................................................................
 c
 c ... 
       if(my_id .eq. 0 ) then
-        print*,'Plastic      :',iplastic
-        print*,'vprop        :',ivprop(1)
-        print*,'Konzey-Carman:',ivprop(2)
+        print*,'Plastic         :',iplastic
+        print*,'vprop           :',ivprop(1)
+        print*,'Konzey-Carman   :',ivprop(2)
+        print*,'Density         :',ivprop(3)
+        print*,'Hashin-Shtrikman:',ivprop(4)
       endif
+c .....................................................................
+c
 c .....................................................................
       return  
 c ......................................................................
@@ -2668,7 +2683,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
-c * Data de modificaco : 19/11/2016                                   *
+c * Data de modificaco : 04/03/2017                                   *
 c * ------------------------------------------------------------------*
 c * read_config : leitura das configuracoes basicas de excucao        *
 c * ------------------------------------------------------------------*
@@ -2680,6 +2695,7 @@ c * nth_elmt  - numero de threads usado na fase de elemento           *
 c * omp_solv  - flag do openmp na fase do solver                      *
 c * nth_solv  - numero de threads usado do solver                     *
 c * reord     - reordanaco do sistema de equacao                      *
+c * newton_raphson  - reordanaco do sistema de equacao                *
 c * bvtk      - saida binario para o vtk legacy                       *
 c * legacy    - saida legacy do vtk                                   *
 c * mpi       - true|fasle                                            *
@@ -2696,25 +2712,31 @@ c *********************************************************************
       subroutine read_config(maxmem  
      1                      ,omp_elmt,omp_solver
      2                      ,nth_elmt,nth_solver
-     3                      ,reord   
+     3                      ,reord   ,newton_raphson 
      4                      ,bvtk    ,legacy    
      5                      ,mpi     ,nprcs
-     6                      ,nin)
+     6                      ,my_id   ,nin)
       implicit none
       include 'string.fi'
-      character*15 string,macro(9)
-      character*80 fname
+      character(len=15) string,macro(9),ex(9)
+      character(len=80) fname
       integer*8 maxmem
       integer nth_elmt,nth_solver
-      logical omp_elmt,omp_solver,reord,bvtk,legacy
-      integer i,j,nmacro
-      integer nin,nprcs
+      logical omp_elmt,omp_solver,reord,bvtk,legacy,newton_raphson 
+      integer i,j,cont,nmacro
+      integer nin,nprcs,my_id
       logical mpi
       integer nincl /7/
       data nmacro /9/
       data macro/'memory         ','omp_elmt       ','omp_solver     ',
-     .           'nth_elmt       ','nth_solver     ','reord          ',
-     .           'binary_vtk     ','legacy_vtk     ','               '/
+     1           'nth_elmt       ','nth_solver     ','reord          ',
+     2           'binary_vtk     ','legacy_vtk     ','newton_rapshon '/
+c .....................................................................
+c
+c ... exemplo
+      data ex /'memory     1000','omp_elmt   true','nth_elmt      4',
+     1         'omp_solver true','nth_elmt      2','binary_vtk true',
+     2         'legacy_vtk true','end            ','               '/
 c .....................................................................
 c
 c ... arquivo de config
@@ -2724,9 +2746,11 @@ c ... arquivo de config
 c .....................................................................
 c
 c ...
+      cont = 0
       call readmacro(nincl,.true.)
-      write(string,'(15a)') (word(j),j=1,12)
-      do while (string .ne. 'end')
+      write(string,'(15a)') (word(j),j=1,15)
+      do while ( (string .ne. 'end') .and. (cont .le. 9) )
+         cont = cont + 1
 c ... memory
          if (string .eq. macro(1)) then
             i = 1
@@ -2776,6 +2800,10 @@ c ...
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) reord
+            if(my_id.eq.0) then
+              write(*,'(2x,a15,1x)',advance='no')'reord         :'
+              write(*,*)reord    
+            endif
 c .....................................................................
 c
 c ... 
@@ -2784,6 +2812,10 @@ c ...
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) bvtk
+            if(my_id.eq.0) then
+              write(*,'(2x,a15,1x)',advance='no')'binary_vtk    :'
+              write(*,*)bvtk    
+            endif
 c .....................................................................
 c
 c ... 
@@ -2792,9 +2824,24 @@ c ...
             call readmacro(nincl,.false.)
             write(string,'(15a)') (word(j),j=1,15)
             read(string,*,err = 100,end = 100) legacy
+            if(my_id.eq.0) then
+              write(*,'(2x,a15,1x)',advance='no')'legacy_vtk    :'
+              write(*,*)legacy    
+            endif
+c .....................................................................
+c
+c ... 
+          elseif (string .eq. macro(9)) then
+            i = 9
+            call readmacro(nincl,.false.)
+            write(string,'(15a)') (word(j),j=1,15)
+            read(string,*,err = 100,end = 100) newton_raphson
+            if(my_id.eq.0) then
+              write(*,'(2x,a15,1x)',advance='no')'newton_raphson:'
+              write(*,*)newton_raphson    
+            endif
           endif 
 c .....................................................................
-
 c
 c ... 
          call readmacro(nincl,.true.)
@@ -2803,6 +2850,7 @@ c ...
 c ......................................................................
 c
 c ...
+      if( cont .eq. 0 ) goto 300
       close(nincl)
       return  
 c ......................................................................
@@ -2811,7 +2859,20 @@ c ......................................................................
       call stop_mef()                          
  200  continue
       print*,'File ',trim(fname),' not found !'
-      call stop_mef()      
+      call stop_mef() 
+ 300  continue      
+      if(my_id.eq.0) then
+        print*,'*** Error reading solver macro !'
+        write(*,'(2x,a)') '******************************'
+        write(*,'(2x,a)') 'Example usage of macro config:'
+        write(*,'(2x,a)') '------------------------------'
+        do i = 1, 8
+          write(*,'(2x,a)') ex(i)
+        enddo  
+        write(*,'(2x,a)') '------------------------------'
+        write(*,'(2x,a)') '******************************'
+      endif
+      call stop_mef()
 c ......................................................................
       end
 c *********************************************************************
@@ -3382,8 +3443,8 @@ c **********************************************************************
       subroutine check_element(ie,numat,plastic,vprop)
       implicit none
       common /el_lib3/ element_library_3
-      character*1024 str
-      character*60 element_library_3(8)
+      character(len=1024) str
+      character(len=60) element_library_3(8)
       integer ie(*),numat,i,pel(4),eel(4),vel(4),nvel(4),ty
       logical flag,plastic,vprop(*)
 c ... elementos de plasticidade

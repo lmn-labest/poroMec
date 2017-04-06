@@ -102,7 +102,7 @@ c ......................................................................
  1800 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-elastic-propvariavel)
-        call elmt18_pm(e,iq,x,u,dp,p,s,v1,v5,ndm,nst,nel,isw,block_pu)
+         call elmt18_pm(e,iq,x,u,dp,p,s,v1,v5,ndm,nst,nel,isw,block_pu)
       endif
       return 
 c ......................................................................
@@ -3518,33 +3518,6 @@ c
 c ...
       normal(1:ndm) = normal(1:ndm)*tmp
 c .....................................................................
-      return
-      end
-c **********************************************************************
-c
-c **********************************************************************
-c * Data de criacao    : 28/03/2017                                    *
-c * Data de modificaco : 00/00/0000                                    * 
-c * ------------------------------------------------------------------ * 
-c * KONZEY_CARMAN : calcula a permeabilidade em funcao da porosidade   *
-c * usando a relação Konzey-Carman                                     * 
-c * -------------------------------------------------------------------* 
-c * perm   - permebilidade inicial                                     *
-c * poro   - porosidade atual                                          *
-c * poro0  - porosidade inicial                                        *
-c * ------------------------------------------------------------------ * 
-c * Parametros de saida:                                               *
-c * ------------------------------------------------------------------ * 
-c * permeabilidade para porosidade                                     *
-c * ------------------------------------------------------------------ * 
-c * OBS:                                                               *
-c **********************************************************************
-      real*8 function konzey_carman(perm0,poro,poro0)
-      implicit none
-      real*8 perm0,poro,poro0,tmp1,tmp2
-      tmp1 = (poro**3)/((1.d0-poro)**2)   
-      tmp2 = ((1.d0-poro0)**2)/(poro0**3) 
-      konzey_carman = perm0*tmp1*tmp2
       return
       end
 c **********************************************************************
