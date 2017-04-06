@@ -310,7 +310,7 @@ c
       nmacros = nmacros + 1
       write(macros(nmacros),'(15a)') rc
 c ......................................................................
-      go to (400, 450, 500,    ! materials ,bar2         ,tria3
+      go to (400, 450, 500,    ! eaterials ,bar2         ,tria3
      .       550, 600, 650,    !quad4      ,tetra4       ,hexa8
      .       700, 750, 800,    !hexa20     ,tetra10      ,
      .       850, 900, 950,    !coordinates,             ,constraindisp
@@ -2477,7 +2477,7 @@ c *********************************************************************
       data nmacro /15/
       data macro/'modE           ','poisson        ','permeability   ',
      1           'mbiot          ','cbiot          ','density        ',
-     2           'fdensity       ','ivoid          ','l_plastic      ',
+     2           'fdensity       ','porosity       ','l_plastic      ',
      3           'k_plastic      ','mcs            ','pc0            ',
      4           'elType         ','               ','               '/
 c ... exemplo

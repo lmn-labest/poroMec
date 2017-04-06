@@ -1573,6 +1573,7 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
+c *           e(8) = porosidade inicial                                *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
@@ -1755,7 +1756,7 @@ c ... matriz contitutiva E(modK,mu)
 c .....................................................................
 c
 c ...
-      poro0    = e(8)/(1.d0+e(8))
+      poro0    = e(8)
 c .....................................................................
 c
 c ===
@@ -2524,7 +2525,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 22/12/2016                                    *
-c * Data de modificaco : 26/03/2017                                    * 
+c * Data de modificaco : 05/04/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -2539,6 +2540,12 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
+c *           e(8) = porosidade                                        *
+c *           e(9) = lamdba plastico (camclay the slope of the normal  * 
+c*                   compression)                                      *
+c *          e(10) = k plastico (camclay - the slope of a swelling)    *
+c *          e(11) = inclinacao do estado critico                      *
+c *          e(12) = pressao de consolidacao inicial                   *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * p0(*)      - poropressao do passo de tempo anterior                *
@@ -2766,7 +2773,7 @@ c ...
       b        = ps/a1
       c        = 0.5d0*(a2/a1) 
 c ... plasticidade
-      e0             = e(8) 
+      e0             = e(8)/(1.d0-e(8)) 
       lambda_plastic = e(9)
       k_plastic      = e(10)
       mcs            = e(11)
@@ -3586,7 +3593,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 26/03/2017                                    * 
+c * Data de modificaco : 05/04/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -3601,6 +3608,12 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
+c *           e(8) = porosidade                                        *
+c *           e(9) = lamdba plastico (camclay the slope of the normal  * 
+c*                   compression)                                      *
+c *          e(10) = k plastico (camclay - the slope of a swelling)    *
+c *          e(11) = inclinacao do estado critico                      *
+c *          e(12) = pressao de consolidacao inicial                   *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * p0(*)      - poropressao do passo de tempo anterior                *
@@ -3626,7 +3639,10 @@ c *  4 = forcas de volume, superficies e integrais do passo            *
 c *    de tempo anterior                                               *
 c *  5 = Tensoes iniciais                                              *
 c *  6 =                                                               *
-c *  7 =                                                               *
+c *  7 = variacao da porosidades                                       *
+c *  8 = extrapolacao das pressoes de consolidacao nos vertices        *
+c *  9 = incializacao da pressao de consolidacao nos pontos de         *
+c *  integracao                                                        *
 c * block_pu - true - armazenamento em blocos Kuu,Kpp e kpu            *
 c *            false- aramzenamento em unico bloco                     *
 c * eplastic - identificao se o elemento plastificou ou nao (0 ou 1)   *
@@ -3770,12 +3786,12 @@ c ...
       b        = ps/a1
       c        = 0.5d0*(a2/a1) 
 c ... plasticidade
-      e0             = e(8) 
+      e0             = e(8)/(1.d0-e(8)) 
       lambda_plastic = e(9)
       k_plastic      = e(10)
       mcs            = e(11)
       pc0            = e(12)
-      alpha_exp      = (1+e0)/(lambda_plastic-k_plastic)
+      alpha_exp      = (1.d0+e0)/(lambda_plastic-k_plastic)
 c ...
       c14 = ps/a2
       g11 = 0.5d0*(ym/a3)
@@ -4576,5 +4592,3 @@ c ......................................................................
 c ======================================================================
       end
 c *********************************************************************
-c     subroutine elmt18_pm(e,iq,x,u,dp,p,s,txn,vpropel,ndm,nst,nel,isw
-c    .                    ,block_pu)
