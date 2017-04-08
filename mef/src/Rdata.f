@@ -253,6 +253,7 @@ c     ---------------------------------------------------------------
           call azero(ia(i_epsp)     ,7*npi*numel)
           call azero(ia(i_plastic)  ,3*npi*numel)
         endif
+        i_vpropel = 1
         if(vprop(1))then
           i_vpropel  = alloc_8('vpropel ',nvprop*npi,numel)
           call azero(ia(i_vpropel)       ,nvprop*npi*numel)
@@ -2331,7 +2332,7 @@ c * ----------------------------------------------------------------- *
 c * iplastic  - plasticidade (true|false)                             *
 c * ivprop    - propriedades variaveis                                *
 c *           1 - prop por pontos de integracao (true|false)          * 
-c *           2 - konzey-Caraman                (true|false)          *
+c *           2 - kozeny-Caraman                (true|false)          *
 c *           3 - massa especifica              (true|false)          *                       
 c *           4 - mecanico                      (true|false)          *
 c * nin       - arquivo de entrada                                    *
@@ -2355,7 +2356,7 @@ c *********************************************************************
       integer nincl /7/
       data nmacro /9/
       data macro/'plastic         ','vprop           ',
-     1           'konzeycarman    ','density         ',
+     1           'kozeny_carman   ','density         ',
      2           'hashin_shtrikman','                ',
      3           '                ','                '/
 c .....................................................................
@@ -2424,7 +2425,7 @@ c ...
       if(my_id .eq. 0 ) then
         print*,'Plastic         :',iplastic
         print*,'vprop           :',ivprop(1)
-        print*,'Konzey-Carman   :',ivprop(2)
+        print*,'Kozeny-Carman   :',ivprop(2)
         print*,'Density         :',ivprop(3)
         print*,'Hashin-Shtrikman:',ivprop(4)
       endif
@@ -3474,7 +3475,7 @@ c ... checa a variacao das propriedade nos elementos
       do i = 1, numat
         ty = ie(i)
         if( ty .eq. vel(1) .or. ty .eq. vel(2) 
-     .   .or. ty .eq. vel(3) .or. ty .eq. vel(4) ) then
+     . .or. ty .eq. vel(3) .or. ty .eq. vel(4) ) then
           flag = .true.
         endif
       enddo
@@ -3484,15 +3485,16 @@ c ...
       if(vprop(1)) then
         if(.not. flag) then 
           print*,'Erro: Invalid elements!!'
-          str ='Elements without properties at integration points are: '
-          print*,trim(str),nvel(1:4)
+          str ='Elements with properties at integration points are: '
+          print*,trim(str),vel(1:4)
           goto 100
         endif
       else
         if(flag) then 
           print*,'Erro: Invalid elements!!'
-          str ='Elements with properties at integration points are: '
-          print*,trim(str),vel(1:4)
+ 
+          str ='Elements without properties at integration points are: '
+          print*,trim(str),nvel(1:4)
           goto 100
         endif    
       endif  

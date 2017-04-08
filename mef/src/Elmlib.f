@@ -71,7 +71,7 @@ c ......................................................................
      1     ,400 , 500, 600      !           ,            ,
      2     ,700 , 800, 900      !           ,            ,
      3     ,1000,1100,1200      !           ,            ,
-     4     ,1300,1400,1500      !           ,            ,
+     4     ,1300,1400,1500      !           ,            ,elmt15_pm
      5     ,1600,1700,1800      !elmt16_pm  ,elmt17_pm   ,elmt18_pm
      6     ,1900,2000,2100      !           ,            ,  
      7     ,2200,2300,2400      !           ,            ,
@@ -85,10 +85,17 @@ c ......................................................................
    10 write(*,9000) iel,nel
       call stop_mef()
 c ......................................................................
- 1600 continue
+ 1500 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-elastic)
-        call elmt16_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
+        call elmt15_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
+      endif 
+      return       
+c ......................................................................
+ 1600 continue
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (poromec-elastic-propvariavel)
+        call elmt16_pm(e,iq,x,u,dp,p,s,v1,v5,ndm,nst,nel,isw,block_pu)
       endif 
       return       
 c ......................................................................
@@ -144,7 +151,6 @@ c ... campos reservados para expancoes futuras de elementos
  1200 continue
  1300 continue
  1400 continue
- 1500 continue
  1900 continue
  2000 continue
  2100 continue
