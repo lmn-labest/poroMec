@@ -242,10 +242,11 @@ c ...
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine update_plastic(ix,e,plastic,nen,npi,numel)
+      subroutine update_plastic(ix ,e  ,plastic,vpropel
+     .                         ,nen,npi,numel  ,vprop)
 c **********************************************************************
 c * Data de criacao    : 11/01/2016                                    *
-c * Data de modificaco : 20/01/2017                                    *
+c * Data de modificaco : 09/01/2017                                    *
 c * ------------------------------------------------------------------ *
 c * UPDATE_PLASTIC : atualizacao da dilatacao volumetrica              *
 c * ------------------------------------------------------------------ *
@@ -255,13 +256,27 @@ c * plastic - parametros do plastico                                   *
 c *           plastic(1) - dilatacao volumetrica plastica              *  
 c *                        do passo anterior                           *
 c *           plastic(2) - dilatacao volumetrica plastica              *
-c *           plastic(3) - paramentro de endurecimento                 *  
+c *           plastic(3) - paramentro de endurecimento                 * 
+c * vpropel(7,npi) - propriedade variavel por pontos de itegração      *   
+c *     1 - porosideade nos pontos de integracao                       *
+c *     2 - permeabilidade konzey-Carman                               *
+c *     3 - massa especifica                                           *
+c *     4 - modulo volumetrico                                         *
+c *     5 - modulo de cisalhamento                                     *
+c *     6 - inverso do modulo de biot                                  *
+c *     7 - coeficiente de biot                                        *      
 c * npi     - numero de pontos de integracao                           *
 c * numel   - numero de elementos                                      *
+c * vprop(*) -                                                         * 
+c *           1 - prop variavel                 (true|false)           *
+c *           2 - konzey-Caraman                (true|false)           *
+c *           3 - massa especifica homogenizada (true|false)           *
+c *           4 - mecanico                      (true|false)           *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
-c  * plastic(1) - atualizado com a dilatacao volumetrica plastica      *
+c *  plastic(1) - atualizado com a dilatacao volumetrica plastica      *
+c *  plastic(3) - atualizado com o pc(n+1)                             *      
 c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
@@ -269,24 +284,48 @@ c **********************************************************************
       implicit none
       include 'termprop.fi'
       integer i,j,npi,numel,ix(nen+1,*),nen,ma
-      real*8 plastic(3,npi,numel),alfa,e(prop,*),de
-      real*8 k_plastic,e0,lambda_plastic
-      logical flag_def,flag_pc
+      real*8 plastic(3,npi,numel),vpropel(nvprop,npi,numel)
+      real*8 alfa,e(prop,*),de
+      real*8 k_plastic,poro,lambda_plastic
+      logical flag_def,flag_pc,vprop(*)
 c ......................................................................
 c
 c ... atualizacao dos incrementos dos deslocamentos
-      do i = 1, numel
-        ma             = ix(nen+1,i)
-        e0             = e(8,ma) 
-        lambda_plastic = e(9,ma)
-        k_plastic      = e(10,ma)
-        alfa           = (1+e0)/(lambda_plastic-k_plastic)
-        do j = 1, npi                  
-          de             = plastic(2,j,i) - plastic(1,j,i) 
-          plastic(1,j,i) = plastic(2,j,i)
-          plastic(3,j,i) = plastic(3,j,i)*dexp(-alfa*de)  
+c
+c ... com propriedades variaveis
+      if(vprop(1)) then
+        do i = 1, numel
+          ma             = ix(nen+1,i)
+          lambda_plastic = e(9,ma)
+          k_plastic      = e(10,ma)
+          do j = 1, npi   
+            poro           = vpropel(1,j,i)
+            alfa           = (1.d0 - poro)*(lambda_plastic-k_plastic)  
+            alfa           = 1.0/alfa
+c ...          
+            de             = plastic(2,j,i) - plastic(1,j,i) 
+            plastic(1,j,i) = plastic(2,j,i)
+            plastic(3,j,i) = plastic(3,j,i)*dexp(-alfa*de)  
+          enddo
         enddo
-      enddo
+c .....................................................................
+c
+c ... sem propriedades variaveis
+      else
+        do i = 1, numel
+          ma             = ix(nen+1,i)
+          poro           = e(8,ma)
+          lambda_plastic = e(9,ma)
+          k_plastic      = e(10,ma)
+          alfa           = (1.d0 - poro)*(lambda_plastic-k_plastic)
+          alfa           = 1.0/alfa
+          do j = 1, npi             
+            de             = plastic(2,j,i) - plastic(1,j,i) 
+            plastic(1,j,i) = plastic(2,j,i)
+            plastic(3,j,i) = plastic(3,j,i)*dexp(-alfa*de)  
+          enddo
+        enddo
+      endif  
 c ......................................................................
 c
 c ...

@@ -5,7 +5,7 @@
      4                    ,ma ,nlit,ilib,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 24/02/2017                                    * 
+c * Data de modificaco : 08/04/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMLIB_PM: biblioteca de elementos do poromecanico                 *
 c * ------------------------------------------------------------------ * 
@@ -38,8 +38,13 @@ c *        anterior                                                    *
 c *        deformacao volumetricas plasticas                           *
 c *        paramentro de endurecimento nos pontos de integracao        *
 c * v5(*) - propriedades variaveis por elemento:                       *    
-c *         porosideade nos pontos de integracao                       *
-c *         permeabilidade konzey-Carman                               *
+c *       - porosideade nos pontos de integracao                       *
+c *       - permeabilidade konzey-Carman                               *
+c *       - massa especifica                                           *
+c *       - modulo volumetrico                                         *
+c *       - modulo de cisalhamento                                     *
+c *       - inverso do modulo de biot                                  *
+c *       - coeficiente de biot                                        *
 c * eplastic - identificao se o elemento plastificou ou nao (0 ou 1)   *
 c * ndm - dimensao                                                     *
 c * nst - numero de graus de liberdade por elemento                    *
@@ -79,7 +84,7 @@ c ......................................................................
      9     ,2800,2900,3000      !           ,            ,
      1     ,3100,3200,3300      !           ,            ,
      2     ,3400,3500,3600      !           ,            ,elmt36_pm 
-     3     ,3700,3800,3900      !elmt37_pm  ,            , 
+     3     ,3700,3800,3900      !elmt37_pm  ,elmt38_pm   , 
      4     ) iel
 c ......................................................................
    10 write(*,9000) iel,nel
@@ -136,6 +141,19 @@ c     Elemento hexaedrico de 20 nos (poromec-plastic)
       return       
 c ......................................................................
 c
+c ......................................................................
+ 3800 continue
+      if (ilib .eq. 1) then  
+c     Elemento hexaedrico de 20 nos (poromec-plastic)
+        call elmt38_pm(e  ,iq      ,x       ,u  ,p0
+     1                ,p  ,s       ,v1      ,v2 ,v3
+     2                ,v4 ,v5      ,ep
+     3                ,ndm,nst,nel
+     4                ,isw,block_pu,nlit)
+      endif 
+      return       
+c ......................................................................
+c
 c ... campos reservados para expancoes futuras de elementos
   100 continue
   200 continue
@@ -168,7 +186,6 @@ c ... campos reservados para expancoes futuras de elementos
  3300 continue
  3400 continue
  3500 continue
- 3800 continue
  3900 continue
       go to 10
       return

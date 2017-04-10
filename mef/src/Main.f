@@ -991,10 +991,11 @@ c     as porosidades
       timei = MPI_Wtime()
       if(vprop(1) .and. newton_raphson) then
         call update_prop(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),ia(i_vpropel)
-     1                  ,ia(i_u) ,ia(i_xl),ia(i_ul),ia(i_vpropell)  
+     1                  ,ia(i_u) ,ia(i_plastic)
+     2                  ,ia(i_xl),ia(i_ul),ia(i_plasticl),ia(i_vpropell)
      3                  ,numel,nen ,nenv
-     4                  ,ndm  ,ndf ,nst  ,npi 
-     5                  ,10   ,ilib,vprop,.false.)
+     4                  ,ndm  ,ndf ,nst      ,npi 
+     5                  ,10   ,ilib,,fplastic,vprop,.false.)
       endif
       upproptime = upproptime + MPI_Wtime()-timei
 c ....................................................................
@@ -1038,10 +1039,11 @@ c     porosidades
       timei = MPI_Wtime()
       if(vprop(1)) then
         call update_prop(ia(i_ix),ia(i_x),ia(i_e),ia(i_ie),ia(i_vpropel)
-     1                  ,ia(i_u) ,ia(i_xl),ia(i_ul),ia(i_vpropell)  
+     1                  ,ia(i_u) ,ia(i_plastic)
+     2                  ,ia(i_xl),ia(i_ul),ia(i_plasticl),ia(i_vpropell)
      3                  ,numel,nen ,nenv
-     4                  ,ndm  ,ndf ,nst  ,npi 
-     5                  ,10   ,ilib,vprop,.true.)
+     4                  ,ndm  ,ndf ,nst     ,npi 
+     5                  ,10   ,ilib,fplastic,vprop,.true.)
       endif
       upproptime = upproptime + MPI_Wtime()-timei
 c ....................................................................
@@ -1080,8 +1082,8 @@ c ... atualizacoes as tensoes do passo de tempo anterior tx2p -> tx1p
         call aequalb(ia(i_tx1p),ia(i_tx2p),ntn*npi*numel)   
 c ... atualizacoes as deformacoes volumetricas plastica 
 c     do passo de tempo anterior 1 -> 2
-        call update_plastic(ia(i_ix),ia(i_e),ia(i_plastic)
-     .                     ,nen,npi,numel)
+        call update_plastic(ia(i_ix),ia(i_e),ia(i_plastic),ia(i_vpropel)
+     .                     ,nen,npi,numel,vprop)
       endif
 c .....................................................................
       vectime = vectime + MPI_Wtime()-timei

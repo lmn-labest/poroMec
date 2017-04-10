@@ -1164,13 +1164,14 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine update_prop(ix   ,x     ,e   ,ie      ,vpropel
-     1                      ,u    ,xl    ,ul  ,vpropell  
+     1                      ,u    ,plastic
+     2                      ,xl    ,ul   ,plasticl,vpropell  
      3                      ,numel,nen   ,nenv
-     4                      ,ndm   ,ndf  ,nst  ,npi 
-     5                      ,isw   ,ilib,vprop ,up_porosity)
+     4                      ,ndm   ,ndf  ,nst     ,npi 
+     5                      ,isw   ,ilib ,fplastic,vprop ,up_porosity)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 28/03/2017                                    * 
+c * Data de modificaco : 09/04/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * POROSITY : calculo da porosidade                                   *
 c * ------------------------------------------------------------------ * 
@@ -1189,8 +1190,13 @@ c *     5 - modulo de cisalhamento                                     *
 c *     6 - inverso do modulo de biot                                  *
 c *     7 - coeficiente de biot                                        *
 c * u(ndf,nnode)     - delta u e p                                     *
+c * plastic(3,*) - deformacao volumetricas plasticas no passo de tempo *
+c *                anterior                                            *
+c *                deformacao volumetricas plasticas                   *
+c *                paramentro de endurecimento nos pontos de integracao*      
 c * xl(ndm,nen)      - nao definido                                    *
 c * ul(ndf,nen)      - nao definido                                    *
+c * plastic(3,npi)  - nao definido                                     *
 c * vpropell(7,npi)  - nao definido                                    *
 c * numel            - numero de elementos                             *
 c * nen              - numero max. de nos por elemento                 *
@@ -1199,6 +1205,7 @@ c * ndm              - dimensao                                        *
 c * ndf              - numero max. de graus de liberdade por no        *
 c * isw              - codigo de instrucao para as rotinas             *
 c * ilib             - determina a biblioteca do elemento              *
+c * fplatic          - (true|false)                                    *            
 c * vprop(*) -                                                         * 
 c *           1 - prop variavel                 (true|false)           *
 c *           2 - konzey-Caraman                (true|false)           *
@@ -1225,15 +1232,15 @@ c ......................................................................
       integer ix(nen+1,*),ie(*)
       integer nel,ma,iel,i,j,k,k1,no,kk
       integer ilib,isw
-      real*8  xl(ndm,nenv),ul(nst),vpropell(nvprop,*)
-      real*8  x(ndm,*),e(prop,*),vpropel(nvprop,npi,*)
+      real*8  xl(ndm,nenv),ul(nst),vpropell(nvprop,*),plasticl(3,npi)
+      real*8  x(ndm,*),e(prop,*),vpropel(nvprop,npi,*),plastic(3,npi,*)
       real*8  u(ndf,*),el(prop)
 c ...
       logical ldum
       integer idum
       real*8 ddum
 c ...
-      logical vprop(*),up_porosity
+      logical fplastic,vprop(*),up_porosity
 c ......................................................................
 c
 c ... Loop nos elementos:
@@ -1262,6 +1269,18 @@ c ... loop nas pressoes
   510   continue
 c ......................................................................
 c
+c
+c ... plasticidade
+        if(fplastic) then
+          do j = 1, npi  
+c ... dilatacao volumetrica plastica do passo de tempo anterior
+            plasticl(1,j) = plastic(1,j,nel)
+c ... dilatacao volumetrica plastica
+            plasticl(2,j) = plastic(2,j,nel)
+          enddo  
+        endif  
+c ...................................................................... 
+c
 c ... propriedade variavel 
         do j = 1, npi
           vpropell(1:nvprop,j) = vpropel(1:nvprop,j,nel)             
@@ -1278,7 +1297,7 @@ c
 c ...... Chama biblioteca de elementos:
         call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
      1                ,ddum,ddum    ,ddum,ddum,ddum
-     2                ,ddum,ddum    ,vpropell,idum
+     2                ,ddum,plasticl,vpropell,idum
      2                ,ndm ,nst     ,nel ,iel ,isw
      3                ,ma  ,idum    ,ilib,ldum)
 c ......................................................................
