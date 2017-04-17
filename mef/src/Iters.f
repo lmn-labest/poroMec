@@ -6210,7 +6210,7 @@ c
         do 10 i = 1, neq
           x(i)  = 0.d0
    10   continue
-      endif 
+      endif     
 c .......................................................................
 c
 c ... conv = tol * |b| 
@@ -6250,7 +6250,7 @@ c ... t = Aq(j-1)
      .              ,dum1)
 c .....................................................................
 c
-c ... sigma = ( q(j-1),t)
+c ... sigma = ( q(j-1),t)         
          sigma = dot(q,t,neq_doti)
          if( sigma .eq. 0.0d0) then
            print*,"RSQMR fail (sigma)!"
@@ -6422,7 +6422,7 @@ c ======================================================================
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
- 1200 format (' *** WARNING: No convergence reached after ',i9,d20.10
+ 1200 format (' *** WARNING: No convergence reached after ',i9,d20.10,
      .        ' iterations !',/)
  1300 format (' RPSQMR:',5x,'It',i7,5x,2d20.10)
  1400 format (' RPSQMR:',1x,'Explicit residual > tol * ||b|| :'

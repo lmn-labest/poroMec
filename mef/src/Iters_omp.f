@@ -712,7 +712,7 @@ c ======================================================================
      . 5x,'|| b - Ax ||         = ',d20.10/
      . 5x,'Mflops               = ',f20.2/
      . 5x,'CPU time (s)         = ',f20.2/)
- 1200 format (' *** WARNING: No convergence reached after ',i9,
+ 1200 format (' *** WARNING: No convergence reached after ',i9,d20.10,
      .        ' iterations !',/)
  1300 format (' RPSQMR_OMP:',5x,'It',i7,5x,2d20.10)
  1400 format (' RPSQMR_OMP:',1x,'Explicit residual > tol * ||b|| :'

@@ -601,7 +601,7 @@ c ... poro mecanico
       else if(fporomec) then
 c ... primero numera os deslocamento e depois as pressoes
         if(block_pu .or. block_pu_sym) then
-          call numeqpmec1(ia(i_id),ia(i_inum),ia(i_id),
+          call numeqpmec1(ia(i_id),ia(i_inum),ia(i_id),ia(i_fnno),
      .                    nnode,nnodev,ndf,neq,nequ,neqp)
         else
 c ... numera os deslocamento e pressoes ao mesmo tempo

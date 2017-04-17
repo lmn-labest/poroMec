@@ -233,9 +233,10 @@ c                               coeficiente nao-nulo da equacao i
 c
         n = neq + 1
         if (right) n = 2*n
-        i2 = alloc_4(ija,1,n)
-        call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
-     .             lower,diag,upper,right)
+        i2 = alloc_8(ija,1,n)
+        call csria_v1(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf
+     1               ,neq,nad,nadr
+     2               ,lower,diag,upper,right)
 c ......................................................................     
 c
 c ... Montagem do arranjo ja(nad):
@@ -243,13 +244,13 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-        i3 = alloc_4(ja,1,nad+nadr)
-        call csrja2(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf
-     .             ,neq,nequ,nad,lower,diag,upper,right)
-        call sortgraph(ia(i2),ia(i3),neq)
-        if (right) then
-          call sortgraph(ia(i2+neq+1),ia(i3+nad),neq)      
-        endif
+        nl = 1
+        nc = nad+nadr
+        i3 = dalloc_4(ja,nl,nc)
+        call csrja2_v1(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf
+     1               ,neq,nad,lower
+     2               ,diag,upper,right)
+        call sort_graph_csr(ia(i2),ia(i3),neq,nad,right) 
 c ......................................................................
 c 
 c ... csrc(uu+pp+up) ou csrc para problema desacoplados  
@@ -1023,6 +1024,194 @@ c
                  if (lower) then
                    n = n + 1
                    ja(n) = neqj
+                 endif
+               elseif (neqj .gt. neqi) then
+                 if (upper) then
+                   n = n + 1
+                   ja(n) = neqj
+                 endif
+               endif
+  200        continue
+  195      continue
+c ......................................................................
+         endif
+  190 continue
+c ......................................................................
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine csrja2_v1(id,num,ip,ips,ja,nnode,ndf
+     .                 ,neq,nad,lower,diag,upper,right)
+c **********************************************************************
+c * Data de criacao    : 16/04/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * CSRJA2: monta o arranjo ja do formato CSR para os blocos           *
+c * (uu, pp e up) todos na mesmo CSRC                                  *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * id(ndf,nnode)- numeracao global das equacoes                       *
+c * num(nnode)   - renumeracao nodal                                   *
+c * ip(nnode+1)  - ip(i) indica a posicao em ips do primeiro           *
+c * ips(ipos)    - contem as conetividades nodais de cada no           *
+c * nnode - numero de nos                                              *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * nad   - numero de coeficientes nao nulos                           *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ja(nad) - ja(k) informa a coluna do coeficiente que ocupa          *
+c *           a posicao k no vetor a                                   *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c * Kuu e Kpp e kpu juntos                                             *
+c * nad integer*8                                                      * 
+c * ip  integer*8                                                      * 
+c * k   integer*8                                                      * 
+c **********************************************************************
+      implicit none
+      integer*8 nad,ip(*),k
+      integer nnode,ndf,neq
+      integer id(ndf,*),num(*),ips(*),ja(*)
+      integer i,j,ii,jj,kk,neqi,neqj,no,n,m
+      logical lower,diag,upper,right
+c ......................................................................
+      m = 0
+      n = 0
+c
+c ... Loop nos vertices:
+c
+      do 140 no = 1, nnode
+         i = num(no)
+c
+c ...    Loop nas equacoes do vertice i:
+c
+         do 130 ii = 1, ndf - 1
+            neqi = id(ii,i)
+            if (neqi .gt. 0 .and. neqi .le. neq) then
+c
+c ...          Loop nas equacoes do vertice i:
+c
+               do 100 kk = 1, ndf - 1
+                  neqj  = id(kk,i)
+                  if (neqj .le. 0) goto 100
+                  if (neqj .lt. neqi) then
+                     if (lower) then
+                        n = n + 1
+                        ja(n) = neqj
+                     endif
+                  elseif (neqj .eq. neqi) then
+                     if (diag) then
+                        n = n + 1
+                        ja(n) = neqj
+                     endif
+                  elseif (neqj .gt. neqi) then
+                     if (upper) then
+                        n = n + 1
+                        ja(n) = neqj
+                     endif
+                  endif                  
+  100          continue
+c
+c ...          Loop nos vertices conectados ao vertice i:
+c
+               do 120 k = ip(i), ip(i+1)-1
+                  j = ips(k)
+c
+c ...             Loop nas equacoes do vertice j:
+c
+                  do 110 jj = 1, ndf - 1
+                     neqj  = id(jj,j)
+                     if (neqj .le. 0) goto 110
+                     if (neqj .lt. neqi) then
+                        if (lower) then
+                           n = n + 1
+                           ja(n) = neqj
+                        endif
+c ... parte retangular                        
+                     elseif (neqj .gt. neq) then
+                        if (right) then
+                           m = m + 1
+                           ja(nad+m) = neqj
+                        endif
+                     elseif (neqj .gt. neqi) then
+                        if (upper) then
+                           n = n + 1
+                           ja(n) = neqj
+                        endif
+                     endif
+  110             continue
+  120          continue
+c ......................................................................
+            endif
+  130    continue
+  140 continue
+c ......................................................................
+c
+c ... Equacoes pp
+c
+c ... Loop nos nos:
+c
+      do 190 no = 1, nnode
+         i = num(no)
+c
+c ...    equacao da pressao do no i:
+c
+         neqi = id(ndf,i)
+         if(neqi .gt. 0 .and. neqi .le. neq) then
+c
+c ...          Loop nas equacoes do vertice i:
+c
+           do 193 kk = 1, ndf    
+             neqj  = id(kk,i)
+             if (neqj .le. 0) goto 193
+             if (neqj .lt. neqi) then
+               if (lower) then
+                 n = n + 1
+                 ja(n) = neqj
+               endif
+             elseif (neqj .eq. neqi) then
+               if (diag) then
+                 n = n + 1
+                 ja(n) = neqj
+               endif
+             elseif (neqj .gt. neqi) then
+               if (upper) then
+                 n = n + 1
+                 ja(n) = neqj
+               endif
+             endif                  
+  193      continue
+c
+c ...          Loop nos vertices conectados ao vertice i:
+c
+           do 195 k = ip(i), ip(i+1)-1
+             j = ips(k)
+c
+c ...             Loop nas equacoes do vertice j:
+c
+             do 200 jj = 1, ndf 
+               neqj  = id(jj,j)
+               
+               if (neqj .le. 0) goto 200
+               if (neqj .lt. neqi) then
+                 if (lower) then
+                   n = n + 1
+                   ja(n) = neqj
+                 endif
+c ... parte retangular                        
+                 elseif (neqj .gt. neq) then
+                   if (right) then
+                     m = m + 1
+                     ja(nad+m) = neqj
                  endif
                elseif (neqj .gt. neqi) then
                  if (upper) then

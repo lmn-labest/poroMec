@@ -1,7 +1,8 @@
-      subroutine numeqpmec1(id,num,idr,nnode,nnodev,ndf,neq,nequ,neqp)
+      subroutine numeqpmec1(id,num,idr,fnno,nnode,nnodev,ndf,neq
+     .                     ,nequ,neqp)
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 08/11/2016                                    *
+c * Data de modificaco : 16/04/2017                                    *
 c * ------------------------------------------------------------------ *
 c * Subroutine NUMEQPMEC1 : Numeracao das equacoes problema            * 
 c * poro-mecanico                                                      *
@@ -12,6 +13,7 @@ c * id(ndf,nnode)   - condicoes nodais (0 = livre, 1 = restringido)    *
 c * num(nnode)      - numeracao original dos nos                       *
 c *                   num(i) e o numero original do no i               *
 c * idr(ndf,nnode)  - nao definido                                     *
+c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
 c * nnode - numero de nos                                              *
 c * nnodev- numero de nos dos vertives                                 *
 c * ndf   - numero max. de graus de liberdade por no                   *
@@ -30,7 +32,7 @@ c *  OBS: numera primeiro os deslocamentos                             *
 c **********************************************************************
       implicit none
       integer nnode,nnodev,ndf,neq,nequ,neqp
-      integer id(ndf,*),idr(ndf,*)
+      integer id(ndf,*),idr(ndf,*),fnno(*)
       integer num(*),i,j,k,n
 c ......................................................................
 c
@@ -39,36 +41,45 @@ c
 c ... numera os deslocamentos 
       neq = 0
       do 110 i = 1, nnode
-         n = num(i)
-         do 100 j = 1, ndf - 1
-            k = id(j,n)
-            if (k .eq. 0) then
-               neq = neq + 1
-               idr(j,n) = neq
-            else
-               idr(j,n) = 0
-            endif
-  100    continue
+        n = num(i)
+        do 100 j = 1, ndf - 1
+          k = id(j,n)
+          if (k .eq. 0) then
+            neq = neq + 1
+            idr(j,n) = neq
+          else
+            idr(j,n) = 0
+          endif
+  100   continue
   110 continue
       nequ = neq
 c ......................................................................
 c
 c ... numera a pressao
       do 120 i = 1, nnode
-         n = num(i)
-         if( n .le. nnodev) then 
-           k = id(ndf,n)
-           if (k .eq. 0) then
-             neq = neq + 1
-             idr(ndf,n) = neq
-           else
-             idr(ndf,n) = 0
-           endif
+        n = num(i)
+        if(fnno(n) .eq. 1 )then
+          k = id(ndf,n)
+          if (k .eq. 0) then
+            neq = neq + 1
+            idr(ndf,n) = neq
+          else
+            idr(ndf,n) = 0
+          endif
         endif
   120 continue
 c ......................................................................
 c
+c ...
       neqp = neq - nequ
+c ......................................................................
+c
+c ...      
+c     do i = 1, nnode
+c       n = num(i)
+c       print*,n,idr(1,n),idr(2,n),idr(3,n),idr(4,n)
+c     enddo
+c ......................................................................  
       return
       end
 c **********************************************************************
