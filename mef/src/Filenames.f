@@ -1,7 +1,7 @@
       character*80 function name(NomeArqDados,NumArq,code)
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 29/01/2017                                   * 
+c * Data de modificaco : 20/04/2017                                   * 
 c * ----------------------------------------------------------------- *
 c * NAME: nomes de aquivos                                            *
 c * ----------------------------------------------------------------- *
@@ -42,6 +42,7 @@ c * 34 -> arquivos de fluxo de darcy por nos                          *
 c * 35 -> arquivos de tensoes totais nos pontos de integracao         *
 c * 36 -> arquivos de variaveis da plasticidade nos pontos de integra *
 c *       cao                                                         *
+c * 37 -> arquivos de porosidada por nos                              *
 c *********************************************************************
       implicit none      
       include 'parallel.fi'
@@ -146,6 +147,11 @@ c ... plastic pi file
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_plastic_pi_'//trim(StrExtensao)//'.txt'
+c ... porosity node file 
+      elseif(code .eq. 37) then
+        write(StrExtensao,'( I6 )') NumArq
+        write(StrExtensao,'( A  )') adjustl(StrExtensao)
+        StrExtensao='_poro_node_'//trim(StrExtensao)//'.txt'
 c ... mtx 
       elseif(code .eq. 50) then
         write(StrExtensao,'( I6 )') NumArq

@@ -83,7 +83,7 @@ c ......................................................................
      8     ,2500,2600,2700      !           ,            ,
      9     ,2800,2900,3000      !           ,            ,
      1     ,3100,3200,3300      !           ,            ,
-     2     ,3400,3500,3600      !           ,            ,elmt36_pm 
+     2     ,3400,3500,3600      !           ,elmt35_pm   ,elmt36_pm 
      3     ,3700,3800,3900      !elmt37_pm  ,elmt38_pm   , 
      4     ) iel
 c ......................................................................
@@ -118,13 +118,24 @@ c     Elemento hexaedrico de 20 nos (poromec-elastic-propvariavel)
       endif
       return 
 c ......................................................................
- 3600 continue
+ 3500 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-plastic)
-        call elmt36_pm(e ,iq ,x    ,u  ,p0
+        call elmt35_pm(e ,iq ,x    ,u  ,p0
      1                ,p ,s  ,v1   ,v2 ,v3
      2                ,v4,ep ,ndm  ,nst,nel
      3                ,isw,block_pu,nlit)
+      endif 
+      return       
+c ......................................................................
+ 3600 continue
+      if (ilib .eq. 1) then  
+c     Elemento tetraedro de 10 nos (poromec-plastic)
+        call elmt36_pm(e  ,iq      ,x    ,u  ,p0
+     1                ,p  ,s       ,v1   ,v2 ,v3
+     2                ,v4 ,v5      ,ep
+     3                ,ndm,nst     ,nel
+     4                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................
@@ -185,7 +196,6 @@ c ... campos reservados para expancoes futuras de elementos
  3200 continue
  3300 continue
  3400 continue
- 3500 continue
  3900 continue
       go to 10
       return

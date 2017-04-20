@@ -2164,6 +2164,16 @@ c ... comunicao
           i_g7        = alloc_8('txeG    ',ntn,nnovG)
           call global_v(ndm,nno_pload,i_flux,i_g8,'fluxG   ')
         endif
+c ......................................................................
+c
+c ... delta porosidade 
+        if(novlp) then
+          call global_v(1,nnode,i_porosity,i_g9 ,'poroG   ')
+        else          
+          call global_v(1,nno_pload,i_porosity,i_g9 ,'poroG   ')
+        endif
+c ......................................................................
+c
 c ... add tensao incial
         if(.not. fplastic) then
           call vsum(ia(i_g5),ia(i_g4),nnovG*ntn,ia(i_g5))
@@ -2180,7 +2190,6 @@ c ... add tensao incial
      .                       ,nnovG    ,ntn     ,ndf)      
       endif
 c .....................................................................
-c
 c
 c ... codigo para o arquivo stress_node.txt      
       code   = 31
@@ -2262,6 +2271,26 @@ c ... codigo para o arquivo flux_node.txt
       endif
 c ......................................................................
 c
+c ... codigo para o arquivo porosity_node.txt      
+      code   = 37
+      ifiles = 6
+      string = 'poro'
+      if( my_id .eq. 0) then
+        do j = 1, num_pnode
+          if(mpi) then
+            call printnode(ia(i_g9),ia(i_no+j-1),ndm         ,istep,t
+     1                     ,string   ,prename     ,ia(i_nfile+j-1)
+     2                     ,code     ,new_file(ifiles))
+          else
+            call printnode(ia(i_porosity),ia(i_no+j-1),1,istep,t
+     1                 ,string   ,prename     ,ia(i_nfile+j-1)
+     2                 ,code     ,new_file(ifiles))
+          endif
+        enddo
+        new_file(ifiles) = .false.
+      endif
+c ......................................................................
+c
 c ...
       i_ic  = dealloc('ic      ')
       i_flux= dealloc('flux    ')
@@ -2272,6 +2301,7 @@ c ......................................................................
 c
 c ...
       if(mpi) then
+        i_g9      = dealloc('poroG   ')
         i_g8      = dealloc('fluxG   ')
         i_g7      = dealloc('txeG    ')
         i_g6      = dealloc('txbG    ')
