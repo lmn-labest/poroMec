@@ -2278,7 +2278,7 @@ c ... codigo para o arquivo porosity_node.txt
       if( my_id .eq. 0) then
         do j = 1, num_pnode
           if(mpi) then
-            call printnode(ia(i_g9),ia(i_no+j-1),ndm         ,istep,t
+            call printnode(ia(i_g9),ia(i_no+j-1),1           ,istep,t
      1                     ,string   ,prename     ,ia(i_nfile+j-1)
      2                     ,code     ,new_file(ifiles))
           else
