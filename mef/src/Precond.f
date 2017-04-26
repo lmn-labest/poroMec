@@ -79,7 +79,7 @@ c *     | Kpu              -Kpp     |                                  *
 c **********************************************************************
       subroutine pre_diag_schur(ia,ja,m,ad,al,w,neq,nequ)
       implicit none
-      real*8 m(*),ad(*),al(*),w(*),tmp
+      real*8 m(*),ad(*),al(*),w(*),tmp,wm
       integer i,j,neq,nequ,jak,ia(*),ja(*)
 c ... positva definida
       do i = 1, nequ
@@ -88,19 +88,33 @@ c ... positva definida
 c ....................................................................
 c
 c ...
+c     do i = nequ + 1, neq
+c       w(1:nequ) = 0.d0
+c       do j = ia(i), ia(i+1) - 1
+c         jak = ja(j)
+c         if( jak .le. nequ) w(jak) = al(j)
+c       enddo
+c ... C + BD(-1)BT
+c       tmp = ad(i)
+c       do j = 1, nequ
+c         tmp = tmp + w(j)*w(j)*m(j)
+c       enddo
+c       m(i) = 1.0/tmp
+c     enddo
+c ....................................................................
+c
+c ...
+      w(1:neq-nequ) = 0.d0
       do i = nequ + 1, neq
-        w(1:nequ) = 0.d0
         do j = ia(i), ia(i+1) - 1
           jak = ja(j)
-          if( jak .le. nequ) w(jak) = al(j)
+          wm = max(dabs(al(j)),wm)
         enddo
-c ... C + BD(-1)BT
-        tmp = dabs(ad(i))
-        do j = 1, nequ
-          tmp = tmp + w(j)*w(j)*m(j)
-        enddo
-        m(i) = 1.0d0/tmp
-      enddo
+        wm  = wm/dabs(ad(i))
+        tmp = 1.0
+        if( wm .ge. 1.0 ) tmp = ad(i)*wm
+        m(i) = 1.0/tmp
+      enddo 
 c ....................................................................
 c
 c ...

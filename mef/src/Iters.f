@@ -5593,7 +5593,7 @@ c
 c ...
       do 5 i = 1, neq
         if(ad(i) .eq. 0.d0 ) then
-          write(*,1000) i
+          write(*,1000) i,ad(i)
           call stop_mef()
         endif 
    5  continue
@@ -5772,8 +5772,8 @@ c ... Controle de flops
 c ......................................................................
       return
 c ======================================================================
- 1000 format (//,5x,'SUBROTINA SMRQ:',/,5x,'Coeficiente da diagonal ' 
-     . '- equacao ',i9)
+ 1000 format (//,5x,'SUBROTINA RPSQMR:',/,5x,'Diagonal coefficient ' 
+     . '- equation ',i9,d20.10)
  1100 format(' (SMRQ) solver:'/
      . 5x,'Solver tol           = ',d20.6/
      . 5x,'tol * ||b||          = ',d20.6/
