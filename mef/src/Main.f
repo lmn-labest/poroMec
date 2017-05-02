@@ -996,7 +996,7 @@ c     as porosidades
      2                  ,ia(i_xl),ia(i_ul),ia(i_plasticl),ia(i_vpropell)
      3                  ,numel,nen ,nenv
      4                  ,ndm  ,ndf ,nst      ,npi 
-     5                  ,10   ,ilib,,fplastic,vprop,.false.)
+     5                  ,10   ,ilib,fplastic,vprop,.false.)
       endif
       upproptime = upproptime + MPI_Wtime()-timei
 c ....................................................................
