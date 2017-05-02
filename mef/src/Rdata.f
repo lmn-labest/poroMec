@@ -119,7 +119,7 @@ c ......................................................................
      .           'hexa20         ','tetra10        ','               ',
      .           'coordinates    ','constrainpmec  ','constraindisp  ',
      .           'nodalforces    ','elmtloads      ','nodalloads     ',
-     .           '               ','               ','               ',
+     .           'hydrostatic    ','hydrostress    ','               ',
      .           'loads          ','               ','               ',
      .           'initialdisp    ','initialpres    ','initialstress  ',
      .           'parallel       ','insert         ','return         ',
@@ -316,7 +316,7 @@ c ......................................................................
      .       700, 750, 800,    !hexa20     ,tetra10      ,
      .       850, 900, 950,    !coordinates,             ,constraindisp
      .      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
-     .      1150,1200,1250,    !           ,             ,
+     .      1150,1200,1250,    !hydrostatic,             ,
      .      1300,1350,1400,    !loads      ,             ,
      .      1450,1500,1550,    !initialdisp,             ,initialstress
      .      1600,1650,1700,    !parallel   ,insert       ,return
@@ -611,24 +611,35 @@ c
 c ... nodalloads - nos com cargas variaveis no tempo:
 c
  1100 continue
+      if(my_id .eq. 0) print*,'loading nodalloads ...'
       if(f_read_el) then
         call bound(ia(i_nload),nnodev,ndf,nin,2) 
       else
         print*,'MACRO: nodalloads !! Unread Elements'
         call stop_mef()
       endif
+      if(my_id .eq. 0) print*,'done.'
       goto 100
 c ......................................................................
 c
 c ...
 c
  1150 continue
+      if(my_id .eq. 0) print*,'loading hydrostatic ...'
+      call init_hydrostatic_pres(ia(i_x),ia(i_u0)
+     .                          ,nnodev,ndf,ndm,nin)
+      if(my_id .eq. 0) print*,'done.'
       goto 100
 c ......................................................................
 c
 c ...
 c
  1200 continue
+      if(my_id .eq. 0) print*,'loading hydrostress ...'
+      fstress0 = .true. 
+      call init_hydrostatic_stress(ia(i_tx0),ia(i_x)
+     .                             ,nnodev,ntn,ndm,nin)
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -840,17 +851,6 @@ c
       endif
 c ......................................................................
 c
-c ... tensao e pressao iniciais
-c     call init_stress(ia(i_ix),ia(i_ie),ia(i_e),ia(i_x),ia(i_tx0)
-c    .                ,numel,nenv,nen,ndm,ntn)
-c ......................................................................
-c
-c ... Inicializa as condicoes de contorno no vetor u:
-c
-      if(ndf.gt.0) call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
-      call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
-c .....................................................................
-c
 c ... 
       i_fnno  = alloc_4('ffno    ',    1,nnode)
 c ... identifica os nos de vertices( Necessario para o mpi)
@@ -863,6 +863,19 @@ c ... identifica e conta os nos de vertices( Necessario para o mpi)
      .                         ,nnodev,nnode,numel,nenv,nen,.true.)   
       endif
 c ......................................................................
+c
+c
+c ... Inicializa as condicoes de contorno no vetor u:
+c
+      if(ndf.gt.0) then 
+c ... cc macro nodalsources
+        call boundc(nnode,ndf,ia(i_id),ia(i_f),ia(i_u0))
+c ... cc macro nodal lodas
+        call bound_nodalloads(ia(i_x),ia(i_id),ia(i_u0)
+     2                       ,ia(i_nload),nnode,ndf,ndm)
+      endif  
+      call aequalb(ia(i_u),ia(i_u0),nnode*ndf)
+c .....................................................................
 c
 c ... escrita de todes os nohs
       if(el_quad) then
@@ -1187,6 +1200,96 @@ c ......................................................................
       print*,'*** Erro na leitura das forcas nodais !'
       stop             
       end
+c **********************************************************************
+c *
+c **********************************************************************
+      subroutine init_hydrostatic_pres(x,u,nnode,ndf,ndm,nin)
+c **********************************************************************
+c *                                                                    *
+c *   Inicias nos com pressao hidroestatica                            *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'gravity.fi'
+      include 'string.fi'      
+      integer ndm,nnode,ndf,nin,i
+      real*8 u(ndf,*),x(ndm,*),density,p0,h,scale
+      character*12 string            
+c ......................................................................
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) density
+c ... pressao inicial      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) p0
+c ... datum      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) h
+c ... fator de escala      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) scale
+      do i = 1, nnode
+        u(ndf,i) = ( p0 + density*gravity_mod*(h-x(3,i) ) )*scale
+      enddo
+      return
+c ......................................................................
+  200 continue
+      print*,'*** Erro na leitura das restricoes !'
+      call stop_mef()
+      end
+c **********************************************************************
+c
+c **********************************************************************
+      subroutine init_hydrostatic_stress(tx,x,nnode,ntn,ndm,nin)
+c **********************************************************************
+c *                                                                    *
+c *   Inicias nos com tensoes hidroestatica                            *
+c *                                                                    *
+c **********************************************************************
+      implicit none
+      include 'gravity.fi'
+      include 'string.fi'      
+      integer ndm,nnode,ntn,nin,i
+      real*8 tx(ntn,*),x(ndm,*),density,f0,k,h,scale
+      character*12 string            
+c ......................................................................
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) density
+c ... tensao inicial      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) f0
+c ... datum      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) h
+c ...fator multiplicativo entre a tensao vertical e horizontal      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) k
+c ... fator de escala      
+      call readmacro(nin,.false.)
+      write(string,'(12a)') (word(i),i=1,12)
+      read(string,*,err = 200,end = 200) scale
+      do i = 1, nnode
+        tx(3,i)   = ( f0 + density*gravity_mod*(h-x(3,i))) *scale
+        tx(1,i)   = k*tx(3,i)
+        tx(2,i)   = k*tx(3,i)
+        tx(4:6,i) = 0.d0
+      enddo
+      return
+c ......................................................................
+  200 continue
+      print*,'*** Erro na leitura das restricoes !'
+      call stop_mef()
+      end
+c **********************************************************************
+c *
+c **********************************************************************
       subroutine bound(id,nnode,ndf,nin,code)
 c **********************************************************************
 c *                                                                    *
@@ -1228,11 +1331,11 @@ c ... formato necessário ao funcionamento em linux:
 c ......................................................................
   200 continue
       if    (code .eq. 1) then
-         print*,'*** Erro na leitura das restricoes !'
+         print*,'*** Erro na leitura das restricoes !',j,i
       elseif(code .eq. 2) then
-         print*,'*** Erro na leitura das cargas nodais !'
+         print*,'*** Erro na leitura das cargas nodais !',j,i
       elseif(code .eq. 3) then
-         print*,'*** Erro na leitura das cargas nos elementos !'
+         print*,'*** Erro na leitura das cargas nos elementos !',j,i
       endif
       stop
       end
@@ -1454,9 +1557,36 @@ c ...
               enddo
             enddo 
 c .....................................................................
+c     
+c ... valor por carga hidrostatica      
+c     (f = alfa*(f0 + density*g*(h-x)) )
+        elseif (load(1,i) .eq. 42) then
+c ... nome do arquivo            
+            call readmacro(nin,.false.)
+            write(fname,'(80a)') (word(j),j=1,strl)
+            open(nincl, file= fname,status= 'old',err=201,action='read')
+c ...       numero de parcelas:            
+            call readmacro(nincl,.true.)
+            write(string,'(30a)') (word(j),j=1,30)
+            read(string,*,err = 200,end = 200) load(2,i)
+c ... numero de parcelas temporais da carga
+            call readmacro(nincl,.false.) 
+            write(string,'(30a)') (word(j),j=1,30)
+            read(string,*,err = 200,end = 200) load(3,i)
+c ...
+            do l = 1, load(3,i)
+              call readmacro(nincl,.true.)
+              do k = 1, load(2,i)                 
+                 write(string,'(30a)') (word(j),j=1,30)
+                 read(string,*,err = 200,end = 200) fload(l,k,i)
+                 call readmacro(nincl,.false.)
+              enddo
+            enddo
+c .....................................................................
 c
 c ... 
-            close(nincl)         
+            close(nincl)   
+c .....................................................................              
          endif
 c .....................................................................
          call readmacro(nin,.true.)
@@ -1465,7 +1595,7 @@ c .....................................................................
       return
 c ......................................................................
   200 continue
-      print*,'*** Load reading error !'
+      print*,'*** Load reading error !',i
       call stop_mef()
   201 continue
       print*,'File ',trim(fname),' not found !'
@@ -3609,9 +3739,11 @@ c ...
           no     = ix(j,i) 
           x3     = x(3,no)
 c ... tensao inicial
-          tx0(3,no)   = -ro*gravity_mod*(0.5d0-x3)
-          tx0(1,no)   = (ps/(1.0-ps))*tx0(3,no)
-          tx0(2,no)   = tx0(1,no) 
+          tx0(3,no)   = -ro*gravity_mod*(10.0d0-x3)
+          tx0(1,no)   = tx0(3,no)
+          tx0(2,no)   = tx0(3,no)
+c         tx0(1,no)   = (ps/(1.0-ps))*tx0(3,no)
+c         tx0(2,no)   = tx0(1,no) 
           tx0(4:6,no) = 0.d0
 c ......................................................................
         enddo
@@ -3778,4 +3910,51 @@ c .....................................................................
       print*,'File ',trim(fname),' not found !'
       flag = .false.
       end
-c *********************************************************************
+c **********************************************************************
+c
+c **********************************************************************
+c * Data de criacao    : 26/04/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *  
+c * BOUND_NODALLOADS :     auxiliar com os nos que terao alguma        *
+c * de suas grandeza impressas no tempo                                *
+c * -----------------------------------------------------------------  *
+c * parametros de entrada :                                            *
+c * -----------------------------------------------------------------  *
+c * x       - nome do arquivo de entrada                               *
+c * id      - valores prescrritos                                      *
+c * u0      - valores inicias                                          *
+c * nnode   - numero de nois totais                                    *
+c * ndf     - graus de liberdade                                       *
+c * ndm     - dimensao                                                 *
+c * -----------------------------------------------------------------  *
+c * parametros de saida                                                *
+c * -----------------------------------------------------------------  *
+c * u0      -valores inicias atualizados com a macro nodalloads        *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine bound_nodalloads(x,id,u0,nload,nnode,ndf,ndm)
+      implicit none
+      real*8 x(ndm,*),u0(ndf,*),vc(3),c,t
+      integer id(ndf,*),nnode,ndf,ndm,i,j,k,nc,nload(ndf,*)
+       
+c... Cargas nodais e deslocamentos prescritos no tempo t:
+      t = 0.d0 
+      do i = 1, nnode
+        do j = 1, ndf
+          nc = nload(j,i)
+          if( nc .gt. 0 ) then
+            k = id(j,i)
+            if (k .eq. 1) then
+              call tload(nc,t,x(1,i),u0(j,i),c,vc)
+              u0(j,i) = c
+            endif
+          endif
+        enddo
+      enddo
+c .....................................................................
+      return
+      end
+c **********************************************************************

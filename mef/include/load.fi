@@ -12,6 +12,6 @@ c **********************************************************************
       integer load,numload,nterms,npar
       real*8  fload
       parameter (numload = 200)
-      parameter (nterms = 4)
+      parameter (nterms = 5)
       parameter (npar = 1000)
       common /load / load(3,numload),fload(npar,nterms,numload)

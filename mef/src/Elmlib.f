@@ -3556,10 +3556,43 @@ c .....................................................................
 c **********************************************************************
 c
 c **********************************************************************
+c * Data de criacao    : 26/04/2017                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ * 
+c * PONTO_MEDIO   : calculo do ponto medio da face                     *
+c * -------------------------------------------------------------------* 
+c * xf     - coordenadas da face do elemento                           *
+c * p      - nao definido                                              *
+c * ndm    - dimensao                                                  *
+c * nen    - numero de vertices                                        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * p      - ponto medio                                               *      
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c **********************************************************************
+      subroutine face_ponto_medio(xf,p,ndm,nen)
+      implicit none
+      integer ndm,i,j,nen
+      real*8 xf(ndm,*),p(*)
+c ...
+      p(1:3) = 0.0
+      do i = 1, nen
+        do j = 1, 3
+          p(j) = p(j) + xf(j,i)
+        enddo
+      enddo
+      p(1:3) = p(1:3) / nen
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
 c * Data de criacao    : 02/04/2017                                    *
 c * Data de modificaco : 00/00/0000                                    * 
 c * ------------------------------------------------------------------ * 
-c * ELMMENT_LIBRARY_NAMES - elementos disponiveis                      *
+c * ELEMENT_LIBRARY_NAMES - elementos disponiveis                      *
 c * -------------------------------------------------------------------* 
 c * element_library_1 : elementos termicos                             *
 c * element_library_2 : elementos mecanicos                            *

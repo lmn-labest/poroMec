@@ -867,8 +867,9 @@ c .....................................................................
 c
 c ... Cargas nodais e valores prescritos no tempo t+dt:
       timei = MPI_Wtime()
-      call pload_pm(ia(i_id),ia(i_f),ia(i_u),ia(i_b0),ia(i_nload)
-     .             ,ia(i_fnno),nnode,ndf)
+      call pload_pm(ia(i_id)  ,ia(i_x) ,ia(i_f)
+     1             ,ia(i_u)   ,ia(i_b0),ia(i_nload)
+     2             ,ia(i_fnno),nnode   ,ndf,ndm)
       vectime = vectime + MPI_Wtime()-timei
 c .....................................................................   
 c

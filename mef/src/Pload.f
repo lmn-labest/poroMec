@@ -1,13 +1,14 @@
-      subroutine pload_pm(id,f,u,b,nload,fnno,nnode,ndf)
+      subroutine pload_pm(id,x,f,u,b,nload,fnno,nnode,ndf,ndm)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 08/11/2016                                    * 
+c * Data de modificaco : 26/04/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * PLOADPM: Monta o vetor de forcas poro mecanico                     *
 c * ------------------------------------------------------------------ *      
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *      
 c * id(ndf,nnode)   - numeracao das equacoes                           *
+c * x(ndf,nnode)    - coordenadas nodais                               *
 c * f(ndf,nnode)    - cargas concentradas e incognitas prescritas      *
 c * u(ndf,nnode)    - graus de liberdade                               *
 c * b(neq) - nao definido                                              *
@@ -16,6 +17,7 @@ c * fnno  - identifica dos nos de vertices ( 1 - vertice | 0 )         *
 c * nnode  - numero de nos acessados na particao                       *
 c * nnodev - numero de nos de vertices acessados na particao           *
 c * ndf    - numero de graus de liberdade por no                       *
+c * ndm    - numero de dimensao dos problemas                          *
 c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
@@ -27,8 +29,9 @@ c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'transiente.fi'
-      integer id(ndf,*),nload(ndf,*),nnode,nnodev,ndf,i,j,k,nc,fnno(*)
-      real*8  f(ndf,*),u(ndf,*),b(*),c,vc(3)
+      integer id(ndf,*),nload(ndf,*),nnode,nnodev,ndf,ndm
+      integer i,j,k,nc,fnno(*)
+      real*8  f(ndf,*),u(ndf,*),x(ndm,*),b(*),c,vc(3)
 c.......................................................................
 c
 c ... Cargas nodais e desloc. prescritos variaveis no tempo:
@@ -37,7 +40,7 @@ c
         do 100 j = 1, ndf - 1
           nc = nload(j,i)
           if(nc .gt. 0) then
-            call tload(nc,t,u(j,i),c,vc,0)
+            call tload(nc,t,x(1,i),u(j,i),c,vc,0)
             f(j,i) = c
           endif
   100   continue
@@ -49,7 +52,7 @@ c ...
         if(fnno(i) .eq. 1) then
           nc = nload(ndf,i)
           if(nc .gt. 0) then
-            call tload(nc,t,u(ndf,i),c,vc,0)
+            call tload(nc,t,x(1,i),u(ndf,i),c,vc,0)
             f(ndf,i) = c
           endif
         endif
@@ -204,7 +207,7 @@ c.......................................................................
 c **********************************************************************
 c                                                                        
 c **********************************************************************
-      subroutine tload(nc,t,u,c,vc)
+      subroutine tload(nc,t,x,u,c,vc)
 c **********************************************************************
 c *                                                                    *
 c *   TLOAD:                                                           *
@@ -237,9 +240,10 @@ c *                                                                    *
 c *                                                                    *
 c **********************************************************************
       implicit none
+      include 'gravity.fi'
       include 'load.fi'
       integer nc,itype,nparc,i
-      real*8  t,u,c,vc(*),a,w,t0,ti,DOISPI,tm,uext,b,h
+      real*8  t,u,c,vc(*),a,w,t0,ti,DOISPI,tm,uext,b,h,x(*)
       parameter (DOISPI = 6.283185307d0)
 c.......................................................................
 c      
@@ -329,6 +333,24 @@ c ... tensao normal
       elseif (itype .eq. 41) then
         nparc = load(3,nc)
         call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)  
+c .....................................................................
+c
+c ... funcao linear com a profundidade (pressao e tensao hidro estatica)
+      elseif (itype .eq. 42) then
+c ... numero de parcelas temporais
+        nparc = load(3,nc)
+c ... massa especifica
+        call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,a)
+c ... valor no topo 
+        call interpol(fload(1,1,nc),fload(1,3,nc),t,nparc,b)
+c ... coordenada do topo                     
+        call interpol(fload(1,1,nc),fload(1,4,nc),t,nparc,w)  
+c ... constante mutiplicativa                     
+        call interpol(fload(1,1,nc),fload(1,5,nc),t,nparc,t0)  
+c ... altura 
+        h    = (w - x(3))
+c ... f = f0 + density*g*h
+        c  = t0*(b + a*h*gravity_mod)     
 c .....................................................................
       endif
       return

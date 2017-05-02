@@ -24,10 +24,10 @@ c **********************************************************************
       implicit none
       integer n,i
       real*8 x(*),y(*),xi,c,x1,x2,y1,y2
-      if  (xi .lt. x(1)) then
+      if  (xi .le. x(1)) then
          c = y(1)
          goto 1000
-      elseif (xi .gt. x(n)) then
+      elseif (xi .ge. x(n)) then
          c = y(n)
          goto 1100      
       endif
@@ -36,7 +36,7 @@ c **********************************************************************
          x2 = x(i+1)
          y1 = y(i)
          y2 = y(i+1)
-         if (xi .ge. x1 .and. xi .le. x2) then
+         if (xi .gt. x1 .and. xi .lt. x2) then
             c = y1 + (y2-y1)*(xi-x1)/(x2-x1)
             goto 100
          endif

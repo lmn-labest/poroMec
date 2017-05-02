@@ -800,7 +800,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 07/04/2017                                    * 
+c * Data de modificaco : 26/04/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT16_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos   variação das propriedades                 *
@@ -879,7 +879,7 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(3),face_f(3),n_carg,ddum
+      real*8 face_u(3),face_f(3),n_carg,ddum,mp(3)
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -1478,9 +1478,16 @@ c
 c ...
             carg = load(1,iq(j))
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) call face_normal_vector(xf,face_f,ndm)
+              if( carg .eq. 41) then
+                call face_normal_vector(xf,face_f,ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                call face_ponto_medio(xf,mp,ndm,3)
+              endif
 c .....................................................................
 c
 c ... rotacionando os eixos    
@@ -1491,12 +1498,15 @@ c ... rotacionando os eixos
 c .....................................................................
 c
 c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+              if( carg .eq. 41 ) then
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+              elseif ( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -1536,9 +1546,6 @@ c                 l1  = (no-1)*3+1
 c .....................................................................
   450         continue
 c .....................................................................
-c
-c ... fluxo 
-            elseif( carg .eq. 42) then
             endif
 c .....................................................................
           endif
@@ -3537,7 +3544,7 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(3),face_f(3),n_carg
+      real*8 face_u(3),face_f(3),n_carg,mp(3)
       real*8 ddum
       integer carg
 c ...
@@ -4265,18 +4272,25 @@ c ...
               xf(1,i) = x(1,no) 
               xf(2,i) = x(2,no) 
               xf(3,i) = x(3,no)
-  445      continue
+  445       continue
 c .....................................................................
 c
 c ...
             carg = load(1,iq(j))
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) call face_normal_vector(xf,face_f,ndm)
+              if( carg .eq. 41) then
+                call face_normal_vector(xf,face_f,ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                call face_ponto_medio(xf,mp,ndm,3)
+              endif
 c .....................................................................
 c
-c ... rotacionando o eixos    
+c ... rotacionando os eixos    
               call rotmatrix(xf,r)
               call rotate(xf(1,1),r,xf(1,1),.false.)
               call rotate(xf(1,2),r,xf(1,2),.false.)
@@ -4284,12 +4298,15 @@ c ... rotacionando o eixos
 c .....................................................................
 c
 c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+              if( carg .eq. 41 ) then
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+              elseif ( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -4617,7 +4634,7 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(3),face_f(3),n_carg
+      real*8 face_u(3),face_f(3),n_carg,mp(3)
       real*8 ddum
       integer carg
 c ...
@@ -5335,12 +5352,19 @@ c
 c ...
             carg = load(1,iq(j))
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) call face_normal_vector(xf,face_f,ndm)
+              if( carg .eq. 41) then
+                call face_normal_vector(xf,face_f,ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                call face_ponto_medio(xf,mp,ndm,3)
+              endif
 c .....................................................................
 c
-c ... rotacionando o eixos    
+c ... rotacionando os eixos    
               call rotmatrix(xf,r)
               call rotate(xf(1,1),r,xf(1,1),.false.)
               call rotate(xf(1,2),r,xf(1,2),.false.)
@@ -5348,12 +5372,15 @@ c ... rotacionando o eixos
 c .....................................................................
 c
 c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+              if( carg .eq. 41 ) then
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+              elseif ( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
