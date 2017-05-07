@@ -43,9 +43,11 @@ c * ----------------------------------------------------------------- *
 c * ------------------ Elementos lineares --------------------------- *
 c *                                                                   *
 c * ------------------ Elementos quadraticos ------------------------ *
+c * ELMT35_PM - hexaedros de 20 nos para o problema poro mecanico     *
+c * plastico com variacoes das propriedades                           *
 c *                                                                   *
 c * ELMT36_PM - tetraedros de 10 nos para o problema poro mecanico    *
-c * plastico (Nao implementado)                                       *
+c * plastico                                                          *
 c *                                                                   *
 c * ELMT37_PM - hexaedros de 20 nos para o problema poro mecanico     *
 c * plastico                                                          *
@@ -58,7 +60,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 36/03/2017                                    * 
+c * Data de modificaco : 07/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT15_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -123,7 +125,7 @@ c **********************************************************************
       integer nen,nint,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(3),face_f(3),n_carg,ddum
+      real*8 face_u(3),face_f(3),n_carg,ddum,mp(3)
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -617,9 +619,16 @@ c
 c ...
             carg = load(1,iq(j))
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) call face_normal_vector(xf,face_f,ndm)
+              if( carg .eq. 41) then
+                call face_normal_vector(xf,face_f,ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                call face_ponto_medio(xf,mp,ndm,3)
+              endif
 c .....................................................................
 c
 c ... rotacionando os eixos    
@@ -630,14 +639,18 @@ c ... rotacionando os eixos
 c .....................................................................
 c
 c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+              if( carg .eq. 41 ) then
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga hidrostatica
+              elseif ( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
-c ......................................................................
+c .....................................................................
 c
 c ...
               igrau = igrau_face 
@@ -1729,7 +1742,7 @@ c **********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 04/03/2017                                    * 
+c * Data de modificaco : 07/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT17_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -1792,7 +1805,7 @@ c **********************************************************************
       integer nen,nint,nint_face,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(8),face_f(3),n_carg,ddum
+      real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -2297,11 +2310,17 @@ c
 c ...
             carg = load(1,iq(j))
 c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
               if( carg .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+                call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -2316,6 +2335,10 @@ c
 c ... carga normal ao elemento
               if( carg .eq. 41) then
                 call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga hidrostatica
+              elseif( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
@@ -2491,7 +2514,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 28/03/2017                                    *
-c * Data de modificaco : 05/03/2017                                    * 
+c * Data de modificaco : 03/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT18_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos variação das propriedades                   *
@@ -2570,7 +2593,7 @@ c **********************************************************************
       integer nen,nint,nint_face,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(8),face_f(3),n_carg,ddum
+      real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
       integer carg
 c ...
       real*8 u(*),dp(*)
@@ -3201,12 +3224,18 @@ c .....................................................................
 c
 c ...
             carg = load(1,iq(j))
-c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41) then
+c ... forcas qualquer direcao ou normal
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
               if( carg .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+                call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -3219,12 +3248,15 @@ c ... rotacionando os eixos
 c ...................................................................
 c
 c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+              if( carg .eq. 41 ) then
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+              elseif ( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -3373,7 +3405,7 @@ c ======================================================================
 c
 c ======================================================================
 c
-c ... :
+c ...  
 c
 c ......................................................................
   800 continue
@@ -3458,7 +3490,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 05/04/2017                                    * 
+c * Data de modificaco : 07/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT35_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -4539,7 +4571,7 @@ c *********************************************************************
      4                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 16/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 07/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico com propriedades variaveis                   *
@@ -5375,6 +5407,7 @@ c ... carga normal ao elemento
               if( carg .eq. 41 ) then
                 call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga hidrostatica
               elseif ( carg .eq. 42) then 
                 call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
@@ -5646,7 +5679,7 @@ c *********************************************************************
      3                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 05/04/2017                                    * 
+c * Data de modificaco : 07/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -5734,7 +5767,7 @@ c ...
       integer nen,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(8),face_f(3),n_carg,ddum
+      real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
       integer carg
 c ...
       real*8 u(*),p0(*)
@@ -6365,14 +6398,13 @@ c .....................................................................
   405 continue
 c .....................................................................
 c
-c
 c ... forca e fluxo distribuida no contorno
-c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
-c             2 | no 5 6 7 8 13 14 15 16 |
-c             3 | no 1 5 6 2 17 13 18  9 |     
-c             4 | no 4 3 7 8 11 19 15 20 |
-c             5 | no 1 4 8 5 12 20 16 17 |
-c             6 | no 2 6 7 3 18 14 19 10 |
+c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 | normal externa
+c             2 | no 5 6 7 8 13 14 15 16 | normal interna
+c             3 | no 1 5 6 2 17 13 18  9 | normal externa    
+c             4 | no 4 3 7 8 11 19 15 20 | normal externa
+c             5 | no 1 4 8 5 12 20 16 17 | normal externa
+c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
       tp = 0
@@ -6398,11 +6430,17 @@ c
 c ...
             carg = load(1,iq(j))
 c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
               if( carg .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+                call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -6417,6 +6455,10 @@ c
 c ... carga normal ao elemento
               if( carg .eq. 41) then
                 call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga hidrostatica
+              elseif( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
@@ -6653,10 +6695,10 @@ c *********************************************************************
      4                    ,isw      ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 08/04/2017                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 07/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
-c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
-c * poromecanico plastico                                              *
+c * ELMT38_PM: Elemento hexaedricos de 20 nos para problemas           *  
+c * poromecanico plastico com proprieadades variaveis                  *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -6749,7 +6791,7 @@ c ...
       integer nen,lx,ly,lz
       integer iq(*)
 c ...
-      real*8 face_u(8),face_f(3),n_carg,ddum
+      real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
       integer carg
 c ...
       real*8 u(*),p0(*)
@@ -7478,14 +7520,13 @@ c .....................................................................
   405 continue
 c .....................................................................
 c
-c
 c ... forca e fluxo distribuida no contorno
-c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 |
-c             2 | no 5 6 7 8 13 14 15 16 |
-c             3 | no 1 5 6 2 17 13 18  9 |     
-c             4 | no 4 3 7 8 11 19 15 20 |
-c             5 | no 1 4 8 5 12 20 16 17 |
-c             6 | no 2 6 7 3 18 14 19 10 |
+c     iq(1) = 1 | no 1 2 3 4  9 10 11 12 | normal externa
+c             2 | no 5 6 7 8 13 14 15 16 | normal interna
+c             3 | no 1 5 6 2 17 13 18  9 | normal externa    
+c             4 | no 4 3 7 8 11 19 15 20 | normal externa
+c             5 | no 1 4 8 5 12 20 16 17 | normal externa
+c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
       tp = 0
@@ -7511,11 +7552,17 @@ c
 c ...
             carg = load(1,iq(j))
 c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41) then
+            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
 c ... calculo do verto normal externo a face o elemento
               if( carg .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+c ... calculo do verto normal externo a face o elemento e do ponto medio
+c     da face
+              elseif(carg .eq. 42) then
+                call face_normal_vector(xf,face_f,ndm)
+                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
+                call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -7530,6 +7577,10 @@ c
 c ... carga normal ao elemento
               if( carg .eq. 41) then
                 call tload(iq(j),t,face_u,n_carg,ddum) 
+                face_f(1:ndm) = n_carg*face_f(1:ndm)
+c ... carga hidrostatica
+              elseif( carg .eq. 42) then 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
@@ -7573,9 +7624,6 @@ c .....................................................................
 c .....................................................................             
   450         continue
 c .....................................................................
-c
-c ... fluxo 
-            elseif( carg .eq. 42) then
             endif
 c .....................................................................
           endif

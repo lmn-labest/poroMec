@@ -1212,23 +1212,29 @@ c **********************************************************************
       implicit none
       include 'gravity.fi'
       include 'string.fi'      
-      integer ndm,nnode,ndf,nin,i
+      integer ndm,nincl,nnode,ndf,nin,i
+      parameter (nincl = 8)
       real*8 u(ndf,*),x(ndm,*),density,p0,h,scale
-      character*12 string            
-c ......................................................................
+      character*12 string 
+      character*80 fname
+c ... nome do arquivo
       call readmacro(nin,.false.)
+      write(fname,'(80a)') (word(i),i=1,strl)
+      open(nincl, file= fname,status= 'old',err=201,action='read')
+c ......................................................................
+      call readmacro(nincl,.true.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) density
 c ... pressao inicial      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) p0
 c ... datum      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) h
 c ... fator de escala      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) scale
       do i = 1, nnode
@@ -1237,7 +1243,10 @@ c ... fator de escala
       return
 c ......................................................................
   200 continue
-      print*,'*** Erro na leitura das restricoes !'
+      print*,'*** Erro na leitura da funcao init_hydrostatic_pres !'
+      call stop_mef()
+  201 continue
+      print*,'File ',trim(fname),' not found !'
       call stop_mef()
       end
 c **********************************************************************
@@ -1252,27 +1261,35 @@ c **********************************************************************
       implicit none
       include 'gravity.fi'
       include 'string.fi'      
-      integer ndm,nnode,ntn,nin,i
+      integer ndm,nincl,nnode,ntn,nin,i
+      parameter (nincl = 8)
       real*8 tx(ntn,*),x(ndm,*),density,f0,k,h,scale
-      character*12 string            
+      character*12 string 
+      character*80 fname 
 c ......................................................................
+c
+c ... nome do arquivo
       call readmacro(nin,.false.)
+      write(fname,'(80a)') (word(i),i=1,strl)
+      open(nincl, file= fname,status= 'old',err=201,action='read')
+c ... densidade
+      call readmacro(nincl,.true.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) density
 c ... tensao inicial      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) f0
 c ... datum      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) h
 c ...fator multiplicativo entre a tensao vertical e horizontal      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) k
 c ... fator de escala      
-      call readmacro(nin,.false.)
+      call readmacro(nincl,.false.)
       write(string,'(12a)') (word(i),i=1,12)
       read(string,*,err = 200,end = 200) scale
       do i = 1, nnode
@@ -1284,7 +1301,10 @@ c ... fator de escala
       return
 c ......................................................................
   200 continue
-      print*,'*** Erro na leitura das restricoes !'
+      print*,'*** Erro na leitura da funcao init_hydrostatic_stress !'
+      call stop_mef()
+  201 continue
+      print*,'File ',trim(fname),' not found !'
       call stop_mef()
       end
 c **********************************************************************
