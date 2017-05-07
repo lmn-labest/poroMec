@@ -1,0 +1,20 @@
+c **********************************************************************
+c *                                                                    *
+c *    prop = numero de propriedades que variam com a temperatura      *
+c *    nprop (i,j,k) - valor i da propriedade j do material tipo k     *
+c *    eprop (j,k) - numero de termos da propriedade j do material tipo*
+c *                 k                                                  *
+c *    tad   (j,k) - tempo da curva adiabatica                         *
+c *    tempad(j,k) - temperatura da curva adiabatica                   *
+c *                                                                    *
+c **********************************************************************
+      integer prop, maxmate,ntterms,eprop,maxpol,maxprop,read_prop
+      real*8 nprop,tad,tempad
+      parameter (ntterms = 40)
+      parameter (maxpol = 40)
+      parameter (prop = 1000)
+      parameter ( maxmate = 10)
+      parameter ( maxprop = 30)
+      common /termprop / nprop(ntterms,prop, maxmate)
+     .                  ,eprop(prop,maxmate),read_prop(maxmate)
+      common /adiabat  / tad(maxpol,maxmate),tempad(maxpol,maxmate)

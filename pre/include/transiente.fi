@@ -1,0 +1,2 @@
+      real*8  alfa,dt,t
+      common /transi / alfa,dt,t

@@ -1,0 +1,5 @@
+      logical read_parameter
+      integer num_var
+      parameter (num_var = 50)
+      common /read_file /read_parameter(num_var)
+  

@@ -1,0 +1,19 @@
+      integer maxface,maxnoface
+      parameter (maxface   = 6)
+      parameter (maxnoface = 4)
+      integer type_barra2,type_tria3,type_quad4,type_tetra4,type_hexa8
+      integer type_prism6,type_tetra10,type_hexa20
+      parameter (type_barra2   = 1)
+      parameter (type_tria3    = 2)
+      parameter (type_quad4    = 3)
+      parameter (type_tetra4   = 4)
+      parameter (type_hexa8    = 5)
+      parameter (type_prism6   = 6)
+      parameter (type_tetra10  = 7)
+      parameter (type_hexa20   = 8)
+      integer geom_el_type(50)
+      integer nbar2(4),ntria3(4),nquad4(4),ntetra4(4),nhexa8(4)
+     .       ,nprism6(4),nquad8(4),ntetra10(4),nhexa20(4)
+      common /elementos/ nbar2,ntria3,nquad4,ntetra4,nhexa8,nquad8
+     .                  ,nprism6,ntetra10,nhexa20,geom_el_type 
+

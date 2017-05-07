@@ -1,0 +1,17 @@
+c **********************************************************************
+c *                                                                    *
+c *    nload(ndf,nnode) - numero da carga nodal                        *
+c *    load(2,numload)  - load(1,j) = tipo da carga j                  *
+c *                     - load(2,j) = numero de parcelas da carga j    *
+c *    fload(npar,nterms,numload) - definicao das cargas               *
+c *            fload(i,j,k) = parametro i da parcela j da carga k      *
+c *                                                                    *
+c **********************************************************************
+      character*80 name_loads,name_hidrostatic
+      integer load,numload,nterms,npar
+      real*8  fload
+      parameter (numload = 200)
+      parameter (nterms = 10)
+      parameter (npar = 1000)
+      common /load / load(2,numload),fload(npar,nterms,numload)
+     .              ,name_loads(numload),name_hidrostatic(2)

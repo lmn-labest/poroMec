@@ -1,0 +1,3 @@
+      real*8  pg(10,10), wg(10,10)
+      common /gauss/ pg, wg
+

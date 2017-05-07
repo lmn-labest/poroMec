@@ -1,0 +1,4 @@
+      real*8 tcomunica,trmetis,tmetis,tpart,trmesh
+      real*8 getime
+c ......................................................................
+      common /temp/ tcomunica,trmetis,tmetis,tpart,trmesh
