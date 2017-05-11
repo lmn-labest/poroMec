@@ -2334,7 +2334,7 @@ c ...................................................................
 c
 c ... carga normal ao elemento
               if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga hidrostatica
               elseif( carg .eq. 42) then 
@@ -2342,7 +2342,7 @@ c ... carga hidrostatica
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -5453,10 +5453,6 @@ c                 l1  = (no-1)*3+1
 c .....................................................................
   450         continue
 c .....................................................................
-c
-c ... fluxo de massa
-            elseif( carg .eq. 42) then             
-c .....................................................................
             endif
 c .....................................................................
           endif
@@ -6454,7 +6450,7 @@ c ...................................................................
 c
 c ... carga normal ao elemento
               if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga hidrostatica
               elseif( carg .eq. 42) then 
@@ -6462,7 +6458,7 @@ c ... carga hidrostatica
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -7576,7 +7572,7 @@ c ...................................................................
 c
 c ... carga normal ao elemento
               if( carg .eq. 41) then
-                call tload(iq(j),t,face_u,n_carg,ddum) 
+                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga hidrostatica
               elseif( carg .eq. 42) then 
@@ -7584,7 +7580,7 @@ c ... carga hidrostatica
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
               elseif ( carg .eq. 40) then
-                call tload(iq(j),t,face_u,ddum,face_f)
+                call tload(iq(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c

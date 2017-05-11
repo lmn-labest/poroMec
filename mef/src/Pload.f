@@ -78,7 +78,7 @@ c ...
         if(fnno(i) .eq. 1) then
            k = id(ndf,i)
            if (k .gt. 0) then
-             b(k)     = f(ndf,i)
+             b(k)     = -dt*f(ndf,i)
            else
              u(ndf,i) = f(ndf,i)
            endif
