@@ -582,6 +582,9 @@ c
 c *********************************************************************
 c
 c *********************************************************************
+c * Data de criacao    : 00/00/0000                                   *
+c * Data de modificaco : 14/05/2017                                   *
+c * ----------------------------------------------------------------- *      
 c * WRITEMESHGEO: escreve a malha global com carregamento do formato  *
 c * vtk.                                                              *
 c * ----------------------------------------------------------------- *
@@ -592,7 +595,8 @@ c *  x         - coordenadas                                          *
 c * ie         - tipo do elemento                                     *
 c * id         - restricoes mecanico                                  *
 c * nload      - cargas nos nos (mecanico)                            *
-c * eload      - cargas nos elementos (mecanico)                      *
+c * eload      - cargas nos elementos (poro-mecanico-mecanico)        *
+c * eloadp      - cargas nos elementos (poro-mecanico-hidraulico)     *
 c * f          - carregamento mecanicos                               *
 c * u0         - cargas mecanicas iniciais                            *
 c * idt        - restricoes termico                                   *
@@ -616,8 +620,8 @@ c * ----------------------------------------------------------------- *
 c * Parametros de saida :                                             *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
-      subroutine write_mesh_geo(el  ,x     ,ie 
-     1                       ,id  ,nload ,eload 
+      subroutine write_mesh_geo(el  ,x   ,ie 
+     1                       ,id  ,nload ,eload  ,eloadp
      2                       ,f   ,u0    ,tx0
      3                       ,idt ,nloadt,eloadt
      4                       ,ft  ,ut0
@@ -636,7 +640,7 @@ c ... variaveis da malha
 c ... variaveis do problema
 c     mecanico
       integer ndf
-      integer id(ndf,*),nload(ndf,*),eload(*)
+      integer id(ndf,*),nload(ndf,*),eload(*),eloadp(*)
       real*8  f(ndf,*),u0(ndf,*),tx0(*)
 c     termico      
       integer ndft
@@ -674,12 +678,12 @@ c ......................................................................
      4           '               ','               ','               ',
      5           'initialtemp    ','               ','end            '/
 c      
-      data macro2/'elmtthermloads ','elmtloads      ','               ',
-     1           '               ','               ','               ',
-     2           '               ','               ','               ',
-     3           '               ','               ','               ',
-     4           '               ','               ','               ',
-     5           '               ','               ','end            '/
+      data macro2/'elmtthermloads ','elmtloads      ','elmtpresloads ',
+     1            '               ','               ','               ',
+     2            '               ','               ','               ',
+     3            '               ','               ','               ',
+     4            '               ','               ','               ',
+     5            '               ','               ','end            '/
       data nmc /18/
 c ......................................................................
 c
@@ -1205,6 +1209,22 @@ c .....................................................................
 c
 c ...
   501 continue
+c ... gdb graus de liberdade
+c     cod  1 interio(4bytes)
+      write(aux1,'(15a)')"elmtpresloads"
+      gdl =  7   
+      cod =  1
+      if(legacy)then
+        call cell_prop_vtk(eloadp,fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(eloadp,fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif
+      goto 101
+c .....................................................................      
+c
+c ...
   551 continue
   601 continue
   651 continue

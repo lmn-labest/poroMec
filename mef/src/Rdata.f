@@ -1,8 +1,8 @@
-      subroutine rdat_pm(nnode     ,nnodev    ,numel  ,numat
-     1                  ,nen       ,nenv      ,ntn    ,ndf
-     2                  ,ndm       ,nst       ,i_ix   ,i_ie 
-     3                  ,i_inum    ,i_e       ,i_x       
-     4                  ,i_id      ,i_nload   ,i_eload    ,i_f
+      subroutine rdat_pm(nnode     ,nnodev    ,numel      ,numat
+     1                  ,nen       ,nenv      ,ntn        ,ndf
+     2                  ,ndm       ,nst       ,i_ix       ,i_ie 
+     3                  ,i_inum    ,i_e       ,i_x        ,i_id 
+     4                  ,i_nload   ,i_eload   ,i_eloadp   ,i_f
      5                  ,i_u       ,i_u0      ,i_tx0      ,i_dp
      6                  ,i_tx1p    ,i_tx2p    ,i_epsp     ,i_plastic
      7                  ,i_porosity,i_fnno    ,i_elplastic,i_vpropel
@@ -10,7 +10,7 @@
      9                  ,plastic   ,vprop     ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 28/03/2017                                    *
+c * Data de modificaco : 11/05/2017                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -34,7 +34,8 @@ c * i_ix    - ponteiro para conetividades                              *
 c * i_id    - ponteiro para restricoes nodais (poro_mecanico)          *
 c * i_ie    - ponteiro para materiais                                  *
 c * i_nload - ponteiro para o arranjo nload (poro_mecanico)            *
-c * i_eload - ponteiro para o arranjo eload (poro_mecanico)            *
+c * i_eload - ponteiro para o arranjo eload (poro_mecanico-mecanico)   *
+c * i_eloadp- ponteiro para o arranjo eload (poro_mecanico-hidraulico) *
 c * i_inum  - ponteiro para o arranjo inum                             *
 c * i_e     - ponteiro para o arranjo e                                *
 c * i_x     - ponteiro para o arranjo x                                *
@@ -98,7 +99,7 @@ c ......................................................................
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndft,ndm,nst,ntn
       integer maxgrade,iplastic
 c ... ponteiros      
-      integer*8 i_e,i_x,i_f,i_nload,i_eload,i_inum
+      integer*8 i_e,i_x,i_f,i_nload,i_eload,i_eloadp,i_inum
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_epsp,i_plastic,i_dp
       integer*8 i_ix,i_id,i_ie,i_porosity,i_elplastic,i_vpropel
       integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
@@ -119,7 +120,7 @@ c ......................................................................
      .           'hexa20         ','tetra10        ','               ',
      .           'coordinates    ','constrainpmec  ','constraindisp  ',
      .           'nodalforces    ','elmtloads      ','nodalloads     ',
-     .           'hydrostatic    ','hydrostress    ','               ',
+     .           'hydrostatic    ','hydrostress    ','elmtpresloads  ',
      .           'loads          ','               ','               ',
      .           'initialdisp    ','initialpres    ','initialstress  ',
      .           'parallel       ','insert         ','return         ',
@@ -234,12 +235,14 @@ c     ---------------------------------------------------------------
         i_ix    = alloc_4('ix      ',nen+1,numel)
         i_ie    = alloc_4('ie      ',    1,numat)
         i_eload = alloc_4('eload   ',    7,numel)
+        i_eloadp= alloc_4('eloadp  ',    7,numel)
         i_e     = alloc_8('e       ', prop,numat)
         i_x     = alloc_8('x       ',  ndm,nnodev)
         call mzero(ia(i_ix),numel*(nen+1))
         call mzero(ia(i_ie),numat) 
         call azero(ia(i_e),numat*prop)
         call mzero(ia(i_eload),numel*7)
+        call mzero(ia(i_eloadp),numel*7)
         call azero(ia(i_x),nnodev*ndm)        
         if(plastic) then  
           i_elplastic= alloc_4('elplast ',      1,numel)
@@ -316,7 +319,7 @@ c ......................................................................
      .       700, 750, 800,    !hexa20     ,tetra10      ,
      .       850, 900, 950,    !coordinates,             ,constraindisp
      .      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
-     .      1150,1200,1250,    !hydrostatic,             ,
+     .      1150,1200,1250,    !hstaticpres,hstaticstress,elmtpresloads
      .      1300,1350,1400,    !loads      ,             ,
      .      1450,1500,1550,    !initialdisp,             ,initialstress
      .      1600,1650,1700,    !parallel   ,insert       ,return
@@ -625,7 +628,7 @@ c
 c ...
 c
  1150 continue
-      if(my_id .eq. 0) print*,'loading hydrostatic ...'
+      if(my_id .eq. 0) print*,'loading hstaticpres ...'
       call init_hydrostatic_pres(ia(i_x),ia(i_u0)
      .                          ,nnodev,ndf,ndm,nin)
       if(my_id .eq. 0) print*,'done.'
@@ -635,7 +638,7 @@ c
 c ...
 c
  1200 continue
-      if(my_id .eq. 0) print*,'loading hydrostress ...'
+      if(my_id .eq. 0) print*,'loading hstaticstress ...'
       fstress0 = .true. 
       call init_hydrostatic_stress(ia(i_tx0),ia(i_x)
      .                             ,nnodev,ntn,ndm,nin)
@@ -646,6 +649,14 @@ c
 c ...
 c
  1250 continue
+      if(my_id .eq. 0) print*,'loading elmtpresloads ...'
+      if(f_read_el) then
+        call bound(ia(i_eloadp),numel,7,nin,3) 
+      else
+        print*,'MACRO: elmtpresloads !! Unread Elements'
+        call stop_mef()
+      endif
+      if(my_id .eq. 0) print*,'done.'
       go to 100
 c ......................................................................
 c
@@ -1396,7 +1407,6 @@ c *   Leitura das cargas variaveis no tempo                            *
 c *                                                                    *
 c *   Parametros de entrada:                                           *
 c *                                                                    *
-c *    idl(6) - variavel auxuliar                                      *
 c *    nin - arquivo de entrada                                        *
 c *                                                                    *
 c *   Parametros de saida:                                             *
@@ -1409,7 +1419,7 @@ c **********************************************************************
       implicit none
       include 'string.fi'
       include 'load.fi'
-      integer  nin,nincl,i,j,k,l,nc
+      integer  nin,nincl,i,j,k,l,nc,ty
       parameter (nincl = 8)
       character*30 string
       character*80 fname  
@@ -1425,10 +1435,11 @@ c ...    numero da carga:
 c ...    tipo da carga:
          read(string,*,err = 200,end = 200) load(1,i)
          load(2,i) = 1
+         ty =  load(1,i)
 c .....................................................................
 c
 c ...   
-         if     (load(1,i) .eq. 1) then
+         if     (ty .eq. 1) then
 c ...       valor da carga:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1436,7 +1447,7 @@ c ...       valor da carga:
 c .....................................................................
 c
 c ...       u(t) = a.t + b 
-         elseif (load(1,i) .eq. 2) then
+         elseif (ty .eq. 2) then
 c ...       valor de b:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1448,7 +1459,7 @@ c ...       valor de a:
 c .....................................................................
 c
 c ...       -kdu/dx = -H.(u-uext) 
-         elseif (load(1,i) .eq. 3) then
+         elseif (ty .eq. 3) then
 c ...       valor de uext:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1459,7 +1470,7 @@ c ...       valor de H:
             read(string,*,err = 200,end = 200) fload(2,1,i)
 c .....................................................................
 c
-         elseif (load(1,i) .eq. 6) then
+         elseif (ty .eq. 6) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1478,7 +1489,7 @@ c ...       numero de parcelas:
 c .....................................................................
 c
 c ...       kdu/dx = emiss * const(Stef-Boltz) *(u4-uext4)+H(uext-u)
-         elseif (load(1,i) .eq. 7) then
+         elseif (ty .eq. 7) then
 c ...       Emissividade:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1508,7 +1519,7 @@ c ...       valor de uext:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 8) then
+         elseif (ty .eq. 8) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1523,8 +1534,17 @@ c ...       numero de parcelas:
             enddo     
 c .....................................................................
 c
-c ... forca distribuida constante no contorno
-         elseif (load(1,i) .eq. 40) then
+c ... 
+c 39 - valor de uma carga ou deslocamento variavel no tempo
+c 40 - forca distribuida constante no contorno
+c 41 - carga normal constante no contorno 
+c      (F=carga*normal,normal - calculado nivel elemento)
+c 42 - valor por carga hidrostatica      
+c      (f = alfa*(f0 + density*g*(h-x)) )
+c 43 - fluxo normal de massa
+         elseif ( (ty .eq. 39) 
+     .       .or. (ty .eq. 40) .or. (ty .eq. 41) 
+     .       .or. (ty .eq. 42) .or. (ty .eq. 43) ) then
 c ... nome do arquivo            
             call readmacro(nin,.false.)
             write(fname,'(80a)') (word(j),j=1,strl)
@@ -1551,62 +1571,6 @@ c
 c ... 
             close(nincl)   
 c .....................................................................
-c
-c ... carga normal constante no contorno 
-c     (F=carga*normal,normal - calculado nivel elemento)
-         elseif (load(1,i) .eq. 41) then
-c ... nome do arquivo            
-            call readmacro(nin,.false.)
-            write(fname,'(80a)') (word(j),j=1,strl)
-            open(nincl, file= fname,status= 'old',err=201,action='read')
-c ... numero de parcelas
-            call readmacro(nincl,.true.) 
-            write(string,'(30a)') (word(j),j=1,30)
-            read(string,*,err = 200,end = 200) load(2,i)    
-c ... numero de parcelas temporais da carga
-            call readmacro(nincl,.false.) 
-            write(string,'(30a)') (word(j),j=1,30)
-            read(string,*,err = 200,end = 200) load(3,i)
-c ...
-            do l = 1, load(3,i)
-              call readmacro(nincl,.true.)
-              do k = 1, load(2,i)                 
-                 write(string,'(30a)') (word(j),j=1,30)
-                 read(string,*,err = 200,end = 200) fload(l,k,i)
-                 call readmacro(nincl,.false.)
-              enddo
-            enddo 
-c .....................................................................
-c     
-c ... valor por carga hidrostatica      
-c     (f = alfa*(f0 + density*g*(h-x)) )
-        elseif (load(1,i) .eq. 42) then
-c ... nome do arquivo            
-            call readmacro(nin,.false.)
-            write(fname,'(80a)') (word(j),j=1,strl)
-            open(nincl, file= fname,status= 'old',err=201,action='read')
-c ...       numero de parcelas:            
-            call readmacro(nincl,.true.)
-            write(string,'(30a)') (word(j),j=1,30)
-            read(string,*,err = 200,end = 200) load(2,i)
-c ... numero de parcelas temporais da carga
-            call readmacro(nincl,.false.) 
-            write(string,'(30a)') (word(j),j=1,30)
-            read(string,*,err = 200,end = 200) load(3,i)
-c ...
-            do l = 1, load(3,i)
-              call readmacro(nincl,.true.)
-              do k = 1, load(2,i)                 
-                 write(string,'(30a)') (word(j),j=1,30)
-                 read(string,*,err = 200,end = 200) fload(l,k,i)
-                 call readmacro(nincl,.false.)
-              enddo
-            enddo
-c .....................................................................
-c
-c ... 
-            close(nincl)   
-c .....................................................................              
          endif
 c .....................................................................
          call readmacro(nin,.true.)

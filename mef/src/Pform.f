@@ -1,31 +1,33 @@
-      subroutine pform_pm(ix      ,iq         ,ie       ,e
-     1                   ,x       ,id         ,ia       ,ja
-     2                   ,au      ,al         ,ad       ,b
-     3                   ,u0      ,u          ,tx1      ,tx2
-     4                   ,deps    ,dp         ,plastic  ,elplastic
-     5                   ,vpropel 
-     6                   ,xl      ,ul         ,p0l      ,dpl   
-     7                   ,pl      ,sl         ,ld       ,txnl
-     8                   ,tx1l    ,tx2l       ,depsl    ,plasticl 
-     9                   ,vpropell  
-     1                   ,numel   ,nen        ,nenv     ,ndf 
-     2                   ,ndm     ,nst        ,npi      ,ntn
-     3                   ,neq     ,nequ       ,neqp 
-     4                   ,nad     ,nadu       ,nadp     ,nadpu,nadr
-     5                   ,lhs     ,rhs        ,unsym 
-     6                   ,stge    ,isw        ,ilib     ,nlit
-     7                   ,i_colorg,i_elcolor  ,numcolors
-     8                   ,block_pu,n_blocks_pu,fplastic ,vprop)
+      subroutine pform_pm(ix      ,eloads      ,eloadsp
+     1                   ,ie      ,e
+     2                   ,x       ,id         ,ia       ,ja
+     3                   ,au      ,al         ,ad       ,b
+     4                   ,u0      ,u          ,tx1      ,tx2
+     5                   ,deps    ,dp         ,plastic  ,elplastic
+     6                   ,vpropel 
+     7                   ,xl      ,ul         ,p0l      ,dpl   
+     8                   ,pl      ,sl         ,ld       ,txnl
+     9                   ,tx1l    ,tx2l       ,depsl    ,plasticl 
+     1                   ,vpropell  
+     2                   ,numel   ,nen        ,nenv     ,ndf 
+     3                   ,ndm     ,nst        ,npi      ,ntn
+     4                   ,neq     ,nequ       ,neqp 
+     5                   ,nad     ,nadu       ,nadp     ,nadpu,nadr
+     6                   ,lhs     ,rhs        ,unsym 
+     7                   ,stge    ,isw        ,ilib     ,nlit
+     8                   ,i_colorg,i_elcolor  ,numcolors
+     9                   ,block_pu,n_blocks_pu,fplastic ,vprop)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
-c * Data de modificaco : 05/04/2017                                    * 
+c * Data de modificaco : 11/04/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * PFORM_PM:                                                          *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
 c * ix(nen+1,numel) - conetividades nodais                             *
-c * iq(7,numel)     - cargas nos elementos                             *
+c * eloads(7,numel)   - cargas nos elementos mecanico                  *
+c * eloadsp(7,numel)  - cargas nos elementos hidraulico                *
 c * ie(numat)       - tipo de elemento                                 *
 c * e(10,numat)     - constantes fisicas dos materiais                 *
 c * x(ndm,nnode)    - coordenadas nodais                               *
@@ -137,7 +139,8 @@ c **********************************************************************
       integer numel,nen,nenv,ndf,ndm,nst,nadu,nadp,nadpu,nadr
       integer stge,isw,numat,nlit,ntn,npi
       integer neq,nequ,neqp,n_blocks_pu
-      integer ix(nen+1,*),iq(7,*),ie(*),id(ndf,*),ld(nst)
+      integer ix(nen+1,*),eloads(7,*),eloadsp(7,*)
+      integer ie(*),id(ndf,*),ld(nst)
       integer ja(*),elplastic(*)
       integer iel,ma,nel,no,i,j,k,kk,ilib
       integer i_colorg(2,*),i_elcolor(*),numcolors
@@ -173,6 +176,7 @@ c$omp.default(none)
 c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,pl,dpl,el,sl)
 c$omp.private(p0l,tx1l,tx2l,vpropell,depsl,plasticl,txnl,ep)
 c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
+c$omp.shared(eloads,eloadsp)
 c$omp.shared(id,u,u0,ix,dp,tx1,tx2,ie,e,vpropel,block_pu,n_blocks_pu)
 c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,ntn,npi,isw,nst,dt,elplastic)
 c$omp.shared(neq,neqp,nequ,nad,nadu,nadp,nadpu,plastic,fplastic,vprop)
@@ -256,11 +260,12 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-           call elmlib_pm(el   ,iq(1,nel),xl  ,ul      ,p0l
-     1                  ,dpl   ,pl       ,sl  ,tx1l    ,tx2l
-     2                  ,depsl ,plasticl ,vpropell,ep
-     3                  ,ndm   ,nst      ,nel ,iel,isw
-     4                  ,ma    ,nlit     ,ilib,block_pu) 
+           call elmlib_pm(el   ,eloads(1,nel),eloadsp(1,nel)
+     1                  ,xl    ,ul           ,p0l
+     2                  ,dpl   ,pl           ,sl  ,tx1l    ,tx2l
+     3                  ,depsl ,plasticl     ,vpropell,ep
+     4                  ,ndm   ,nst          ,nel ,iel,isw
+     5                  ,ma    ,nlit         ,ilib,block_pu) 
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
@@ -377,11 +382,12 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-          call elmlib_pm(el    ,iq(1,nel),xl   ,ul      ,p0l
-     1                  ,dpl   ,pl       ,sl   ,tx1l    ,tx2l
-     2                  ,depsl ,plasticl ,vpropell,ep
-     3                  ,ndm   ,nst      ,nel  ,iel,isw
-     4                  ,ma    ,nlit     ,ilib ,block_pu)        
+          call elmlib_pm(el    ,eloads(1,nel)  ,eloadsp(1,nel)
+     1                  ,xl    ,ul       ,p0l
+     2                  ,dpl   ,pl       ,sl   ,tx1l    ,tx2l
+     3                  ,depsl ,plasticl ,vpropell,ep
+     4                  ,ndm   ,nst      ,nel  ,iel,isw
+     5                  ,ma    ,nlit     ,ilib ,block_pu)        
 c ......................................................................
 c
 c ... plasticidade armazena nos arranjos globais
@@ -611,11 +617,12 @@ c ...... form element array
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum,xl  ,ul  ,ddum
-     1                ,dpl ,pl  ,ddum,tx1l,tx1l 
-     2                ,ddum,ddum,vpropel  ,idum
-     3                ,ndm ,nst ,nel,iel,isw 
-     4                ,ma  ,idum,ilib,ldum)
+        call elmlib_pm(el  ,idum,idum
+     1                ,xl  ,ul  ,ddum
+     2                ,dpl ,pl  ,ddum,tx1l,tx1l 
+     3                ,ddum,ddum,vpropel  ,idum
+     4                ,ndm ,nst ,nel,iel,isw 
+     5                ,ma  ,idum,ilib,ldum)
 c ......................................................................
 c
 c ...... media do vetor global
@@ -680,7 +687,7 @@ c **********************************************************************
      8                   ,block_pu ,plastic)
 c **********************************************************************
 c * Data de criacao    : 26/12/2015                                    *
-c * Data de modificaco : 17/01/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * INITIAL_STRESS: calculo da influencia das tensoes iniciais         *
 c * ------------------------------------------------------------------ *
@@ -797,11 +804,12 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum     ,xl   ,ul  ,ddum
-     1                ,dpl ,pl       ,ddum ,txnl,tx1l  
-     2                ,ddum,ddum     ,ddum ,idum
-     2                ,ndm ,nst ,nel ,iel ,5
-     3                ,ma  ,idum     ,ilib,block_pu)        
+        call elmlib_pm(el  ,idum     ,idum  
+     1                ,xl  ,ul       ,ddum
+     2                ,dpl ,pl       ,ddum ,txnl,tx1l  
+     3                ,ddum,ddum     ,ddum ,idum
+     4                ,ndm ,nst ,nel ,iel ,5
+     5                ,ma  ,idum     ,ilib,block_pu)        
 c ......................................................................
 
 c ... atualiza as tensoes no pontos de integracao: plastico
@@ -838,9 +846,9 @@ c **********************************************************************
      7                   ,ilib)
 c **********************************************************************
 c * Data de criacao    : 24/02/2017                                    *
-c * Data de modificaco : 28/03/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
-c * INITIAL_STRESS: calculo da influencia das tensoes iniciais         *
+c * INITIAL_PC0: calculo da influencia das tensoes iniciais            *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
@@ -935,11 +943,12 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum     ,xl   ,ul  ,ddum
-     1                ,ddum,ddum     ,ddum ,txnl,ddum  
-     2                ,ddum,plasticl ,ddum ,idum
-     2                ,ndm ,nst ,nel ,iel  ,9
-     3                ,ma  ,idum     ,ilib ,ldum)        
+        call elmlib_pm(el  ,idum     ,idum 
+     1                ,xl  ,ul       ,ddum
+     2                ,ddum,ddum     ,ddum ,txnl,ddum  
+     3                ,ddum,plasticl ,ddum ,idum
+     4                ,ndm ,nst ,nel ,iel  ,9
+     5                ,ma  ,idum     ,ilib ,ldum)        
 c ......................................................................
 
 c ... atualiza as tensoes no pontos de integracao: plastico
@@ -967,7 +976,7 @@ c **********************************************************************
      7                   ,fplastic,vprop)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 28/03/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * POROSITY : calculo da porosidade                                   *
 c * ------------------------------------------------------------------ * 
@@ -1120,11 +1129,12 @@ c ......................................................................
 c
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
-     1                ,ddum,pl      ,ddum     ,ddum,ddum
-     2                ,ddum,plasticl,vpropell ,idum
-     2                ,ndm ,nst     ,nel      ,iel ,isw
-     3                ,ma  ,idum    ,ilib     ,ldum)
+        call elmlib_pm(el  ,idum    ,idum 
+     1                ,xl  ,ul      ,ddum
+     2                ,ddum,pl      ,ddum     ,ddum,ddum
+     3                ,ddum,plasticl,vpropell ,idum
+     4                ,ndm ,nst     ,nel      ,iel ,isw
+     5                ,ma  ,idum    ,ilib     ,ldum)
 c ......................................................................
 c
 c ...... media do vetor global
@@ -1171,7 +1181,7 @@ c **********************************************************************
      5                      ,isw   ,ilib ,fplastic,vprop ,up_porosity)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 09/04/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * POROSITY : calculo da porosidade                                   *
 c * ------------------------------------------------------------------ * 
@@ -1295,11 +1305,12 @@ c ......................................................................
 c
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,idum    ,xl  ,ul  ,ddum
-     1                ,ddum,ddum    ,ddum,ddum,ddum
-     2                ,ddum,plasticl,vpropell,idum
-     2                ,ndm ,nst     ,nel ,iel ,isw
-     3                ,ma  ,idum    ,ilib,ldum)
+        call elmlib_pm(el  ,idum    ,idum 
+     1                ,xl  ,ul      ,ddum
+     2                ,ddum,ddum    ,ddum,ddum,ddum
+     3                ,ddum,plasticl,vpropell,idum
+     4                ,ndm ,nst     ,nel ,iel ,isw
+     5                ,ma  ,idum    ,ilib,ldum)
 c ......................................................................
 c
 c ... propriedade variavel 
@@ -1335,7 +1346,7 @@ c **********************************************************************
      3                         ,ndm     ,ndf  ,i_xfi   ,novlp)
 c **********************************************************************
 c * Data de criacao    : 26/09/2016                                    *
-c * Data de modificaco : 24/01/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * DELTA_PORISITY: calculo da porosidade                              *
 c * ------------------------------------------------------------------ * 
@@ -1425,7 +1436,7 @@ c **********************************************************************
      2                       ,vprop)
 c **********************************************************************
 c * Data de criacao    : 28/02/2017                                    *
-c * Data de modificaco : 05/04/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * DELTA_PORISITY: calculo da porosidade                              *
 c * ------------------------------------------------------------------ * 
@@ -1571,7 +1582,7 @@ c **********************************************************************
      5                         ,isw     ,ilib ,i_xfi   ,novlp)
 c **********************************************************************
 c * Data de criacao    : 24/01/2017                                    *
-c * Data de modificaco : 28/03/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * CONSILADATION_PRESURE:  da porosidade                              *
 c * ------------------------------------------------------------------ * 
@@ -1665,11 +1676,12 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(ddum,idum    ,ddum,ddum,ddum
-     1                ,ddum,pl      ,ddum,ddum,ddum
-     2                ,ddum,plasticl,ddum,idum
-     3                ,ndm ,nst     ,nel  ,iel,isw
-     4                ,ma  ,idum    ,ilib,ldum)
+        call elmlib_pm(ddum,idum    ,idum
+     1                ,ddum,ddum    ,ddum
+     2                ,ddum,pl      ,ddum,ddum,ddum
+     3                ,ddum,plasticl,ddum,idum
+     4                ,ndm ,nst     ,nel  ,iel,isw
+     5                ,ma  ,idum    ,ilib,ldum)
 c ......................................................................
 c
 c ...... media do vetor global
@@ -1705,7 +1717,7 @@ c **********************************************************************
      4                         ,my_id,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 28/03/2017                                    * 
+c * Data de modificaco : 11/05/2017                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
 c * do SQRM                                                            *

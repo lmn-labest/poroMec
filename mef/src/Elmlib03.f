@@ -56,11 +56,11 @@ c * ELMT38_PM - hexaedros de 20 nos para o problema poro mecanico     *
 c * plastico com variacoes das propriedades                           *
 c *                                                                   *
 c *********************************************************************  
-      subroutine elmt15_pm(e,iq,x,u,dp,p,s,txn,ndm,nst,nel,isw
+      subroutine elmt15_pm(e,iqm,iqh,x,u,dp,p,s,txn,ndm,nst,nel,isw
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 07/05/2017                                    * 
+c * Data de modificaco : 15/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT15_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -75,6 +75,8 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
@@ -121,12 +123,12 @@ c **********************************************************************
       real*8  div6         
       parameter ( div6 = 0.166666666666667d0)
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,tpm,tph
       integer nen,nint,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(3),face_f(3),n_carg,ddum,mp(3)
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),dp(*)
       real*8 p(*),s(nst,*)
@@ -596,38 +598,41 @@ c             2 | no 1 4 3  7  9  6 |
 c             3 | no 1 2 4  5 10  7 |     
 c             4 | no 1 3 2  6  8  5 |
 c ... verifica se ha alguma face com carga      
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 4
-        tp  = tp + iq(i)
+        tpm  = tpm + iqm(i)
+        tph  = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...      
-      if( tp .gt. 0 ) then
+      if( tpm.gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 4
 c ... face  
-          if(iq(j) .gt. 0 ) then
+           if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
-            do 445 i = 1, 3
-              no       = tetra_face_node10(i,j)
-              xf(1,i) = x(1,no) 
-              xf(2,i) = x(2,no) 
-              xf(3,i) = x(3,no)
-  445      continue
+             do 445 i = 1, 3
+               no       = tetra_face_node10(i,j)
+               xf(1,i) = x(1,no) 
+               xf(2,i) = x(2,no) 
+               xf(3,i) = x(3,no)
+  445       continue
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
                 call face_normal_vector(xf,face_f,ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                call face_ponto_medio(xf,mp,ndm,3)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,3)
               endif
 c .....................................................................
 c
@@ -638,17 +643,13 @@ c ... rotacionando os eixos
               call rotate(xf(1,3),r,xf(1,3),.false.)
 c .....................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41 ) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-c ... carga hidrostatica
-              elseif ( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42 ) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
 c .....................................................................
 c
@@ -688,9 +689,52 @@ c                 l1  = (no-1)*3+1
 c .....................................................................
   450         continue
 c .....................................................................
+            endif
+c .....................................................................
 c
-c ... fluxo 
-            elseif( carg .eq. 42) then
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos    
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...          
+              igrau = igrau_face 
+              nint = npint(igrau)
+              do 485 lx = 1, nint
+                ri = pri(lx,igrau)
+                si = psi(lx,igrau)
+c ...                                 
+                call sftria3(hp,hpx,hpy,ri,si,.true.,.true.)
+                call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,3,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                w   = wf(lx,igrau)*det
+                w   = 0.5d0*w*dt*n_carg 
+c .....................................................................
+c
+c ...
+                do 490 i = 1, 3
+                  no  = tetra_face_node10(i,j)
+c                   l1  = (no-1)*3+1
+                  wt1   = hp(i)*w
+                  l1    = 30 + no                       
+                  p(l1) = p(l1) - wt1
+  490           continue
+c .....................................................................
+  485         continue
+c .....................................................................
+  480         continue
+c .....................................................................
             endif
 c .....................................................................
           endif
@@ -809,11 +853,12 @@ c .....................................................................
       return
       end
 c *********************************************************************
-      subroutine elmt16_pm(e,iq,x,u,dp,p,s,txn,vpropel,ndm,nst,nel,isw
-     .                    ,block_pu)
+      subroutine elmt16_pm(e,iqm,iqh,x,u,dp,p,s,txn,vpropel
+     1                    ,ndm,nst,nel,isw
+     2                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 26/04/2017                                    * 
+c * Data de modificaco : 15/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT16_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos   variação das propriedades                 *
@@ -829,6 +874,8 @@ c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
 c *           e(8) = porosidade inicial                                *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
@@ -888,12 +935,12 @@ c **********************************************************************
       real*8  div6         
       parameter ( div6 = 0.166666666666667d0)
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,tpm,tph
       integer nen,nint,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(3),face_f(3),n_carg,ddum,mp(3)
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),dp(*)
       real*8 p(*),s(nst,*)
@@ -1468,38 +1515,41 @@ c             2 | no 1 4 3  7  9  6 |
 c             3 | no 1 2 4  5 10  7 |     
 c             4 | no 1 3 2  6  8  5 |
 c ... verifica se ha alguma face com carga      
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 4
-        tp  = tp + iq(i)
+        tpm  = tpm + iqm(i)
+        tph  = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...      
-      if( tp .gt. 0 ) then
+      if( tpm.gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 4
 c ... face  
-          if(iq(j) .gt. 0 ) then
+           if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
-            do 445 i = 1, 3
-              no       = tetra_face_node10(i,j)
-              xf(1,i) = x(1,no) 
-              xf(2,i) = x(2,no) 
-              xf(3,i) = x(3,no)
-  445      continue
+             do 445 i = 1, 3
+               no       = tetra_face_node10(i,j)
+               xf(1,i) = x(1,no) 
+               xf(2,i) = x(2,no) 
+               xf(3,i) = x(3,no)
+  445       continue
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
                 call face_normal_vector(xf,face_f,ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                call face_ponto_medio(xf,mp,ndm,3)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,3)
               endif
 c .....................................................................
 c
@@ -1510,18 +1560,15 @@ c ... rotacionando os eixos
               call rotate(xf(1,3),r,xf(1,3),.false.)
 c .....................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41 ) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-              elseif ( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42 ) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
-c ......................................................................
+c .....................................................................
 c
 c ...
               igrau = igrau_face 
@@ -1558,6 +1605,52 @@ c                 l1  = (no-1)*3+1
   455           continue
 c .....................................................................
   450         continue
+c .....................................................................
+            endif
+c .....................................................................
+c
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos    
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...          
+              igrau = igrau_face 
+              nint = npint(igrau)
+              do 485 lx = 1, nint
+                ri = pri(lx,igrau)
+                si = psi(lx,igrau)
+c ...                                 
+                call sftria3(hp,hpx,hpy,ri,si,.true.,.true.)
+                call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,3,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                w   = wf(lx,igrau)*det
+                w   = 0.5d0*w*dt*n_carg 
+c .....................................................................
+c
+c ...
+                do 490 i = 1, 3
+                  no  = tetra_face_node10(i,j)
+c                   l1  = (no-1)*3+1
+                  wt1   = hp(i)*w
+                  l1    = 30 + no                       
+                  p(l1) = p(l1) - wt1
+  490           continue
+c .....................................................................
+  485         continue
+c .....................................................................
+  480         continue
 c .....................................................................
             endif
 c .....................................................................
@@ -1738,11 +1831,11 @@ c ======================================================================
 c **********************************************************************
 c
 c **********************************************************************
-      subroutine elmt17_pm(e,iq,x,u,dp,p,s,txn,ndm,nst,nel,isw
+      subroutine elmt17_pm(e,iqm,iqh,x,u,dp,p,s,txn,ndm,nst,nel,isw
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 07/05/2017                                    * 
+c * Data de modificaco : 13/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT17_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -1757,6 +1850,8 @@ c *           e(4) = modulo de Biot                                    *
 c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
@@ -1801,12 +1896,12 @@ c **********************************************************************
       include 'load.fi'
       common /gauss/ pg, wg
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tpm,tph,tp,tp1
       integer nen,nint,nint_face,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),dp(*)
       real*8 p(*),s(nst,*)
@@ -2287,17 +2382,19 @@ c             5 | no 1 4 8 5 12 20 16 17 | normal externa
 c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 6
-        tp    = tp + iq(i)
+        tpm    = tpm + iqm(i)
+        tph    = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...
-      if( tp .gt. 0 ) then
+      if( tpm.gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 6
 c ... face 
-          if(iq(j) .gt. 0 ) then
+          if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
             do 445 i = 1, 4
               no       = hexa_face_node20(i,j)
@@ -2308,19 +2405,19 @@ c ...
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
-                call face_ponto_medio(xf,mp,ndm,4)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -2332,17 +2429,13 @@ c ... rotacionando os eixos
               call rotate(xf(1,4),r,xf(1,4),.false.)
 c ...................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-c ... carga hidrostatica
-              elseif( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -2379,8 +2472,54 @@ c                   l1  = (no-1)*3+1
   460             continue
 c .....................................................................
   455           continue
-c .....................................................................             
+c .....................................................................
   450         continue
+c .....................................................................
+            endif
+c .....................................................................
+c
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos 
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+              call rotate(xf(1,4),r,xf(1,4),.false.)
+c ...................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...              
+              do 480 ly = 1, nint_face
+                si = pg(ly,nint_face)
+                do 485 lx = 1, nint_face
+                  ri = pg(lx,nint_face)
+c ...                                               
+                  call sfquad4_m(hp,hpx,hpy,ri,si,.true.,.true.)
+                  call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,4,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                  w = wg(lx,nint_face)*wg(ly,nint_face)*det
+                  w = w*dt*n_carg  
+c .....................................................................
+c
+c ...
+                  do 490 i = 1, 4
+                    no  = hexa_face_node20(i,j)
+c                   l1  = (no-1)*3+1
+                    wt1   = hp(i)*w
+                    l1    = 60 + no                       
+                    p(l1) = p(l1) - wt1
+  490             continue
+c .....................................................................
+  485           continue
+c .....................................................................
+  480         continue
 c .....................................................................
             endif
 c .....................................................................
@@ -2390,7 +2529,7 @@ c .....................................................................
 c .....................................................................
       endif
 c .....................................................................
-c
+c     
 c ... bloco Fp = -Fp
       if(block_pu) then
         p(61:nst) =-p(61:nst)
@@ -2510,11 +2649,11 @@ c ======================================================================
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine elmt18_pm(e,iq,x,u,dp,p,s,txn,vpropel,ndm,nst,nel,isw
-     .                    ,block_pu)
+      subroutine elmt18_pm(e,iqm,iqh,x,u,dp,p,s,txn,vpropel,ndm,nst,nel
+     .                    ,isw,block_pu)
 c **********************************************************************
 c * Data de criacao    : 28/03/2017                                    *
-c * Data de modificaco : 03/05/2017                                    * 
+c * Data de modificaco : 13/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT18_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico elasticos variação das propriedades                   *
@@ -2530,6 +2669,8 @@ c *           e(5) = coeficiente de Biot                               *
 c *           e(6) = massa especifica homogenizada do meio poroso      *
 c *           e(7) = massa especifica do fluido                        *
 c *           e(8) = porosidade inicial                                *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * dp(*)      - delta p ( p(n  ,0  ) - p(0) )                         *
@@ -2589,12 +2730,12 @@ c **********************************************************************
       include 'load.fi'
       common /gauss/ pg, wg
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,inpi
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tpm,tph,tp1,inpi
       integer nen,nint,nint_face,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),dp(*)
       real*8 p(*),s(nst,*)
@@ -3202,17 +3343,19 @@ c             5 | no 1 4 8 5 12 20 16 17 | normal externa
 c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 6
-        tp    = tp + iq(i)
+        tpm    = tpm + iqm(i)
+        tph    = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...
-      if( tp .gt. 0 ) then
+      if( tpm.gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 6
 c ... face 
-          if(iq(j) .gt. 0 ) then
+          if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
             do 445 i = 1, 4
               no       = hexa_face_node20(i,j)
@@ -3223,19 +3366,19 @@ c ...
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
-c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
+c ... forcas
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
-                call face_ponto_medio(xf,mp,ndm,4)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -3247,16 +3390,13 @@ c ... rotacionando os eixos
               call rotate(xf(1,4),r,xf(1,4),.false.)
 c ...................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41 ) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-              elseif ( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -3293,8 +3433,54 @@ c                   l1  = (no-1)*3+1
   460             continue
 c .....................................................................
   455           continue
-c .....................................................................             
+c .....................................................................
   450         continue
+c .....................................................................
+            endif
+c .....................................................................
+c
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos 
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+              call rotate(xf(1,4),r,xf(1,4),.false.)
+c ...................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...              
+              do 480 ly = 1, nint_face
+                si = pg(ly,nint_face)
+                do 485 lx = 1, nint_face
+                  ri = pg(lx,nint_face)
+c ...                                               
+                  call sfquad4_m(hp,hpx,hpy,ri,si,.true.,.true.)
+                  call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,4,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                  w = wg(lx,nint_face)*wg(ly,nint_face)*det
+                  w = w*dt*n_carg  
+c .....................................................................
+c
+c ...
+                  do 490 i = 1, 4
+                    no  = hexa_face_node20(i,j)
+c                   l1  = (no-1)*3+1
+                    wt1   = hp(i)*w
+                    l1    = 60 + no                       
+                    p(l1) = p(l1) - wt1
+  490             continue
+c .....................................................................
+  485           continue
+c .....................................................................
+  480         continue
 c .....................................................................
             endif
 c .....................................................................
@@ -3304,7 +3490,7 @@ c .....................................................................
 c .....................................................................
       endif
 c .....................................................................
-c
+c     
 c ... bloco Fp = -Fp
       if(block_pu) then
         p(61:nst) =-p(61:nst)
@@ -3484,13 +3670,14 @@ c ======================================================================
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine elmt35_pm(e       ,iq       ,x       ,u    ,p0      
-     1                    ,p       ,s        ,tx0     ,tx   ,depsi
-     2                    ,vplastic,elplastic,ndm     ,nst  ,nel
-     3                    ,isw     ,block_pu ,nlit)
+      subroutine elmt35_pm(e       ,iqm      ,iqh   
+     1                    ,x       ,u        ,p0      
+     2                    ,p       ,s        ,tx0     ,tx   ,depsi
+     3                    ,vplastic,elplastic,ndm     ,nst  ,nel
+     4                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 07/05/2017                                    * 
+c * Data de modificaco : 15/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT35_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -3511,6 +3698,8 @@ c*                   compression)                                      *
 c *          e(10) = k plastico (camclay - the slope of a swelling)    *
 c *          e(11) = inclinacao do estado critico                      *
 c *          e(12) = pressao de consolidacao inicial                   *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * p0(*)      - poropressao do passo de tempo anterior                *
@@ -3572,13 +3761,13 @@ c **********************************************************************
       real*8  div6         
       parameter ( div6 = 0.166666666666667d0)
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,tpm,tph
       integer nen,nint,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(3),face_f(3),n_carg,mp(3)
       real*8 ddum
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),p0(*)
       real*8 p(*),s(nst,*)
@@ -4287,38 +4476,41 @@ c             2 | no 1 4 3  7  9  6 |
 c             3 | no 1 2 4  5 10  7 |     
 c             4 | no 1 3 2  6  8  5 |
 c ... verifica se ha alguma face com carga      
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 4
-        tp  = tp + iq(i)
+        tpm  = tpm + iqm(i)
+        tph  = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...      
-      if( tp .gt. 0 ) then
+      if( tpm.gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 4
 c ... face  
-          if(iq(j) .gt. 0 ) then
+           if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
-            do 445 i = 1, 3
-              no       = tetra_face_node10(i,j)
-              xf(1,i) = x(1,no) 
-              xf(2,i) = x(2,no) 
-              xf(3,i) = x(3,no)
+             do 445 i = 1, 3
+               no       = tetra_face_node10(i,j)
+               xf(1,i) = x(1,no) 
+               xf(2,i) = x(2,no) 
+               xf(3,i) = x(3,no)
   445       continue
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
                 call face_normal_vector(xf,face_f,ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                call face_ponto_medio(xf,mp,ndm,3)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,3)
               endif
 c .....................................................................
 c
@@ -4329,18 +4521,15 @@ c ... rotacionando os eixos
               call rotate(xf(1,3),r,xf(1,3),.false.)
 c .....................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41 ) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-              elseif ( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42 ) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
-c ......................................................................
+c .....................................................................
 c
 c ...
               igrau = igrau_face 
@@ -4378,9 +4567,51 @@ c                 l1  = (no-1)*3+1
 c .....................................................................
   450         continue
 c .....................................................................
+            endif
+c .....................................................................
 c
-c ... fluxo de massa
-            elseif( carg .eq. 42) then             
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos    
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...          
+              igrau = igrau_face 
+              nint = npint(igrau)
+              do 485 lx = 1, nint
+                ri = pri(lx,igrau)
+                si = psi(lx,igrau)
+c ...                                 
+                call sftria3(hp,hpx,hpy,ri,si,.true.,.true.)
+                call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,3,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                w   = wf(lx,igrau)*det
+                w   = 0.5d0*w*dt*n_carg 
+c .....................................................................
+c
+c ...
+                do 490 i = 1, 3
+                  no  = tetra_face_node10(i,j)
+c                   l1  = (no-1)*3+1
+                  wt1   = hp(i)*w
+                  l1    = 30 + no                       
+                  p(l1) = p(l1) - wt1
+  490           continue
+c .....................................................................
+  485         continue
+c .....................................................................
+  480         continue
 c .....................................................................
             endif
 c .....................................................................
@@ -4564,14 +4795,15 @@ c =====================================================================
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine elmt36_pm(e       ,iq       ,x       ,u    ,p0      
-     1                    ,p       ,s        ,tx0     ,tx   ,depsi
-     2                    ,vplastic,vpropel  ,elplastic
-     3                    ,ndm     ,nst      ,nel
-     4                    ,isw     ,block_pu ,nlit)
+      subroutine elmt36_pm(e       ,iqm      ,iqh  
+     1                    ,x       ,u        ,p0      
+     2                    ,p       ,s        ,tx0     ,tx   ,depsi
+     3                    ,vplastic,vpropel  ,elplastic
+     4                    ,ndm     ,nst      ,nel
+     5                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 16/04/2016                                    *
-c * Data de modificaco : 07/05/2017                                    * 
+c * Data de modificaco : 15/05/2017                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico com propriedades variaveis                   *
@@ -4592,6 +4824,8 @@ c*                   compression)                                      *
 c *          e(10) = k plastico (camclay - the slope of a swelling)    *
 c *          e(11) = inclinacao do estado critico                      *
 c *          e(12) = pressao de consolidacao inicial                   *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * p0(*)      - poropressao do passo de tempo anterior                *
@@ -4662,13 +4896,13 @@ c **********************************************************************
       real*8  div6         
       parameter ( div6 = 0.166666666666667d0)
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,tpm,tph
       integer nen,nint,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(3),face_f(3),n_carg,mp(3)
       real*8 ddum
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),p0(*)
       real*8 p(*),s(nst,*)
@@ -5361,38 +5595,41 @@ c             2 | no 1 4 3  7  9  6 |
 c             3 | no 1 2 4  5 10  7 |     
 c             4 | no 1 3 2  6  8  5 |
 c ... verifica se ha alguma face com carga      
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 4
-        tp  = tp + iq(i)
+        tpm  = tpm + iqm(i)
+        tph  = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...      
-      if( tp .gt. 0 ) then
+      if( tpm.gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 4
 c ... face  
-          if(iq(j) .gt. 0 ) then
+           if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
-            do 445 i = 1, 3
-              no       = tetra_face_node10(i,j)
-              xf(1,i) = x(1,no) 
-              xf(2,i) = x(2,no) 
-              xf(3,i) = x(3,no)
-  445      continue
+             do 445 i = 1, 3
+               no       = tetra_face_node10(i,j)
+               xf(1,i) = x(1,no) 
+               xf(2,i) = x(2,no) 
+               xf(3,i) = x(3,no)
+  445       continue
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas qualquer direcao ou normal
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
                 call face_normal_vector(xf,face_f,ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                call face_ponto_medio(xf,mp,ndm,3)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,3)
               endif
 c .....................................................................
 c
@@ -5403,19 +5640,15 @@ c ... rotacionando os eixos
               call rotate(xf(1,3),r,xf(1,3),.false.)
 c .....................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41 ) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-c ... carga hidrostatica
-              elseif ( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42 ) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
-c ......................................................................
+c .....................................................................
 c
 c ...
               igrau = igrau_face 
@@ -5452,6 +5685,52 @@ c                 l1  = (no-1)*3+1
   455           continue
 c .....................................................................
   450         continue
+c .....................................................................
+            endif
+c .....................................................................
+c
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos    
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+c .....................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...          
+              igrau = igrau_face 
+              nint = npint(igrau)
+              do 485 lx = 1, nint
+                ri = pri(lx,igrau)
+                si = psi(lx,igrau)
+c ...                                 
+                call sftria3(hp,hpx,hpy,ri,si,.true.,.true.)
+                call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,3,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                w   = wf(lx,igrau)*det
+                w   = 0.5d0*w*dt*n_carg 
+c .....................................................................
+c
+c ...
+                do 490 i = 1, 3
+                  no  = tetra_face_node10(i,j)
+c                   l1  = (no-1)*3+1
+                  wt1   = hp(i)*w
+                  l1    = 30 + no                       
+                  p(l1) = p(l1) - wt1
+  490           continue
+c .....................................................................
+  485         continue
+c .....................................................................
+  480         continue
 c .....................................................................
             endif
 c .....................................................................
@@ -5669,13 +5948,14 @@ c ======================================================================
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine elmt37_pm(e    ,iq      ,x       ,u    ,p0      
-     1                    ,p    ,s       ,tx0     ,tx   ,depsi
-     2                    ,vplastic,elplastic,ndm ,nst  ,nel
-     3                    ,isw     ,block_pu ,nlit)
+      subroutine elmt37_pm(e    ,iqm,iqh      
+     1                    ,x    ,u ,p0      
+     2                    ,p    ,s ,tx0      ,tx  ,depsi
+     3                    ,vplastic,elplastic,ndm ,nst  ,nel
+     4                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 10/12/2015                                    *
-c * Data de modificaco : 07/05/2017                                    * 
+c * Data de modificaco : 13/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT37_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico                                              *
@@ -5696,6 +5976,8 @@ c*                   compression)                                      *
 c *          e(10) = k plastico (camclay - the slope of a swelling)    *
 c *          e(11) = inclinacao do estado critico                      *
 c *          e(12) = pressao de consolidacao inicial                   *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * p0(*)      - poropressao do passo de tempo anterior                *
@@ -5759,12 +6041,12 @@ c **********************************************************************
       integer nint,nint_face
 c ...
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,inpi
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tpm,tph,tp,tp1,inpi
       integer nen,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),p0(*)
       real*8 p(*),s(nst,*)
@@ -6403,17 +6685,19 @@ c             5 | no 1 4 8 5 12 20 16 17 | normal externa
 c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 6
-        tp    = tp + iq(i)
+        tpm    = tpm + iqm(i)
+        tph    = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...
-      if( tp .gt. 0 ) then
+      if( tpm .gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 6
 c ... face 
-          if(iq(j) .gt. 0 ) then
+          if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
             do 445 i = 1, 4
               no       = hexa_face_node20(i,j)
@@ -6424,19 +6708,19 @@ c ...
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
-                call face_ponto_medio(xf,mp,ndm,4)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -6448,17 +6732,13 @@ c ... rotacionando os eixos
               call rotate(xf(1,4),r,xf(1,4),.false.)
 c ...................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-c ... carga hidrostatica
-              elseif( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -6483,9 +6763,9 @@ c .....................................................................
 c
 c ...
                   do 460 i = 1, 8
-                    no    = hexa_face_node20(i,j)
+                    no  = hexa_face_node20(i,j)
 c                   l1  = (no-1)*3+1
-                    wt1   = hu(i)*w
+                    wt1 = hu(i)*w
                     l1    = 3*no-2
                     l2    = l1 + 1
                     l3    = l2 + 1
@@ -6495,12 +6775,55 @@ c                   l1  = (no-1)*3+1
   460             continue
 c .....................................................................
   455           continue
-c .....................................................................             
+c .....................................................................
   450         continue
 c .....................................................................
+            endif
+c .....................................................................
 c
-c ... fluxo 
-            elseif( carg .eq. 42) then
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos 
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+              call rotate(xf(1,4),r,xf(1,4),.false.)
+c ...................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...              
+              do 480 ly = 1, nint_face
+                si = pg(ly,nint_face)
+                do 485 lx = 1, nint_face
+                  ri = pg(lx,nint_face)
+c ...                                               
+                  call sfquad4_m(hp,hpx,hpy,ri,si,.true.,.true.)
+                  call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,4,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                  w = wg(lx,nint_face)*wg(ly,nint_face)*det
+                  w = w*dt*n_carg  
+c .....................................................................
+c
+c ...
+                  do 490 i = 1, 4
+                    no  = hexa_face_node20(i,j)
+c                   l1  = (no-1)*3+1
+                    wt1   = hp(i)*w
+                    l1    = 60 + no                       
+                    p(l1) = p(l1) - wt1
+  490             continue
+c .....................................................................
+  485           continue
+c .....................................................................
+  480         continue
+c .....................................................................
             endif
 c .....................................................................
           endif
@@ -6509,7 +6832,7 @@ c .....................................................................
 c .....................................................................
       endif
 c .....................................................................
-c
+c     
 c ... bloco Fp = -Fp
       if(block_pu) then
         p(61:nst) =-p(61:nst)
@@ -6684,14 +7007,15 @@ c ======================================================================
 c *********************************************************************
 c
 c *********************************************************************
-      subroutine elmt38_pm(e        ,iq      ,x       ,u    ,p0      
-     1                    ,p        ,s       ,tx0     ,tx   ,depsi
-     2                    ,vplastic ,vpropel ,elplastic
-     3                    ,ndm ,nst ,nel
-     4                    ,isw      ,block_pu ,nlit)
+      subroutine elmt38_pm(e        ,iqm     ,iqh
+     1                    ,x        ,u       ,p0      
+     2                    ,p        ,s       ,tx0     ,tx   ,depsi
+     3                    ,vplastic ,vpropel ,elplastic
+     4                    ,ndm ,nst ,nel
+     5                    ,isw      ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 08/04/2017                                    *
-c * Data de modificaco : 07/05/2017                                    * 
+c * Data de modificaco : 14/05/2017                                    * 
 c * ------------------------------------------------------------------ *       
 c * ELMT38_PM: Elemento hexaedricos de 20 nos para problemas           *  
 c * poromecanico plastico com proprieadades variaveis                  *
@@ -6712,6 +7036,8 @@ c*                   compression)                                      *
 c *          e(10) = k plastico (camclay - the slope of a swelling)    *
 c *          e(11) = inclinacao do estado critico                      *
 c *          e(12) = pressao de consolidacao inicial                   *
+c * iqm(7) - cargas mecanicas por elemento                             *
+c * iqh(7) - cargas hidraulicas por elemento                           *
 c * x(ndm,nem) - coordenadas nodais locais                             *
 c * u(nst)     - graus de liberade por elemento (u + p)                *
 c * p0(*)      - poropressao do passo de tempo anterior                *
@@ -6783,12 +7109,12 @@ c **********************************************************************
       integer nint,nint_face
 c ...
       integer ndm,nst,nel,isw
-      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tp1,inpi
+      integer i,j,l1,l2,l3,l,k1,k2,k3,k,tp,tpm,tph,tp1,inpi
       integer nen,lx,ly,lz
-      integer iq(*)
+      integer iqm(*),iqh(*)
 c ...
       real*8 face_u(8),face_f(3),n_carg,ddum,mp(3)
-      integer carg
+      integer cargm,cargh
 c ...
       real*8 u(*),p0(*)
       real*8 p(*),s(nst,*)
@@ -7525,17 +7851,19 @@ c             5 | no 1 4 8 5 12 20 16 17 | normal externa
 c             6 | no 2 6 7 3 18 14 19 10 | normal externa
 c
 c ... verifica se ha alguma face com carga
-      tp = 0
+      tpm = 0
+      tph = 0
       do 435 i = 1, 6
-        tp    = tp + iq(i)
+        tpm    = tpm + iqm(i)
+        tph    = tph + iqh(i)
   435 continue
 c .....................................................................
 c
 c ...
-      if( tp .gt. 0 ) then
+      if( tpm .gt. 0 .or. tph .gt. 0 ) then
         do 440 j = 1, 6
 c ... face 
-          if(iq(j) .gt. 0 ) then
+          if( iqm(j) .gt. 0 .or. iqh(j) .gt. 0) then
 c ...
             do 445 i = 1, 4
               no       = hexa_face_node20(i,j)
@@ -7546,19 +7874,19 @@ c ...
 c .....................................................................
 c
 c ...
-            carg = load(1,iq(j))
+            if( iqm(j) .ne. 0 ) cargm = load(1,iqm(j))
+            if( iqh(j) .ne. 0 ) cargh = load(1,iqh(j))
+c .....................................................................
+c
 c ... forcas
-            if( carg .eq. 40 .or. carg .eq. 41 .or. carg .eq. 42) then
+            if( cargm .eq. 40 .or. cargm .eq. 41 .or. cargm .eq. 42)then
 c ... calculo do verto normal externo a face o elemento
-              if( carg .eq. 41) then
+              if( cargm .eq. 41) then
                 call face_normal_vector(xf,face_f,ndm)
                 if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
 c ... calculo do verto normal externo a face o elemento e do ponto medio
 c     da face
-              elseif(carg .eq. 42) then
-                call face_normal_vector(xf,face_f,ndm)
-                if (j .ne. 2) face_f(1:ndm) = -1.0d0*face_f(1:ndm)
-                call face_ponto_medio(xf,mp,ndm,4)
+                if(cargm .eq. 42) call face_ponto_medio(xf,mp,ndm,4)
               endif
 c .....................................................................
 c          
@@ -7570,17 +7898,13 @@ c ... rotacionando os eixos
               call rotate(xf(1,4),r,xf(1,4),.false.)
 c ...................................................................
 c
-c ... carga normal ao elemento
-              if( carg .eq. 41) then
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
-                face_f(1:ndm) = n_carg*face_f(1:ndm)
-c ... carga hidrostatica
-              elseif( carg .eq. 42) then 
-                call tload(iq(j),t,mp,face_u,n_carg,ddum) 
+c ... carga normal ao elemento e carga hidrostatica
+              if( cargm .eq. 41 .or. cargm .eq. 42) then
+                call tload(iqm(j),t,mp,face_u,n_carg,ddum) 
                 face_f(1:ndm) = n_carg*face_f(1:ndm)
 c ... carga distribuida
-              elseif ( carg .eq. 40) then
-                call tload(iq(j),t,mp,face_u,ddum,face_f)
+              elseif ( cargm .eq. 40) then
+                call tload(iqm(j),t,mp,face_u,ddum,face_f)
               endif
 c ......................................................................
 c
@@ -7605,9 +7929,9 @@ c .....................................................................
 c
 c ...
                   do 460 i = 1, 8
-                    no    = hexa_face_node20(i,j)
+                    no  = hexa_face_node20(i,j)
 c                   l1  = (no-1)*3+1
-                    wt1   = hu(i)*w
+                    wt1 = hu(i)*w
                     l1    = 3*no-2
                     l2    = l1 + 1
                     l3    = l2 + 1
@@ -7617,8 +7941,54 @@ c                   l1  = (no-1)*3+1
   460             continue
 c .....................................................................
   455           continue
-c .....................................................................             
+c .....................................................................
   450         continue
+c .....................................................................
+            endif
+c .....................................................................
+c
+c ... forcas fluxo
+            if( cargh .eq. 43) then
+c ... rotacionando os eixos 
+              call rotmatrix(xf,r)
+              call rotate(xf(1,1),r,xf(1,1),.false.)
+              call rotate(xf(1,2),r,xf(1,2),.false.)
+              call rotate(xf(1,3),r,xf(1,3),.false.)
+              call rotate(xf(1,4),r,xf(1,4),.false.)
+c ...................................................................
+c
+c ...
+              call tload(iqh(j),t,mp,face_u,n_carg,ddum)
+c ...................................................................
+c
+c ...              
+              do 480 ly = 1, nint_face
+                si = pg(ly,nint_face)
+                do 485 lx = 1, nint_face
+                  ri = pg(lx,nint_face)
+c ...                                               
+                  call sfquad4_m(hp,hpx,hpy,ri,si,.true.,.true.)
+                  call jacob2d_m(hpx,hpy,xj2D,xji2D,xf,det,4,ndm
+     .                        ,nel,.true.)
+c .....................................................................
+c
+c ...                                               
+                  w = wg(lx,nint_face)*wg(ly,nint_face)*det
+                  w = w*dt*n_carg  
+c .....................................................................
+c
+c ...
+                  do 490 i = 1, 4
+                    no  = hexa_face_node20(i,j)
+c                   l1  = (no-1)*3+1
+                    wt1   = hp(i)*w
+                    l1    = 60 + no                       
+                    p(l1) = p(l1) - wt1
+  490             continue
+c .....................................................................
+  485           continue
+c .....................................................................
+  480         continue
 c .....................................................................
             endif
 c .....................................................................
@@ -7628,7 +7998,7 @@ c .....................................................................
 c .....................................................................
       endif
 c .....................................................................
-c
+c     
 c ... bloco Fp = -Fp
       if(block_pu) then
         p(61:nst) =-p(61:nst)

@@ -40,7 +40,7 @@ c
       integer num_pnode,num_pel
 c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)  
       integer nfiles,ifiles,num_print,n_opt_print_flag
-      parameter ( nfiles = 10,n_opt_print_flag = 20)
+      parameter (nfiles = 10,n_opt_print_flag = 20)
       logical new_file(nfiles),new_file_pi(nfiles),flag_pnd,flag_ppi
       logical print_flag(n_opt_print_flag),fhist_log,legacy_vtk
 c ......................................................................
@@ -116,8 +116,8 @@ c
 c ... Ponteiros:
 c
 c ... malha
-      integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_e,i_x,i_xq,i_inum
-      integer*8 i_ic,i_fnno
+      integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_eloadp
+      integer*8 i_ic,i_fnno,i_e,i_x,i_xq,i_inum
 c ... arranjos locais ao elemento
       integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl,i_plasticl
       integer*8 i_tx1pl,i_tx2pl,i_depsl,i_porosity,i_dporo,i_p0l
@@ -488,23 +488,23 @@ c.... Leitura de dados:
       call rdat_pm(nnode  ,nnodev  ,numel      ,numat  
      1         ,nen       ,nenv    ,ntn        ,ndf
      1         ,ndm       ,nst     ,i_ix       ,i_ie   
-     2         ,i_inum    ,i_e    ,i_x
-     3         ,i_id      ,i_nload ,i_eload    ,i_f  
+     2         ,i_inum    ,i_e     ,i_x        ,i_id  
+     3         ,i_nload   ,i_eload ,i_eloadp   ,i_f  
      4         ,i_u       ,i_u0    ,i_tx0      ,i_dp
      5         ,i_tx1p    ,i_tx2p  ,i_depsp    ,i_plastic
      6         ,i_porosity,i_fnno  ,i_elplastic,i_vpropel
      7         ,fstress0  ,fporomec,fmec       ,print_flag(1)
      8         ,fplastic  ,vprop   ,nin )
 c    -----------------------------------------------------------------
-c    | ix | id | ie | nload | eload | inum | e | x | f | u | u0 | tx0 |
+c    | ix | id | ie | nload | eload | eloadp| inum | e | x | f | u | 
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | dp | tx1p | tx2p | epsp | plastic | porosity | fnno | elpastic | 
+c    | u0 | tx0 | | dp | tx1p | tx2p | epsp | plastic | porosity | 
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | vpropel |                                                
+c    | vpropel | fnno | elpastic |                                               
 c    -----------------------------------------------------------------
 c ......................................................................      
 c
@@ -876,24 +876,25 @@ c
 c ... forcas de volume e superficie do tempo t+dt e graus de liberade 
 c     do passo t:  
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix)  ,ia(i_eload),ia(i_ie)  ,ia(i_e) 
-     1           ,ia(i_x)     ,ia(i_id)   ,ia(i_ia)  ,ia(i_ja) 
-     2           ,ia(i_au)    ,ia(i_al)   ,ia(i_ad)  ,ia(i_b0) 
-     3           ,ia(i_u0)    ,ia(i_u)    ,ia(i_tx1p),ia(i_tx2p)
-     4           ,ia(i_depsp) ,ia(i_dp)   ,ia(i_plastic),ia(i_elplastic)
-     5           ,ia(i_vpropel)   
-     6           ,ia(i_xl)    ,ia(i_ul)   ,ia(i_p0l)  ,ia(i_dpl)
-     7           ,ia(i_pl)    ,ia(i_sl)   ,ia(i_ld)   ,ia(i_txnl)
-     8           ,ia(i_tx1pl) ,ia(i_tx2pl),ia(i_depsl),ia(i_plasticl)
-     9           ,ia(i_vpropell)   
-     1           ,numel       ,nen        ,nenv       ,ndf 
-     2           ,ndm         ,nst        ,npi        ,ntn
-     3           ,neq         ,nequ       ,neqp 
-     4           ,nad         ,naduu      ,nadpp      ,nadpu,nadr 
-     5           ,.false.     ,.true.     ,unsym 
-     6           ,stge        ,4          ,ilib     ,i
-     7           ,ia(i_colorg),ia(i_elcolor),numcolors
-     8           ,block_pu    ,n_blocks_pu  ,fplastic,vprop)
+      call pform_pm(ia(i_ix)  ,ia(i_eload) ,ia(i_eloadp)
+     1           ,ia(i_ie)    ,ia(i_e) 
+     2           ,ia(i_x)     ,ia(i_id)   ,ia(i_ia)  ,ia(i_ja) 
+     3           ,ia(i_au)    ,ia(i_al)   ,ia(i_ad)  ,ia(i_b0) 
+     4           ,ia(i_u0)    ,ia(i_u)    ,ia(i_tx1p),ia(i_tx2p)
+     5           ,ia(i_depsp) ,ia(i_dp)   ,ia(i_plastic),ia(i_elplastic)
+     6           ,ia(i_vpropel)   
+     7           ,ia(i_xl)    ,ia(i_ul)   ,ia(i_p0l)  ,ia(i_dpl)
+     8           ,ia(i_pl)    ,ia(i_sl)   ,ia(i_ld)   ,ia(i_txnl)
+     9           ,ia(i_tx1pl) ,ia(i_tx2pl),ia(i_depsl),ia(i_plasticl)
+     1           ,ia(i_vpropell)   
+     2           ,numel       ,nen        ,nenv       ,ndf 
+     3           ,ndm         ,nst        ,npi        ,ntn
+     4           ,neq         ,nequ       ,neqp 
+     5           ,nad         ,naduu      ,nadpp      ,nadpu,nadr 
+     6           ,.false.     ,.true.     ,unsym 
+     7           ,stge        ,4          ,ilib     ,i
+     8           ,ia(i_colorg),ia(i_elcolor),numcolors
+     9           ,block_pu    ,n_blocks_pu  ,fplastic,vprop)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -928,24 +929,25 @@ c ... elastic
 c              Fu = Fu - K.du(n+1,i)
 c              bp = Fp - K.dp(n+1,i)
       timei = MPI_Wtime()
-      call pform_pm(ia(i_ix)    ,ia(i_eload) ,ia(i_ie)  ,ia(i_e)
-     1         ,ia(i_x)     ,ia(i_id)    ,ia(i_ia)  ,ia(i_ja)
-     2         ,ia(i_au)    ,ia(i_al)    ,ia(i_ad)  ,ia(i_b)
-     3         ,ia(i_u0)    ,ia(i_u)     ,ia(i_tx1p),ia(i_tx2p)
-     4         ,ia(i_depsp) ,ia(i_dp)    ,ia(i_plastic),ia(i_elplastic) 
-     5         ,ia(i_vpropel)   
-     6         ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
-     7         ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
-     8         ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
-     9         ,ia(i_vpropell)   
-     1         ,numel       ,nen         ,nenv     ,ndf
-     2         ,ndm         ,nst         ,npi      ,ntn
-     3         ,neq         ,nequ        ,neqp
-     4         ,nad         ,naduu       ,nadpp    ,nadpu,nadr
-     5         ,lhs         ,.true.      ,unsym
-     6         ,stge        ,2           ,ilib     ,i
-     7         ,ia(i_colorg),ia(i_elcolor),numcolors
-     8         ,block_pu    ,n_blocks_pu  ,fplastic,vprop)
+      call pform_pm(ia(i_ix),ia(i_eload) ,ia(i_eloadp)  
+     1         ,ia(i_ie)    ,ia(i_e)
+     2         ,ia(i_x)     ,ia(i_id)    ,ia(i_ia)  ,ia(i_ja)
+     3         ,ia(i_au)    ,ia(i_al)    ,ia(i_ad)  ,ia(i_b)
+     4         ,ia(i_u0)    ,ia(i_u)     ,ia(i_tx1p),ia(i_tx2p)
+     5         ,ia(i_depsp) ,ia(i_dp)    ,ia(i_plastic),ia(i_elplastic) 
+     6         ,ia(i_vpropel)   
+     7         ,ia(i_xl)    ,ia(i_ul)    ,ia(i_p0l)  ,ia(i_dpl)
+     8         ,ia(i_pl)    ,ia(i_sl)    ,ia(i_ld)   ,ia(i_txnl)
+     9         ,ia(i_tx1pl) ,ia(i_tx2pl) ,ia(i_depsl),ia(i_plasticl)
+     1         ,ia(i_vpropell)   
+     2         ,numel       ,nen         ,nenv     ,ndf
+     3         ,ndm         ,nst         ,npi      ,ntn
+     4         ,neq         ,nequ        ,neqp
+     5         ,nad         ,naduu       ,nadpp    ,nadpu,nadr
+     6         ,lhs         ,.true.      ,unsym
+     7         ,stge        ,2           ,ilib     ,i
+     8         ,ia(i_colorg),ia(i_elcolor),numcolors
+     9         ,block_pu    ,n_blocks_pu  ,fplastic,vprop)
       elmtime = elmtime + MPI_Wtime()-timei
 c .....................................................................
 c
@@ -1148,11 +1150,12 @@ c ...
         writetime = writetime + MPI_Wtime()-timei 
         call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
      1                      ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
-     2                      ,ia(i_tx0)    ,ia(i_nload),ia(i_eload)
-     3                      ,print_nnode  ,numel      ,ndf     ,ntn
-     4                      ,nen          ,ndm        ,prename
-     5                      ,bvtk         ,macros     ,legacy_vtk
-     6                      ,print_flag(1),nplot      ,nout_face)
+     2                      ,ia(i_tx0)    ,ia(i_nload)
+     3                      ,ia(i_eload)  ,ia(i_eloadp)
+     4                      ,print_nnode  ,numel      ,ndf     ,ntn
+     5                      ,nen          ,ndm        ,prename
+     6                      ,bvtk         ,macros     ,legacy_vtk
+     7                      ,print_flag(1),nplot      ,nout_face)
         writetime = writetime + MPI_Wtime()-timei
       endif
 c .....................................................................

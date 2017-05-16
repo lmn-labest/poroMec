@@ -1,14 +1,14 @@
       subroutine rdatm(nnodev,nnode,numel,numat,maxnov,maxno
      1                ,ndf  ,ndft,ndm,npi,nst  ,nstt
      2                ,i_ix ,i_ie,i_e,i_x
-     3                ,i_id ,i_nload,i_eload 
+     3                ,i_id ,i_nload,i_eload  ,i_eloadp 
      4                ,i_f  ,i_u,i_v,i_vt     ,i_a ,i_tx0
      5                ,i_idt,i_nloadt,i_eloadt
      6                ,i_ft ,i_ut    ,i_ut0   ,i_du,i_w
      7                ,nin,verbose,mrload     ,file_prop,ncont)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 03/05/2017                                    * 
+c * Data de modificaco : 14/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * RDAT: leitura de dados.                                            *
 c * ------------------------------------------------------------------ * 
@@ -35,6 +35,7 @@ c * i_id    - ponteiro para restricoes nodais (mecanico)               *
 c * i_ie    - ponteiro para materiais                                  *
 c * i_nload - ponteiro para o arranjo nload (mecanico)                 *
 c * i_eload - ponteiro para o arranjo eload (mecanico)                 *
+c * i_eloadp- ponteiro para o arranjo eload (mecanico)                 *
 c * i_e     - ponteiro para o arranjo e                                *
 c * i_x     - ponteiro para o arranjo x                                *
 c * i_f     - ponteiro para o arranjo f (mecanico)                     *
@@ -79,7 +80,7 @@ c ......................................................................
 c ... saida para o prompt
       logical verbose
 c ... ponteiros      
-      integer*8 i_e,i_x,i_f,i_nload,i_eload,i_u,i_v,i_a,i_tx0
+      integer*8 i_e,i_x,i_f,i_nload,i_eload,i_eloadp,i_u,i_v,i_a,i_tx0
       integer*8 i_idt,i_nloadt,i_eloadt,i_ft,i_ut,i_vt,i_w,i_ut0,i_du
       integer*8 i_ix,i_id,i_ie,i_geomel,i_nincid,i_incid
 c ... leitura das macros
@@ -112,7 +113,7 @@ c ......................................................................
      1           'quad4bin       ','tetra4bin      ','hexa8bin       ',
      2           'quad8bin       ','hydrostatic    ','hydrostress    ',
      3           'constrainpmec  ','initialpres    ','initialstress  ',
-     4           '               ','fmaterials     ','end            '/
+     4           'elmtpresloads  ','fmaterials     ','end            '/
       data nmc /42/      
 c ......................................................................
 c
@@ -227,7 +228,7 @@ c ......................................................................
      1      1900,1950,2000,  !quad4bin       ,tetra4bin    ,hexa8bin
      1      2050,2100,2150,  !quad8bin       ,hydrostatic  ,hydrostress
      2      2200,2250,2300,  !constrainpmec  ,initialpres  ,initialstress
-     3      2350,2400,2450)j !               ,fmaterials   ,end
+     3      2350,2400,2450)j !elmtpresloads  ,fmaterials   ,end
 c ......................................................................
 c
 c ... Propriedades dos materiais:
@@ -850,8 +851,18 @@ c ... gerando as tensoes nos nohs intermediarios quadraticos
       go to 100
 c ......................................................................
 c
-c ...
+c ... elmtpresloads - cargas nos elementos:
+c      
  2350 continue
+      if(verbose) print*, 'loading elmtpresloads ...'
+      mrload(3) = .true.
+      i_eloadp = alloc_4('eloadp  ',maxface+1,numel)
+      call mzero(ia(i_eloadp),numel*(maxface+1))
+c      
+      call bound(ia(i_eloadp),numel,maxface+1,nin,3) 
+      if(verbose) print*, 'load.'
+      go to 100
+c ......................................................................
       go to 100  
 c ......................................................................
 c
@@ -1256,25 +1267,28 @@ c ......................................................................
       end
       subroutine rload(nin)
 c **********************************************************************
-c *                                                                    *
-c *   Leitura das cargas variaveis no tempo                            *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    idl(6) - variavel auxuliar                                      *
-c *    nin - arquivo de entrada                                        *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    load(1,n) - tipo da carga n (n <= numload)                      *
-c *    load(2,n) - numero de termos da carga n                         *
-c *    fload(i,j,k) - coeficiente do termo j da carga k                *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 14/05/2017                                    * 
+c * ------------------------------------------------------------------ * 
+c * Leitura das cargas variaveis no tempo                              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * nin - arquivo de entrada                                           *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * load(1,n) - tipo da carga n (n <= numload)                         *
+c * load(2,n) - numero de termos da carga n                            *
+c * fload(i,j,k) - coeficiente do termo j da carga k                   *
+c * ------------------------------------------------------------------ * 
+c * Obs:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       include 'string.fi'
       include 'load.fi'
-      integer  nin,i,j,k
+      integer  nin,i,j,k,ty
       character*30 string            
 c ......................................................................
       call readmacro(nin,.true.)
@@ -1287,8 +1301,9 @@ c ...    numero da carga:
          write(string,'(12a)') (word(j),j=1,12)
 c ...    tipo da carga:
          read(string,*,err = 200,end = 200) load(1,i)
+         ty = load(1,i)
          load(2,i) = 1
-         if     (load(1,i) .eq. 1) then
+         if     (ty .eq. 1) then
 c ...       valor da carga:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1296,7 +1311,7 @@ c ...       valor da carga:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 2) then
+         elseif (ty .eq. 2) then
 c ...       u(t) = a.t + b 
 c ...       valor de b:            
             call readmacro(nin,.false.)
@@ -1309,7 +1324,7 @@ c ...       valor de a:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 3) then
+         elseif (ty .eq. 3) then
 c ...       -kdu/dx = H.(u-uext) 
 c ...       valor de uext:            
             call readmacro(nin,.false.)
@@ -1322,7 +1337,7 @@ c ...       valor de H:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 6) then
+         elseif (ty .eq. 6) then
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
             write(string,'(30a)') (word(j),j=1,30)
@@ -1341,7 +1356,7 @@ c ...       numero de parcelas:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 7) then
+         elseif (ty .eq. 7) then
 c ...       kdu/dx = emiss * const(Stef-Boltz) *(u4-uext4)+H(uext-u)
 c ...       Emissividade:            
             call readmacro(nin,.false.)
@@ -1372,7 +1387,7 @@ c ...       valor de uext:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 8) then
+         elseif (ty .eq. 8) then
 c ...       carga constante a partir de um dado t0
 c ...       valor da carga: 
             call readmacro(nin,.false.)
@@ -1389,7 +1404,7 @@ c ...       valor da carga:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 9) then
+         elseif (ty .eq. 9) then
 c ...       interpolacao de pontos
 c           numero de parcelas:            
             call readmacro(nin,.false.)
@@ -1406,7 +1421,7 @@ c           numero de parcelas:
 c .....................................................................
 c
 c ...  
-         elseif (load(1,i) .eq. 10) then
+         elseif (ty .eq. 10) then
 c ...    troca de calor de Newton(com uExt e h variavel):            
 c ...       numero de parcelas (uext no tempo):            
             call readmacro(nin,.false.)
@@ -1429,7 +1444,7 @@ c ...       valor de uext:
 c .....................................................................
 c
 c ...
-         elseif (load(1,i) .eq. 17) then
+         elseif (ty .eq. 17) then
 c ...   fonte de geofisica
 c ...       numero de parcelas:            
             call readmacro(nin,.false.)
@@ -1467,22 +1482,17 @@ c ... numero de peridos
            read(string,*,err = 200,end = 200) fload(1,2,i)
 c .....................................................................
 c
-c ... forca distribuida no contorno
-         elseif (load(1,i) .eq. 40) then
-c ... nome do arquivo de cargas
-            call readmacro(nin,.false.)
-            write(name_loads(i),'(80a)') (word(j),j=1,strl)
-c .....................................................................
-c
-c ... forca distribuida normal ao contorno 
-         elseif (load(1,i) .eq. 41) then
-c ... nome do arquivo de cargas
-            call readmacro(nin,.false.)
-            write(name_loads(i),'(80a)') (word(j),j=1,strl)
-c .....................................................................
-c
-c ... pressao hidrostatica               o 
-         elseif (load(1,i) .eq. 42) then
+c ... 
+c 39 - valor de uma carga ou deslocamento variavel no tempo
+c 40 - forca distribuida constante no contorno
+c 41 - carga normal constante no contorno 
+c      (F=carga*normal,normal - calculado nivel elemento)
+c 42 - valor por carga hidrostatica      
+c      (f = alfa*(f0 + density*g*(h-x)) )
+c 43 - fluxo normal de massa
+          elseif (   (ty .eq. 39)    
+     .          .or. (ty .eq. 40) .or. (ty .eq. 41) 
+     .          .or. (ty .eq. 42) .or. (ty .eq. 43) ) then
 c ... nome do arquivo de cargas
             call readmacro(nin,.false.)
             write(name_loads(i),'(80a)') (word(j),j=1,strl)

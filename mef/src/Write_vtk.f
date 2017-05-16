@@ -175,7 +175,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 03/04/2016                                   *
-c * Data de modificaco : 05/02/2017                                   * 
+c * Data de modificaco : 14/05/2017                                   * 
 c * ------------------------------------------------------------------* 
 c * WRITE_MESH_GEO_PM: escreve a malha global com carregamento        *
 c * no formato vtk.                                                   *
@@ -190,6 +190,7 @@ c * f(ndf,*)     - carregamento mecanicos                             *
 c * u0(ndf,*)    - valores iniciais                                   *
 c * nload(ndf,*) - cargas nos nos                                     *
 c * eload(7,*)   - cargas nos elementos                               *
+c * eloadp(7,*)  - cargas nos elementos                               *
 c * nnode        - numero de nos de vertices                          *
 c * numel        - numero de elementos                                *
 c * ndf          - graus de liberdade mecanicas                       *
@@ -199,7 +200,7 @@ c * ndm          - numero de dimensoes                                *
 c * filein       - prefix do arquivo de saida                         *
 c * bvtk         - true BINARY vtk false ASCII vtk                    *
 c * macros       - macros lidas pela rdata                            *
-c * legacy       - true (formato padrão .vtk) false (formato xlm .vtu)*
+c * legacy       - true (formato padrao .vtk) false (formato xlm .vtu)*
 c * nout         - arquivo de saida principal                         *
 c * nelemtload   - arquivo de saida para face com cargas(elloads)     *
 c * ----------------------------------------------------------------- *
@@ -208,11 +209,12 @@ c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine write_mesh_geo_pm(el        ,x     ,ie
      1                            ,id        ,f     ,u0    
-     2                            ,tx0       ,nload ,eload
-     3                            ,nnode     ,numel ,ndf   ,ntn
-     4                            ,nen       ,ndm   ,filein
-     5                            ,bvtk      ,macros,legacy
-     6                            ,print_quad,nout  ,nelemtload)
+     2                            ,tx0       ,nload 
+     3                            ,eload     ,eloadp
+     4                            ,nnode     ,numel ,ndf   ,ntn
+     5                            ,nen       ,ndm   ,filein
+     6                            ,bvtk      ,macros,legacy
+     7                            ,print_quad,nout  ,nelemtload)
 c ===
       use Malloc 
       implicit none
@@ -225,7 +227,7 @@ c ... variaveis da malha
 c ... variaveis do problema
 c     poro mecanico      
       integer ndf,ntn,ntn1
-      integer id(ndf,*),nload(ndf,*),eload(*)
+      integer id(ndf,*),nload(ndf,*),eload(*),eloadp(*)
       real*8  f(ndf,*),u0(ndf,*),tx0(6,*)
 c ... locais     
       integer*8 i_p,i_b1,i_b2
@@ -259,7 +261,7 @@ c ......................................................................
      .            '              ','               ','               ',
      .            'initialpres   ','initialstress  ','end            '/
 c      
-      data macro2/'elmtloads      ','               ','               ',
+      data macro2/'elmtloads      ','elmtpresloads  ','               ',
      .            '               ','               ','               ',
      .            '               ','               ','               ',
      .            '               ','               ','               ',
@@ -603,7 +605,7 @@ c .....................................................................
      .    ,1151,1201,1251)j
 c .....................................................................
 c
-c ... elmtthermloads
+c ... elmtloads
   401 continue
 c ... gdb graus de liberdade
 c     cod  1 interio(4bytes)
@@ -718,16 +720,111 @@ c ...
   451 continue
 c ... gdb graus de liberdade
 c     cod  1 interio(4bytes)
-c     write(aux1,'(15a)')"elmtloads"
-c     gdl =  7   
-c     cod =  1
-c     if(legacy)then
-c       call cell_prop_vtk(eload,fdum,ddum,numel,aux1,cod,gdl,bvtk
-c    .                    ,nout)
-c     else
-c       call cell_prop_vtu(eload,fdum,ddum,numel,aux1,cod,gdl,bvtk
-c    .                    ,nout)
-c     endif
+      write(aux1,'(15a)')"elmtpresloads"
+      gdl =  7   
+      cod =  1
+      if(legacy)then
+        call cell_prop_vtk(eloadp,fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(eloadp,fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif
+c .....................................................................
+c
+c ... arquivo auxiliar com as faces
+      if(legacy) then
+        fileelmtload = name(filein,0,9)
+      else
+        fileelmtload = name(filein,0,10)
+      endif
+      if(bvtk)then
+        open(unit=nelemtload,file=fileelmtload,access='stream'
+     .      ,form='unformatted',convert='big_endian')
+      else
+        open(unit=nelemtload,file=fileelmtload )
+      endif
+c .....................................................................
+c
+c ... criando a estrutura para as faces  
+      malloc_name = 'face'
+      i_p  = alloc_4(malloc_name, max_face*max_no_face,numel)
+      malloc_name = 'carga'
+      i_b1 = alloc_4(malloc_name,       1,numel)
+      malloc_name = 'faceType'
+      i_b2 = alloc_4(malloc_name,       1,numel)
+      call make_face(el        ,ie      ,eloadp  ,ia(i_p)  ,ia(i_b1) 
+     .              ,ia(i_b2)  ,numel   ,nen     ,max_face ,max_no_face
+     .              ,line_face,tria_face,quad_face)
+c .....................................................................
+c
+c ... cabecalho
+      nface = line_face + tria_face + quad_face 
+      write(aux,'(30a)')'face com carregamento'
+      if(legacy) then
+        call head_vtk(aux,bvtk,ddum,idum,.false.,nelemtload)
+      else
+        call head_vtu(nnode,nface,bvtk,ddum,idum,.false.,nelemtload)
+      endif
+c .....................................................................
+c
+c ... Coordenadas
+      if(legacy) then
+        call coor_vtk(x,nnode,ndm,bvtk,nelemtload)
+      else  
+        call coor_vtu(x,nnode,ndm,bvtk,nelemtload)
+      endif  
+c .....................................................................
+c
+c ... faces
+      if(legacy) then
+        call face_vtk(ia(i_p)    ,ia(i_b2)
+     .               ,max_no_face,line_face,tria_face
+     .               ,quad_face  ,bvtk     ,nelemtload)
+      else
+        call face_vtu(ia(i_p)    ,ia(i_b1)  ,ia(i_b2)
+     .               ,max_no_face,line_face,tria_face
+     .               ,quad_face  ,bvtk     ,nelemtload)
+      endif
+c .....................................................................
+c
+c ... cargas 
+      if(legacy) then
+        call cell_data_vtk(nface,bvtk,nelemtload)
+      else
+        call cell_data_vtu(bvtk,nelemtload)
+      endif
+c
+      write(aux1,'(15a)')"cargas"
+      gdl =  1   
+      cod =  1
+      cod2 = 1
+      if(legacy) then
+        call point_prop_vtk(ia(i_b1),fdum,ddum,nface,aux1,ndf,gdl,cod
+     .                    ,cod2    ,bvtk,nelemtload)
+      else
+        call point_prop_vtu(ia(i_b1),fdum,ddum,nface,aux1,ndf,gdl,cod
+     .                    ,cod2    ,bvtk,nelemtload)
+      endif
+c .....................................................................
+c
+c ...
+      if(legacy .eqv. .false.) then
+        call cell_data_finalize_vtu(bvtk,nelemtload)
+        call finalize_vtu(bvtk,nelemtload)
+      endif  
+c .....................................................................
+c
+c ...  
+      malloc_name = 'faceType'
+      i_b2 = dealloc(malloc_name)
+      malloc_name = 'carga'
+      i_b1 = dealloc(malloc_name)
+      malloc_name = 'face'
+      i_p  = dealloc(malloc_name)
+c .....................................................................
+      close(nelemtload)
+c .....................................................................
       goto 101
 c .....................................................................      
 c
@@ -1621,10 +1718,11 @@ c ....................................................................
 c
 c ... Tetraedro
         else if( (ty .eq.  6)  
-     .      .or. (ty .eq. 15) 
-     .      .or. (ty .eq. 16) 
-     .      .or. (ty .eq. 26)
-     .      .or. (ty .eq. 36) ) then
+     1      .or. (ty .eq. 15) 
+     2      .or. (ty .eq. 16) 
+     3      .or. (ty .eq. 26)
+     4      .or. (ty .eq. 35)
+     5      .or. (ty .eq. 36) ) then
 c ... verifica se ha carga nas faces do elemento
           do j = 1, 4
             c = eload(j,i)
@@ -1642,10 +1740,11 @@ c ....................................................................
 c 
 c ...  haxaedros      
         else if( (ty .eq.  7)  
-     .      .or. (ty .eq. 17) 
-     .      .or. (ty .eq. 18) 
-     .      .or. (ty .eq. 27)
-     .      .or. (ty .eq. 37) ) then
+     1      .or. (ty .eq. 17) 
+     2      .or. (ty .eq. 18) 
+     3      .or. (ty .eq. 27)
+     4      .or. (ty .eq. 37)
+     5      .or. (ty .eq. 38) ) then
 c ... verifica se ha carga nas faces do elemento
           do j = 1, 6
             c = eload(j,i)

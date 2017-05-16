@@ -72,55 +72,63 @@ c =====================================================================
       end
 c *********************************************************************
 c
-c *********************************************************************
-c * COMM_MEF :  comnicacao do paralelo                                *  
-c * ----------------------------------------------------------------- *  
-c * Parametros de entrada :                                           *  
-c * ----------------------------------------------------------------- *  
-c * MPIW    -  variavel dp mpi                                        *  
-c * nnode   -  numero de nos                                          *  
-c * numel   -  numero de elementos                                    *  
-c * nen     -  numero de nos por elementos                            *  
-c * numat   -  numero de materiais                                    *  
-c * ndf     -  graus de liberdade do problema mecanico                *  
-c * ndft    -  graus de liberdade do problema termico                 *  
-c * ndm     -  numero de dimensoes da malha                           *  
-c * npi     -                                                         *  
-c * lines   -  linhas de macros comandos depois do end mesh           *  
-c * nlines  -  numero linhas de macros comandos depois do end mesh    *  
-c * i_ix    -  ponteiro conectividade da malha com material           *  
-c * i_ie    -                                                         *  
-c * i_num   -                                                         *  
-c * i_e     -                                                         *  
-c * i_x     -  ponteiro coordenadas da malha com material             *  
-c * i_id    -                                                         *  
-c * i_nload -                                                         *  
-c * i_eload -                                                         *  
-c * i_f     - ponteiro para forcas do problema mecanico               *  
-c * i_u     - ponteiro para deslocamentos iniciais mecanico           *  
-c * i_v     -                                                         *  
-c * i_a     -                                                         *  
-c * i_idt   -                                                         *  
-c * i_nloadt-                                                         *  
-c * i_eloadt-                                                         *  
-c * i_ft    - ponteiro para forcas do problema termico                *  
-c * i_ut0   - ponteiro para temperaturas inicias                      *  
-c * i_vt    -                                                         *  
-c * i_w     -                                                         *  
-c * rank    - id do processo                                          *  
-c * ----------------------------------------------------------------- *  
-c * Parametros de saida :                                             *  
-c * ----------------------------------------------------------------- *  
-c *********************************************************************
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 14/05/2017                                    * 
+c * COMM_MEF :  comnicacao do paralelo                                 *  
+c * ------------------------------------------------------------------ *  
+c * Parametros de entrada :                                            *  
+c * ------------------------------------------------------------------ *  
+c * MPIW    -  variavel dp mpi                                         *  
+c * nnode   -  numero de nos                                           *  
+c * numel   -  numero de elementos                                     *  
+c * nen     -  numero de nos por elementos                             *  
+c * numat   -  numero de materiais                                     *  
+c * ndf     -  graus de liberdade do problema mecanico                 *  
+c * ndft    -  graus de liberdade do problema termico                  *  
+c * ndm     -  numero de dimensoes da malha                            *  
+c * npi     -                                                          *  
+c * lines   -  linhas de macros comandos depois do end mesh            *  
+c * nlines  -  numero linhas de macros comandos depois do end mesh     *  
+c * i_ix    -  ponteiro conectividade da malha com material            *  
+c * i_ie    -                                                          *  
+c * i_num   -                                                          *  
+c * i_e     -                                                          *  
+c * i_x     -  ponteiro coordenadas da malha com material              *  
+c * i_id    -                                                          *  
+c * i_nload -                                                          *  
+c * i_eload -                                                          *  
+c * i_f     - ponteiro para forcas do problema mecanico                *  
+c * i_u     - ponteiro para deslocamentos iniciais mecanico            *  
+c * i_v     -                                                          *  
+c * i_a     -                                                          *  
+c * i_idt   -                                                          *  
+c * i_nloadt-                                                          *  
+c * i_eloadt-                                                          *  
+c * i_ft    - ponteiro para forcas do problema termico                 *  
+c * i_ut0   - ponteiro para temperaturas inicias                       *  
+c * i_vt    -                                                          *  
+c * i_w     -                                                          *  
+c * rank    - id do processo                                           *  
+c * ------------------------------------------------------------------ *  
+c * Parametros de saida :                                              *  
+c * ------------------------------------------------------------------ *
+c * ------------------------------------------------------------------ * 
+c * Obs:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
       subroutine comm_mesh_mef(MPIW,nnode,numel,nen,numat,ndf,ndft
-     .                        ,ndm,npi,lines,nlines,i_ix,i_ie,i_e,i_x
-     .                        ,i_id,i_nload,i_eload,i_f,i_u,i_v,i_a
-     .                        ,i_idt,i_nloadt,i_eloadt,i_ft,i_ut0,i_vt
-     .                        ,i_w,i_xl,i_lel,i_idl,i_nloadl,i_eloadl
-     .                        ,i_fl,i_idtl,i_nloadtl,i_eloadtl,i_ftl
-     .                        ,i_ut0l
-     .                        ,i_nodedist,i_elmdist
-     .                        ,rank,npes,rload,ncont)
+     1                        ,ndm,npi,lines,nlines,i_ix,i_ie,i_e,i_x
+     2                        ,i_id,i_nload,i_eload,i_eloadp
+     3                        ,i_f,i_u,i_v,i_a
+     4                        ,i_idt,i_nloadt,i_eloadt
+     5                        ,i_ft,i_ut0,i_vt,i_w
+     6                        ,i_xl,i_lel,i_idl,i_nloadl
+     7                        ,i_eloadl,i_eloadpl
+     8                        ,i_fl,i_idtl,i_nloadtl,i_eloadtl,i_ftl
+     9                        ,i_ut0l
+     1                        ,i_nodedist,i_elmdist
+     2                        ,rank,npes,rload,ncont)
 c ===
       implicit none
 c ... Mpi      
@@ -133,8 +141,8 @@ c ... malha
       integer*8 i_xl,i_lel
 c ... problema 1
       integer ndf  
-      integer*8 i_id,i_nload,i_eload,i_f,i_u,i_v,i_a
-      integer*8 i_idl,i_nloadl,i_eloadl,i_fl
+      integer*8 i_id,i_nload,i_eload,i_eloadp,i_f,i_u,i_v,i_a
+      integer*8 i_idl,i_nloadl,i_eloadl,i_eloadpl,i_fl
 c ... problema 2
       integer ndft
       integer*8 i_idt,i_nloadt,i_eloadt,i_ft,i_ut0,i_vt,i_w
@@ -180,6 +188,7 @@ c ===
       i_idl      = i_id 
       i_nloadl   = i_nload
       i_eloadl   = i_eload
+      i_eloadpl  = i_eloadp
       i_fl       = i_f    
       i_idtl     = i_idt  
       i_nloadtl  = i_nloadt 

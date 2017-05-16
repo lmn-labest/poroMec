@@ -209,35 +209,35 @@ c
 c **********************************************************************
       subroutine tload(nc,t,x,u,c,vc)
 c **********************************************************************
-c *                                                                    *
-c *   TLOAD:                                                           *
-c *   -----                                                            *
-c *                                                                    *
-c *   Funcoes de cargas nodais                                         *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *   ---------------------                                            *
-c *                                                                    *
-c *    load(2,numload)  - load(1,j) = tipo da carga j                  *
-c *                     - load(2,j) = numero de parcelas da carga j    *
-c *    fload(numpar,numsum,numload) - definicao das cargas             *
-c *                 fload(i,j,k) = parametro i da parcela j da carga j *
-c *    nterms  - numero maximo de parcelas                             *
-c *    npar    - numero maximo de parametros                           *
-c *    nc      - numero da carga                                       *
-c *    t       - tempo                                                 *
-c *    u       - solucao                                               *
-c *    c       - nao definido                                          *
-c *    vc      - nao definido                                          *
-c *    nlit    - iteracao nao linear                                   *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *   -------------------                                              *
-c *                                                                    *
-c *    c - valor da carga nodal no tempo t                             *
-c *    vc- valor da carga vetorial nodal no tempo t                    *
-c *                                                                    *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 13/05/2017                                    * 
+c * ------------------------------------------------------------------ *      
+c * TLOAD:                                                             *
+c * ------------------------------------------------------------------ *
+c * Funcoes de cargas nodais                                           *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * load(2,numload)  - load(1,j) = tipo da carga j                     *
+c *                  - load(2,j) = numero de parcelas da carga j       *
+c * fload(numpar,numsum,numload) - definicao das cargas                *
+c *              fload(i,j,k) = parametro i da parcela j da carga j    *
+c * nterms  - numero maximo de parcelas                                *
+c * npar    - numero maximo de parametros                              *
+c * nc      - numero da carga                                          *
+c * t       - tempo                                                    *
+c * u       - solucao                                                  *
+c * c       - nao definido                                             *
+c * vc      - nao definido                                             *
+c * nlit    - iteracao nao linear                                      *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * c - valor da carga nodal no tempo t                                *
+c * vc- valor da carga vetorial nodal no tempo t                       *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       implicit none
       include 'gravity.fi'
@@ -321,6 +321,12 @@ c ...  kdu/dx = emiss * const(Stef-Boltz) *(uext4-u4)+H(uext-u)
         call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)
 c ......................................................................
 c
+c ... carga interpolacao no tempo  
+      elseif (itype .eq. 39) then
+        nparc = load(3,nc)
+        call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)
+c .....................................................................
+c
 c ... forca distribuida constante no contorno 
       elseif (itype .eq. 40) then
         nparc = load(3,nc)
@@ -329,8 +335,8 @@ c ... forca distribuida constante no contorno
         call interpol(fload(1,1,nc),fload(1,4,nc),t,nparc,vc(3))  
 c .....................................................................
 c
-c ... tensao normal 
-      elseif (itype .eq. 41) then
+c ... tensao normal e fluxo normal
+      elseif (itype .eq. 41 .or. itype .eq. 43) then
         nparc = load(3,nc)
         call interpol(fload(1,1,nc),fload(1,2,nc),t,nparc,c)  
 c .....................................................................

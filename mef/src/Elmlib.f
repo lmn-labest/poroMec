@@ -1,8 +1,9 @@
-      subroutine elmlib_pm(e  ,iq  ,x   ,u       ,p0 
-     1                    ,dp ,p   ,s   ,v1      ,v2 
-     2                    ,v3 ,v4  ,v5  ,ep
-     3                    ,ndm,nst ,nel ,iel     ,isw
-     4                    ,ma ,nlit,ilib,block_pu)
+      subroutine elmlib_pm(e  ,iq1 ,iq2
+     1                    ,x  ,u   ,p0 
+     2                    ,dp ,p   ,s   ,v1      ,v2 
+     3                    ,v3 ,v4  ,v5  ,ep
+     4                    ,ndm,nst ,nel ,iel     ,isw
+     5                    ,ma ,nlit,ilib,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
 c * Data de modificaco : 08/04/2017                                    * 
@@ -12,7 +13,8 @@ c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
 c * e(10) - constantes fisicas                                         *
-c * iq(7) - cargas nos elementos                                       *
+c * iq1(7) - cargas nos elementos                                      *
+c * iq2(7) - cargas nos elementos                                      *
 c * x(ndm,nen)- coordenadas nodais locais                              *
 c * u(nst)     - solucao anterior                                      *
 c * p0(*)      - pressao no passo de tempo anterior                    *
@@ -67,7 +69,7 @@ c *     isw = 4  cargas de superfice, volume e integras do passo       *
 c *     de tempo anterior                                              *
 c **********************************************************************
       implicit none
-      integer iq(*),iel,nel,ndm,nst,isw,ilib,ma,nlit,ep
+      integer iq1(*),iq2(*),iel,nel,ndm,nst,isw,ilib,ma,nlit,ep
       real*8 e(*),x(*),u(*),p0(*),p(*),s(nst,*),v1(*),v2(*),v3(*),v4(*)
       real*8 dp(*),v5(*)
       logical block_pu
@@ -93,49 +95,54 @@ c ......................................................................
  1500 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-elastic)
-        call elmt15_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
+        call elmt15_pm(e,iq1,iq2,x,u,dp,p,s,v1,ndm,nst,nel,isw
+     .                ,block_pu)
       endif 
       return       
 c ......................................................................
  1600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-elastic-propvariavel)
-        call elmt16_pm(e,iq,x,u,dp,p,s,v1,v5,ndm,nst,nel,isw,block_pu)
+        call elmt16_pm(e,iq1,iq2,x,u,dp,p,s,v1,v5
+     .                ,ndm,nst,nel,isw,block_pu)
       endif 
       return       
 c ......................................................................
  1700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-elastic)
-        call elmt17_pm(e,iq,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
+        call elmt17_pm(e,iq1,iq2,x,u,dp,p,s,v1,ndm,nst,nel,isw,block_pu)
       endif
       return 
 c ......................................................................
  1800 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-elastic-propvariavel)
-         call elmt18_pm(e,iq,x,u,dp,p,s,v1,v5,ndm,nst,nel,isw,block_pu)
+         call elmt18_pm(e,iq1,iq2,x,u,dp,p,s,v1,v5,ndm,nst,nel
+     .                 ,isw,block_pu)
       endif
       return 
 c ......................................................................
  3500 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-plastic)
-        call elmt35_pm(e ,iq ,x    ,u  ,p0
-     1                ,p ,s  ,v1   ,v2 ,v3
-     2                ,v4,ep ,ndm  ,nst,nel
-     3                ,isw,block_pu,nlit)
+        call elmt35_pm(e ,iq1,iq2
+     1                ,x ,u  ,p0
+     2                ,p ,s  ,v1   ,v2 ,v3
+     3                ,v4,ep ,ndm  ,nst,nel
+     4                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................
  3600 continue
       if (ilib .eq. 1) then  
 c     Elemento tetraedro de 10 nos (poromec-plastic)
-        call elmt36_pm(e  ,iq      ,x    ,u  ,p0
-     1                ,p  ,s       ,v1   ,v2 ,v3
-     2                ,v4 ,v5      ,ep
-     3                ,ndm,nst     ,nel
-     4                ,isw,block_pu,nlit)
+        call elmt36_pm(e  ,iq1     ,iq2  
+     1                ,x  ,u       ,p0
+     2                ,p  ,s       ,v1   ,v2 ,v3
+     3                ,v4 ,v5      ,ep
+     4                ,ndm,nst     ,nel
+     5                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................
@@ -144,10 +151,11 @@ c ......................................................................
  3700 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-plastic)
-        call elmt37_pm(e  ,iq      ,x       ,u  ,p0
-     1                ,p  ,s       ,v1      ,v2 ,v3
-     2                ,v4 ,ep      ,ndm     ,nst,nel
-     3                ,isw,block_pu,nlit)
+        call elmt37_pm(e  ,iq1     ,iq2 
+     1                ,x  ,u       ,p0
+     2                ,p  ,s       ,v1      ,v2 ,v3
+     3                ,v4 ,ep      ,ndm     ,nst,nel
+     4                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................
@@ -156,11 +164,12 @@ c ......................................................................
  3800 continue
       if (ilib .eq. 1) then  
 c     Elemento hexaedrico de 20 nos (poromec-plastic)
-        call elmt38_pm(e  ,iq      ,x       ,u  ,p0
-     1                ,p  ,s       ,v1      ,v2 ,v3
-     2                ,v4 ,v5      ,ep
-     3                ,ndm,nst,nel
-     4                ,isw,block_pu,nlit)
+        call elmt38_pm(e  ,iq1     ,iq2  
+     1                ,x  ,u       ,p0
+     2                ,p  ,s       ,v1      ,v2 ,v3
+     3                ,v4 ,v5      ,ep
+     4                ,ndm,nst,nel
+     5                ,isw,block_pu,nlit)
       endif 
       return       
 c ......................................................................

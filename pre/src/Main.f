@@ -60,7 +60,7 @@ c
       integer npi
       integer*8 i_ix,i_nen,i_ie,i_e,i_x
 c ... mecanico - poromec
-      integer*8 i_f,i_u,i_v,i_a,i_tx0,i_id,i_nload,i_eload
+      integer*8 i_f,i_u,i_v,i_a,i_tx0,i_id,i_nload,i_eload,i_eloadp
 c ... termico
       integer*8 i_ft,i_ut,i_ut0,i_du,i_vt,i_w,i_idt,i_nloadt,i_eloadt
       integer nlines,pnlines
@@ -74,7 +74,7 @@ c ... Variaveis de particionamento:
 c
       integer*8 i_ep,i_np,i_ix0,i_nnof,i_elGL
       integer*8 i_xl,i_lel,i_rank
-      integer*8 i_idl,i_nloadl,i_eloadl,i_fl
+      integer*8 i_idl,i_nloadl,i_eloadl,i_eloadpl,i_fl
       integer*8 i_idtl,i_nloadtl,i_eloadtl,i_ftl,i_ut0l
       integer*8 i_nodedist,i_elmdist
       integer my_nno1,my_nno2,my_nno3,my_nno4,my_nno1a
@@ -112,6 +112,7 @@ c ... mecanico - poromec
       i_id       = 1
       i_nload    = 1
       i_eload    = 1
+      i_eloadp   = 1
       i_u        = 1
       i_f        = 1
       i_v        = 1
@@ -137,6 +138,7 @@ c
       i_idl      = 1
       i_nloadl   = 1
       i_eloadl   = 1
+      i_eloadpl  = 1
       i_fl       = 1
       i_idtl     = 1
       i_nloadtl  = 1
@@ -249,15 +251,15 @@ c ... leitura da malha
         open(nin, file= filein, status= 'old')
         print*, 'Reading mesh ...'
         trmesh  = getime()
-        call read_mef(nnodev,nnode   ,numel   ,numat,maxnov,maxno
-     1               ,ndf   ,ndft    ,ndm     ,npi  
-     2               ,i_ix  ,i_ie    ,i_e     ,i_x
-     3               ,i_id  ,i_nload ,i_eload
-     4               ,i_f   ,i_u     ,i_tx0   ,i_v ,i_a
-     5               ,i_idt ,i_nloadt,i_eloadt
-     6               ,i_ut  ,i_ut0   ,i_du    ,i_vt     ,i_w
-     7               ,lines ,nlines  ,plines  ,pnlines
-     8               ,nin   ,vrdat   ,rload   ,file_prop,ncont)
+        call read_mef(nnodev,nnode,numel,numat,maxnov,maxno
+     1                ,ndf   ,ndft ,ndm  ,npi  
+     2                ,i_ix  ,i_ie ,i_e  ,i_x
+     3                ,i_id  ,i_nload    ,i_eload ,i_eloadp
+     4                ,i_f   ,i_u        ,i_tx0   ,i_v    ,i_a
+     5                ,i_idt ,i_nloadt   ,i_eloadt
+     6                ,i_ut  ,i_ut0      ,i_du    ,i_vt   ,i_w
+     7                ,lines ,nlines     ,plines  ,pnlines
+     8                ,vrdat      ,rload   ,file_prop,ncont,nin)
         close(nin)
         trmesh  = getime()- trmesh
         print*,"End of the reading."
@@ -289,14 +291,14 @@ c
 c ... carregamentos
         if(vtkgeores) then 
           print*,"loading ..."
-          call write_mesh_geo(ia(i_ix) ,ia(i_x)       ,ia(i_ie)
-     1                     ,ia(i_id) ,ia(i_nload)   ,ia(i_eload)
-     2                     ,ia(i_f)  ,ia(i_u)       ,ia(i_tx0)
-     3                     ,ia(i_idt),ia(i_nloadt)  ,ia(i_eloadt)
-     4                     ,ia(i_ft) ,ia(i_ut0)
-     5                     ,nnode    ,numel ,ndf    ,ndft
-     6                     ,maxno    ,ndm   ,fileout,bvtk
-     7                     ,macros   ,legacy,nout   ,nelemtload)
+          call write_mesh_geo(ia(i_ix) ,ia(i_x),ia(i_ie)
+     1                 ,ia(i_id) ,ia(i_nload)  ,ia(i_eload),ia(i_eloadp)
+     2                 ,ia(i_f)  ,ia(i_u)      ,ia(i_tx0)
+     3                 ,ia(i_idt),ia(i_nloadt) ,ia(i_eloadt)
+     4                 ,ia(i_ft) ,ia(i_ut0)
+     5                 ,nnode    ,numel ,ndf    ,ndft
+     6                 ,maxno    ,ndm   ,fileout,bvtk
+     7                 ,macros   ,legacy,nout   ,nelemtload)
 c .....................................................................
           print*,"End of the writing."
         endif
@@ -307,13 +309,17 @@ c
 c === comunicar a malha para o mef dat
       tcomunica = getime()
       call comm_mesh_mef(MPIW,nnode,numel,maxno,numat,ndf,ndft
-     .                  ,ndm,npi,lines,nlines,i_ix,i_ie,i_e,i_x
-     .                  ,i_id,i_nload,i_eload,i_f,i_u,i_v,i_a
-     .                  ,i_idt,i_nloadt,i_eloadt,i_ft,i_ut0,i_vt,i_w
-     .                  ,i_xl,i_lel,i_idl,i_nloadl,i_eloadl,i_fl
-     .                  ,i_idtl,i_nloadtl,i_eloadtl,i_ftl,i_ut0l
-     .                  ,i_nodedist,i_elmdist
-     .                  ,rank,nnos,rload,ncont)
+     1                  ,ndm,npi,lines,nlines,i_ix,i_ie,i_e,i_x
+     2                  ,i_id,i_nload,i_eload,i_eloadp
+     3                  ,i_f,i_u,i_v,i_a
+     4                  ,i_idt,i_nloadt,i_eloadt
+     5                  ,i_ft,i_ut0,i_vt,i_w
+     6                  ,i_xl,i_lel,i_idl,i_nloadl
+     7                  ,i_eloadl,i_eloadpl
+     8                  ,i_fl,i_idtl,i_nloadtl,i_eloadtl,i_ftl
+     9                  ,i_ut0l
+     1                  ,i_nodedist,i_elmdist
+     2                  ,rank,nnos,rload,ncont)
        tcomunica = getime() - tcomunica
 c =====================================================================
 c
@@ -368,22 +374,22 @@ c ... vtk
 c ... dat 
         if(mefp)then
           call writemydatpart(ia(i_lel)  ,ia(i_xl)     ,ia(i_elLG)
-     1                       ,ia(i_noLG) ,ia(i_noGL)   ,ia(i_ranks)
-     2                       ,ia(i_sizes),ia(i_fmap)   ,ia(i_nnof)
-     3                       ,ia(i_rcvs) ,ia(i_dspl)   ,ia(i_ie),ia(i_e)
-     4                       ,ia(i_idl)  ,ia(i_nloadl) ,ia(i_eloadl)
-     5                       ,ia(i_fl)   ,ia(i_u)      ,ia(i_tx0)
-     6                       ,ia(i_idtl) ,ia(i_nloadtl),ia(i_eloadtl)
-     7                       ,ia(i_ftl)  ,ia(i_ut0l)
-     8                       ,ia(i_nodedist),ia(i_elmdist)
-     9                       ,nnodev,nnode,numel,maxnov,maxno
-     1                       ,ndm,numat,ndf,ndft,npi ,file_prop
-     2                       ,my_nno1,my_nno2,my_nno3,my_nno4
-     3                       ,my_nno1a,my_nnode
-     4                       ,my_numel,my_numel_nov,my_numel_ov
-     5                       ,lines,nlines,plines,pnlines
-     6                       ,macros,fileout,nprcs,ovlp
-     7                       ,j,k,rank,nnos,MPIW,nout)
+     1         ,ia(i_noLG) ,ia(i_noGL)   ,ia(i_ranks)
+     2         ,ia(i_sizes),ia(i_fmap)   ,ia(i_nnof)
+     3         ,ia(i_rcvs) ,ia(i_dspl)   ,ia(i_ie),ia(i_e)
+     4         ,ia(i_idl)  ,ia(i_nloadl) ,ia(i_eloadl),ia(i_eloadpl)
+     5         ,ia(i_fl)   ,ia(i_u)      ,ia(i_tx0)
+     6         ,ia(i_idtl) ,ia(i_nloadtl),ia(i_eloadtl)
+     7         ,ia(i_ftl)  ,ia(i_ut0l)
+     8         ,ia(i_nodedist),ia(i_elmdist)
+     9         ,nnodev,nnode,numel,maxnov,maxno
+     1         ,ndm,numat,ndf,ndft,npi ,file_prop
+     2         ,my_nno1,my_nno2,my_nno3,my_nno4
+     3         ,my_nno1a,my_nnode
+     4         ,my_numel,my_numel_nov,my_numel_ov
+     5         ,lines,nlines,plines,pnlines
+     6         ,macros,fileout,nprcs,ovlp
+     7         ,j,k,rank,nnos,MPIW,nout)
         endif
 c ...       
         k   =   k - 1

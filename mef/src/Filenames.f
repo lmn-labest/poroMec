@@ -1,7 +1,7 @@
       character*80 function name(NomeArqDados,NumArq,code)
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 20/04/2017                                   * 
+c * Data de modificaco : 14/05/2017                                   * 
 c * ----------------------------------------------------------------- *
 c * NAME: nomes de aquivos                                            *
 c * ----------------------------------------------------------------- *
@@ -24,10 +24,10 @@ c *  3 -> resultado vtu                                               *
 c *  4 ->                                                             *
 c *  5 -> condicao de contorno .vtk                                   *
 c *  6 -> condicao de contorno .vtu                                   *
-c *  7 ->                                                             *
-c *  8 ->                                                             *
-c *  9 ->                                                             *
-c * 10 ->                                                             * 
+c *  7 -> condicao de contorno face mecanico .vtk                     *
+c *  8 -> condicao de contorno face mecanico .vtu                     *
+c *  9 -> condicao de contorno face hidraulico .vtk                   *
+c * 10 -> condicao de contorno face hidraulico .vtu                   *
 c * 12 -> arquivo do tempos medios(mpi)                               *
 c * 13 -> arquivo de entrada do mpi                                   *
 c * 13 ->                                                             *
@@ -78,10 +78,16 @@ c ... geom .vtu
         StrExtensao='_bc.vtu'
 c ... geom .vtk
       else if(code .eq. 7) then
-        StrExtensao='_face_bc.vtk'
+        StrExtensao='_face_mec_bc.vtk'
 c ... geom .vtu
       else if(code .eq. 8) then
-        StrExtensao='_face_bc.vtu'
+        StrExtensao='_face_mec_bc.vtu'
+c ... geom .vtk
+      else if(code .eq. 9) then
+        StrExtensao='_face_pres_bc.vtk'
+c ... geom .vtu
+      else if(code .eq. 10) then
+        StrExtensao='_face_pres_bc.vtu'
 c ... log de tempos
       elseif(code .eq. 12) then
         write(StrExtensao,'( I6 )') NumArq

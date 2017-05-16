@@ -116,7 +116,7 @@ c ...
           resp0 = gresp
         else if(nli .eq. 2) then 
           resu0 = max(resu0,gresu)
-          resp0 = max(resu0,gresu)
+          resp0 = max(resp0,gresu)
         endif
 c
         if(my_id.eq.0) then

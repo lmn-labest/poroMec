@@ -36,7 +36,7 @@ c **********************************************************************
          x2 = x(i+1)
          y1 = y(i)
          y2 = y(i+1)
-         if (xi .gt. x1 .and. xi .lt. x2) then
+         if (xi .ge. x1 .and. xi .le. x2) then
             c = y1 + (y2-y1)*(xi-x1)/(x2-x1)
             goto 100
          endif

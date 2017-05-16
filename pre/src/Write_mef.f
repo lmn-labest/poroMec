@@ -1,6 +1,6 @@
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 03/05/2017                                    * 
+c * Data de modificaco : 14/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
 c * WRITEMYDATPART : escreve o arquivo no formato do mefpar            *
 c * ------------------------------------------------------------------ *
@@ -23,6 +23,7 @@ c * e                 -                                                *
 c * id                -                                                *
 c * nload             -                                                *
 c * eload             -                                                *
+c * eloadp            -                                                *
 c * f                 -                                                *
 c * u0                -                                                *
 c * tx0               -                                                *
@@ -64,10 +65,10 @@ c **********************************************************************
      1                          ,noLG    ,noGL  ,ranks
      2                          ,sizes   ,fmap  ,nnof
      3                          ,rcvs    ,dspl  ,ie    ,e
-     4                          ,id      ,nload ,eload
+     4                          ,id      ,nload ,eload ,eloadp
      5                          ,f       ,u0    ,tx0
      6                          ,idt     ,nloadt,eloadt
-     7                          ,ft       ,ut0
+     7                          ,ft      ,ut0
      8                          ,nodedist,elmdist
      9                          ,nnodev  ,nnode,numel,maxnov,maxno,ndm
      1                          ,numat   ,ndf,ndft,npi,file_prop
@@ -95,7 +96,7 @@ c ... problema termico
 c ... problema mecanico
       integer ndf 
       real*8 f(ndf,*),u0(ndf,*),tx0(*)
-      integer id(*),nload(*),eload(7,*)
+      integer id(*),nload(*),eload(7,*),eloadp(7,*)
 c ... particionamento
       integer nprcs
       integer my_nno1,my_nno2,my_nno3,my_nno4,my_nno1a,my_nnode
@@ -140,7 +141,7 @@ c ......................................................................
      1           'quad4bin       ','tetra4bin      ','hexa8bin       ',
      2           'quad8bin       ','hydrostatic    ','hydrostress    ',
      3           'constrainpmec  ','initialpres    ','initialstress  ',
-     4           '               ','fmaterials     ','end            '/
+     4           'elmtpresloads  ','fmaterials     ','end            '/
       data nmc /42/
 c ......................................................................
 
@@ -381,7 +382,7 @@ c .....................................................................
      1      1900,1950,2000,  !quad4bin       ,tetra4bin    ,hexa8bin
      1      2050,2100,2150,  !quad8bin       ,hydrostatic  ,hydrostress
      2      2200,2250,2300,  !constrainpmec  ,initialpres  ,initialstress
-     3      2350,2400,2450)j !               ,fmaterials   ,end
+     3      2350,2400,2450)j !elmtpresloads  ,fmaterials   ,end
 c .....................................................................
 c
 c ... Materiais
@@ -1047,7 +1048,22 @@ c .....................................................................
 c
 c ... 
  2350 continue
-        print*, "2350"
+c ... elmtpresloads - cargas nos elementos:
+        write(nout,'(a)')'elmtpresloads'
+        if( npes .gt. 1)then
+          i_g1  = alloc_4('Geload   ',    7,numel)
+          call mzero(ia(i_g1),7*numel)
+c ... recupera os valores gobais de eload          
+          call global_int(ia(i_g1),eload,elmdist,numel,7,npes
+     .                   ,my_rank,MPIW)   
+          call wpelloads(ia(i_g1),elLG,my_numel,my_numel_ov,nout)
+          i_g1 = dealloc('Geload   ')
+        else  
+          call wpelloads(eloadp,elLG,my_numel,my_numel_ov,nout)
+        endif  
+        write(nout,'(a)')'end elmtpresloads'
+      goto 100
+c .....................................................................
       goto 100
 c .....................................................................
 c
@@ -1887,16 +1903,18 @@ c ...             variacao senoidal
                   write(nout,13) i,itype,nparc,fload(1,1,i)
      .                          ,fload(2,1,i),fload(3,1,i),fload(1,2,i)
 c .....................................................................
-c
-c ... forca distribuida no contorno 
-               elseif (itype .eq. 40) then
-c ...       interpolacao de pontos
-                  write(nout,11,advance = "no") i,itype
-                  write(nout,'(80a)')name_loads(i)
-c .....................................................................
-c
-c ... forca distribuida normal ao contorno 
-               elseif (itype .eq. 41 .or. itype .eq. 42) then
+c                 
+c ... 
+c 39 - valor de uma carga ou deslocamento variavel no tempo
+c 40 - forca distribuida constante no contorno
+c 41 - carga normal constante no contorno 
+c      (F=carga*normal,normal - calculado nivel elemento)
+c 42 - valor por carga hidrostatica      
+c      (f = alfa*(f0 + density*g*(h-x)) )
+c 43 - fluxo normal de massa
+          elseif (   (itype .eq. 39)    
+     .          .or. (itype .eq. 40) .or. (itype .eq. 41) 
+     .          .or. (itype .eq. 42) .or. (itype .eq. 43) ) then
 c ...       interpolacao de pontos
                   write(nout,11,advance = "no") i,itype
                   write(nout,'(80a)')name_loads(i)

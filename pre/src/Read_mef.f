@@ -37,10 +37,10 @@ c * i_vt     - ponteiro para o arranjo vt       (termico)             *
 c * i_w     - ponteiro para o arranjo w         (termico)             *
 c * lines  ->                                                         *
 c * nlines ->                                                         *
-c * nin    -> arquivo de entrada                                      *
 c * verbose-> mode verbose da rdat                                    *
 c * rload  ->                                                         *
 c * fprop  -> nome dos arquivos de propriedades                       *
+c * nin    -> arquivo de entrada                                      *
 c * ----------------------------------------------------------------- *
 c * Paramtros de  Saida:                                              *
 c * lines  -> linhas lidas de macro-comandos apos o end mesh          *
@@ -49,19 +49,19 @@ c * plines -> linhas lidas de macro-comandos pre mesh                 *
 c * pnlines-> numero de linha em plines                               *
 c * rload  -> macro-comandos descritiva do problema lidas ou nao      *
 c * ----------------------------------------------------------------- *
-c * ------------------------------------------------------------------ * 
-c * Obs:                                                               *
-c * ------------------------------------------------------------------ * 
+c * ----------------------------------------------------------------- * 
+c * Obs:                                                              *
+c * ----------------------------------------------------------------- * 
 c *********************************************************************
       subroutine read_mef(nnodev,nnode,numel,numat,maxnov,maxno
      1                   ,ndf   ,ndft ,ndm  ,npi  
      2                   ,i_ix  ,i_ie ,i_e  ,i_x
-     3                   ,i_id  ,i_nload    ,i_eload
+     3                   ,i_id  ,i_nload    ,i_eload ,i_eloadp 
      4                   ,i_f   ,i_u        ,i_tx0   ,i_v    ,i_a
      5                   ,i_idt ,i_nloadt   ,i_eloadt
      6                   ,i_ut  ,i_ut0      ,i_du    ,i_vt   ,i_w
      7                   ,lines,nlines,plines,pnlines
-     8                   ,nin,verbose,rload  ,fprop  ,ncont)
+     8                   ,verbose,rload  ,fprop  ,ncont,nin)
 c ===      
       implicit none
       include 'string.fi'
@@ -70,7 +70,7 @@ c ... malha
       integer plastic
       integer*8 i_ix,i_ie,i_e,i_x
 c ... mecanico - poromec
-      integer*8 i_f,i_u,i_v,i_a,i_tx0,i_id,i_nload,i_eload
+      integer*8 i_f,i_u,i_v,i_a,i_tx0,i_id,i_nload,i_eload,i_eloadp
 c ... termico
       integer*8 i_ft,i_ut,i_ut0,i_du,i_vt,i_w,i_idt,i_nloadt,i_eloadt
 c ...
@@ -116,7 +116,7 @@ c ...
       call rdatm(nnodev,nnode,numel,numat,maxnov ,maxno
      1          ,ndf   ,ndft ,ndm  ,npi  ,dum  ,dum
      2          ,i_ix  ,i_ie,i_e,i_x
-     3          ,i_id  ,i_nload,i_eload 
+     3          ,i_id  ,i_nload,i_eload  ,i_eloadp
      4          ,i_f   ,i_u,i_v,i_vt     ,i_a ,i_tx0
      5          ,i_idt ,i_nloadt,i_eloadt
      6          ,i_ft  ,i_ut    ,i_ut0   ,i_du ,i_w  
@@ -420,7 +420,7 @@ c ...
       data macro/'end            ','output         ','div            ',
      1           'method         ','partVtk        ','partMeshVtk    ',
      2           'partMeshMef    ','meshLoads      ','vtkBin         ',
-     3           'input          ','memory         ','               '/
+     3           'input          ','memory         ','help           '/
 c .....................................................................
 c
 c ... exemplo
@@ -463,7 +463,7 @@ c ...
       go to(200 ,300 , 400     !end        ,output     ,div        
      1     ,500 ,600 , 700     !method     ,partVtk    ,partMeshVtk
      2     ,800 ,900 ,1000     !partMeshMef,meshLoads  ,vtkBin       
-     3     ,1100,1200,1300) j  !input      ,memory     ,             
+     3     ,1100,1200,1300) j  !input      ,memory     ,help         
 c .....................................................................
 c
 c ... macro end
@@ -605,9 +605,9 @@ c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
       go to 50
 c .....................................................................
 c
-c ...
+c ... help
  1300 continue
-      go to 50
+      go to 2501
 c .....................................................................
 c
 c ...
@@ -619,6 +619,7 @@ c ...
       call finalize(ierr) 
  2500 continue
       print*,'*** Error reading ',trim(filearg),' file !'
+ 2501 continue
       write(*,'(2x,a)') '******************************'
       write(*,'(2x,a)') 'Example usage of file:'
       write(*,'(2x,a)') '------------------------------'
