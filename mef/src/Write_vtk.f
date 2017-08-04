@@ -395,7 +395,7 @@ c     cod  2 vetorial
 c     cod2 3 real(8bytes) 
       write(aux1,'(15a)')"forces"
       gdl =  ndf
-      cod =  2
+      cod =  1
       cod2 = 3
       if(legacy) then
         call point_prop_vtk(idum,fdum,f,nnode,aux1,ndf,gdl,cod,cod2
@@ -410,11 +410,11 @@ c
 c ... nodalloads
   500 continue
 c ... gdb graus de liberdade
-c     cod  2 vetorial
+c     cod  1 vetorial
 c     cod2 1 interio(4bytes) 
       write(aux1,'(15a)')"nodalloads"
       gdl =  ndf
-      cod =  2
+      cod =  1
       cod2 = 1
       if(legacy) then
         call point_prop_vtk(nload,fdum,ddum,nnode,aux1,ndf,gdl,cod,cod2

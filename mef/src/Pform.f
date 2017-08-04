@@ -1436,9 +1436,9 @@ c **********************************************************************
      2                       ,vprop)
 c **********************************************************************
 c * Data de criacao    : 28/02/2017                                    *
-c * Data de modificaco : 11/05/2017                                    * 
+c * Data de modificaco : 29/05/2017                                    * 
 c * ------------------------------------------------------------------ * 
-c * DELTA_PORISITY: calculo da porosidade                              *
+c * INITIAL_PROP: calculo da prorpriedaes iniciais                     *
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
@@ -1482,68 +1482,14 @@ c ......................................................................
       integer ix(nen+1,*),ie(*)
       integer nel,ma,i,numat
       real*8  e(prop,*),vpropel(nvprop,npi,*)
-      real*8  perm,poro,ym,ps,mod_biot,coef_biot,ro,rof,lam,mu,k
+      real*8  perm,poro,ym,ps,ibiot,cbiot,ro,rof,lam,mu,k
       real*8 scale
       parameter (scale = 1.d-06)
       logical vprop(*)
 c ......................................................................
 c
-c ... Loop nos elementos:
-      do 100 nel = 1, numel
-c ...... Arranjos de elemento:
-        ma         = ix(nen+1,nel)
-c ...
-        ym         = e(1,ma)
-        ps         = e(2,ma)
-        perm       = e(3,ma)
-        mod_biot   = e(4,ma)
-        coef_biot  = e(5,ma)
-        ro         = e(6,ma)
-        poro       = e(8,ma)
-c ......................................................................
-c
-c ...
-        lam  = ym*ps/( (1.0+ps)*( 1.0 - 2.0*ps ) )
-        mu   = (0.5d0*ym)/(1.0+ps)
-        k    = lam + (2.d0/3.d0)*mu 
-c ......................................................................
-c
-c ...
-        do 200 i = 1, npi
-c ... porosidade
-          vpropel(1,i,nel) = poro
-c ......................................................................
-c
-c ... permebilidade
-          vpropel(2,i,nel) = perm
-c ......................................................................
-c
-c ... massa especifica homogenizada
-          vpropel(3,i,nel) = ro*scale  
-c ......................................................................
-c
-c ... modulo de volumetrico         
-          vpropel(4,i,nel) = k  
-c ......................................................................
-c
-c ... modulo de cisalhamento         
-          vpropel(5,i,nel) = mu 
-c ......................................................................
-c
-c ... modulo de volumetrico         
-          vpropel(6,i,nel) = 1.d0/mod_biot 
-c ......................................................................
-c
-c ... modulo de volumetrico         
-          vpropel(7,i,nel) = coef_biot  
-c ......................................................................
-  200   continue
-c ......................................................................
-  100 continue
-c ......................................................................
-c
 c ... calculo das propriedades da fase solida
-      do 300 ma = 1, numat
+      do 100 ma = 1, numat
 c ...
         ym   = e(1,ma)
         ps   = e(2,ma)
@@ -1567,6 +1513,63 @@ c ... calculo modulo volumetrico e de cisalhamento da parte solida
         e(1,ma) = k
         e(2,ma) = mu
 c .....................................................................
+  100 continue
+c ......................................................................
+c
+c ... Loop nos elementos:
+      do 300 nel = 1, numel
+c ...... Arranjos de elemento:
+        ma         = ix(nen+1,nel)
+c ...
+        k          = e(1,ma)
+        mu         = e(2,ma)
+        perm       = e(3,ma)
+        ro         = e(6,ma)
+        rof        = e(7,ma)
+        poro       = e(8,ma)
+c ... modulo de volumetrico         
+        ibiot      = 1/e(4,ma)
+c ......................................................................
+c
+c ... modulo de volumetrico         
+        cbiot       = e(5,ma)
+c ......................................................................
+c
+c ...
+        do 200 i = 1, npi
+c ... porosidade
+          vpropel(1,i,nel) = poro
+c ......................................................................
+c
+c ... permebilidade
+          vpropel(2,i,nel) = perm
+c ......................................................................
+c
+c ... massa especifica homogenizada
+          if( vprop(3) ) then
+            vpropel(3,i,nel) = (1.0 - poro)*ro +  poro*rof
+          else
+            vpropel(3,i,nel) = ro
+          endif
+          vpropel(3,i,nel) = vpropel(3,i,nel)*scale 
+c ......................................................................
+          
+c
+c ... hashin-shtrikman
+          if( vprop(4) ) then
+            call hashin_shtrikman(poro,k,mu
+     .                         ,vpropel(4,i,nel),vpropel(5,i,nel)
+     .                         ,vpropel(6,i,nel),vpropel(7,i,nel))  
+          else
+            vpropel(4,i,nel)  = k 
+            vpropel(5,i,nel)  = mu
+            vpropel(6,i,nel)  = ibiot 
+            vpropel(7,i,nel)  = cbiot
+          endif
+c ......................................................................
+c
+  200   continue
+c ......................................................................
   300 continue
 c ......................................................................
       return

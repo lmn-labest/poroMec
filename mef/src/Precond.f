@@ -153,7 +153,7 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
 c * para tamanho de blocos 2 e 3 inversao direta M(-1)                 *        
-c * para tamanho de blocos maior ou igual a 4 fatoracao LLt            *                                       c *                                                                    *
+c * para tamanho de blocos maior ou igual a 4 fatoracao LLt            *                                                                *
 c *                                                                    *
 c * bloco (2x2) - iparam(3) = 2                                        *
 c *    | a11 a21 |        | a22 a21 |                                  *

@@ -2472,7 +2472,7 @@ c *********************************************************************
       data macro/'plastic         ','vprop           ',
      1           'kozeny_carman   ','density         ',
      2           'hashin_shtrikman','                ',
-     3           '                ','                '/
+     3           '                ','help            '/
 c .....................................................................
 c
 c ...
@@ -2515,6 +2515,11 @@ c ... Hashin-Shtrikman
          else if (string .eq. macro(5)) then
            ivprop(4) = .true. 
 c .....................................................................
+c
+c ... help            
+         else if (string .eq. macro(8)) then
+           goto 300            
+c .....................................................................
          endif 
 c .....................................................................
 c
@@ -2554,6 +2559,19 @@ c ......................................................................
  200  continue
       print*,'File ',trim(fname),' not found !'
       call stop_mef()      
+ 300  continue
+      if(my_id.eq.0) then
+        write(*,'(2x,a)') '******************************'
+        write(*,'(2x,a)') 'Example usage of macro conseq:'
+        write(*,'(2x,a)') '------------------------------'
+        do i = 1, 5
+          write(*,'(2x,a)') macro(i)
+        enddo  
+        write(*,'(2x,a)') 'end'
+        write(*,'(2x,a)') '------------------------------'
+        write(*,'(2x,a)') '******************************'
+      endif
+      call stop_mef()
 c ......................................................................
       end
 c *********************************************************************
@@ -2604,7 +2622,7 @@ c ... exemplo
      5        'cbiot        1.0',
      6        'density      1.0', 
      7        'fdensity     1.0',
-     8        'ivoid        0.9',
+     8        'porosity     0.72',
      9        'l_plastic    0.2',
      1        'k_plastic    0.2',
      2        'mcs          1.2',
@@ -2798,7 +2816,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
-c * Data de modificaco : 04/03/2017                                   *
+c * Data de modificaco : 27/05/2017                                   *
 c * ------------------------------------------------------------------*
 c * read_config : leitura das configuracoes basicas de excucao        *
 c * ------------------------------------------------------------------*
@@ -2833,7 +2851,8 @@ c *********************************************************************
      6                      ,my_id   ,nin)
       implicit none
       include 'string.fi'
-      character(len=15) string,macro(9),ex(9)
+      character(len=15) string,macro(10)
+      character(len=20) ex(10)
       character(len=80) fname
       integer*8 maxmem
       integer nth_elmt,nth_solver
@@ -2842,16 +2861,19 @@ c *********************************************************************
       integer nin,nprcs,my_id
       logical mpi
       integer nincl /7/
-      data nmacro /9/
+      data nmacro /10/
       data macro/'memory         ','omp_elmt       ','omp_solver     ',
      1           'nth_elmt       ','nth_solver     ','reord          ',
-     2           'binary_vtk     ','legacy_vtk     ','newton_rapshon '/
+     2           'binary_vtk     ','legacy_vtk     ','newton_raphson ',
+     3           'help'/
 c .....................................................................
 c
 c ... exemplo
-      data ex /'memory     1000','omp_elmt   true','nth_elmt      4',
-     1         'omp_solver true','nth_elmt      2','binary_vtk true',
-     2         'legacy_vtk true','end            ','               '/
+      data ex /'memory          1000','omp_elmt        true',   
+     1         'nth_elmt           4','omp_solver      true',
+     2         'nth_elmt           2','binary_vtk      true',
+     3         'legacy_vtk      true','newton_raphson false',
+     4         'reord           true','end                 '/
 c .....................................................................
 c
 c ... arquivo de config
@@ -2955,6 +2977,11 @@ c ...
               write(*,'(2x,a15,1x)',advance='no')'newton_raphson:'
               write(*,*)newton_raphson    
             endif
+c .....................................................................
+c
+c ... 
+          elseif (string .eq. macro(10)) then
+            goto 300
           endif 
 c .....................................................................
 c
@@ -2981,7 +3008,7 @@ c ......................................................................
         write(*,'(2x,a)') '******************************'
         write(*,'(2x,a)') 'Example usage of macro config:'
         write(*,'(2x,a)') '------------------------------'
-        do i = 1, 8
+        do i = 1, 10
           write(*,'(2x,a)') ex(i)
         enddo  
         write(*,'(2x,a)') '------------------------------'
@@ -2994,7 +3021,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 13/10/2016                                   *
-c * Data de modificaco : 29/01/2017                                   *
+c * Data de modificaco : 27/05/2017                                   *
 c * ------------------------------------------------------------------*
 c * read_solver_config : leitura das configuracoes basicas do solver  *
 c * ------------------------------------------------------------------*
@@ -3050,10 +3077,10 @@ c *********************************************************************
       data macro/'name           ','it             ','tol            ',
      .           'precond        ','nkrylov        ','histlog        ',
      .           'alfap          ','alfau          ','ctol           ',
-     .           'cmaxit         ','fprint         ','               '/
+     .           'cmaxit         ','fprint         ','help           '/
 c ... exemplo
       data ex   /'name         cg','it         1000','tol      1.e-11',
-     .           'precond    diag','end            ','               ',
+     .           'precond    diag','nKrylov     300','end            ',
      .           '               ','               ','               ',
      .           '               ','               ','               '/
 c .....................................................................
@@ -3180,6 +3207,11 @@ c ... fprint
               write(*,'(a10,1x)',advance='no')'fprint :'
               write(*,*)fprint   
             endif
+c .....................................................................
+c
+c ... help  
+         elseif (string .eq. macro(12)) then
+           goto 300
 c .....................................................................
          endif
 c .....................................................................
