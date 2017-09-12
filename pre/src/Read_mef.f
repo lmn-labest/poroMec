@@ -59,9 +59,10 @@ c *********************************************************************
      3                   ,i_id  ,i_nload    ,i_eload ,i_eloadp 
      4                   ,i_f   ,i_u        ,i_tx0   ,i_v    ,i_a
      5                   ,i_idt ,i_nloadt   ,i_eloadt
-     6                   ,i_ut  ,i_ut0      ,i_du    ,i_vt   ,i_w
-     7                   ,lines,nlines,plines,pnlines
-     8                   ,verbose,rload  ,fprop  ,ncont,nin)
+     6                   ,i_ft  ,i_ut       ,i_ut0   ,i_du   ,i_vt   
+     7                   ,i_w
+     8                   ,lines,nlines,plines,pnlines
+     9                   ,verbose,rload  ,fprop  ,ncont,nin)
 c ===      
       implicit none
       include 'string.fi'

@@ -150,13 +150,8 @@ c      i_nincid = locate('nincid  ')
 c .....................................................................
 c 
 c ... Correspondencia entre numeracao nodal de interface e global:
-      if(ovlp) then
-        i_fmap  = alloc_4('fmap    ', 1, 2*my_nnode )
-        call mzero(ia(i_fmap),2*my_nnode)
-      else
-        i_fmap  = alloc_4('fmap    ', 1,my_nnode )
-        call mzero(ia(i_fmap),my_nnode)
-      endif  
+      i_fmap  = alloc_4('fmap    ', 1, 2*my_nnode )
+      call mzero(ia(i_fmap),2*my_nnode)
       i_nnof  = alloc_4('nnof    ', 1,       2 )
       call mzero(ia(i_nnof),2)
 c .....................................................................
@@ -966,7 +961,7 @@ c .....................................................................
 c
       endif
 c ...
-        call ord(ranks,sizes)
+      call ord(ranks,sizes(1))
 c .....................................................................
 c =====================================================================
 c

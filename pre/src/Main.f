@@ -239,10 +239,10 @@ c =====================================================================
 c
 c
 c === gerando o grafo da malha
-      tmetis = getime()
-      call call_metis(i_np,i_ep,i_ix0,i_nen,nnode,numel,maxno,rank
-     .               ,nnos,nprcs,MPIW)
-      tmetis = getime() - tmetis
+c     tmetis = getime()
+c     call call_metis(i_np,i_ep,i_ix0,i_nen,nnode,numel,maxno,rank
+c    .               ,nnos,nprcs,MPIW)
+c     tmetis = getime() - tmetis
 c =====================================================================
 c
 c ===  
@@ -257,9 +257,10 @@ c ... leitura da malha
      3                ,i_id  ,i_nload    ,i_eload ,i_eloadp
      4                ,i_f   ,i_u        ,i_tx0   ,i_v    ,i_a
      5                ,i_idt ,i_nloadt   ,i_eloadt
-     6                ,i_ut  ,i_ut0      ,i_du    ,i_vt   ,i_w
-     7                ,lines ,nlines     ,plines  ,pnlines
-     8                ,vrdat      ,rload   ,file_prop,ncont,nin)
+     6                ,i_ft  ,i_ut       ,i_ut0   ,i_du   ,i_vt 
+     7                ,i_w
+     8                ,lines ,nlines     ,plines  ,pnlines
+     9                ,vrdat      ,rload   ,file_prop,ncont,nin)
         close(nin)
         trmesh  = getime()- trmesh
         print*,"End of the reading."
@@ -267,12 +268,13 @@ c ... leitura da malha
 c      call printvetorint(ia(i_eloadt),numel,7)
 c ####################################################################  
 c ######################PARA MALHA ESTRUTURADAS#######################  
-c     i_np  = alloc_4('np      ',  1,nnode)  
-c     i_ep  = alloc_4('ep      ',  1,numel)  
+      i_np  = alloc_4('np      ',  1,nnode)  
+      i_ep  = alloc_4('ep      ',  1,numel)  
 c     call struct_mesh(ia(i_ix),ia(i_x),ia(i_np),ia(i_ep),nnode,numel
 c    .                ,maxnov,maxno,ndm,nprcs)
 c     call struct_cubo(ia(i_ix),ia(i_x),ia(i_np),ia(i_ep),nnode,numel
 c    .                ,maxnov,maxno,ndm,nprcs)
+      call particao(ia(i_np),ia(i_ep))
 c ####################################################################  
 c .....................................................................
 c =====================================================================
@@ -473,3 +475,22 @@ c *********************************************************************
       return
       end
 c *********************************************************************
+      subroutine particao(np,ep)
+      implicit none
+      integer np(*),ep(*)
+      ep(1) = 1
+      ep(2) = 2
+      ep(3) = 3
+      ep(4) = 4
+c 
+      np(1) = 1
+      np(2) = 1
+      np(3) = 2
+      np(4) = 1
+      np(5) = 3
+      np(6) = 4
+      np(7) = 3
+      np(8) = 3
+      np(9) = 4
+      return
+      end
