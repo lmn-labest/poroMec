@@ -384,7 +384,7 @@ c **********************************************************************
       real*8 function get_buffer_size(tp,neq)
       implicit none
       include 'openmp.fi'
-      integer nbytes
+      real*8 nbytes
       integer neq
       character*2 tp
 c ... 8 byts vector
@@ -395,11 +395,11 @@ c ...
       if(tp .eq.' B') then
         get_buffer_size = nbytes
       else if (tp .eq. 'KB') then
-        get_buffer_size = nbytes / 1024
+        get_buffer_size = nbytes / 1024.0
       else if (tp .eq. 'MB') then
-        get_buffer_size = nbytes / (1024**2)
+        get_buffer_size = nbytes / (1024.0**2)
       else if (tp .eq. 'GB') then
-        get_buffer_size = nbytes / (1024**3)
+        get_buffer_size = nbytes / (1024.0**3)
       endif
 c ......................................................................
 c

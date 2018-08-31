@@ -114,6 +114,7 @@ c ......................................................................
       logical f_read_el /.false./
       logical el_quad  /.false./
       logical mk_el_quad  /.false./
+      logical fMixedMesh  /.false./
 c ......................................................................
       data macro/'materials      ','bar2           ','tria3          ',
      .           'quad4          ','tetra4         ','hexa8          ',
@@ -342,7 +343,7 @@ c ... Conetividades bar2:
 c
   450 continue
       nbar2(1) = 0
-      call elconn(ia(i_ix),nen+1,2,nbar2(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,2,nbar2(1),numel,fMixedMesh,nin)
       nbar2(2) = totnel+1
       totnel   = totnel + nbar2(1)      
       go to 100
@@ -356,7 +357,7 @@ c
       ntria3(1) = 0
       nenv      = 3
       nst       = nenv*ndf
-      call elconn(ia(i_ix),nen+1,3,ntria3(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,3,ntria3(1),numel,fMixedMesh,nin)
       ntria3(2) = totnel+1
       totnel    = totnel + ntria3(1)
 c ... transforma os elementos lineares em quadraticos (3 nos)
@@ -376,7 +377,7 @@ c
       nquad4(1) = 0
       nenv      = 4
       nst       = nenv*ndf
-      call elconn(ia(i_ix),nen+1,4,nquad4(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,4,nquad4(1),numel,fMixedMesh,nin)
       nquad4(2) = totnel+1
       totnel    = totnel + nquad4(1)
 c ... transforma os elementos lineares em quadraticos (8 nos)
@@ -394,7 +395,7 @@ c
       f_read_el  = .true.
       ntetra4(1) = 0
       nenv       = 4
-      call elconn(ia(i_ix),nen+1,nenv,ntetra4(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,nenv,ntetra4(1),numel,fMixedMesh,nin)
       ntetra4(2) = totnel+1
       totnel     = totnel + ntetra4(1)
       nst        = nenv*ndf
@@ -441,7 +442,7 @@ c
       f_read_el = .true.
       nhexa8(1) = 0
       nenv      = 8
-      call elconn(ia(i_ix),nen+1,nenv,nhexa8(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,nenv,nhexa8(1),numel,fMixedMesh,nin)
       nhexa8(2) = totnel + 1
       totnel    = totnel + nhexa8(1)
       nst       = nenv*ndf
@@ -495,7 +496,7 @@ c
         itmp = nen*(ndf-1) + nenv   
       endif
       nst        = max(nst,itmp) 
-      call elconn(ia(i_ix),nen+1,20,nhexa20(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,20,nhexa20(1),numel,fMixedMesh,nin)
       nhexa20(2)  = totnel+1
       totnel      = totnel + nhexa20(1)
 c ......................................................................
@@ -517,7 +518,7 @@ c
         itmp = nen*(ndf-1) + nenv   
       endif
       nst         = max(nst,itmp) 
-      call elconn(ia(i_ix),nen+1,10,ntetra10(1),numel,nin)
+      call elconn(ia(i_ix),nen+1,10,ntetra10(1),numel,fMixedMesh,nin)
       ntetra10(2)  = totnel+1
       totnel       = totnel + ntetra10(1)
 c ......................................................................
@@ -766,7 +767,7 @@ c
  1750 continue
       if(my_id .eq. 0) print*,'loading tria3ov ...'
       ntria3(3) = 0
-      call elconn(ia(i_ix),nen+1,3,ntria3(3),numel,nin)
+      call elconn(ia(i_ix),nen+1,3,ntria3(3),numel,.true.,nin)
       ntria3(4) = totnel+1
       totnel    = totnel + ntria3(3)
       if(my_id .eq. 0) print*,'done.'
@@ -778,7 +779,7 @@ c
  1800 continue
       if(my_id .eq. 0) print*,'loading quad4ov ...'
       nquad4(3) = 0
-      call elconn(ia(i_ix),nen+1,4,nquad4(3),numel,nin)
+      call elconn(ia(i_ix),nen+1,4,nquad4(3),numel,.true.,nin)
       nquad4(4) = totnel+1
       totnel     = totnel + nquad4(3)
       if(my_id .eq. 0) print*,'done.'
@@ -790,7 +791,7 @@ c
  1850 continue
       if(my_id .eq. 0) print*,'loading tetra4ov ...'
       ntetra4(3) = 0
-      call elconn(ia(i_ix),nen+1,4,ntetra4(3),numel,nin)
+      call elconn(ia(i_ix),nen+1,4,ntetra4(3),numel,.true.,nin)
       ntetra4(4) = totnel+1
       totnel     = totnel + ntetra4(3)
       if(my_id .eq. 0) print*,'done.'
@@ -802,7 +803,7 @@ c
  1900 continue
       if(my_id .eq. 0) print*,'loading hexa8ov ...'
       nhexa8(3) = 0
-      call elconn(ia(i_ix),nen+1,8,nhexa8(3),numel,nin)
+      call elconn(ia(i_ix),nen+1,8,nhexa8(3),numel,.true.,nin)
       nhexa8(4) = totnel+1
       totnel    = totnel + nhexa8(3)
       if(my_id .eq. 0) print*,'done.'
@@ -814,7 +815,7 @@ c
  1950 continue
       if(my_id .eq. 0) print*,'loading tetra10ov ...'
       ntetra10(3) = 0
-      call elconn(ia(i_ix),nen+1,10,ntetra10(3),numel,nin)
+      call elconn(ia(i_ix),nen+1,10,ntetra10(3),numel,.true.,nin)
       ntetra10(4) = totnel+1
       totnel     = totnel + ntetra10(3)
       if(my_id .eq. 0) print*,'done.'
@@ -826,7 +827,7 @@ c
  2000 continue
       if(my_id .eq. 0) print*,'loading hexa20ov ...'
       nhexa20(3) = 0
-      call elconn(ia(i_ix),nen+1,20,nhexa20(3),numel,nin)
+      call elconn(ia(i_ix),nen+1,20,nhexa20(3),numel,.true.,nin)
       nhexa20(4) = totnel+1
       totnel    = totnel + nhexa20(3)
       if(my_id .eq. 0) print*,'done.'
@@ -956,7 +957,7 @@ c ......................................................................
       return
 c ......................................................................
       end
-      subroutine elconn(ix,nen1,nen,nel,numel,nin)
+      subroutine elconn(ix,nen1,nen,nel,numel,flag,nin)
 c **********************************************************************
 c *                                                                    *
 c *   Conetividades nodais.                                            *
@@ -966,35 +967,40 @@ c **********************************************************************
       include 'string.fi'      
       integer ix(nen1,*),nen1,nen,nel,numel,nin,j,k,m
       character*12 string
+      logical flag
 c ......................................................................
-c      do 100 j = 1, numel
-c         read(nin,*) k,(ix(m,k),m=1,nen),ix(nen1,k)
-c 100  continue
-c      call readmacro(nin,.true.)
-c      write(string,'(12a)') (word(j),j=1,12)  
-c      if (string .ne. 'end') goto 200
-c      nel=numel
-c      return
+      if(.not. flag) then
+        do  50 j = 1, numel
+          read(nin,*) k,(ix(m,k),m=1,nen),ix(nen1,k)
+   50   continue
+        call readmacro(nin,.true.)
+        write(string,'(12a)') (word(j),j=1,12)  
+        if (string .ne. 'end') goto 200
+        nel=numel
+        return
 c ......................................................................
-       nel = 0
-       call readmacro(nin,.true.)
-       write(string,'(12a)') (word(j),j=1,12)
-       do 100 while(string .ne. 'end')
-         read(string,*,err = 200,end = 200) k
-         if(k .lt. 1 .or. k .gt. numel) goto 200      
-         do 10 j = 1, nen
-            call readmacro(nin,.false.)
-            write(string,'(12a)') (word(m),m=1,12)
-            read(string,*,err = 200,end = 200) ix(j,k)
-   10    continue
-         call readmacro(nin,.false.)
-         write(string,'(12a)') (word(m),m=1,12)
-         read(string,*,err = 200,end = 200) ix(nen1,k)   
-         nel = nel + 1
-         call readmacro(nin,.true.)
-         write(string,'(12a)') (word(j),j=1,12)
-  100  continue
-       return
+
+      else
+        nel = 0
+        call readmacro(nin,.true.)
+        write(string,'(12a)') (word(j),j=1,12)
+        do 100 while(string .ne. 'end')
+          read(string,*,err = 200,end = 200) k
+          if(k .lt. 1 .or. k .gt. numel) goto 200      
+          do 10 j = 1, nen
+             call readmacro(nin,.false.)
+             write(string,'(12a)') (word(m),m=1,12)
+             read(string,*,err = 200,end = 200) ix(j,k)
+   10     continue
+          call readmacro(nin,.false.)
+          write(string,'(12a)') (word(m),m=1,12)
+          read(string,*,err = 200,end = 200) ix(nen1,k)   
+          nel = nel + 1
+          call readmacro(nin,.true.)
+          write(string,'(12a)') (word(j),j=1,12)
+  100   continue
+        return
+      endif
 c ......................................................................
   200 continue
       print*,'*** Erro na leitura dos elementos !',k,j

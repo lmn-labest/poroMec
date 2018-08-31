@@ -603,7 +603,7 @@ c ...
          if (norm_r .lt. conv) goto 300
 c ......................................................................
 c$omp master
-         if( jj .eq. 1000) then
+         if( jj .eq. 500) then
            jj = 0
            if(my_id .eq.0 .and. fprint) write(*,1300),j,norm_r,conv 
          endif  

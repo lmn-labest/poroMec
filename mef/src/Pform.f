@@ -290,12 +290,12 @@ c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
            call assbly_pm(sl   ,pl         ,ld
-     .                ,ia      ,ja         ,au
-     .                ,al      ,ad         ,b    ,nst
-     .                ,neq     ,nequ       ,neqp
-     .                ,nad     ,nadu       ,nadp ,nadpu
-     .                ,lhs     ,rhs        ,unsym,stge
-     .                ,block_pu,n_blocks_pu)
+     1                ,ia      ,ja         ,au
+     2                ,al      ,ad         ,b    ,nst
+     3                ,neq     ,nequ       ,neqp
+     4                ,nad     ,nadu       ,nadp ,nadpu
+     5                ,lhs     ,rhs        ,unsym,stge
+     6                ,block_pu,n_blocks_pu)
           enddo   
 c$omp end do
 c .....................................................................
@@ -1720,7 +1720,7 @@ c **********************************************************************
      4                         ,my_id,mpi)
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 11/05/2017                                    * 
+c * Data de modificaco : 31/08/2018                                    * 
 c * ------------------------------------------------------------------ *   
 c * FLOP_SQRM: calcula o numero de operacoes de pontos flutuantes      *   
 c * do SQRM                                                            *
@@ -1793,11 +1793,12 @@ c ...... Arranjos de elemento:
 c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
-        call elmlib_pm(el  ,iq(1,nel),xl  ,ddum,ddum
-     1                ,ddum,dtc      ,ddum,ddum,ddum
-     2                ,ddum,ddum     ,ddum,idum
-     3                ,ndm,nst       ,nel ,iel,isw
-     4                ,ma ,idum      ,ilib,ldum)
+        call elmlib_pm(el  ,iq(1,nel),iq(1,nel)
+     1                ,xl  ,ddum     ,ddum
+     2                ,ddum,dtc      ,ddum,ddum,ddum
+     3                ,ddum,ddum     ,ddum,idum
+     4                ,ndm,nst       ,nel ,iel,isw
+     5                ,ma ,idum      ,ilib,ldum)
 c ......................................................................
 c 
 c ...
