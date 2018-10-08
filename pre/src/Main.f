@@ -239,10 +239,10 @@ c =====================================================================
 c
 c
 c === gerando o grafo da malha
-c     tmetis = getime()
-c     call call_metis(i_np,i_ep,i_ix0,i_nen,nnode,numel,maxno,rank
-c    .               ,nnos,nprcs,MPIW)
-c     tmetis = getime() - tmetis
+      tmetis = getime()
+      call call_metis(i_np,i_ep,i_ix0,i_nen,nnode,numel,maxno,rank
+     .               ,nnos,nprcs,MPIW)
+      tmetis = getime() - tmetis
 c =====================================================================
 c
 c ===  
@@ -274,7 +274,7 @@ c     call struct_mesh(ia(i_ix),ia(i_x),ia(i_np),ia(i_ep),nnode,numel
 c    .                ,maxnov,maxno,ndm,nprcs)
 c     call struct_cubo(ia(i_ix),ia(i_x),ia(i_np),ia(i_ep),nnode,numel
 c    .                ,maxnov,maxno,ndm,nprcs)
-      call particao(ia(i_np),ia(i_ep))
+c     call particao(ia(i_np),ia(i_ep))
 c ####################################################################  
 c .....................................................................
 c =====================================================================

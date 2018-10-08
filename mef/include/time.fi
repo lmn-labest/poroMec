@@ -1,15 +1,18 @@
       real*8  soltime,elmtime,vectime,dstime,numeqtime,reordtime
       real*8  frontime,totaltime,matvectime,ovhtime,dottime,colortime
       real*8  tformtime,writetime,precondtime,ifatsolvtime,prebdiagtime
-      real*8  time,time0
+      real*8  tacbuffer,tinitbuffer
+      real*8  time,time0,time1
 c ... poromec
       real*8 upproptime 
       integer*8 i_ts
       real*8  allgtime,gvtime,allrtime,sendtime,pmatrixtime
 c ......................................................................            
       common /timectrl/ soltime,elmtime,vectime,dstime,numeqtime,
-     .           reordtime,frontime,totaltime,matvectime,dottime,
-     .           time,time0,allgtime,gvtime,allrtime,sendtime,ovhtime,
-     .           colortime,pmatrixtime,writetime,tformtime,precondtime,
-     .           ifatsolvtime,prebdiagtime,upproptime 
+     1           reordtime,frontime,totaltime,matvectime,dottime,
+     2           allgtime,gvtime,allrtime,sendtime,ovhtime,
+     3           colortime,pmatrixtime,writetime,tformtime,precondtime,
+     4           ifatsolvtime,prebdiagtime,upproptime,
+     5           tacbuffer,tinitbuffer,
+     6           time,time0,time1
       common /tsctrl/ i_ts

@@ -424,35 +424,39 @@ c ......................................................................
 c *********************************************************************
 c     
 c **********************************************************************
-c *                                                                    *
-c *   MATVEC_CSRC_SYM_PM_OMP: produto matriz-vetor y = Ax              *
-c *   (A simetrica),  coef. de A no formato CSRC e grafo simetrico.    *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *   neq   - numero de equacoes                                       *
-c *   ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro      *
-c *                     coeficiente nao-nulo da linha   i              *
-c *   ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa      *
-c *               a posicao k no vetor au                              *
-c *   ad(neq)- diagonal da matriz A                                    *
-c *   al(nad)- parte triangular inferior de A, no formato CSR, ou      *
-c *            parte triangular superior de A, no formato CSC          *
-c *   au(*)  - nao utilizado                                           *
-c *   x(neq) - vetor a ser multiplicado                                *
-c *   y(neq) - nao definido                                            *
-c *   neqf1i - numero de equacoes no buffer de recebimento (MPI)       *
-c *   neqf2i - numero de equacoes no buffer de envio (MPI)             *
-c *   i_fmapi- ponteiro para o mapa de comunicacao  (MPI)              *
-c *   i_xfi  - ponteiro para o buffer de valores    (MPI)              *
-c *   i_rcvsi- ponteiro extrutura da comunicacao    (MPI)              *
-c *   i_dspli- ponteiro extrutura da comunicacao    (MPI)              *
-c *   thread_y - buffer de equacoes para o vetor y (openmp)            *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *   y(neq) - vetor contendo o resultado do produto y = Ax            *
-c *                                                                    *
+c * Data de criacao    : 31/10/2016                                    *
+c * Data de modificaco : 07/10/2018                                    *
+c * ------------------------------------------------------------------ * 
+c * MATVEC_CSRC_SYM_PM_OMP: produto matriz-vetor y = Ax                *
+c * (A simetrica),  coef. de A no formato CSRC e grafo simetrico.      *
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * neq   - numero de equacoes                                         *
+c * ia(neq+1) - ia(i) informa a posicao no vetor au do primeiro        *
+c *                   coeficiente nao-nulo da linha   i                *
+c * ja(neq+1) - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor au                                *
+c * ad(neq)- diagonal da matriz A                                      *
+c * al(nad)- parte triangular inferior de A, no formato CSR, ou        *
+c *          parte triangular superior de A, no formato CSC            *
+c * au(*)  - nao utilizado                                             *
+c * x(neq) - vetor a ser multiplicado                                  *
+c * y(neq) - nao definido                                              *
+c * neqf1i - numero de equacoes no buffer de recebimento (MPI)         *
+c * neqf2i - numero de equacoes no buffer de envio (MPI)               *
+c * i_fmapi- ponteiro para o mapa de comunicacao  (MPI)                *
+c * i_xfi  - ponteiro para o buffer de valores    (MPI)                *
+c * i_rcvsi- ponteiro extrutura da comunicacao    (MPI)                *
+c * i_dspli- ponteiro extrutura da comunicacao    (MPI)                *
+c * thread_y - buffer de equacoes para o vetor y (openmp)              *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * y(neq) - vetor contendo o resultado do produto y = Ax              *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
 c **********************************************************************
       subroutine matvec_csrc_sym_pm_omp(neq   ,dum0  ,ia     ,ja  
      .                                 ,dum1  ,dum2  ,ad     ,al    
@@ -490,6 +494,12 @@ c$omp end do
 c .....................................................................
 c
 c ...
+c$omp single
+      tinitbuffer = tinitbuffer + MPI_Wtime() - time0
+c$omp end single
+c .....................................................................
+c
+c ...
       inc = (thread_id - 1)*neq
 c$omp barrier
       do 110 i = thread_begin(thread_id), thread_end(thread_id)
@@ -508,6 +518,12 @@ c$omp barrier
 c$omp barrier
 c .....................................................................
 c
+c ...
+c$omp single
+      time1 = MPI_Wtime()
+c$omp end single
+c .....................................................................
+c
 c ... Accumulate thread_y(i) into y(i)
 c
       do i = 1, nth_solv
@@ -519,7 +535,10 @@ c$omp do
 c$omp end do
       end do
 c$omp single
+      tacbuffer = tacbuffer + MPI_Wtime() - time1
+c
       matvectime = matvectime + MPI_Wtime() - time0
+c
       if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
      .                            i_dspli)
 c$omp end single
@@ -530,7 +549,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 31/10/2016                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 07/10/2018                                    *
 c * ------------------------------------------------------------------ * 
 c * MATVEC_CSRCR_SYM_PM_OMP: produto matriz-vetor y = Ax               *
 c *  (A simetrica),  coef. de A no formato CSRC e grafo simetrico.     *
@@ -607,6 +626,12 @@ c$omp end do
 c .....................................................................
 c
 c ...
+c$omp single
+      tinitbuffer = tinitbuffer + MPI_Wtime() - time0
+c$omp end single
+c .....................................................................
+c
+c ...
       inc = (thread_id - 1)*neq
 c$omp barrier
       do 200 i = thread_begin(thread_id), thread_end(thread_id)
@@ -630,6 +655,12 @@ c
 c$omp barrier
 c .....................................................................
 c
+c ...
+c$omp single
+      time1 = MPI_Wtime()
+c$omp end single
+c .....................................................................
+c
 c ... Accumulate thread_y(i) into y(i)
 c
       do i = 1, nth_solv
@@ -641,6 +672,8 @@ c$omp do
 c$omp end do
       end do
 c$omp single
+      tacbuffer = tacbuffer + MPI_Wtime() - time1
+c
       matvectime = matvectime + MPI_Wtime() - time0
 c$omp end single
 c ......................................................................
@@ -650,7 +683,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 07/10/2018                                    *
 c * ------------------------------------------------------------------ *
 c * MATVEC_CSRC_PM_OMP: produto matriz-vetor y = Ax                    *
 c *   (A simetrica),  coef. de A no formato CSRC e grafo simetrico.    *
@@ -720,6 +753,12 @@ c$omp end do
 c .....................................................................
 c
 c ...
+c$omp single
+      tinitbuffer = tinitbuffer + MPI_Wtime() - time0
+c$omp end single
+c .....................................................................
+c
+c ...
       inc = (thread_id - 1)*neq
 c$omp barrier
       do 110 i = thread_begin(thread_id), thread_end(thread_id)
@@ -755,6 +794,12 @@ c ... Kup
 c$omp barrier
 c .....................................................................
 c
+c ...
+c$omp single
+      time1 = MPI_Wtime()
+c$omp end single
+c .....................................................................
+c
 c ... Accumulate thread_y(i) into y(i)
 c
       do i = 1, nth_solv
@@ -769,6 +814,8 @@ c .....................................................................
 c
 c ...
 c$omp single
+      tacbuffer = tacbuffer + MPI_Wtime() - time1
+c
       matvectime = matvectime + MPI_Wtime() - time0
 c     if (novlp) call communicate(y,neqf1i,neqf2i,i_fmapi,i_xfi,i_rcvsi,
 c    .                            i_dspli)

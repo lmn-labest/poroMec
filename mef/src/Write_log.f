@@ -1,6 +1,6 @@
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 05/04/2017                                    * 
+c * Data de modificaco : 07/10/2018                                    * 
 c * ------------------------------------------------------------------ *   
 c * WRITE_LOG : Escrever o arquivo de log de excuacao                 *
 c * ----------------------------------------------------------------- *
@@ -41,6 +41,7 @@ c * ----------------------------------------------------------------- *
 c * parametros de saida                                               *
 c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
 c *********************************************************************
       subroutine write_log_file(nnode   ,numel,numel_nov ,numel_ov,ndf 
      1                         ,neq     ,nequ ,neqp ,neq1   ,neq2
@@ -176,11 +177,23 @@ c
       call MPI_GATHER(colortime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
       if (my_id.eq.0) call twrite('COLOR ',ia(i_ts),nprcs,nlog)
 c
+c ... omp
+      if(omp_solv) then
+c
 c ... Tempo levado no matix partition
 c
-      if(omp_solv) then
         call MPI_GATHER(pmatrixtime,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
         if (my_id.eq.0) call twrite('PMATRI ',ia(i_ts),nprcs,nlog)
+c
+c ... Tempo levado no inicializacao do buffer
+c
+        call MPI_GATHER(tinitbuffer,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+        if (my_id.eq.0) call twrite('INITBUF',ia(i_ts),nprcs,nlog)
+c
+c ... Tempo levado do acumolo do buffer
+c
+        call MPI_GATHER(tacbuffer,1,mdp,ia(i_ts),1,mdp,0,mcw,ierr)
+        if (my_id.eq.0) call twrite('ACBUF  ',ia(i_ts),nprcs,nlog)
       endif   
 c
 c ... Tempo levado na escrita dos resultados
@@ -359,7 +372,7 @@ c *********************************************************************
 c
 c *********************************************************************
 c * Data de criacao    : 15/10/2016                                   *
-c * Data de modificaco : 05/04/2017                                   * 
+c * Data de modificaco : 07/10/2018                                   * 
 c * ------------------------------------------------------------------*
 c * MPI_LOG_MEAN_TIME : Escrever o arquivo de log de excuacao com     *
 c * valores medios dos processos do mpi                               *
@@ -384,6 +397,7 @@ c * ----------------------------------------------------------------- *
 c * parametros de saida                                               *
 c * ----------------------------------------------------------------- *
 c * ----------------------------------------------------------------- *
+c * OBS:                                                              *
 c *********************************************************************
       subroutine mpi_log_mean_time(nnovG  ,nnoG ,nelG 
      1                         ,omp_elmt  ,nth_elmt
@@ -505,10 +519,17 @@ c ... Tempo levado no colormesh
       endif 
 c .....................................................................
 c
-c ... Tempo levado no matix partition
+c ... Omp solver
       if(omp_solv) then
+c ...  Tempo levado no matix partition
         call mpi_mean(vmean,pmatrixtime,nprcs)
         if(my_id.eq.0) write(nlog,'(a,f18.6)')'PMATRI',vmean
+c ...
+        call mpi_mean(vmean,tinitbuffer,nprcs)
+        if(my_id.eq.0) write(nlog,'(a,f18.6)')'INITBU',vmean
+c ... 
+        call mpi_mean(vmean,tacbuffer,nprcs)
+        if(my_id.eq.0) write(nlog,'(a,f18.6)')'ACBUF',vmean
       endif   
 c .....................................................................
 c

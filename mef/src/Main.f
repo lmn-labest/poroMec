@@ -368,7 +368,11 @@ c ...    Testa se todos abriram sem erro:
          call MPI_ALLREDUCE(openflag,totfiles,1,MPI_INTEGER,MPI_SUM,
      .                      MPI_COMM_WORLD,ierr)
          if (totfiles .ne. nprcs) then
-            if (my_id .eq. 0) print*,'File ',trim(fname),' not found !'
+c           if (my_id .eq. 0) print*,'File ',trim(fname),' not found !'
+            if (openflag .eq. 0) then
+              print*,'process',my_id,': File ',trim(fname)
+     .              ,' not found !'
+            endif
             call stop_mef()
          endif
       endif
@@ -566,6 +570,8 @@ c
       precondtime  = 0.d0
       ifatsolvtime = 0.d0
       prebdiagtime = 0.d0
+      tinitbuffer  = 0.d0
+      tacbuffer    = 0.0d0
       totaltime    = MPI_Wtime()
 c ......................................................................      
 c
