@@ -1519,13 +1519,6 @@ c ===
      .       ,(e(j,i),j=1,read_prop(i))
       enddo
       write(nout,'(a)')'end materials'
-c ... Pre antigo(yuri)
-c     write(nout,'(a)')'materials'
-c     do i = 1, numat
-c       write(nout,'(2(i2,1x),4es18.9)')
-c    .              i,ie(i),(e(j,i),j=1,4)
-c     enddo
-c     write(nout,'(a)')'end materials'
 c =====================================================================
 c
 c ===

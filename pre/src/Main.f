@@ -268,8 +268,8 @@ c ... leitura da malha
 c      call printvetorint(ia(i_eloadt),numel,7)
 c ####################################################################  
 c ######################PARA MALHA ESTRUTURADAS#######################  
-      i_np  = alloc_4('np      ',  1,nnode)  
-      i_ep  = alloc_4('ep      ',  1,numel)  
+c     i_np  = alloc_4('np      ',  1,nnode)  
+c     i_ep  = alloc_4('ep      ',  1,numel)  
 c     call struct_mesh(ia(i_ix),ia(i_x),ia(i_np),ia(i_ep),nnode,numel
 c    .                ,maxnov,maxno,ndm,nprcs)
 c     call struct_cubo(ia(i_ix),ia(i_x),ia(i_np),ia(i_ep),nnode,numel

@@ -19,8 +19,7 @@ c **********************************************************************
          integer, allocatable, dimension(:) :: ia
          integer*8, external :: alloc_4,alloc_8,locate,dealloc
 c        integer*8, parameter :: maxmem = 10000000
-         integer*8 maxmem /10000/
-        
+         integer*8 maxmem /10000/        
       end module
       subroutine init_malloc()
 c **********************************************************************
