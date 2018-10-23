@@ -42,7 +42,7 @@ c ... arquivo de impressao nos nos ( pu,stress,stressE,stressB,flux,...)
       integer nfiles,ifiles,num_print,n_opt_print_flag
       parameter (nfiles = 10,n_opt_print_flag = 20)
       logical new_file(nfiles),new_file_pi(nfiles),flag_pnd,flag_ppi
-      logical print_flag(n_opt_print_flag),fhist_log,legacy_vtk
+      logical print_flag(n_opt_print_flag),fhist_log,legacy_vtk,bvtk
 c ......................................................................
 c
 c ... solver
@@ -91,10 +91,6 @@ c ... Variaveis locais:
 c
       integer i,k
       real*8  dot_par
-c ......................................................................
-c 
-c ...
-      logical bvtk
 c ......................................................................
 c
 c ... Variaveis de medicao de tempo:
@@ -157,7 +153,7 @@ c
      1          ,'solv    ','dt      ','pgeo    '
      2          ,'presolv ','block_pu','gravity '
      3          ,'conseq  ','solver  ','deltatc '
-     4          ,'pcoo    ','        ','        '
+     4          ,'pcoo    ','pcolors ','        '
      5          ,'pres    ','        ','solvm   '
      6          ,'pmecres ','        ','        '
      7          ,'        ','        ','        '
@@ -425,7 +421,7 @@ c ......................................................................
      1     ,400 , 500, 600 !'solv    ','dt      ','pgeo    '
      2     ,700 , 800, 900 !'        ','block_pu','gravity '
      3     ,1000,1100,1200 !'conseq  ','solver  ','deltatc '
-     4     ,1300,1400,1500 !'pcoo    ','        ','        '
+     4     ,1300,1400,1500 !'pcoo    ','pcolors ','        '
      5     ,1600,1700,1800 !'pres    ','        ','solvm   '
      6     ,1900,2000,2100 !'pmecres ','        ','        '
      7     ,2200,2300,2400 !'        ','        ','        '
@@ -1363,19 +1359,27 @@ c ...
       goto 50     
 c ----------------------------------------------------------------------
 c
-c ... Macro-comando:            
+c ... Macro-comando: PCOLOR escreve a malha colorida
 c
 c ......................................................................
  1400 continue
+      if(my_id.eq.0) then
+        print*, 'Macro PCOLOR'
+        call write_mesh_color(ia(i_ix)    ,ia(i_x)      
+     1                      ,ia(i_colorg),ia(i_elcolor) ,numcolors  
+     2                      ,nnode       ,numel         ,nen  ,ndm    
+     4                      ,fname       ,prename
+     5                      ,bvtk        ,legacy_vtk, nplot)
+      endif
       goto 50
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando: 
 c
 c ......................................................................
  1500 continue
       goto 50 
-c ----------------------------------------------------------------------
+c ......................................................................
 c
 c ... Macro-comando: PRES - impressao dos resultados    
 c

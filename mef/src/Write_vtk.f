@@ -1613,7 +1613,203 @@ c =====================================================================
       end
 c =====================================================================
 c *********************************************************************
-c 
+c
+c *********************************************************************
+c * Data de criacao    : 21/10/2018                                   *
+c * Data de modificaco : 00/00/0000                                   * 
+c * ------------------------------------------------------------------*    
+c * WRITE_MESH_RES_PM: escreve a malha com os resultdados do problma  *
+c * poromecanico no formato vtk                                       *
+c * ------------------------------------------------------------------*
+c * Parametros de entrada :                                           *
+c * ----------------------------------------------------------------- *
+c * el(nen+1,*) - conectividade com material                          *
+c * x(ndm,*)   - coordenadas                                          *   
+c * colorg(2,*) - inicio e final de cada cor no arranjo i_elcolor     *
+c * elcolor(i)  - elemento  agrupados por corda cor                   *
+c * numcolors - numero de cores                                       *    
+c * nnode       - numero de nos de vertices                           *
+c * numel       - numero de elementos                                 *
+c * nen         - numero de nos por elementos                         *
+c * ndm         - numero de dimensoes                                 *
+c * filein      - prefix do arquivo de saida                          *
+c * bvtk        - true BINARY vtk false ASCII vtk                     *
+c * legacy      - true (formato padrão .vtk) false (formato xlm .vtu)*
+c * nout        - arquivo de saida                                    *
+c * ----------------------------------------------------------------- *    
+c * Parametros de saida :                                             *
+c * ----------------------------------------------------------------- *
+c * ----------------------------------------------------------------- * 
+c * OBS:                                                              *
+c * ----------------------------------------------------------------- *   
+c ********************************************************************* 
+       subroutine write_mesh_color(el     ,x      
+     1                            ,colorg ,elcolorg,numcolors  
+     2                            ,nnode  ,numel   ,nen      ,ndm    
+     4                            ,fileout,prename
+     5                            ,bvtk   ,legacy ,nout)
+c ===
+      use Malloc 
+      implicit none
+c ... variaveis da malha      
+      integer nnode,numel,nen,ndm
+      integer el(nen+1,numel)      
+      integer colorg(2,*),elcolorg(*),numcolors
+      integer nel,nno
+      real*8  x(ndm,*)
+c ... locais
+      integer*8 i_p     
+      data i_p/1/
+      character*15 aux1
+      character*30 aux
+c ...
+      character*8 malloc_name
+c ... variaveis dums
+      real*8 ddum
+      real*4 fdum
+      integer idum 
+c ... arquivo      
+      integer nout
+      character*80 fileout,name,filein,prename
+      logical bvtk,legacy
+      integer cod,cod2,gdl
+c =====================================================================
+c
+c ===
+      if(legacy) then
+        fileout = name(prename,0,20)
+      else  
+        fileout = name(prename,0,21)
+      endif
+      if(bvtk)then
+        open(unit=nout,file=fileout,access='stream'
+     .      ,form='unformatted',convert='big_endian')
+      else
+        open(unit=nout,file=fileout)
+      endif  
+c =====================================================================
+c
+c === cabecalho
+      if(legacy) then
+        write(aux,'(30a)')'Malha poro mec cores' 
+        call head_vtk(aux, bvtk, 0.0, 0, .false., nout) 
+      else  
+        call head_vtu(nnode, numel, bvtk, 0.0, 0, .false., nout) 
+      endif  
+c =====================================================================
+c
+c === Coordenadas
+      if(legacy) then
+        call coor_vtk(x,nnode,ndm,bvtk,nout)
+      else  
+        call coor_vtu(x,nnode,ndm,bvtk,nout)
+      endif
+c =====================================================================
+c
+c === Elementos
+      if(legacy) then
+        call elm_vtk(el,numel,nen,bvtk,nout)
+      else  
+        call elm_vtu(el,numel,nen,bvtk,nout)
+      endif  
+c =====================================================================
+c
+c === cell 
+      if(legacy) then
+        call cell_data_vtk(numel,bvtk,nout)
+      else  
+        call cell_data_vtu(bvtk,nout)
+      endif  
+c ... cor     
+      malloc_name ='p' 
+      i_p = alloc_4(malloc_name, 1,numel)
+      call color_set_elmt(ia(i_p),colorg,elcolorg,numcolors)  
+c .....................................................................
+c
+c ...
+      write(aux1,'(15a)')'color' 
+c ... cod = 1 variaveis interias
+      cod = 1
+      gdl = 1
+      if(legacy) then
+        call cell_prop_vtk(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif 
+      i_p = dealloc(malloc_name)
+c .....................................................................
+c
+c ... elIdG
+      malloc_name ='p' 
+      i_p = alloc_4(malloc_name, 1,numel)
+      do nel = 1, numel
+        ia(i_p+nel-1) = nel
+      enddo
+      write(aux1,'(15a)')'elIdG' 
+c ... cod = 1 variaveis interias
+      cod = 1
+      gdl = 1
+      if(legacy) then
+        call cell_prop_vtk(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      else
+        call cell_prop_vtu(ia(i_p),fdum,ddum,numel,aux1,cod,gdl,bvtk
+     .                    ,nout)
+      endif 
+      i_p = dealloc(malloc_name)
+c .....................................................................
+c
+c ...
+      if(legacy .eqv. .false.) then
+        call cell_data_finalize_vtu(bvtk,nout)
+      endif  
+c .....................................................................
+c =====================================================================
+c
+c === nos  
+c ...       
+      if(legacy) then
+        call point_data_vtk(nnode,bvtk,nout)
+      else  
+        call point_data_vtu(bvtk,nout)
+      endif  
+      malloc_name ='p' 
+      i_p = alloc_4(malloc_name, 1,nnode)
+      do nno = 1, nnode
+        ia(i_p+nno-1) = nno    
+      enddo
+      write(aux1,'(15a)')'noIdG'
+c ... gdb graus de liberdade
+c     cod  1 escalar
+c     cod2 1 int(4bytes) 
+      gdl =  1
+      cod =  1
+      cod2 = 1
+      if(legacy) then
+        call point_prop_vtk(ia(i_p),fdum,ddum,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2   ,bvtk,nout)
+      else
+        call point_prop_vtu(ia(i_p),fdum,ddum,nnode,aux1,ndm,gdl,cod
+     .                    ,cod2   ,bvtk,nout)
+      endif
+      i_p = dealloc(malloc_name)
+c .....................................................................
+c    
+c ...      
+      if(legacy .eqv. .false.) then
+        call point_data_finalize_vtu(bvtk,nout)
+        call finalize_vtu(bvtk,nout)
+      endif
+c .....................................................................
+c =====================================================================
+      close(nout)
+      return
+      end
+c =====================================================================
+c *********************************************************************
+c
 c *********************************************************************
 c * MAKE_FACE: gera a conectividades das faces                        *
 c * ----------------------------------------------------------------- *
@@ -2135,3 +2331,41 @@ c ...
       return
       end
 c *********************************************************************
+c
+c **********************************************************************  
+c * Data de criacao    : 21/10/2018                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *      
+c * SET_COLOR: definte a for do elm valores prescritos                 *  
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * colors(*)  - nao dedinido                                          *
+c * colorg(2,*)- inicio e final de cada cor no arranjo i_elcolor       *
+c * elcolor(*) - elemento  agrupados por corda cor                     *
+c * numcolors - numero de cores                                        *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c * colors(nel) - cor do elemento                                      *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************
+      subroutine color_set_elmt(colors,colorg,elcolor,numcolors)
+      implicit none
+      integer numcolors,ic,jc,nel,colors(*),elcolor(*),colorg(2,*)
+
+c ... identifica nos prescritos 
+      do ic = 1, numcolors
+        do jc = colorg(1,ic), colorg(2,ic)
+          nel = elcolor(jc)
+          colors(nel) = ic
+        enddo
+      enddo
+c ..................................................................... 
+c
+c ...
+      return
+      end
+c **********************************************************************

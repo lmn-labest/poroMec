@@ -1,7 +1,7 @@
       character*80 function name(NomeArqDados,NumArq,code)
 c *********************************************************************
 c * Data de criacao    : 12/12/2015                                   *
-c * Data de modificaco : 14/05/2017                                   * 
+c * Data de modificaco : 21/10/2018                                   * 
 c * ----------------------------------------------------------------- *
 c * NAME: nomes de aquivos                                            *
 c * ----------------------------------------------------------------- *
@@ -30,10 +30,12 @@ c *  9 -> condicao de contorno face hidraulico .vtk                   *
 c * 10 -> condicao de contorno face hidraulico .vtu                   *
 c * 12 -> arquivo do tempos medios(mpi)                               *
 c * 13 -> arquivo de entrada do mpi                                   *
-c * 13 ->                                                             *
 c * 14 -> arquivo de tempos                                           *
 c * 15 -> arquivo do log do solver                                    *
 c * 16 -> arquivo do log nao linear                                   *
+c * 17 -> arquivo do log nao linear                                   *
+c * 20 -> cor da malha .vtk                                           *
+c * 21 -> cor da malha .vtu                                           *
 c * 30 -> arquivos de resultados por nos                              *
 c * 31 -> arquivos de tensoes total por nos                           *
 c * 32 -> arquivos de tensoes efetivas de terzaghi por nos            *
@@ -118,6 +120,12 @@ c ... log hist solver
         write(StrExtensao,'( I6 )') NumArq
         write(StrExtensao,'( A  )') adjustl(StrExtensao)
         StrExtensao='_log_hist_'//trim(StrExtensao)//'.txt'
+c ... cores            
+      elseif(code .eq. 20) then
+        StrExtensao='_color.vtk'
+c ... cores                  
+      elseif(code .eq. 21) then
+        StrExtensao='_color.vtu'
 c ... pu node file 
       elseif(code .eq. 30) then
         write(StrExtensao,'( I6 )') NumArq
