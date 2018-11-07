@@ -117,17 +117,17 @@ c ......................................................................
       logical fMixedMesh  /.false./
 c ......................................................................
       data macro/'materials      ','bar2           ','tria3          ',
-     .           'quad4          ','tetra4         ','hexa8          ',
-     .           'hexa20         ','tetra10        ','               ',
-     .           'coordinates    ','constrainpmec  ','constraindisp  ',
-     .           'nodalforces    ','elmtloads      ','nodalloads     ',
-     .           'hydrostatic    ','hydrostress    ','elmtpresloads  ',
-     .           'loads          ','               ','               ',
-     .           'initialdisp    ','initialpres    ','initialstress  ',
-     .           'parallel       ','insert         ','return         ',
-     .           'tria3ov        ','quad4ov        ','tetra4ov       ',
-     .           'hexa8ov        ','tetra10ov      ','hexa20ov       ',
-     .           '               ','fmaterials     ','end            '/
+     1           'quad4          ','tetra4         ','hexa8          ',
+     2           'hexa20         ','tetra10        ','               ',
+     3           'coordinates    ','constrainpmec  ','constraindisp  ',
+     4           'nodalforces    ','elmtloads      ','nodalloads     ',
+     5           'hydrostatic    ','hydrostress    ','elmtpresloads  ',
+     6           'loads          ','               ','               ',
+     7           'initialdisp    ','initialpres    ','initialstress  ',
+     8           'parallel       ','insert         ','return         ',
+     9           'tria3ov        ','quad4ov        ','tetra4ov       ',
+     1           'hexa8ov        ','tetra10ov      ','hexa20ov       ',
+     2           '               ','fmaterials     ','end            '/
       data nmc /36/      
 c ......................................................................
 c
@@ -316,17 +316,17 @@ c
       write(macros(nmacros),'(15a)') rc
 c ......................................................................
       go to (400, 450, 500,    ! eaterials ,bar2         ,tria3
-     .       550, 600, 650,    !quad4      ,tetra4       ,hexa8
-     .       700, 750, 800,    !hexa20     ,tetra10      ,
-     .       850, 900, 950,    !coordinates,             ,constraindisp
-     .      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
-     .      1150,1200,1250,    !hstaticpres,hstaticstress,elmtpresloads
-     .      1300,1350,1400,    !loads      ,             ,
-     .      1450,1500,1550,    !initialdisp,             ,initialstress
-     .      1600,1650,1700,    !parallel   ,insert       ,return
-     .      1750,1800,1850,    !tria3ov    ,quad4ov      ,tetra4ov
-     .      1900,1950,2000,    !hexa8ov    ,tetra10ov    ,hexa20ov
-     .      2050,2100,2150) j  !           ,fmaterials   ,end
+     1       550, 600, 650,    !quad4      ,tetra4       ,hexa8
+     2       700, 750, 800,    !hexa20     ,tetra10      ,
+     3       850, 900, 950,    !coordinates,             ,constraindisp
+     4      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
+     5      1150,1200,1250,    !hstaticpres,hstaticstress,elmtpresloads
+     6      1300,1350,1400,    !loads      ,             ,
+     7      1450,1500,1550,    !initialdisp,             ,initialstress
+     8      1600,1650,1700,    !parallel   ,insert       ,return
+     9      1750,1800,1850,    !tria3ov    ,quad4ov      ,tetra4ov
+     1      1900,1950,2000,    !hexa8ov    ,tetra10ov    ,hexa20ov
+     2      2050,2100,2150) j  !           ,fmaterials   ,end
 c ......................................................................
 c
 c ... Propriedades dos materiais:
@@ -3108,7 +3108,7 @@ c ... solver
             call readmacrov2(nincl,.false.,erro)
             if(erro .eq. 1) goto 300 
             write(string,'(6a)') (word(j),j=1,6)
-            call set_solver(string,solver,nin,my_id)
+            call set_solver(solver,nin,my_id)
 c .....................................................................
 c
 c ... maxit

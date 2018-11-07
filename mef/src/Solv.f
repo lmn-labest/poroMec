@@ -2649,7 +2649,7 @@ c *************************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 18/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 07/11/2018                                    * 
 c * ------------------------------------------------------------------ *  
 c * SET_PRECOND : escolhe o precondicionandor                          *
 c * ------------------------------------------------------------------ * 
@@ -2678,11 +2678,10 @@ c * ------------------------------------------------------------------ *
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
 c ********************************************************************** 
-      subroutine set_solver(macro,solver,nin,my_id)
+      subroutine set_solver(solver,nin,my_id)
       implicit none
       include 'string.fi'
       include 'precond.fi'
-      character macro(maxstrl)
       character*8 macros(12),string
       integer solver,nin,my_id
       integer i,nmc 
