@@ -332,7 +332,9 @@ c **********************************************************************
       use Malloc
       implicit none
       integer ix(nen+1,*),id(ndf,*),num(*),nnode,numel,nen,ndf,nst,neq
-      integer stge,nad,nadr
+      integer stge,nadr
+      integer nc4,nl4
+      integer*8 nad,nc8,nl8
 c ... ponteiros      
       integer*8 i_ia,i_ja,i_au,i_al,i_ad
       integer*8 i_bd,i_lde
@@ -372,9 +374,11 @@ c     .                  nadr,.false.,.false.,.true.,.false.)
 c     
 c ...    matriz de coeficientes:
 c
-         i_al = alloc_8(al,1,nad+nadr)
+         nl8  = 1
+         nc8  = nad+nadr
+         i_al = dalloc_8(al,nl8,nc8)
          i_au = i_al
-         if(unsym) i_au = alloc_8(au,1,nad) 
+         if(unsym) i_au = dalloc_8(au,nl8,nad) 
          i_ad = alloc_8(ad,1,neq)         
 c ......................................................................
       elseif(stge .eq. 2) then

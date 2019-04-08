@@ -1388,7 +1388,7 @@ c * bvtk        - true BINARY vtk false ASCII vtk                     *
 c * legacy      - true (formato padrão .vtk) false (formato xlm .vtu)*
 c * fprint      -                                                     *
 c *                 deslocamento    (2)                               *
-c *                 stress Total    (3)                               *
+c *                 stress Total    (5)                               *
 c * nout        - arquivo de saida                                    *
 c * ----------------------------------------------------------------- *    
 c * Parametros de saida :                                             *
@@ -1566,7 +1566,7 @@ c     cod2 3 real(8bytes)
 c .....................................................................
 c
 c ...
-      if(fprint(10))then
+      if(fprint(5))then
 c ... gerando o tensor completo
         if ( ntn .eq. 4 ) then
           i_tensor = alloc_8('tensor  ',9 ,nnode)

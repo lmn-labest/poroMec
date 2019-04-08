@@ -14,8 +14,9 @@ c *   ebe: armazena matrizes de elemento.                              *
 c *   blockdg: monta a diagonal em blocos.                             *
 c *                                                                    *
 c **********************************************************************
-      subroutine assbly(s ,p ,ld,ia,ja,au,al,ad,b,nst,neq,lhs,rhs,unsym,
-     .                  stge)
+      subroutine assbly(s ,p ,ld   ,ia ,ja ,au
+     1                 ,al,ad,b    ,nst,neq,lhs
+     2                 ,rhs  ,unsym,stge)
 c **********************************************************************
 c *                                                                    *
 c *   ASSBLY: montagem da matriz A e do vetor b.                       *
@@ -79,51 +80,55 @@ c ... csr (ia,ja,a)
       elseif (stge .eq. 6) then
        call csrv3(s,p,ld,ia,ja,ad,b,nst,neq,lhs,rhs)
       endif
-c .....................................................................
+c ....................................................................
       return
       end
 c **********************************************************************
-      subroutine assbly_pm(s       ,p          ,ld
-     .                    ,ia      ,ja         ,au
-     .                    ,al      ,ad         ,b    ,nst
-     .                    ,neq     ,nequ       ,neqp
-     .                    ,nad     ,nadu       ,nadp ,nadpu 
-     .                    ,lhs     ,rhs        ,unsym,stge
-     .                    ,dualCsr ,n_blocks_up)
+c
 c **********************************************************************
-c *                                                                    *
-c *   ASSBLY_PM: montagem da matriz A e do vetor b.                    *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    s(nst,nst) - matriz do elemento nel                             *
-c *    p(nst)     - vetor de elemento                                  *
-c *    ld(nst)    - numeracao das equacoes do elemento                 *
-c *    ia(*)                                                           *
-c *    ja(*)                                                           *
-c *    au(*)                                                           *
-c *    al(*)                                                           *
-c *    ad(*)                                                           *
-c *    b(*)                                                            *
-c *    nst         - numero de graus de liberdade por elemento         *
-c *    neq         - numero de equacoes                                *
-c *    nequ        - numero de equacoes em kuu                         *
-c *    nad         - numero de posicoes no CSR dos blocos Kuu e Kpp    *
-c *    nadu        - numero de posicoes no CSR dos blocos Kuu          *
-c *    nadp        - numero de posicoes no CSR dos blocos Kpp          *
-c *    lhs         - flag para a montagem da matriz A                  *
-c *    rhs         - flag para a montagem de b                         *
-c *    unsym       - flag para matriz nao-simetrica                    *
-c *    stge        - tipo de armazenamento                             *
-c *    n_blocks_up = numero de blocos                                  *
-c *                  1 - ( [ Kuu Kpp]  )                               *
-c *                  2 - ( [Kuu, Kpp] e [kpu] )                        *
-c *                  3 - ( [Kuu], [Kpp] e [kpu])                       *     
-c *    dualCsr     - true - armazenamento em blocos Kuu,Kpp e kpu      *
-c *                  false- aramzenamento em unico bloco               *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
+      subroutine assbly_pm(s       ,p          ,ld
+     1                    ,ia      ,ja         ,au
+     2                    ,al      ,ad         ,b    ,nst
+     3                    ,neq     ,nequ       ,neqp
+     4                    ,nad     ,nadu       ,nadp ,nadpu 
+     5                    ,lhs     ,rhs        ,unsym,stge
+     6                    ,dualCsr ,n_blocks_up)
+c **********************************************************************
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *
+c * ASSBLY_PM: montagem da matriz A e do vetor b.                      *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * s(nst,nst) - matriz do elemento nel                                *
+c * p(nst)     - vetor de elemento                                     *
+c * ld(nst)    - numeracao das equacoes do elemento                    *
+c * ia(*)                                                              *
+c * ja(*)                                                              *
+c * au(*)                                                              *
+c * al(*)                                                              *
+c * ad(*)                                                              *
+c * b(*)                                                               *
+c * nst         - numero de graus de liberdade por elemento            *
+c * neq         - numero de equacoes                                   *
+c * nequ        - numero de equacoes em kuu                            *
+c * nad         - numero de posicoes no CSR dos blocos Kuu e Kpp       *
+c * nadu        - numero de posicoes no CSR dos blocos Kuu             *
+c * nadp        - numero de posicoes no CSR dos blocos Kpp             *
+c * lhs         - flag para a montagem da matriz A                     *
+c * rhs         - flag para a montagem de b                            *
+c * unsym       - flag para matriz nao-simetrica                       *
+c * stge        - tipo de armazenamento                                *
+c * n_blocks_up = numero de blocos                                     *
+c *               1 - ( [ Kuu Kpp]  )                                  *
+c *               2 - ( [Kuu, Kpp] e [kpu] )                           *
+c *               3 - ( [Kuu], [Kpp] e [kpu])                          *     
+c * dualCsr     - true - armazenamento em blocos Kuu,Kpp e kpu         *
+c *               false- aramzenamento em unico bloco                  *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************     
       implicit none
       real*8  s(*),p(*),au(*),al(*),ad(*),b(*)
@@ -148,24 +153,24 @@ c ... | Kuu   0  |
 c     |  0   Kpp | e [kpu]
            else if(n_blocks_up .eq. 2) then    
              call csr2(s ,p        ,ld
-     .                ,ia,ia(neq+2)
-     .                ,ja,ja(nad+1)
-     .                ,al,al(nad+1)
-     .                ,ad,b
-     .                ,nst,neq     ,nequ
-     .                ,lhs,rhs)
+     1                ,ia,ia(neq+2)
+     2                ,ja,ja(nad+1)
+     3                ,al,al(nad+1)
+     4                ,ad,b
+     5                ,nst,neq     ,nequ
+     6                ,lhs,rhs)
 c .....................................................................
 c
 c ... [Kuu], [Kpp] e [kpu]
            else if(n_blocks_up .eq. 3) then
 c            print*,neq,nequ,neqp,nad,nadu,nadp
              call csr3(s   ,p         ,ld
-     .                ,ia  ,ia(nequ+2),ia(neq+3)
-     .                ,ja  ,ja(nadu+1),ja(nadu+nadp+1)
-     .                ,al  ,al(nadu+1),al(nadu+nadp+1)
-     .                ,ad  ,ad(nequ+1),b
-     .                ,nst ,neq ,nequ 
-     .                ,lhs ,rhs)
+     1                ,ia  ,ia(nequ+2),ia(neq+3)
+     2                ,ja  ,ja(nadu+1),ja(nadu+nadp+1)
+     3                ,al  ,al(nadu+1),al(nadu+nadp+1)
+     3                ,ad  ,ad(nequ+1),b
+     4                ,nst ,neq ,nequ 
+     5                ,lhs ,rhs)
            endif 
 c .....................................................................
 c
@@ -212,42 +217,46 @@ c
 c **********************************************************************
       subroutine csr(s,p,ld,ia,ja,au,al,ad,b,nst,neq,lhs,rhs,unsym)
 c **********************************************************************
-c *                                                                    *
-c *   CSR : armazenamento da matriz no formato CSR.                    *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    s(nst,nst) - matriz do elemento nel                             *
-c *    p(nst)     - vetor de elemento                                  *
-c *    ld(nst)    - numeracao das equacoes do elemento                 *
-c *    ia(neq+1)  - ia(i) informa a posicao no vetor a do primeiro     *
-c *                 coeficiente nao-nulo da equacao i                  *
-c *    ia(neq+2:2*neq+2) - apontador dos coeficientes da parte         *
-c *                        retangular da matriz                        *
-c *    ja(nad)    - ja(k) informa a coluna do coeficiente que ocupa    *
-c *                 a posicao k no vetor a                             *
-c *    ja(nad+1:nad+nadr) - colunas da parte retangular da matriz      *
-c *                         em particoes overlapping                   *
-c *    au(nad)      - parte triangular superior da matriz global       *
-c *                 armazenada no formato CSR                          *
-c *    al(nad)      - parte triangular inferior da matriz global       *
-c *                 armazenada no formato CSR                          *
-c *    al(nad+1:nad+nadr) - parte retangular da matriz para particoes  *
-c *                         overlapping                                *
-c *    ad(*)      - diagonal da matriz de coeficientes                 *
-c *    b(neq)     - vetor de forcas                                    *
-c *    nst        - numero de graus de liberdade por elemento          *
-c *    lhs        - flag para a montagem da matriz A                   *
-c *    rhs        - flag para a montagem de b                          *
-c *    unsym      - flag para matriz nao-simetrica                     *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    au   -  coeficientes acima da diagonal                          *
-c *    al   -  coeficientes abaixo da diagonal                         *
-c *    ad   -  coeficientes da diagonal                                *
-c *    b    -  vetor de forcas corrigido                               *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *
+c * CSR : armazenamento da matriz no formato CSR.                      *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * s(nst,nst) - matriz do elemento nel                                *
+c * p(nst)     - vetor de elemento                                     *
+c * ld(nst)    - numeracao das equacoes do elemento                    *
+c * ia(neq+1)  - ia(i) informa a posicao no vetor a do primeiro        *
+c *              coeficiente nao-nulo da equacao i                     *
+c * ia(neq+2:2*neq+2) - apontador dos coeficientes da parte            *
+c *                     retangular da matriz                           *
+c * ja(nad)    - ja(k) informa a coluna do coeficiente que ocupa       *
+c *              a posicao k no vetor a                                *
+c * ja(nad+1:nad+nadr) - colunas da parte retangular da matriz         *
+c *                      em particoes overlapping                      *
+c * au(nad)      - parte triangular superior da matriz global          *
+c *              armazenada no formato CSR                             *
+c * al(nad)      - parte triangular inferior da matriz global          *
+c *              armazenada no formato CSR                             *
+c * al(nad+1:nad+nadr) - parte retangular da matriz para particoes     *
+c *                      overlapping                                   *
+c * ad(*)      - diagonal da matriz de coeficientes                    *
+c * b(neq)     - vetor de forcas                                       *
+c * nst        - numero de graus de liberdade por elemento             *
+c * lhs        - flag para a montagem da matriz A                      *
+c * rhs        - flag para a montagem de b                             *
+c * unsym      - flag para matriz nao-simetrica                        *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * au   -  coeficientes acima da diagonal                             *
+c * al   -  coeficientes abaixo da diagonal                            *
+c * ad   -  coeficientes da diagonal                                   *
+c * b    -  vetor de forcas corrigido                                  *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'parallel.fi'
@@ -297,12 +306,12 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine csr2(s  ,p   ,ld
-     .               ,ia ,iapu
-     .               ,ja ,japu
-     .               ,al ,apul
-     .               ,ad ,b
-     .               ,nst,neq ,nequ
-     .               ,lhs,rhs)
+     1               ,ia ,iapu
+     2               ,ja ,japu
+     3               ,al ,apul
+     4               ,ad ,b
+     5               ,nst,neq ,nequ
+     6               ,lhs,rhs)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
 c * Data de modificaco : 00/00/0000                                    * 
@@ -411,12 +420,12 @@ c **********************************************************************
 c
 c **********************************************************************
       subroutine csr3(s   ,p    ,ld
-     .               ,iau ,iap  ,iapu
-     .               ,jau ,jap  ,japu
-     .               ,alu ,alp  ,alpu
-     .               ,adu ,adp  ,b
-     .               ,nst ,neq  ,nequ
-     .               ,lhs ,rhs)
+     1               ,iau ,iap  ,iapu
+     2               ,jau ,jap  ,japu
+     3               ,alu ,alp  ,alpu
+     4               ,adu ,adp  ,b
+     5               ,nst ,neq  ,nequ
+     6               ,lhs ,rhs)
 c **********************************************************************
 c * Data de criacao    : 12/12/2015                                    *
 c * Data de modificaco : 00/00/0000                                    * 
@@ -567,7 +576,8 @@ c * CSR padrao com tres arranjos, ia(neq+1) ,ja(nnz) e a(nnz) onde nnz *
 c * e o numero total de nao zeros                                      *  
 c **********************************************************************
       implicit none
-      integer ld(*),ia(*),ja(*),nst,neq
+      integer ld(*),ja(*),nst,neq
+      integer*8 ia(*)
       integer i,j,k,l,kk
       real*8  s(nst,*),p(*),a(*),b(*)
       logical lhs,rhs

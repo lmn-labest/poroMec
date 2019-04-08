@@ -189,11 +189,11 @@ c                                 equacao i do bloco Kpu
           i2 = alloc_4(ija,1,n)
 c ... blocos uu, pp e up
           call csriaup2(id    ,num          ,ia(i0)       ,ia(i1)
-     .                 ,ia(i2),ia(i2+nequ+1),ia(i2+neq+2)
-     .                 ,nnode ,ndf          
-     .                 ,neq   ,nequ  ,neqp         
-     .                 ,nad   ,naduu ,nadpp ,nadpu 
-     .                 ,lower ,diag  ,upper )
+     1                 ,ia(i2),ia(i2+nequ+1),ia(i2+neq+2)
+     2                 ,nnode ,ndf          
+     3                 ,neq   ,nequ  ,neqp         
+     4                 ,nad   ,naduu ,nadpp ,nadpu 
+     5                 ,lower ,diag  ,upper )
 c .......................................................................     
 c
 c ... Montagem do arranjo ja(nadu+nadp+nadpu):
@@ -311,35 +311,38 @@ c **********************************************************************
       subroutine csrstruct(id,ix,num,nnode,numel,nen,ndf,neq,i2,i3,nad,
      .                     nadr,lower,diag,upper,right,ija,ja)
 c **********************************************************************
-c *                                                                    *
-c *   CSRSTRUCT: monta os arranjos ia e ja do formato CSR.             *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)   - numeracao global das equacoes                 *
-c *    ix(nen+1,numel) - conetividades nodais                          *
-c *    num(nnode)      - numeracao RCM                                 *
-c *    nnode - numero de nos total da particao                         *
-c *    numel - numero de elementos                                     *
-c *    nen   - numero de nos por elemento                              *
-c *    ndf   - numero max. de graus de liberdade por no                *
-c *    neq   - numero de equacoes                                      *
-c *    lower = .true.  -> inclui a parte triangular inferior no csr    *
-c *    diag  = .true.  -> inclui a diagonal no csr                     *
-c *    upper = .true.  -> inclui a parte triangular superior no csr    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    i2    - ponteiro para o arranjo ia(neq+1)                       *
-c *    i3    - ponteiro para o arranjo ja(nad)                         *
-c *    nad   - numero de coeficientes nao nulos                        *
-c *    nadr  - numero de coeficientes nao nulos da parte retangular    *                                              *
-c *                                                                    *
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 05/04/2019                                    * 
+c * ------------------------------------------------------------------ *
+c * CSRSTRUCT: monta os arranjos ia e ja do formato CSR.               *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * id(ndf,nnode)   - numeracao global das equacoes                    *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * num(nnode)      - numeracao RCM                                    *
+c * nnode - numero de nos total da particao                            *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * neq   - numero de equacoes                                         *
+c * lower = .true.  -> inclui a parte triangular inferior no csr       *
+c * diag  = .true.  -> inclui a diagonal no csr                        *
+c * upper = .true.  -> inclui a parte triangular superior no csr       *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * i2    - ponteiro para o arranjo ia(neq+1)                          *
+c * i3    - ponteiro para o arranjo ja(nad)                            *
+c * nad   - numero de coeficientes nao nulos                           *
+c * nadr  - numero de coeficientes nao nulos da parte retangular       *                                              *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       use Malloc
       implicit none
       integer id(ndf,*),ix(nen+1,*),num(*)
-      integer nnode,numel,nen,ndf,neq,nad,nadr
+      integer nnode,numel,nen,ndf,neq,nadr
+      integer*8 nad,nl,nc
 c ... ponteiros      
       integer*8 i0,i1,i2,i3
 c .....................................................................      
@@ -353,7 +356,7 @@ c
 c     ia(i0) => ip(nnode+1) - ip(i) indica a posicao em ips do primeiro
 c                             no vizinho ao no i.
 c     ia(i1) => ips(ipos) - contem as conectividades nodais de cada no
-      call graph(ix,nnode,numel,nen,i0,i1)
+      call graph_v1(ix,nnode,numel,nen,i0,i1)
 c ......................................................................      
 c
 c ... Montagem do arranjo ia(neq+1):
@@ -363,9 +366,10 @@ c                               coeficiente nao-nulo da equacao i
 c
       n = neq + 1
       if (right) n = 2*n
-      i2 = alloc_4(ija,1,n)
-      call csria(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf,neq,nad,nadr,
-     .           lower,diag,upper,right)
+      i2 = alloc_8(ija,1,n)
+      call csria_v1(id,num,ia(i0),ia(i1),ia(i2),nnode,ndf
+     1             ,neq,nad,nadr
+     2             ,lower,diag,upper,right)
 c ......................................................................     
 c
 c ... Montagem do arranjo ja(nad):
@@ -373,13 +377,13 @@ c
 c ... ia(i3)=>ja(nad) - ja(k) informa a coluna do coeficiente que ocupa
 c                       a posicao k no vetor a  
 c
-      i3 = alloc_4(ja,1,nad+nadr)
-      call csrja(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf,neq,nad,lower,
-     .           diag,upper,right)
-      call sortgraph(ia(i2),ia(i3),neq)
-      if (right) then
-         call sortgraph(ia(i2+neq+1),ia(i3+nad),neq)      
-      endif
+      nl = 1
+      nc = nad+nadr
+      i3 = dalloc_4(ja,nl,nc)
+      call csrja_v1(id,num,ia(i0),ia(i1),ia(i3),nnode,ndf
+     1             ,neq,nad,lower
+     2             ,diag,upper,right)
+      call sort_graph_csr(ia(i2),ia(i3),neq,nad,right) 
 c ......................................................................
       i1 = dealloc('iaux1   ')
       i0 = dealloc('iaux0   ')

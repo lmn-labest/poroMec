@@ -1996,14 +1996,14 @@ c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
            call elmlib_mec(el,iq(1,nel),xl ,ul,pl ,sl ,txnl
-     .                    ,dt,ndm     ,nst ,nel     ,iel,isw
-     .                    ,ma,nlit    ,ilib)
+     1                    ,dt,ndm     ,nst ,nel     ,iel,isw
+     2                    ,ma,nlit    ,ilib)
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
            call assbly(sl ,pl   ,ld  ,ia ,ja ,au
-     .                ,al ,ad   ,b   ,nst,neq ,lhs
-     .                ,rhs,unsym,stge)
+     1                ,al ,ad   ,b   ,nst,neq ,lhs
+     2                ,rhs,unsym,stge)
 c ......................................................................
   100     continue   
 c$omp end do
@@ -2064,14 +2064,14 @@ c ......................................................................
 c
 c ...... Chama biblioteca de elementos:
           call elmlib_mec(el,iq(1,nel),xl ,ul  ,pl ,sl ,txnl
-     .                   ,dt,ndm     ,nst ,nel ,iel,isw
-     .                   ,ma,nlit    ,ilib)
+     1                   ,dt,ndm     ,nst ,nel ,iel,isw
+     2                   ,ma,nlit    ,ilib)
 c ......................................................................
 c
 c ...... Monta arrranjos locais em arranjos globais:
           call assbly(sl ,pl   ,ld  ,ia ,ja ,au
-     .               ,al ,ad   ,b   ,nst,neq ,lhs
-     .               ,rhs,unsym,stge)
+     1               ,al ,ad   ,b   ,nst,neq ,lhs
+     2               ,rhs,unsym,stge)
 c ......................................................................
   250   continue 
 c ......................................................................

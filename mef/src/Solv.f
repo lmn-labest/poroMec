@@ -25,14 +25,14 @@ c *   gmres2(m)                                                        *
 c *   block_it_pcg                                                     *
 c **********************************************************************
       subroutine solv_pm(neq    ,nequ    ,neqp
-     .                  ,nad    ,naduu   ,nadpp
-     .                  ,ip     ,ja      ,ad         ,al 
-     .                  ,m      ,b       ,x          ,tol    ,maxit
-     .                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
-     .                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond
-     .                  ,fmec   ,fporomec,fhist_solv ,fprint
-     .                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
-     .                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
+     1                  ,nad    ,naduu   ,nadpp
+     2                  ,ip     ,ja      ,ad         ,al 
+     3                  ,m      ,b       ,x          ,tol    ,maxit
+     4                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
+     5                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond
+     6                  ,fmec   ,fporomec,fhist_solv ,fprint
+     7                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
+     8                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
       implicit none
       include 'precond.fi'
@@ -692,12 +692,14 @@ c .....................................................................
 c
 c ... mkl_pardiso
       else if(solver .eq. 10 ) then
-        i_z  = alloc_8('zsolver ',1,neq)
+        i_z = alloc_8('zsolver ',1,neq)
+        i_y = alloc_4('ysolver ',1,neq+1)
         if(fmec) then
-          call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),2)
+          call call_mkl_pardiso(neq,nad,ip,ja,ad,b,x,ia(i_z),ia(i_y),2)
         else if(fporomec) then
-          call call_mkl_pardiso(neq,ip,ja,ad,b,x,ia(i_z),-2)
+          call call_mkl_pardiso(neq,nad,ip,ja,ad,b,x,ia(i_z),ia(i_y),-2)
         endif
+        i_y  = dealloc('ysolver ')
         i_z  = dealloc('zsolver ') 
 c ......................................................................
 c

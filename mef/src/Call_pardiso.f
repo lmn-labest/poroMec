@@ -1,12 +1,13 @@
 c **********************************************************************
 c * Data de criacao    : 30/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    * 
+c * Data de modificaco : 05/04/2019                                    * 
 c * ------------------------------------------------------------------ *   
 c * CALL_PARDISO : chama o sover pardiso mkl                           *    
 c * ------------------------------------------------------------------ * 
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ * 
 c * neq      - numero de equacoes                                      *
+c * nnz      - numero total de nao zeros                               *
 c * ia(*)    - ponteiro do formato CSR                                 *
 c * ja(*)    - ponteiro das colunas no formato CSR                     *
 c * a(*)     - matriz A                                                *
@@ -23,13 +24,12 @@ c * a(*),b(neq) - inalterados                                          *
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ *
-c * Arranjos jat,iat e kat são utilizados na retrosubstituizao do      *
-c * solver iLDLt                                                       *
 c **********************************************************************  
-      subroutine call_mkl_pardiso(neq,ia,ja,a,b,x,z,mtype)
+      subroutine call_mkl_pardiso(neq,nnz,ia8,ja,a,b,x,z,ia4,mtype)
       implicit none
       include 'mpif.h'
-      integer ia(*),ja(*),neq
+      integer*8 ia8(*),nnz
+      integer ja(*),neq,ia4(*)
       real*8 a(*),b(*),x(*),z(*)
       real*8 norm,xkx,mem
 c ... variavel interna do mkl( 64 btis)
@@ -44,12 +44,14 @@ c ...
 c ...
       real*8 dot
 c ...
+      call ia8_to_ia4(ia4,ia8,neq)
+c ...
       error  = 0
       maxfct = 1
       mnum   = 1
       nrhs   = 1
 c ...
-      msglvl = 0
+      msglvl = 1
 c .....................................................................
 c
 c ...
@@ -65,14 +67,16 @@ c ... simetrico indefinido
         iparm(10) = 8 ! perturbe the pivot elements with 1E-08
         iparm(21) = 1 ! Pivoting for symmetric indefinite matrices.                                   
         iparm(24) = 0 ! Parallel factorization control.
+        iparm(27) = 0 ! 1 - checa a estrutura de dados  
 c .....................................................................
 c
 c ... simetrico definido positivo
       else if( mtype .eq. 2) then
         iparm(1)  = 1 ! no solver default
         iparm(2)  = 2 ! fill-in reordering from METIS
-        iparm(7)  = 2 ! numbers of iterative refinement steps
+        iparm(7)  = 2 ! numbers of iterative refinement steps 
         iparm(24) = 0 ! Parallel factorization control.
+        iparm(27) = 0 ! 1 - checa a estrutura de dados  
       endif         
 c .....................................................................
 c
@@ -84,8 +88,8 @@ c ...
       phase = 13        
       msglvl = 0
 #if _MKL_
-      call pardiso (pt  , maxfct, mnum, mtype, phase, neq, a, ia, ja,
-     .              idum, nrhs  , iparm, msglvl, b, x, error)
+      call pardiso (pt  , maxfct, mnum, mtype, phase, neq, a, ia4
+     .            , ja  , idum, nrhs  , iparm, msglvl, b, x, error)
 #endif
       time = Mpi_Wtime() - time 
 c .....................................................................
@@ -95,7 +99,7 @@ c ...
 c .....................................................................
 c 
 c ... produto:  x*Kx
-      call matvec_csr_sym_v3(neq,ia,ja,a,x,z,.true.)
+      call matvec_csr_sym_v3(neq,ia4,ja,a,x,z,.true.)
       xkx = dot(x,z,neq)
 c .......................................................................
 c
@@ -114,6 +118,9 @@ c .....................................................................
 c
 c ...
       write(*,1100)neq,mem,xkx,norm,time
+      write(10,'(a,a,d20.10,a,d20.10,a,f20.2,a,f20.2)')
+     .       "PARDISO: "," x * Kx ",xkx," ||x|| ",norm
+     .      ," Memory (MB)  ",mem," time ",time
 c .....................................................................
 c
 c ...
@@ -233,4 +240,33 @@ c    .              idum, nrhs, iparm, msglvl, ddum, ddum, error)
 c .....................................................................
 c     return
 c     end
-c ***********************************************************************                  
+c ********************************************************************** 
+c
+c **********************************************************************
+c * Data de criacao    : 05/04/2019                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * CALL_PARDISO : chama o sover pardiso mkl                           *    
+c * ------------------------------------------------------------------ * 
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ * 
+c * ia4      - nao defindo                                             *
+c * ia8      - vetor ia do CSR                                         *
+c * nnz      - numero total de nao zeros                               *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * ia4      - vetor ia do CSR                                         *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
+c **********************************************************************    
+      subroutine ia8_to_ia4(ia4,ia8,neq)
+      implicit none
+      integer ia4(*),neq
+      integer*8 ia8(*), i     
+      do i = 1, neq+1        
+        ia4(i) = ia8(i)
+      enddo
+      return
+      end

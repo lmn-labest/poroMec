@@ -90,15 +90,17 @@ c.......................................................................
 c **********************************************************************
 c 
 c **********************************************************************
-      subroutine pload_mec(id,f,u,b,nload,nnode,ndf)
+      subroutine pload_mec(x     ,id   ,f  ,u,b
+     .                    ,nload ,nnode,ndf)
 c **********************************************************************
 c * Data de criacao    : 09/04/2016                                    *
-c * Data de modificaco : 00/00/0000                                    *
+c * Data de modificaco : 05/04/2019                                    *
 c * ------------------------------------------------------------------ *
 c * PLOAD: Monta o vetor de forcas do problema mecanico estatico       *
 c * ------------------------------------------------------------------ *
 c * Parametros de entrada:                                             *
 c * ------------------------------------------------------------------ *
+c * x(ndm)           - coordenada do ponto  
 c * id(ndf,nnode)    - numeracao das equacoes                          *
 c * f(ndf,nnode)     - cargas concentradas e incognitas prescritas     *
 c * u(ndf,nnode)     - graus de liberdade                              *
@@ -114,7 +116,7 @@ c **********************************************************************
       implicit none
       include 'transiente.fi'
       integer id(ndf,*),nload(ndf,*),nnode,ndf,i,j,k,nc
-      real*8  f(ndf,*),u(ndf,*),b(*),c,vc(3),a
+      real*8  f(ndf,*),u(ndf,*),b(*),c,vc(3),a,x(*)
 c.......................................................................
 c
 c ... Cargas nodais e desloc. prescritos variaveis no tempo:
@@ -123,7 +125,7 @@ c
         do 100 j = 1, ndf
           nc = nload(j,i)
           if(nc .gt. 0) then
-            call tload(nc,t,u(j,i),c,vc)
+            call tload(nc,t,x,u(j,i),c,vc)
             f(j,i) = c
           endif
   100   continue
@@ -226,6 +228,7 @@ c * nterms  - numero maximo de parcelas                                *
 c * npar    - numero maximo de parametros                              *
 c * nc      - numero da carga                                          *
 c * t       - tempo                                                    *
+c * x       - coordenada do ponto
 c * u       - solucao                                                  *
 c * c       - nao definido                                             *
 c * vc      - nao definido                                             *
