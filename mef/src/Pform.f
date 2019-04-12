@@ -2084,6 +2084,227 @@ c ...
 c **********************************************************************
 c
 c **********************************************************************
+      subroutine pform_term(ix     ,iq         ,ie       ,e
+     1                    ,x       ,id         ,ia       ,ja
+     2                    ,au      ,al         ,ad       ,b
+     3                    ,u       ,v
+     4                    ,xl      ,ul         ,vl  
+     5                    ,pl      ,sl         ,ld         
+     6                    ,numel   ,nen        ,nenv     ,ndf 
+     7                    ,ndm     ,nst        ,neq      ,nad  ,nadr 
+     8                    ,lhs     ,rhs        ,unsym 
+     9                    ,stge    ,isw        ,ilib     ,nlit
+     1                    ,i_colorg,i_elcolor  ,numcolors,fstress0)
+c **********************************************************************
+c * Data de criacao    : 09/04/2016                                    *
+c * Data de modificaco : 12/04/2019                                    * 
+c * ------------------------------------------------------------------ * 
+c * PFORM_TERM:                                                        *
+c * ------------------------------------------------------------------ *      
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * ix(nen+1,numel) - conetividades nodais                             *
+c * iq(7,numel)     - cargas nos elementos                             *
+c * ie(numat)       - tipo de elemento                                 *
+c * e(10,numat)     - constantes fisicas dos materiais                 *
+c * x(ndm,nnode)    - coordenadas nodais                               *
+c * id(ndf,nnode)   - numeracao global das equacoes                    *
+c * ia(neq+1) - ia(i) informa a posicao no vetor a do primeiro         *
+c *             coeficiente nao-nulo da equacao i, no formato CSR      *
+c * ja(nad)   - ja(k) informa a coluna do coeficiente que ocupa        *
+c *             a posicao k no vetor a, no formato CSR (stge = 1)      *
+c *           - ponteiro da diagonal do skyline (stge = 4)             *
+c * ad(neq)   - nao definido                                           *
+c * au(nad)   - nao definido                                           *
+c * al(nad)   - nao definido                                           *
+c * b(neq)    - vetor de forcas nodais equivalentes                    *
+c * u(ndf,nnode) - solucao (com valores prescritos)                    *
+c * xl(ndm,nen)  - nao definido                                        *
+c * ul(nst)      - nao definido                                        *
+c * pl(nst)      - nao definido                                        *
+c * sl(nst,nst)  - nao definido                                        *
+c * ld(nst)      - nao definido                                        *
+c * numel - numero de elementos                                        *
+c * nen   - numero de nos por elemento                                 *
+c * nenv  - numero de nos de vertice por elemento                      *
+c * ndf   - numero max. de graus de liberdade por no                   *
+c * ndm   - dimensao                                                   *
+c * nst   - nen*ndf                                                    *
+c * neq   - numero de equacoes                                         *
+c * nequ  - numero de equacoes em kuu                                  *
+c * nad   - numero de posicoes no CSR (storage = 1)                    *
+c * nadr  - numero de termos nao nulos na parte retangular             *
+c *         ( MPI em overllaping )                                     *
+c * lhs   - flag para montagem de ad (letf hand side)                  *
+c * rhs   - flag para correcao de b  (right hand side)                 *
+c * unsym - flag para matrizes nao simetricas                          *
+c * stge  - = 1, armazenamento CSR                                     *
+c *         = 2, armazenamento por arestas                             *
+c *         = 3, armazenamento EBE                                     *
+c *         = 4, armazenamento SKYLINE                                 *
+c *         = 0, nao monta matriz                                      *
+c * isw   - codigo de instrucao para as rotinas de elemento            *
+c * ilib  - determina a biblioteca do elemento                         *
+c * ------------------------------------------------------------------ * 
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ * 
+c *     b(neq) - vetor de forcas corrigido     (rhs = true)            *
+c *    ad(neq) - coeficientes da diagonal      (lhs = true)            *
+c *    au(nad) - parte triangular sup. de A (lhs = true)               *
+c *    al(nad) - parte triangular inf. de A (lhs = true, unsym = true) *
+c * ------------------------------------------------------------------ * 
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ * 
+c **********************************************************************
+      implicit none
+      include 'openmp.fi'
+      include 'omp_lib.h'
+      include 'transiente.fi'
+      include 'termprop.fi'
+      integer numel,nen,nenv,ndf,ndm,nst,nad,nadr
+      integer stge,isw,numat,nlit
+      integer neq
+      integer ix(nen+1,*),iq(7,*),ie(*),id(*),ld(nst)
+      integer ia(*),ja(*)
+      integer iel,ma,nel,no,i,j,k,kk,ilib
+      integer i_colorg(2,*),i_elcolor(*),numcolors
+      integer ic,jc
+      real*8  e(prop,*),x(ndm,*),ad(*),au(*),al(*),b(*)
+      real*8  u(*),v(*)
+      real*8  xl(ndm,nenv),ul(nst),vl(nst),el(prop)
+      real*8  pl(nst),sl(nst,nst)
+      logical lhs,rhs,unsym,fstress0
+c .....................................................................
+c
+c ... Zera a matriz de coeficientes:
+c
+      if(lhs) then
+        call azero(au,nad)
+        call azero(al,nad+nadr)
+        call azero(ad,neq)      
+      endif
+c ..................................................................... 
+c
+c ... openmp
+      if(omp_elmt)then
+c ... loop nos cores
+c$omp parallel num_threads(nth_elmt)
+c$omp.default(none)
+c$omp.private(nel,ic,jc,no,k,ma,iel,i,j,kk,xl,ld,ul,vl,pl,el,sl)
+c$omp.shared(numcolors,i_colorg,i_elcolor,nen,nenv,ndf,ndm)
+c$omp.shared(id,u,v,ix,ie,e)
+c$omp.shared(stge,unsym,rhs,lhs,ilib,nlit,isw,nst,dt)
+c$omp.shared(neq,nad,fstress0)
+        do 150 ic = 1, numcolors
+c$omp do
+c ... Loop nos elementos:
+c     ------------------
+          do  100 jc = i_colorg(1,ic), i_colorg(2,ic)
+            nel = i_elcolor(jc)
+c           print*,omp_get_thread_num(),jc,nel,ic
+            kk = 0
+c ... loop nos nos de deslocamentos
+            do i = 1, nen
+              no = ix(i,nel)
+              kk     = kk + 1
+              ld(kk) = id(no)
+              ul(kk) = u(no)
+              vl(kk) = v(no)
+              pl(kk) = 0.d0           
+           enddo   
+c ......................................................................               
+c
+c ... loop nos nos vertices
+            do i = 1, nenv
+              no       = ix(i,nel)
+              do j = 1, ndm
+                xl(j,i) = x(j,no)
+              enddo   
+            enddo    
+c ......................................................................             
+c
+c ...... Arranjos de elemento:
+           ma  = ix(nen+1,nel)
+           iel = ie(ma)
+           do i = 1, prop
+             el(i) = e(i,ma)
+           enddo   
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+           call elmlib_term(el,iq(1,nel),xl ,ul,vl ,pl ,sl 
+     1                     ,dt,ndm     ,nst ,nel   ,iel,isw
+     2                     ,ma,nlit    ,ilib)
+c ......................................................................
+c
+c ...... Monta arrranjos locais em arranjos globais:
+           call assbly(sl ,pl   ,ld  ,ia ,ja ,au
+     1                ,al ,ad   ,b   ,nst,neq ,lhs
+     2                ,rhs,unsym,stge)
+c ......................................................................
+  100     continue   
+c$omp end do
+c .....................................................................
+  150   continue
+c$omp end parallel
+c .....................................................................
+c
+c ... sequencial
+      else  
+c ... Loop nos elementos:
+c     ------------------
+        do 250 nel = 1, numel
+          kk = 0
+c ... loop em todos os nos
+          do i = 1, nen
+            no = ix(i,nel)
+            kk     = kk + 1
+            ld(kk) = id(no)
+            pl(kk) = 0.d0
+            ul(kk) = u(no)
+            vl(kk) = v(no)
+         enddo
+c ......................................................................      
+c
+c ... loop nos nos vertices
+          do i = 1, nenv
+            no       = ix(i,nel)
+            do j = 1, ndm
+              xl(j,i) = x(j,no)
+            enddo   
+          enddo
+c .....................................................................   
+c
+c ...... Arranjos de elemento:
+          ma  = ix(nen+1,nel)
+          iel = ie(ma)
+          do i = 1, prop
+            el(i) = e(i,ma)
+          enddo   
+c ......................................................................
+c
+c ...... Chama biblioteca de elementos:
+          call elmlib_term(el,iq(1,nel),xl ,ul ,vl ,pl ,sl 
+     1                   ,dt,ndm     ,nst ,nel ,iel,isw
+     2                   ,ma,nlit    ,ilib)
+c ......................................................................
+c
+c ...... Monta arrranjos locais em arranjos globais:
+          call assbly(sl ,pl   ,ld  ,ia ,ja ,au
+     1               ,al ,ad   ,b   ,nst,neq ,lhs
+     2               ,rhs,unsym,stge)
+c ......................................................................
+  250   continue 
+c ......................................................................
+      endif
+c ......................................................................
+c
+c ...
+      return
+      end
+c **********************************************************************
+c
+c **********************************************************************
       subroutine tform_mec(ix    ,x    ,e   ,ie
      1                    ,ic    ,xl   ,ul  
      2                    ,pl    ,u    ,tx0 ,t   

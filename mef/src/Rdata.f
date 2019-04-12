@@ -4,13 +4,14 @@
      3                  ,i_inum    ,i_e       ,i_x        ,i_id 
      4                  ,i_nload   ,i_eload   ,i_eloadp   ,i_f
      5                  ,i_u       ,i_u0      ,i_tx0      ,i_dp
+     6                  ,i_v
      6                  ,i_tx1p    ,i_tx2p    ,i_epsp     ,i_plastic
      7                  ,i_porosity,i_fnno    ,i_elplastic,i_vpropel
-     8                  ,fstress0  ,fporomec  ,fmec       ,print_quad
-     9                  ,plastic   ,vprop     ,nin     )
+     8                  ,fstress0  ,fporomec  ,fmec      ,fterm
+     9                  ,print_quad,plastic   ,vprop     ,nin     )
 c **********************************************************************
 c * Data de criacao    : 10/01/2016                                    *
-c * Data de modificaco : 11/05/2017                                    *
+c * Data de modificaco : 12/04/2019                                    *
 c * ------------------------------------------------------------------ *
 c * RDAT: leitura de dados do problema poromecanico.                   *
 c * ------------------------------------------------------------------ *
@@ -42,6 +43,7 @@ c * i_x     - ponteiro para o arranjo x                                *
 c * i_f     - ponteiro para o arranjo f (poro_mecanico)                *
 c * i_u     - ponteiro para o arranjo u (poro_mecanico)                *
 c * i_u0    - ponteiro para o arranjo u0(poro_mecanico)                *
+c * i_v     - ponteiro para o arranjo v (termico)                      *
 c * i_tx0   - ponteiro para o arranjo tx0(poro_mecanico)               *
 c * i_dp    - ponteiro para o arranjo deltaP(poro_mecanico)            *
 c * i_txp1  - ponteiro para o arranjo txp(poro_mecanico)               *
@@ -55,6 +57,7 @@ c * i_vporel    - ponteiro para o arranjo vpropel                      *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *
 c * fpropmec- (true/false)                                             *
 c * fmec    - (true/false)                                             *
+c * fterm   - (true/false)                                             *
 c * fstress0- leitura de tensoes iniciais (true/false)                 *
 c * print_quad - escrita da malha com elmentos quadraticos(true|false) *
 c * plastic  - (true/false)                                            * 
@@ -72,6 +75,7 @@ c * e     - constantes fisicas                                         *
 c * x     - coordenadas nodais                                         *
 c * f     - forcas e prescricoes nodais                                *
 c * u0    - condicoes de contorno e inicial                            *
+c * v     - deriva primeria da solucao
 c * tx0   - tensoes inicias                                            *
 c * dp    - delta P ( apenas alocado)                                  *
 c * txp   - tensoes nos pontos de integracao                           *
@@ -102,15 +106,15 @@ c ... ponteiros
       integer*8 i_e,i_x,i_f,i_nload,i_eload,i_eloadp,i_inum
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_epsp,i_plastic,i_dp
       integer*8 i_ix,i_id,i_ie,i_porosity,i_elplastic,i_vpropel
-      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux
+      integer*8 i_nelcon,i_nodcon,i_nincid,i_incid,i_fnno,i_aux,i_v
 c ......................................................................
       integer nin
       integer j,nmc,totnel,nmacros,itmp
-      character*15 macro(36),rc
+      character*15 macro(39),rc
       character*80 fname
       integer naux
       integer nincl /7/
-      logical fstress0,fporomec,fmec,plastic,print_quad,vprop(*)
+      logical fstress0,fporomec,fmec,fterm,plastic,print_quad,vprop(*)
       logical f_read_el /.false./
       logical el_quad  /.false./
       logical mk_el_quad  /.false./
@@ -121,14 +125,15 @@ c ......................................................................
      2           'hexa20         ','tetra10        ','               ',
      3           'coordinates    ','constrainpmec  ','constraindisp  ',
      4           'nodalforces    ','elmtloads      ','nodalloads     ',
-     5           'hydrostatic    ','hydrostress    ','elmtpresloads  ',
-     6           'loads          ','               ','               ',
-     7           'initialdisp    ','initialpres    ','initialstress  ',
-     8           'parallel       ','insert         ','return         ',
-     9           'tria3ov        ','quad4ov        ','tetra4ov       ',
-     1           'hexa8ov        ','tetra10ov      ','hexa20ov       ',
-     2           '               ','fmaterials     ','end            '/
-      data nmc /36/      
+     5           'constraintemp'  ,'nodalthermloads','               ',
+     6           'hydrostatic    ','hydrostress    ','elmtpresloads  ',
+     7           'loads          ','               ','               ',
+     8           'initialdisp    ','initialpres    ','initialstress  ',
+     9           'parallel       ','insert         ','return         ',
+     1           'tria3ov        ','quad4ov        ','tetra4ov       ',
+     2           'hexa8ov        ','tetra10ov      ','hexa20ov       ',
+     3           '               ','fmaterials     ','end            '/
+      data nmc /39/      
 c ......................................................................
 c
 c ... Leitura dos parametros da malha: nnode,numel,numat,nen,ndf,ndm
@@ -142,6 +147,7 @@ c
 c ... tipo do problema
       fmec     = .false.
       fporomec = .false.
+      fterm    = .false.
 c ......................................................................
 c
 c ...
@@ -156,6 +162,10 @@ c ... temporario
       else if( nen .eq. 20 )then
         npi = 64
       endif       
+c .....................................................................
+c
+c ... problema termico
+      if( ndf .eq. 1) fterm = .true.
 c .....................................................................
 c
 c ... 
@@ -264,13 +274,34 @@ c     ---------------------------------------------------------------
         endif
       endif 
 c ......................................................................
+c
+c ......................................................................
+c   
+c     Alocacao de arranjos na memoria: termico
+c     ---------------------------------------------------------------
+c     | ix | ie | e | x | eload |
+c     ---------------------------------------------------------------
+c
+      if(fmec .or. fterm) then
+        i_ix    = alloc_4('ix      ',nen+1,numel)
+        i_ie    = alloc_4('ie      ',    1,numat)
+        i_eload = alloc_4('eload   ',    7,numel)
+        i_e     = alloc_8('e       ', prop,numat)
+        i_x     = alloc_8('x       ',  ndm,nnode)  
+        call mzero(ia(i_ix),numel*(nen+1))
+        call mzero(ia(i_ie),numat) 
+        call mzero(ia(i_eload),numel*7)
+        call azero(ia(i_e),numat*prop)
+        call azero(ia(i_x),nnodev*ndm)        
+      endif 
+c ......................................................................
       totnel  = 0            
       nmacros = 0
 c ......................................................................
 c ...
 c     Alocacao de arranjos na memoria:
 c     ---------------------------------------------------------------
-c     | id  nload | inum | e | x | f | u | u0 | tx0 |
+c     | id  nload | inum | e | x | f | u | u0 | tx0 | | v |
 c     ---------------------------------------------------------------
    50 continue
       if (totnel .eq. numel) then
@@ -296,6 +327,13 @@ c ...
           call azero(ia(i_porosity),nnode)
         endif    
 c .....................................................................
+c
+c ... term
+        if(fterm) then
+          i_v   = alloc_8('v       ',  ndf,nnode)
+          call mzero(ia(i_v) ,nnode*ndf)      
+        endif
+c .....................................................................
       endif
 c .....................................................................
 c
@@ -315,18 +353,19 @@ c
       nmacros = nmacros + 1
       write(macros(nmacros),'(15a)') rc
 c ......................................................................
-      go to (400, 450, 500,    ! eaterials ,bar2         ,tria3
-     1       550, 600, 650,    !quad4      ,tetra4       ,hexa8
-     2       700, 750, 800,    !hexa20     ,tetra10      ,
-     3       850, 900, 950,    !coordinates,             ,constraindisp
-     4      1000,1050,1100,    !nodalforces,elmtloads    ,nodalloads
-     5      1150,1200,1250,    !hstaticpres,hstaticstress,elmtpresloads
-     6      1300,1350,1400,    !loads      ,             ,
-     7      1450,1500,1550,    !initialdisp,             ,initialstress
-     8      1600,1650,1700,    !parallel   ,insert       ,return
-     9      1750,1800,1850,    !tria3ov    ,quad4ov      ,tetra4ov
-     1      1900,1950,2000,    !hexa8ov    ,tetra10ov    ,hexa20ov
-     2      2050,2100,2150) j  !           ,fmaterials   ,end
+      go to (400, 450, 500,    ! eaterials   ,bar2         ,tria3
+     1       550, 600, 650,    !quad4        ,tetra4       ,hexa8
+     2       700, 750, 800,    !hexa20       ,tetra10      ,
+     3       850, 900, 950,    !coordinates  ,             ,constraindisp
+     4      1000,1050,1100,    !nodalforces  ,elmtloads    ,nodalloads
+     4      1150,1200,1250,    !constraintemp,nodalthermload
+     5      1300,1350,1400,    !hstaticpres  ,hstaticstress,elmtpresloads
+     6      1450,1500,1550,    !loads        ,             ,
+     7      1600,1650,1700,    !initialdisp  ,             ,initialstress
+     8      1750,1800,1850,    !parallel     ,insert       ,return
+     9      1900,1950,2000,    !tria3ov      ,quad4ov      ,tetra4ov
+     1      2050,2100,2150,    !hexa8ov      ,tetra10ov    ,hexa20ov
+     2      2200,2250,2300) j  !             ,fmaterials   ,end
 c ......................................................................
 c
 c ... Propriedades dos materiais:
@@ -626,9 +665,48 @@ c
       goto 100
 c ......................................................................
 c
-c ...
+c ... nodalthermloads - nos com cargas variaveis no tempo:
 c
  1150 continue
+      if(my_id .eq. 0) print*,'loading constraintemp ...'
+      if(f_read_el) then
+        call bound(ia(i_id),nnodev,ndf,nin,1)
+c ... malha quadratica gerada internamente
+        if(mk_el_quad) then
+          call mk_bound_quad(ia(i_id),ia(i_ix),numel,ndf,ndf,nen)
+        endif
+c ......................................................................
+      else
+        print*,'MACRO: constraindisp !! Unread Elements'
+        call stop_mef()
+      endif
+      if(my_id .eq. 0) print*,'done.'
+      goto 100
+c ......................................................................
+c
+c ... nodalthermloads - nos com cargas variaveis no tempo:
+c
+ 1200 continue
+      if(my_id .eq. 0) print*,'loading nodalthermloads ...'
+      if(f_read_el) then
+        call bound(ia(i_nload),nnodev,ndf,nin,2) 
+      else
+        print*,'MACRO: nodalloads !! Unread Elements'
+        call stop_mef()
+      endif
+      if(my_id .eq. 0) print*,'done.'
+      goto 100
+c ......................................................................
+c
+c ...
+c
+ 1250 continue
+      goto 100
+c ......................................................................
+c
+c ...
+c
+ 1300 continue
       if(my_id .eq. 0) print*,'loading hstaticpres ...'
       call init_hydrostatic_pres(ia(i_x),ia(i_u0)
      .                          ,nnodev,ndf,ndm,nin)
@@ -638,7 +716,7 @@ c ......................................................................
 c
 c ...
 c
- 1200 continue
+ 1350 continue
       if(my_id .eq. 0) print*,'loading hstaticstress ...'
       fstress0 = .true. 
       call init_hydrostatic_stress(ia(i_tx0),ia(i_x)
@@ -649,7 +727,7 @@ c ......................................................................
 c
 c ...
 c
- 1250 continue
+ 1400 continue
       if(my_id .eq. 0) print*,'loading elmtpresloads ...'
       if(f_read_el) then
         call bound(ia(i_eloadp),numel,7,nin,3) 
@@ -663,7 +741,7 @@ c ......................................................................
 c
 c ... Definicao das cargas variaveis no tempo:
 c
- 1300 continue
+ 1450 continue
       if(my_id .eq. 0) print*,'loading loads ...'
       call rload(nin)
       if(my_id .eq. 0) print*,'done.'
@@ -672,19 +750,19 @@ c ......................................................................
 c
 c ...
 c
- 1350 continue
+ 1500 continue
       goto 100
 c ......................................................................
 c
 c ...
 c
- 1400 continue
+ 1550 continue
       goto 100
 c ......................................................................
 c
 c ... initialdisp - deslocamentos iniciais:
 c
- 1450 continue
+ 1600 continue
 c     if(fReadEl) then
 c       call init_poro_mec(ia(i_u0),nnodev,ndf,1,ndf-1,nin)  
 c     else
@@ -695,7 +773,7 @@ c ......................................................................
 c
 c ... intialpres
 c
- 1500 continue
+ 1650 continue
       if(my_id .eq. 0) print*,'loading initialpres ...'
       if(f_read_el) then
         call init_poro_mec(ia(i_u0),nnodev,ndf,ndf,ndf,nin)
@@ -709,7 +787,7 @@ c ......................................................................
 c
 c ...
 c      
- 1550 continue
+ 1700 continue
       if(my_id .eq. 0) print*,'loading initialstress ...'
       if(f_read_el) then
         fstress0 = .true.  
@@ -731,7 +809,7 @@ c ......................................................................
 c
 c ... Paralelo:                                         
 c      
- 1600 continue
+ 1750 continue
       if(my_id .eq. 0) print*,'loading read_par...'
       call read_par(nin,nnode,numel) 
       if(my_id .eq. 0) print*,'done.'
@@ -740,22 +818,22 @@ c ......................................................................
 c
 c ... (insert) Desvia leitura para arquivo auxiliar:
 c
- 1650 continue
+ 1800 continue
       nmacros = nmacros - 1
       naux = nin
       call readmacro(nin,.false.)
       write(fname,'(80a)') (word(j),j=1,strl)
-      open(nincl, file= fname,status= 'old',err=1651,action='read')
+      open(nincl, file= fname,status= 'old',err=1851,action='read')
       nin = nincl
       go to 100
- 1651 continue
+ 1851 continue
       print*,'File ',trim(fname),' not found !'
       call stop_mef()
 c ......................................................................
 c
 c ... (return) Retorna leitura para arquivo de dados basico:
 c
- 1700 continue
+ 1850 continue
       nmacros = nmacros - 1
       close(nincl)
       nin = naux
@@ -764,7 +842,7 @@ c ......................................................................
 c
 c ... tria3ov
 c
- 1750 continue
+ 1900 continue
       if(my_id .eq. 0) print*,'loading tria3ov ...'
       ntria3(3) = 0
       call elconn(ia(i_ix),nen+1,3,ntria3(3),numel,.true.,nin)
@@ -776,7 +854,7 @@ c ......................................................................
 c
 c ... quad4ov
 c
- 1800 continue
+ 1950 continue
       if(my_id .eq. 0) print*,'loading quad4ov ...'
       nquad4(3) = 0
       call elconn(ia(i_ix),nen+1,4,nquad4(3),numel,.true.,nin)
@@ -788,7 +866,7 @@ c ......................................................................
 c
 c ... tetra4ov                              
 c      
- 1850 continue
+ 2000 continue
       if(my_id .eq. 0) print*,'loading tetra4ov ...'
       ntetra4(3) = 0
       call elconn(ia(i_ix),nen+1,4,ntetra4(3),numel,.true.,nin)
@@ -800,7 +878,7 @@ c ......................................................................
 c
 c ... hexa8ov                              
 c      
- 1900 continue
+ 2050 continue
       if(my_id .eq. 0) print*,'loading hexa8ov ...'
       nhexa8(3) = 0
       call elconn(ia(i_ix),nen+1,8,nhexa8(3),numel,.true.,nin)
@@ -812,7 +890,7 @@ c ......................................................................
 c
 c ... tetra10ov                            
 c      
- 1950 continue
+ 2100 continue
       if(my_id .eq. 0) print*,'loading tetra10ov ...'
       ntetra10(3) = 0
       call elconn(ia(i_ix),nen+1,10,ntetra10(3),numel,.true.,nin)
@@ -824,7 +902,7 @@ c ......................................................................
 c
 c ... hexa20ov                             
 c      
- 2000 continue
+ 2150 continue
       if(my_id .eq. 0) print*,'loading hexa20ov ...'
       nhexa20(3) = 0
       call elconn(ia(i_ix),nen+1,20,nhexa20(3),numel,.true.,nin)
@@ -836,13 +914,13 @@ c ......................................................................
 c
 c ...
 c      
- 2050 continue
+ 2200 continue
       go to 100
 c ...................................................................... 
 c
 c ... fmaterials - arquivos com propriedades do materias
 c      
- 2100 continue
+ 2250 continue
       if(my_id .eq. 0) print*,'loading fmaterials ...'
       call fmate(ia(i_ie),ia(i_e),numat,my_id,nin)
       call check_element(ia(i_ie),numat,plastic,vprop)
@@ -852,7 +930,7 @@ c ......................................................................
 c
 c ... End:
 c
- 2150 continue
+ 2300 continue
 c
 c ... Inclui macro de paralelo (PRE-processador):
 c      
@@ -3272,7 +3350,7 @@ c **********************************************************************
 c
 c **********************************************************************
 c * Data de criacao    : 27/09/2016                                    *
-c * Data de modificaco : 18/02/2017                                    *
+c * Data de modificaco : 12/04/2018                                    *
 c * ------------------------------------------------------------------ *
 c * SET_PRINT_VTK : leitualeitura das configuracoes basicas de excucao *
 c * ------------------------------------------------------------------ *
@@ -3295,7 +3373,9 @@ c *          stress Terzaghi (7)                                       *
 c *          fluxo de darcy  (8)                                       *
 c *          delta prosidade (9)                                       *
 c *          pconsolidation  (10)                                      *
-c *          pconsolidation  (11)                                      *
+c *          eplastic        (11)                                      *
+c *          temperatura     (12)                                      *
+c *          fluxo de calor  (13)                                      *      
 c * ------------------------------------------------------------------ * 
 c * OBS:                                                               *
 c * ------------------------------------------------------------------ * 
@@ -3303,18 +3383,37 @@ c **********************************************************************
       subroutine set_print_vtk_pm(fprint,my_id,nin)
       implicit none
       include 'string.fi'
-      character*15 string,macro(12)
+      character*15 string,macro(15)
       character*80 fname
       logical fprint(*),fexit
       integer j,nmacro,my_id
       integer nin
       logical fplastic
       integer nincl /12/
-      data nmacro /12/
-      data macro/'quadratic      ','desloc        ','pressure       '
-     1          ,'dpressure      ','totalstress   ','biotstress     '
-     2          ,'terzaghistress ','darcyflux     ','porosity       '
-     3          ,'pconsolidation ','elplastic     ','end            '/
+      data nmacro /15/
+      data macro/'quadratic     ','end           ','               '
+     1          ,'desloc        ','pressure      ','dpressure      '
+     2          ,'totalstress   ','biotstress    ','terzaghistress '
+     3          ,'darcyflux     ','porosity      ','pconsolidation '
+     4          ,'elplastic     ','temperature   ','heatFlux       '/
+c ......................................................................
+c
+c ...
+      !  1 - quadratic
+      !  2 - end
+      !  3 -
+      !  4 - desloc
+      !  5 - pressure
+      !  6 - dpressure
+      !  7 - totalstress
+      !  8 - biotstress
+      !  9 - terzaghistress
+      ! 10 - darcyflux
+      ! 11 - porosidade
+      ! 12 - pconsolidation
+      ! 13 - elplastic
+      ! 14 - temperature
+      ! 15 - heatflux
 c ......................................................................
 c
 c ...
@@ -3339,53 +3438,63 @@ c ... quadratic
 c .....................................................................
 c
 c ... desloc
-        else if (string .eq. macro(2)) then
+        else if (string .eq. macro(4)) then
           fprint(2) = .true.
 c .....................................................................
 c
 c ... pressure 
-        elseif (string .eq. macro(3)) then
+        elseif (string .eq. macro(5)) then
           fprint(3) = .true. 
 c .....................................................................
 c
 c ... delta pressure 
-        elseif (string .eq. macro(4)) then
+        elseif (string .eq. macro(6)) then
           fprint(4) = .true.
 c .....................................................................
 c
 c ... stress total  
-        elseif (string .eq. macro(5)) then 
+        elseif (string .eq. macro(7)) then 
           fprint(5) = .true.
 c .....................................................................
 c
 c ... stress biot   
-        elseif (string .eq. macro(6)) then
+        elseif (string .eq. macro(8)) then
           fprint(6) = .true. 
 c .....................................................................
 c
 c ... stress terzaghi 
-        elseif (string .eq. macro(7)) then
+        elseif (string .eq. macro(9)) then
           fprint(7) = .true. 
 c .....................................................................
 c
 c ... fdarcy  
-        elseif (string .eq. macro(8)) then
+        elseif (string .eq. macro(10)) then
           fprint(8) = .true.
 c .....................................................................
 c
 c ... porosidade
-        elseif (string .eq. macro(9)) then
+        elseif (string .eq. macro(11)) then
           fprint(9) = .true.
 c .....................................................................
 c
 c ... pconsolidation 
-        elseif (string .eq. macro(10)) then
+        elseif (string .eq. macro(12)) then
           fprint(10) = .true.
 c .....................................................................
 c
-c ... pconsolidation 
-        elseif (string .eq. macro(11)) then
+c ... eplastic          
+        elseif (string .eq. macro(13)) then
           fprint(11) = .true.
+c .....................................................................
+c
+c ... temperature       
+        elseif (string .eq. macro(14)) then
+          fprint(12) = .true.
+c .....................................................................
+c
+c ... heatflux          
+        elseif (string .eq. macro(15)) then
+          fprint(13) = .true.
         endif
 c .....................................................................
         call readmacro(nincl,.true.)

@@ -112,6 +112,9 @@ c * ------------------------------------------------------------------ *
 c * Parametros de saida:                                               *
 c * ------------------------------------------------------------------ *
 c * b - vetor de forcas                                                *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'transiente.fi'
@@ -150,29 +153,34 @@ c.......................................................................
 c **********************************************************************
 c                                                                       
 c **********************************************************************
-      subroutine pload(x,id,f,u,v,b,nload,nnode,ndf)
+      subroutine pload(x   ,id   ,f,u,v,b
+     .               ,nload,nnode,ndf,ndm)
 c **********************************************************************
-c *                                                                    *
-c *   PLOAD: Monta o vetor de forcas                                   *
-c *                                                                    *
-c *   Parametros de entrada:                                           *
-c *                                                                    *
-c *    id(ndf,nnode)   - numeracao das equacoes                        *
-c *    f(ndf,nnode)    - cargas concentradas e incognitas prescritas   *
-c *    b(neq) - nao definido                                           *
-c *    nload(ndf,nnode) - numero da carga nodal                        *
-c *    nnode  - numero de nos acessados na particao                    *
-c *    ndf    - numero de graus de liberdade por no                    *
-c *                                                                    *
-c *   Parametros de saida:                                             *
-c *                                                                    *
-c *    b - vetor de forcas                                             *
-c *                                                                    *
+c * Data de criacao    : 12/04/2019                                    *
+c * Data de modificaco : 00/00/0000                                    *
+c * ------------------------------------------------------------------ *
+c * PLOAD: Monta o vetor de forcas                                     *
+c * ------------------------------------------------------------------ *
+c * Parametros de entrada:                                             *
+c * ------------------------------------------------------------------ *
+c * id(ndf,nnode)   - numeracao das equacoes                           *
+c * f(ndf,nnode)    - cargas concentradas e incognitas prescritas      *
+c * b(neq) - nao definido                                              *
+c * nload(ndf,nnode) - numero da carga nodal                           *
+c * nnode  - numero de nos acessados na particao                       *
+c * ndf    - numero de graus de liberdade por no                       *
+c * ------------------------------------------------------------------ *
+c * Parametros de saida:                                               *
+c * ------------------------------------------------------------------ *
+c * b - vetor de forcas                                                *
+c * ------------------------------------------------------------------ *
+c * OBS:                                                               *
+c * ------------------------------------------------------------------ *
 c **********************************************************************
       implicit none
       include 'transiente.fi'
-      integer id(ndf,*),nload(ndf,*),nnode,ndf,i,j,k,nc
-      real*8  x(3,*),f(ndf,*),u(ndf,*),v(ndf,*),b(*),c,vc(3),a
+      integer id(ndf,*),nload(ndf,*),nnode,ndf,i,j,k,nc,ndm
+      real*8  x(ndm,*),f(ndf,*),u(ndf,*),v(ndf,*),b(*),c,vc(3),a
 c.......................................................................
 c
 c ... Cargas nodais e desloc. prescritos variaveis no tempo:
@@ -181,7 +189,7 @@ c
         do 100 j = 1, ndf
           nc = nload(j,i)
           if(nc .gt. 0) then
-            call tload(nc,t,u(j,i),c,vc)
+            call tload(nc,t,x(1,i),u(j,i),c,vc,0)
             f(j,i) = c
           endif
   100   continue

@@ -67,7 +67,7 @@ c
 c ... Variaveis descritivas do problema:
 c
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndm,nst
-      logical fporomec,fmec,fplastic
+      logical fporomec,fmec,fterm,fplastic
 c ......................................................................
 c
 c ... Variaveis do sistema de equacoes:
@@ -115,13 +115,15 @@ c ... malha
       integer*8 i_ix,i_id,i_ie,i_nload,i_eload,i_eloadp
       integer*8 i_ic,i_fnno,i_e,i_x,i_xq,i_inum
 c ... arranjos locais ao elemento
-      integer*8 i_xl,i_ul,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl,i_plasticl
+      integer*8 i_xl,i_ul,i_vl,i_pl,i_sl,i_ld,i_dpl,i_txl,i_txnl
+      integer*8 i_plasticl
       integer*8 i_tx1pl,i_tx2pl,i_depsl,i_porosity,i_dporo,i_p0l
       integer*8 i_vpropell
 c ... forcas e graus de liberdade 
       integer*8 i_f
       integer*8 i_u,i_u0,i_tx0,i_tx1p,i_tx2p,i_plastic,i_depsp,i_dp
       integer*8 i_tx,i_txb,i_txe,i_flux,i_pc,i_elplastic
+      integer*8 i_v
 c ... sistema de equacoes
       integer*8 i_ia,i_ja,i_ad,i_au,i_al,i_b,i_b0,i_x0,i_bst0
 c ... precondicionador
@@ -154,8 +156,8 @@ c
      2          ,'presolv ','block_pu','gravity '
      3          ,'conseq  ','solver  ','deltatc '
      4          ,'pcoo    ','pcolors ','        '
-     5          ,'pres    ','        ','solvm   '
-     6          ,'pmecres ','        ','        '
+     5          ,'pres    ','solvt   ','solvm   '
+     6          ,'pmecres ','ptermres','        '
      7          ,'        ','        ','        '
      8          ,'        ','nl      ','        '
      9          ,'        ','        ','return  '
@@ -213,6 +215,8 @@ c ... fluxo de darcy   (8)
 c ... delta prosidade  (9)
 c ... pconsolidation  (10)
 c ... plastic elemt   (11)
+c ... temperatura     (12)
+c ... fluxo de calor  (13)
       print_flag(1) = .false. 
       print_flag(2) = .true.
       print_flag(3) = .true.  
@@ -224,6 +228,8 @@ c ... plastic elemt   (11)
       print_flag(9) = .false.
       print_flag(10)= .false. 
       print_flag(11)= .false. 
+      print_flag(12)= .false. 
+      print_flag(13)= .false. 
 c ... tipo do problema
 c ... fporomec  = problema poromecanico                    
 c ... fmec      = problema mecanico              
@@ -485,22 +491,23 @@ c
       flag_macro_mesh = .true.
 c
 c.... Leitura de dados:
-      call rdat_pm(nnode  ,nnodev  ,numel      ,numat  
-     1         ,nen       ,nenv    ,ntn        ,ndf
-     1         ,ndm       ,nst     ,i_ix       ,i_ie   
-     2         ,i_inum    ,i_e     ,i_x        ,i_id  
-     3         ,i_nload   ,i_eload ,i_eloadp   ,i_f  
-     4         ,i_u       ,i_u0    ,i_tx0      ,i_dp
-     5         ,i_tx1p    ,i_tx2p  ,i_depsp    ,i_plastic
-     6         ,i_porosity,i_fnno  ,i_elplastic,i_vpropel
-     7         ,fstress0  ,fporomec,fmec       ,print_flag(1)
-     8         ,fplastic  ,vprop   ,nin )
+      call rdat_pm(nnode    ,nnodev   ,numel      ,numat  
+     1         ,nen         ,nenv     ,ntn        ,ndf
+     2         ,ndm         ,nst      ,i_ix       ,i_ie   
+     3         ,i_inum      ,i_e      ,i_x        ,i_id  
+     4         ,i_nload     ,i_eload  ,i_eloadp   ,i_f  
+     5         ,i_u         ,i_u0     ,i_tx0      ,i_dp
+     6         ,i_v 
+     7         ,i_tx1p      ,i_tx2p   ,i_depsp    ,i_plastic
+     8         ,i_porosity  ,i_fnno   ,i_elplastic,i_vpropel
+     9         ,fstress0    ,fporomec ,fmec       ,fterm       
+     1         ,print_flag(1),fplastic,vprop      ,nin)
 c    -----------------------------------------------------------------
 c    | ix | id | ie | nload | eload | eloadp| inum | e | x | f | u | 
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
-c    | u0 | tx0 | | dp | tx1p | tx2p | epsp | plastic | porosity | 
+c    | u0 | v | tx0 | | dp | tx1p | tx2p | epsp | plastic | porosity | 
 c    -----------------------------------------------------------------
 c
 c    -----------------------------------------------------------------
@@ -593,7 +600,7 @@ c ... Numeracao nodal das equacoes:
 c
       timei = MPI_Wtime()
 c ... mecanico
-      if(fmec) then
+      if(fmec .or. fterm) then
         call numeq(ia(i_id),ia(i_inum),ia(i_id),nnode,ndf,neq)
           nequ = 0
           neqp = 0
@@ -661,6 +668,22 @@ c     -----------------------------------------
 c     | xl | ul | pl | sl | ld |
 c     -----------------------------------------
 c
+c ... termico
+      else if(fterm) then
+        i_xl  = alloc_8('xl      ',ndm,nenv)
+        i_ul  = alloc_8('ul      ',1  ,nst)
+        i_pl  = alloc_8('pl      ',1  ,nst)
+        i_vl  = alloc_8('vl      ',1  ,nst)
+c ...      
+        i_sl  = alloc_8('sl      ',nst,nst)
+        i_ld  = alloc_4('ld      ',  1,nst)
+c .....................................................................
+c
+c     -----------------------------------------
+c     | xl | ul | pl | sl | ld |
+c     -----------------------------------------
+c .....................................................................
+c
 c ... poro mecanico
       else if(fporomec) then
         i_xl  = alloc_8('xl      ',ndm,nenv)
@@ -724,7 +747,7 @@ c ... poromecanico
 c .....................................................................
 c
 c ... mec
-      else if(fmec) then
+      else if(fmec .or. fterm) then
          sia = 'ia' 
          sja = 'ja' 
          sau = 'au' 
@@ -1152,14 +1175,20 @@ c ...
       else
         print*, 'Macro PGEO'
         writetime = writetime + MPI_Wtime()-timei 
-        call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
-     1                      ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
-     2                      ,ia(i_tx0)    ,ia(i_nload)
-     3                      ,ia(i_eload)  ,ia(i_eloadp)
-     4                      ,print_nnode  ,numel      ,ndf     ,ntn
-     5                      ,nen          ,ndm        ,prename
-     6                      ,bvtk         ,macros     ,legacy_vtk
-     7                      ,print_flag(1),nplot      ,nout_face)
+        if(fporomec) then
+          call write_mesh_geo_pm(ia(i_ix)   ,ia(i_x)    ,ia(i_ie)
+     1                        ,ia(i_id)     ,ia(i_f)    ,ia(i_u) 
+     2                        ,ia(i_tx0)    ,ia(i_nload)
+     3                        ,ia(i_eload)  ,ia(i_eloadp)
+     4                        ,print_nnode  ,numel      ,ndf     ,ntn
+     5                        ,nen          ,ndm        ,prename
+     6                        ,bvtk         ,macros     ,legacy_vtk
+     7                        ,print_flag(1),nplot      ,nout_face)
+        else
+          call write_mesh_geo(ia(i_ix)   ,ia(i_x) ,nnode ,numel
+     1                       ,nen        ,ndm     ,prename,bvtk
+     2                       ,legacy_vtk ,nplot)
+        endif
         writetime = writetime + MPI_Wtime()-timei
       endif
 c .....................................................................
@@ -1613,10 +1642,117 @@ c ......................................................................
       goto 50     
 c ......................................................................
 c
-c ... Macro-comando:       
+c ... Macro-comando: SOLVT 
 c
 c ......................................................................
  1700 continue
+      if (my_id .eq. 0 ) print*, 'Macro  SOLVT'
+c ...
+      ilib   = 1
+      i      = 1
+      istep  = istep + 1
+      resid0 = 0.d0
+c .....................................................................
+c
+c ... Cargas nodais e valores prescritos no tempo t+dt:
+      timei = MPI_Wtime()
+      call pload(ia(i_x)    ,ia(i_id),ia(i_f),ia(i_u),ia(i_v),ia(i_b0)
+     .          ,ia(i_nload),nnode   ,ndf)
+      vectime = vectime + MPI_Wtime()-timei
+c .....................................................................   
+c
+c ... forcas de volume e superficie do tempo t+dt :  
+      timei = MPI_Wtime()
+      call pform_term(ia(i_ix)   ,ia(i_eload)  ,ia(i_ie) ,ia(i_e) 
+     1              ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2              ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b0) 
+     3              ,ia(i_u0)    ,ia(i_v)
+     4              ,ia(i_xl)    ,ia(i_ul)     ,ia(i_vl) 
+     5              ,ia(i_pl)    ,ia(i_sl)     ,ia(i_ld)      
+     6              ,numel       ,nen          ,nenv     ,ndf 
+     7              ,ndm         ,nst          ,neq      ,nad,nadr  
+     8              ,.false.     ,.true.       ,unsym 
+     9              ,stge,4      ,ilib         ,i
+     1              ,ia(i_colorg),ia(i_elcolor),numcolors,.false.)
+      elmtime = elmtime + MPI_Wtime()-timei
+c .....................................................................
+c     Preditor: u(n+1,0) = u(n) + (1-alpha).dt.dv(n) ;   v(n+1,0) = 0 ;
+      timei = MPI_Wtime()
+      call predict(nnode,ndf,ia(i_id),ia(i_u),ia(i_v))
+      vectime = vectime + MPI_Wtime()-timei
+c ---------------------------------------------------------------------
+c loop nao linear:
+c ---------------------------------------------------------------------
+ 1710 continue
+c ... Loop multi-corretor:      
+      if(my_id.eq.0) print*,'nonlinear iteration ',i
+c ...
+      timei = MPI_Wtime()
+      call aequalb(ia(i_b),ia(i_b0),neq)
+      vectime = vectime + MPI_Wtime()-timei
+c .....................................................................
+c
+c     Residuo: b = F - M.v(n+1,i) - K.u(n+1,i)
+      timei = MPI_Wtime()
+      call pform_term(ia(i_ix)    ,ia(i_eload)  ,ia(i_ie) ,ia(i_e)
+     1              ,ia(i_x)     ,ia(i_id)     ,ia(i_ia) ,ia(i_ja)
+     2              ,ia(i_au)    ,ia(i_al)     ,ia(i_ad) ,ia(i_b)
+     3              ,ia(i_u)     ,ia(i_v)
+     4              ,ia(i_xl)    ,ia(i_ul)     ,ia(i_vl) 
+     5              ,ia(i_pl)    ,ia(i_sl)     ,ia(i_ld)     
+     6              ,numel       ,nen          ,nenv     ,ndf
+     7              ,ndm         ,nst          ,neq      ,nad ,nadr    
+     8              ,.true.      ,.true.       ,unsym
+     9              ,stge        ,2            ,ilib     ,i
+     1              ,ia(i_colorg),ia(i_elcolor),numcolors,.false.)
+      elmtime = elmtime + MPI_Wtime()-timei
+c .....................................................................
+c
+c ... Comunicacao do residuo para o caso non-overlapping:
+      if (novlp) call communicate(ia(i_b),neqf1,neqf2,i_fmap,i_xf,
+     .                            i_rcvs,i_dspl)
+c ......................................................................
+c
+c ......................................................................
+      resid = dsqrt(dot_par(ia(i_b),ia(i_b),neq_dot))
+      if(i .eq. 1) resid0 = max(resid0,resid)
+      if(my_id .eq. 0 ) print*,'resid/resid0',resid/resid0,'resid',resid
+      if ((resid/resid0) .lt. tol) goto 1720     
+c ......................................................................            
+c
+c ... solver ((M + alpha.dt.K).dv(n+1,i+1)= b )
+      timei = MPI_Wtime()
+      call solv_pm(neq     ,nequ    ,neqp  
+     1            ,nad     ,naduu   ,nadpp      
+     2            ,ia(i_ia),ia(i_ja),ia(i_ad)    ,ia(i_al)
+     3            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
+     4            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
+     5            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
+     6            ,fmec    ,fporomec,fhist_log   ,fprint
+     7            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
+     8            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)
+      soltime = soltime + MPI_Wtime()-timei
+c .....................................................................
+c
+c     atualizacao: u(n+1,i+1) = u(n+1,i) + alpha.dt.dv(n+1,i+1)
+c                  v(n+1,i+1) = v(n+1,i) + dv(n+1,i+1)
+      timei = MPI_Wtime()
+      call update(nnode,ndf,ia(i_id),ia(i_u),ia(i_v),ia(i_x0))
+      vectime = vectime + MPI_Wtime()-timei   
+c .....................................................................
+c ...
+      if (i .ge. maxnlit) goto 1720
+      i = i + 1
+      goto 1710 
+c .....................................................................
+c
+c ---------------------------------------------------------------------
+c fim do loop nao linear:
+c ---------------------------------------------------------------------
+c
+c ...
+ 1720 continue 
+c .....................................................................
       goto 50
 c ----------------------------------------------------------------------
 c
@@ -1881,7 +2017,121 @@ c ... Macro-comando:
 c
 c ......................................................................
  2000 continue
-      goto 50
+      if(my_id.eq.0) print*,'Macro PTERMRES'
+c ... print_flag (true| false)
+c     2  - term  
+c     3  - flux  
+c
+c
+c ... 
+      i_flux = 1
+      i_g    = 1
+      i_g1   = 1
+      i_g2   = 1
+      i_g3   = 1
+c .....................................................................
+c
+c ...
+      if(mpi) then
+c ... comunicao
+c       call global_v(ndf   ,nno_pload,i_u   ,i_g ,'dispG   ')
+c       call global_ix(nen+1,numel_nov,i_ix  ,i_g1,'ixG     ')
+c       call global_v(ndm   ,nno_pload,i_x   ,i_g2,'xG      ')
+c ...
+c       if(print_flag(10)) then
+c         call global_v(ntn   ,nno_pload,i_tx0 ,i_g3,'tx0G    ')
+c       endif
+c ......................................................................
+c
+c ...
+c       if(my_id.eq.0) then
+c ...
+c         if(print_flag(10)) then
+c           i_tx  = alloc_8('tx      ',  ntn,print_nnode)
+c           i_ic  = alloc_4('ic      ',    1,print_nnode)
+c           call azero(ia(i_tx)    ,print_nnode*ntn)
+c           call mzero(ia(i_ic)    ,print_nnode)
+c .....................................................................
+c
+c ...
+c           timei = MPI_Wtime()
+c           call tform_mec(ia(i_g1) ,ia(i_g2),ia(i_e)   ,ia(i_ie)
+c    .                   ,ia(i_ic)  ,ia(i_xl),ia(i_ul) 
+c    .                   ,ia(i_txnl),ia(i_g) ,ia(i_g3),ia(i_tx) 
+c    .                   ,nnovG     ,nelG    ,nenv      ,nen
+c    .                   ,ndm       ,ndf     ,nst  ,ntn
+c    .                   ,3         ,ilib)
+c           tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+c         endif
+c ......................................................................
+c
+c ...
+c         call write_mesh_res_mec(ia(i_g1) ,ia(i_g2) ,ia(i_g),ia(i_tx)
+c    .                         ,print_nnode,nelG
+c    .                         ,nen        ,ndm ,ndf        ,ntn
+c    .                         ,prename    ,istep
+c    .                         ,bvtk       ,legacy_vtk,print_flag,nplot)
+c ......................................................................
+c
+c ...
+c         if(print_flag(10)) then
+c           i_ic  = dealloc('ic      ')
+c           i_tx  = dealloc('tx      ')
+c         endif
+c ......................................................................
+c       endif
+c ......................................................................
+c
+c ...
+c       if(print_flag(10)) i_g3  = dealloc('tx0G    ')
+c       i_g2  = dealloc('xG      ')
+c       i_g1  = dealloc('ixG     ')
+c       i_g   = dealloc('dispG   ')
+c ......................................................................
+c
+c ...
+      else
+c ... fluxoo
+c       if(print_flag(5)) then
+c
+c ...
+c        i_tx  = alloc_8('tx      ',  ntn,print_nnode)
+c        i_ic  = alloc_4('ic      ',    1,print_nnode)
+c        call azero(ia(i_tx)    ,print_nnode*ntn)
+c        call azero(ia(i_ic)    ,print_nnode)
+c .....................................................................
+c
+c ...
+c         timei = MPI_Wtime()
+c         call tform_mec(ia(i_ix)  ,ia(i_x)  ,ia(i_e)  ,ia(i_ie)
+c    1                  ,ia(i_ic)  ,ia(i_xl) ,ia(i_ul) 
+c    2                  ,ia(i_txnl),ia(i_u)  ,ia(i_tx0),ia(i_tx) 
+c    3                  ,nnodev    ,numel    ,nenv     ,nen
+c    5                  ,ndm       ,ndf      ,nst      ,ntn
+c    6                  ,3         ,ilib)
+c         tformtime = tformtime + MPI_Wtime()-timei
+c ......................................................................
+c       endif
+c ......................................................................
+c
+c ...
+        call write_mesh_res_term(ia(i_ix),ia(i_x)    ,ia(i_u),ia(i_flux)
+     1                       ,print_nnode,numel
+     2                       ,nen        ,ndm        ,ndf    
+     3                       ,prename    ,istep
+     4                       ,bvtk       ,legacy_vtk,print_flag,nplot)
+c ......................................................................
+c
+c ...
+c       if(print_flag(10)) then
+c         i_ic  = dealloc('ic      ')
+c         i_tx  = dealloc('tx      ')
+c       endif
+c ......................................................................
+      endif
+c ......................................................................
+      goto 50     
 c ......................................................................
 c
 c ... Macro-comando:
