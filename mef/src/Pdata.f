@@ -745,13 +745,13 @@ c
 c ===
 c ... abre um novo arquivo
       if(open) then
-        fileout = name(prename,no,code)
+        fileout = name(prename,no,0,code)
         open(unit=nout,file=fileout)
         write(nout,'(a,a,a,i9)')
      .  '# Variacao ',trim(nameres),' no tempo no ponto',no
       else
 c ... reabre o arquivo e add uma nova linha      
-        fileout = name(prename,no,code)
+        fileout = name(prename,no,0,code)
         open(unit=nout,file=fileout,status ='old',access='append') 
       endif
 c =====================================================================        
@@ -804,14 +804,14 @@ c
 c ...
 c ... abre um novo arquivo
       if(open) then
-        fileout = name(prename,el,code)
+        fileout = name(prename,el,0,code)
         open(unit=nout,file=fileout)
         write(nout,'(a,a,a,i9)')
      .  '# Variacao ',trim(nameres)
      .   ,' no tempo nos pontos de integracao no elemento',el
       else
 c ... reabre o arquivo e add uma nova linha      
-        fileout = name(prename,el,code)
+        fileout = name(prename,el,0,code)
         open(unit=nout,file=fileout,status ='old',access='append') 
       endif
 c .....................................................................
@@ -856,7 +856,7 @@ c *********************************************************************
         integer ix(nen+1,*),numel,nen,nplot,k,i,n
         character*80 prename,fname,name
 c ...
-        fname = name(prename,0,4)
+        fname = name(prename,0,0,4)
         open(nplot,file=fname)
         n = nen + 1
 c ...

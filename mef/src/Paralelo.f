@@ -1082,7 +1082,7 @@ c =====================================================================
 c
 c ===
       aux = prefixo
-      aux = name(aux,my_id,cod) 
+      aux = name(aux,my_id,0,cod) 
       open(nout,file=aux)
 c ...      
       write(nout,'(a)')"#mapa gerado pelo fronte" 

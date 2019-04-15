@@ -1,6 +1,6 @@
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                    *
-c * Data de modificaco : 07/10/2018                                    * 
+c * Data de modificaco : 13/04/2019                                    * 
 c * ------------------------------------------------------------------ *   
 c * WRITE_LOG : Escrever o arquivo de log de excuacao                 *
 c * ----------------------------------------------------------------- *
@@ -48,8 +48,8 @@ c *********************************************************************
      2                         ,neq32   ,neq4 ,neq1a,neqf1  ,neqf2 
      3                         ,nad     ,nadu ,nadp ,nadpu  ,nad1
      4                         ,omp_elmt,nth_elmt,omp_solv  ,nth_solv
-     5                         ,fporomec,fmec    ,num_colors,prename
-     6                         ,my_id ,nprcs      ,nlog)
+     5                         ,fporomec,fmec    ,fterm     ,num_colors
+     6                         ,prename  ,my_id ,nprcs      ,nlog)
       use Malloc
       implicit none
       include 'time.fi'
@@ -62,7 +62,7 @@ c ... informacoes do sistema
       integer*8 nad      
 c ...
       integer ndf
-      logical fporomec,fmec
+      logical fporomec,fmec,fterm
 c ... mpi      
       integer mcw,mi,mdi,mdp,ierr
       integer my_id,nprcs
@@ -84,7 +84,7 @@ c .....................................................................
 c
 c ... abre o arquivo de logs
       if(my_id .eq.0) then
-        fname = name(prename,nprcs,14)
+        fname = name(prename,nprcs,0,14)
         open(nlog, file= fname)
         write(nlog,'(a)')"# Arquivo de log do poro mecanico"
         write(nlog,'(a)')"Tempos (seg):"
@@ -228,6 +228,13 @@ c
 c ... mecancio
         if(fmec)then
           write(nlog,'(a)')"Mecanico:"
+          call  itwrite('neq   ',neq  ,nprcs,nlog)
+          call ditwrite('nad   ',nad  ,nprcs,nlog)
+c .....................................................................
+c
+c ... termico 
+        else if(fterm)then
+          write(nlog,'(a)')"Termico:"
           call  itwrite('neq   ',neq  ,nprcs,nlog)
           call ditwrite('nad   ',nad  ,nprcs,nlog)
 c .....................................................................
@@ -433,7 +440,7 @@ c .....................................................................
 c
 c ... abre o arquivo de logs
       if(my_id .eq.0) then
-        fname = name(prename,nprcs,12)
+        fname = name(prename,nprcs,0,12)
         open(nlog, file= fname)
         if(fmec) write(nlog,'(a)')"# Arquivo de log do mecanico"
         write(nlog,'(a)')"Tempos (seg):"

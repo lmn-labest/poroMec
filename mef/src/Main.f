@@ -67,7 +67,7 @@ c
 c ... Variaveis descritivas do problema:
 c
       integer nnodev,nnode,numel,numat,nen,nenv,ndf,ndm,nst
-      logical fporomec,fmec,fterm,fplastic
+      logical fporomec,fmec,fterm,fplastic,fcoo
 c ......................................................................
 c
 c ... Variaveis do sistema de equacoes:
@@ -331,6 +331,8 @@ c ... OpenMP
       omp_solv = .false.
       nth_elmt = 1
       nth_solv = 1
+c ...
+      fcoo = .false.
 c ... calculo do numero de equacoes
       fneqs = .false.
 c ......................................................................
@@ -359,7 +361,7 @@ c ... intervace de linha de comando
 c ...    Passa nome do arquivo de entrada do processo 0 para os demais:
          call MPI_BCAST(filein,20,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 c ...    Nome do arquivo de dados do processo my_id:
-         fname = name(filein,my_id,13)
+         fname = name(filein,my_id,0,13)
 c ...    Abre o arquivo de dados de cada processo:
          totfiles = 0
          openflag = 0
@@ -390,11 +392,11 @@ c ... interface de linha de comando
           read(*,'(a)') prename
         endif
 c ... log do solver 
-        fname = name(prename,nprcs,15)
+        fname = name(prename,nprcs,0,15)
         open(logsolv,file=fname)
         write(logsolv,'(a)') 'Solver control flop.'
 c ... log do nao linear 
-        fname = name(prename,nprcs,16)
+        fname = name(prename,nprcs,0,16)
         open(nout_nonlinear,file=fname)
         write(nout_nonlinear,'(a)') 'Non-linear control flop.'
       endif
@@ -530,7 +532,7 @@ c .....................................................................
 c
 c ... estrutura de dados para o bloclo iterativo pcg (poro_mec)
       if(solver .eq. 5) then
-        fname = name(prename,nprcs,53)
+        fname = name(prename,nprcs,0,53)
         open(logsolvd,file=fname)
         block_pu_sym = .false.
         block_pu     = .true.
@@ -1002,7 +1004,7 @@ c ... solver (Kdu(n+1,i+1) = b; du(t+dt) )
      3         ,ia(i_m) ,ia(i_b) ,ia(i_x0)   ,solvtol,maxit
      4         ,ngram   ,block_pu,n_blocks_pu,solver,istep
      5         ,cmaxit  ,ctol    ,alfap      ,alfau ,precond
-     6         ,fmec    ,fporomec,fhist_log  ,fprint 
+     6         ,fmec    ,fporomec,fterm      ,fhist_log  ,fprint 
      7         ,neqf1   ,neqf2   ,neq3       ,neq4  ,neq_dot
      8         ,i_fmap  ,i_xf    ,i_rcvs     ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1288,105 +1290,7 @@ c
 c ......................................................................
  1300 continue
       if(my_id.eq.0) print*, 'Macro PCOO'
-c ... csr divido em bloco Kuu, kpp e kpu
-      if(block_pu) then
-c ...
-        i_lin    = alloc_4('lincoo  ',1,neq+2*(nad+nadpu)) 
-        i_col    = alloc_4('colcoo  ',1,neq+2*(nad+nadpu)) 
-        i_acoo   = alloc_8('acoo    ',1,neq+2*(nad+nadpu))
-c ... Kuu
-        i_linuu  = alloc_4('lincoouu',1,nequ+2*naduu) 
-        i_coluu  = alloc_4('colcoouu',1,nequ+2*naduu) 
-        i_acoouu = alloc_8('acoouu  ',1,nequ+2*naduu)
-c ... Kpp
-        i_linpp  = alloc_4('lincoopp',1,neqp+2*nadpp) 
-        i_colpp  = alloc_4('colcoopp',1,neqp+2*nadpp) 
-        i_acoopp = alloc_8('acoopp  ',1,neqp+2*nadpp)
-c ......................................................................
-c
-c ...
-        call csr_block_to_coo(ia(i_lin)  ,ia(i_col)  ,ia(i_acoo)
-     1                       ,ia(i_linuu),ia(i_coluu),ia(i_acoouu)
-     2                       ,ia(i_linpp),ia(i_colpp),ia(i_acoopp)
-     3                       ,ia(i_ia)   ,ia(i_ja)
-     4                       ,ia(i_al)   ,ia(i_ad)
-     5                       ,neq        ,nequ   ,nad, nadpu            
-     6                       ,.false.)
-c ......................................................................
-c
-c ...
-        fname   = name(prename,0,50)
-        call write_coo(ia(i_lin),ia(i_col),ia(i_acoo)
-     1               ,ia(i_b  ),neq      ,neq+2*(nad+nadpu)  
-     2               ,fname    ,nout   
-     3               ,.true.   ,.true.   )
-c ......................................................................
-c
-c ...
-        fname   = name(prename,0,51)
-        call write_coo(ia(i_linuu),ia(i_coluu),ia(i_acoouu)
-     1               ,ia(i_b  )   ,nequ       ,nequ+2*(naduu)  
-     2               ,fname       ,nout   
-     3               ,.false.     ,.true.     )
-c ......................................................................
-c
-c ...
-        fname   = name(prename,0,52)
-        call write_coo(ia(i_linpp),ia(i_colpp),ia(i_acoopp)
-     1               ,ia(i_b  )   ,neqp       ,neqp+2*(nadpp)  
-     2               ,fname       ,nout   
-     3               ,.false.     ,.true.     )
-c ......................................................................
-c
-c ...
-        i_acoopp = dealloc('acoopp  ')
-        i_colpp  = dealloc('colcoopp') 
-        i_linpp  = dealloc('lincoopp')
-c 
-        i_acoouu = dealloc('acoouu  ')
-        i_coluu  = dealloc('colcoouu') 
-        i_linuu  = dealloc('lincoouu') 
-c
-        i_acoo   = dealloc('acoo    ')
-        i_col    = dealloc('colcoo  ') 
-        i_lin    = dealloc('lincoo  ') 
-c ......................................................................
-c
-c ...
-      else
-c ...
-        fname   = name(prename,0,50)
-c ......................................................................
-c
-c ...
-        i_lin  = alloc_4('lincoo  ',1,neq+nad) 
-        i_col  = alloc_4('colcoo  ',1,neq+nad) 
-        i_acoo = alloc_8('acoo    ',1,neq+nad)
-c ......................................................................
-c
-c ...
-        call csr_to_coo_pm(ia(i_lin) ,ia(i_col) ,ia(i_acoo)
-     1                    ,ia(i_ia)  ,ia(i_ja)
-     2                    ,ia(i_al)  ,ia(i_ad)  
-     3                    ,neq       ,nad       ,.false.)
-c ......................................................................
-c
-c ...
-        call write_coo(ia(i_lin),ia(i_col),ia(i_acoo)
-     1                   ,ia(i_b  ),neq      ,neq+nad  
-     2                   ,fname    ,nout   
-     3                   ,.false.  ,.false.  )
-c ......................................................................
-c
-c ...
-        i_acoo = dealloc('acoo    ')
-        i_col  = dealloc('colcoo  ') 
-        i_lin  = dealloc('lincoo  ') 
-c ......................................................................
-      endif
-c ......................................................................
-c
-c ...      
+      fcoo = .true.
       goto 50     
 c ----------------------------------------------------------------------
 c
@@ -1720,6 +1624,16 @@ c ......................................................................
       if ((resid/resid0) .lt. tol) goto 1720     
 c ......................................................................            
 c
+c ... escreve o sistema no formato coo
+      if(fcoo) then
+        call pcoo(ia(i_ia),ia(i_ja)
+     1           ,ia(i_ad),ia(i_al),ia(i_b)
+     2           ,neq     ,nad     
+     3           ,istep   ,i
+     4           ,prename,nout)
+      endif
+c .......................................................................
+c
 c ... solver ((M + alpha.dt.K).dv(n+1,i+1)= b )
       timei = MPI_Wtime()
       call solv_pm(neq     ,nequ    ,neqp  
@@ -1728,7 +1642,7 @@ c ... solver ((M + alpha.dt.K).dv(n+1,i+1)= b )
      3            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
      4            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
      5            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
-     6            ,fmec    ,fporomec,fhist_log   ,fprint
+     6            ,fmec    ,fporomec,fterm       ,fhist_log   ,fprint
      7            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
      8            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -1856,6 +1770,16 @@ c ......................................................................
       if ((resid/resid0) .lt. tol) goto 1820     
 c ......................................................................            
 c
+c ... escreve o sistema no formato coo
+      if(fcoo) then
+        call pcoo(ia(i_ia),ia(i_ja)
+     1           ,ia(i_ad),ia(i_al),ia(i_b)
+     2           ,neq     ,nad     
+     3           ,istep   ,i
+     4           ,prename,nout)
+      endif
+c .......................................................................
+c
 c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
       timei = MPI_Wtime()
       call solv_pm(neq     ,nequ    ,neqp  
@@ -1864,7 +1788,7 @@ c ... solver (Ku(n+1,i+1) = b; u(t+dt) )
      3            ,ia(i_m) ,ia(i_b) ,ia(i_x0)    ,solvtol,maxit
      4            ,ngram   ,block_pu,n_blocks_pu ,solver ,istep
      5            ,cmaxit  ,ctol    ,alfap       ,alfau  ,precond 
-     6            ,fmec    ,fporomec,fhist_log   ,fprint
+     6            ,fmec    ,fporomec,fterm       ,fhist_log   ,fprint
      7            ,neqf1   ,neqf2   ,neq3        ,neq4   ,neq_dot
      8            ,i_fmap  ,i_xf    ,i_rcvs      ,i_dspl)
       soltime = soltime + MPI_Wtime()-timei
@@ -2650,8 +2574,8 @@ c ... arquivo de tempo
      2                   ,neq32    ,neq4    ,neq1a    ,neqf1   ,neqf2 
      3                   ,nad      ,naduu   ,nadpp    ,nadpu   ,nadr
      4                   ,omp_elmt ,nth_elmt,omp_solv ,nth_solv
-     5                   ,fporomec ,fmec    ,numcolors,prename
-     6                   ,my_id    ,nprcs   ,nout)
+     5                   ,fporomec ,fmec    ,fterm    ,numcolors
+     6                   ,prename ,my_id    ,nprcs   ,nout)
 c .....................................................................
 c
 c ... media do tempo mpi 

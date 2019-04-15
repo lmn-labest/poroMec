@@ -282,7 +282,7 @@ c     ---------------------------------------------------------------
 c     | ix | ie | e | x | eload |
 c     ---------------------------------------------------------------
 c
-      if(fmec .or. fterm) then
+      if(fterm) then
         i_ix    = alloc_4('ix      ',nen+1,numel)
         i_ie    = alloc_4('ie      ',    1,numat)
         i_eload = alloc_4('eload   ',    7,numel)
@@ -3313,7 +3313,7 @@ c ......................................................................
 c
 c ...
       if(fhist_log) then 
-        fname = name(prename,nprcs,17)
+        fname = name(prename,nprcs,0,17)
         open(nout,file=fname)
         write(nout,'(a)') '#solver it r/r0'
       endif
@@ -3391,29 +3391,27 @@ c **********************************************************************
       logical fplastic
       integer nincl /12/
       data nmacro /15/
-      data macro/'quadratic     ','end           ','               '
-     1          ,'desloc        ','pressure      ','dpressure      '
-     2          ,'totalstress   ','biotstress    ','terzaghistress '
-     3          ,'darcyflux     ','porosity      ','pconsolidation '
-     4          ,'elplastic     ','temperature   ','heatFlux       '/
+      data macro/'quadratic     ','desloc        ','pressure      '
+     1          ,'dpressure     ','totalstress   ','biotstress    '
+     2          ,'terzaghistress','darcyflux     ','porosity      '
+     3          ,'pconsolidation','elplastic     ','temperature   '
+     4          ,'heatFlux      ','(void)        ','(void)        '/
 c ......................................................................
 c
 c ...
       !  1 - quadratic
-      !  2 - end
-      !  3 -
-      !  4 - desloc
-      !  5 - pressure
-      !  6 - dpressure
-      !  7 - totalstress
-      !  8 - biotstress
-      !  9 - terzaghistress
-      ! 10 - darcyflux
-      ! 11 - porosidade
-      ! 12 - pconsolidation
-      ! 13 - elplastic
-      ! 14 - temperature
-      ! 15 - heatflux
+      !  2 - desloc
+      !  3 - pressure
+      !  4 - dpressure
+      !  5 - totalstress
+      !  6 - biotstress
+      !  7 - terzaghistress
+      !  8 - darcyflux
+      !  9 - porosidade
+      ! 10 - pconsolidation
+      ! 11 - elplastic
+      ! 12 - temperature
+      ! 13 - heatflux
 c ......................................................................
 c
 c ...
@@ -3438,62 +3436,62 @@ c ... quadratic
 c .....................................................................
 c
 c ... desloc
-        else if (string .eq. macro(4)) then
+        else if (string .eq. macro(2)) then
           fprint(2) = .true.
 c .....................................................................
 c
 c ... pressure 
-        elseif (string .eq. macro(5)) then
+        elseif (string .eq. macro(3)) then
           fprint(3) = .true. 
 c .....................................................................
 c
 c ... delta pressure 
-        elseif (string .eq. macro(6)) then
+        elseif (string .eq. macro(4)) then
           fprint(4) = .true.
 c .....................................................................
 c
 c ... stress total  
-        elseif (string .eq. macro(7)) then 
+        elseif (string .eq. macro(5)) then 
           fprint(5) = .true.
 c .....................................................................
 c
 c ... stress biot   
-        elseif (string .eq. macro(8)) then
+        elseif (string .eq. macro(6)) then
           fprint(6) = .true. 
 c .....................................................................
 c
 c ... stress terzaghi 
-        elseif (string .eq. macro(9)) then
+        elseif (string .eq. macro(7)) then
           fprint(7) = .true. 
 c .....................................................................
 c
 c ... fdarcy  
-        elseif (string .eq. macro(10)) then
+        elseif (string .eq. macro(8)) then
           fprint(8) = .true.
 c .....................................................................
 c
 c ... porosidade
-        elseif (string .eq. macro(11)) then
+        elseif (string .eq. macro(9)) then
           fprint(9) = .true.
 c .....................................................................
 c
 c ... pconsolidation 
-        elseif (string .eq. macro(12)) then
+        elseif (string .eq. macro(10)) then
           fprint(10) = .true.
 c .....................................................................
 c
 c ... eplastic          
-        elseif (string .eq. macro(13)) then
+        elseif (string .eq. macro(11)) then
           fprint(11) = .true.
 c .....................................................................
 c
 c ... temperature       
-        elseif (string .eq. macro(14)) then
+        elseif (string .eq. macro(12)) then
           fprint(12) = .true.
 c .....................................................................
 c
 c ... heatflux          
-        elseif (string .eq. macro(15)) then
+        elseif (string .eq. macro(13)) then
           fprint(13) = .true.
         endif
 c .....................................................................
@@ -3503,7 +3501,7 @@ c .....................................................................
 c .....................................................................
 c
 c ...
-      do j = 1, nmacro-1
+      do j = 1, 13    
         if(my_id.eq.0)print*,macro(j),':',fprint(j)
       enddo
 c ......................................................................

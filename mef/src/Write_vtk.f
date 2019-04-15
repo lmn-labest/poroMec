@@ -52,9 +52,9 @@ c =====================================================================
 c
 c ===
       if(legacy) then
-        fileout = name(filein,0,0)
+        fileout = name(filein,0,0,0)
       else  
-        fileout = name(filein,0,1)
+        fileout = name(filein,0,0,1)
       endif  
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
@@ -273,9 +273,9 @@ c ......................................................................
 c
 c ===
       if(legacy) then
-        fileout = name(filein,0,5)
+        fileout = name(filein,0,0,5)
       else
-        fileout = name(filein,0,6)
+        fileout = name(filein,0,0,6)
       endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
@@ -623,9 +623,9 @@ c .....................................................................
 c
 c ... arquivo auxiliar com as faces
       if(legacy) then
-        fileelmtload = name(filein,0,7)
+        fileelmtload = name(filein,0,0,7)
       else
-        fileelmtload = name(filein,0,8)
+        fileelmtload = name(filein,0,0,8)
       endif
       if(bvtk)then
         open(unit=nelemtload,file=fileelmtload,access='stream'
@@ -734,9 +734,9 @@ c .....................................................................
 c
 c ... arquivo auxiliar com as faces
       if(legacy) then
-        fileelmtload = name(filein,0,9)
+        fileelmtload = name(filein,0,0,9)
       else
-        fileelmtload = name(filein,0,10)
+        fileelmtload = name(filein,0,0,10)
       endif
       if(bvtk)then
         open(unit=nelemtload,file=fileelmtload,access='stream'
@@ -948,9 +948,9 @@ c =====================================================================
 c
 c ===
       if(legacy) then
-        fileout = name(prename,istep,2)
+        fileout = name(prename,istep,0,2)
       else  
-        fileout = name(prename,istep,3)
+        fileout = name(prename,istep,0,3)
       endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
@@ -1431,9 +1431,9 @@ c =====================================================================
 c
 c ===
       if(legacy) then
-        fileout = name(prename,istep,2)
+        fileout = name(prename,istep,0,2)
       else  
-        fileout = name(prename,istep,3)
+        fileout = name(prename,istep,0,3)
       endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
@@ -1681,9 +1681,9 @@ c =====================================================================
 c
 c ===
       if(legacy) then
-        fileout = name(prename,istep,2)
+        fileout = name(prename,istep,0,2)
       else  
-        fileout = name(prename,istep,3)
+        fileout = name(prename,istep,0,3)
       endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'
@@ -1916,9 +1916,9 @@ c =====================================================================
 c
 c ===
       if(legacy) then
-        fileout = name(prename,0,20)
+        fileout = name(prename,0,0,20)
       else  
-        fileout = name(prename,0,21)
+        fileout = name(prename,0,0,21)
       endif
       if(bvtk)then
         open(unit=nout,file=fileout,access='stream'

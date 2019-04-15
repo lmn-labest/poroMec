@@ -1,3 +1,153 @@
+c*********************************************************************** 
+c * Data de criacao    : 20/03/2019                                    *
+c * Data de modificaco : 00/00/0000                                    * 
+c * ------------------------------------------------------------------ *   
+c * PCOO :                                                             * 
+c *------------------------------------------------------------------- * 
+c * Parametros de entrada:                                             * 
+c *------------------------------------------------------------------- * 
+c * ip    -> vetor CSR                                                 * 
+c * ja    -> vetor CSR                                                 * 
+c * al    -> matrix de coeficientes                                    * 
+c * ad    -> matrix de coeficientes                                    * 
+c * b     -> vetor de forcas                                           * 
+c * neq   -> numero de equacoes                                        * 
+c * nad   -> numero de termos nao nulos                                * 
+c * istep -> passo de tempo                                            *
+c * nlit  -> passo iterativo                                           *
+c * prename -> prefixo do arquivo de saida
+c *------------------------------------------------------------------- * 
+c * Parametros de saida:                                               * 
+c *------------------------------------------------------------------- * 
+c *------------------------------------------------------------------- * 
+c * OBS:                                                               * 
+c *------------------------------------------------------------------- * 
+c ********************************************************************** 
+      subroutine pcoo(ip     ,ja 
+     1               ,ad     ,al ,b
+     2               ,neq    ,nad
+     3               ,istep  ,nlit   
+     4               ,prename,nout)
+      Use Malloc
+      implicit none
+      integer*8 i_lin,i_col,i_acoo,ip(*)
+      integer neq ,nad, istep,nlit, nout, ja(*)
+      real*8 al(*),ad(*),b(*)   
+      character*80 prename,fname,name
+c ...
+      fname   = name(prename,istep,nlit,50)
+c ......................................................................
+c
+c ...
+      i_lin  = alloc_4('lincoo  ',1,neq+nad) 
+      i_col  = alloc_4('colcoo  ',1,neq+nad) 
+      i_acoo = alloc_8('acoo    ',1,neq+nad)
+c ......................................................................
+c
+c ...
+      call csr_to_coo(ia(i_lin),ia(i_col),ia(i_acoo)
+     1               ,ip       ,ja
+     2               ,al       ,ad 
+     3               ,neq      ,nad      ,.false.)
+c ......................................................................
+c
+c ...
+      call write_coo(ia(i_lin),ia(i_col),ia(i_acoo)
+     1              ,b        ,neq      ,neq+nad  
+     2              ,fname    ,nout   
+     3              ,.true.  ,.false.  )
+c ......................................................................
+c
+c ...
+      i_acoo = dealloc('acoo    ')
+      i_col  = dealloc('colcoo  ') 
+      i_lin  = dealloc('lincoo  ') 
+c ......................................................................
+      return
+      end
+c *********************************************************************
+c
+c
+c ********************************************************************** 
+c * Data de criacao    : 00/00/0000                                    *
+c * Data de modificaco : 13/04/2019                                    * 
+c * ------------------------------------------------------------------ *   
+c * CSR_TO_COO    : conveter do formato CSR para COO                   * 
+c *------------------------------------------------------------------- * 
+c * Parametros de entrada:                                             * 
+c *------------------------------------------------------------------- * 
+c * lin   -> indefinido                                                * 
+c * col   -> indefinido                                                * 
+c * val   -> indefinido                                                * 
+c * ia    -> vetor CSR                                                 * 
+c * ja    -> vetor CSR                                                 * 
+c * ad    -> matrix de coeficientes                                    * 
+c * al    -> matrix de coeficientes                                    * 
+c * neq   -> numero de equacoes                                        * 
+c * nad   -> numero de termos nao nulos                                * 
+c * bin   -> matriz binaria                                            * 
+c *------------------------------------------------------------------- * 
+c * Parametros de saida:                                               * 
+c *------------------------------------------------------------------- * 
+c * lin -> numero da linha                                             * 
+c * col -> numero da coluna                                            * 
+c * val -> valor                                                       * 
+c *------------------------------------------------------------------- * 
+c * OBS:                                                               * 
+c *------------------------------------------------------------------- * 
+c ********************************************************************** 
+      subroutine csr_to_coo(lin   ,col,val
+     1                     ,ia    ,ja
+     2                     ,al    ,ad 
+     3                     ,neq   ,nad,bin)
+      implicit none
+      integer lin(*),col(*)
+      real*8  val(*)
+      integer neq 
+      integer*8 ia(*),nad
+      integer ja(*)
+      real*8 al(*),ad(*)   
+      logical unsym,bin,pre_diag
+      integer nl,nc,kk
+c     pre_diag = .true.
+      pre_diag = .false.
+c ... CSRC (ad-diagonal principal;al-parte inferior)
+      kk = 0
+      do nl = 1, neq
+        kk     = kk + 1
+        lin(kk) = nl
+        col(kk) = nl
+        if(bin) then
+          val(kk) = 1.0
+        else
+          if(pre_diag) then
+            val(kk) = 1.d0
+          else
+            val(kk) = ad(nl)
+          endif
+        endif
+        do nc = ia(nl), ia(nl+1) - 1
+          kk = kk + 1
+          lin(kk)  = nl
+          col(kk)  = ja(nc)
+          if(bin) then
+            val(kk) = 1.0
+          else
+            if(pre_diag) then
+               val(kk) = al(nc)/ad(nl)
+            else
+              val(kk) = al(nc)
+            endif
+          endif  
+        enddo
+      enddo
+c .....................................................................
+c
+c ...
+      return
+      end
+c *********************************************************************
+c
 c********************************************************************* 
 c* CSR_TO_COO_PM : conveter do formato CSR para COO                  * 
 c*-------------------------------------------------------------------* 
@@ -24,9 +174,9 @@ c* OBS:                                                              *
 c*-------------------------------------------------------------------* 
 c********************************************************************* 
       subroutine csr_to_coo_pm(lin   ,col,val
-     .                        ,ia    ,ja
-     .                        ,al    ,ad 
-     .                        ,neq   ,nad,bin)
+     1                        ,ia    ,ja
+     2                        ,al    ,ad 
+     3                        ,neq   ,nad,bin)
       implicit none
       integer lin(*),col(*)
       real*8  val(*)
@@ -65,18 +215,6 @@ c ... CSRC poro mecanico (ad-diagonal principal;al-parte inferior)
               val(kk) = al(nc)
             endif
           endif  
-c         kk       = kk + 1
-c         lin(kk)  = ja(nc)
-c         col(kk)  = nl        
-c         if(bin) then
-c           val(kk) = 1.0
-c         else
-c           if(pre_diag) then
-c             val(kk) = al(nc)/ad(ja(nc))
-c           else
-c             val(kk) = al(nc)
-c           endif  
-c         endif
         enddo
       enddo
 c .....................................................................

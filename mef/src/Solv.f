@@ -1,7 +1,7 @@
 c **********************************************************************
 c *                                                                    *
 c *   SOLV_PM.F                                            06/12/2015  *
-c *                                                        02/02/2017  *
+c *                                                        13/04/2018  *
 c *   Metodos iterativos de solucao:                                   *
 c *                                                                    *
 c *   cg                                                               *
@@ -30,7 +30,7 @@ c **********************************************************************
      3                  ,m      ,b       ,x          ,tol    ,maxit
      4                  ,ngram  ,block_pu,n_blocks_up,solver ,istep
      5                  ,cmaxit ,ctol    ,alfap      ,alfau  ,precond
-     6                  ,fmec   ,fporomec,fhist_solv ,fprint
+     6                  ,fmec   ,fporomec,fterm      ,fhist_solv ,fprint
      7                  ,neqf1i ,neqf2i  ,neq3i      ,neq4i  ,neq_doti
      8                  ,i_fmapi,i_xfi   ,i_rcvsi    ,i_dspli)
       use Malloc
@@ -54,7 +54,7 @@ c ... pcg duplo
       integer cmaxit
       real*8  ctol,alfap,alfau
 c ......................................................................
-      logical fmec,fporomec,fhist_solv,fprint
+      logical fmec,fporomec,fterm,fhist_solv,fprint
       logical fsqmr,block_pu
 c ... precondicionador
       integer precond
@@ -694,7 +694,7 @@ c ... mkl_pardiso
       else if(solver .eq. 10 ) then
         i_z = alloc_8('zsolver ',1,neq)
         i_y = alloc_4('ysolver ',1,neq+1)
-        if(fmec) then
+        if(fmec .or. fterm) then
           call call_mkl_pardiso(neq,nad,ip,ja,ad,b,x,ia(i_z),ia(i_y),2)
         else if(fporomec) then
           call call_mkl_pardiso(neq,nad,ip,ja,ad,b,x,ia(i_z),ia(i_y),-2)
