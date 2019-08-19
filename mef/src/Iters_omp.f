@@ -227,7 +227,7 @@ c ......................................................................
 c
 c ...
 c$omp master
-         if( jj .eq.1000) then
+         if( jj .eq.2000) then
            jj = 0
            if(my_id .eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  

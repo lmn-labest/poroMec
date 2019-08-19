@@ -488,7 +488,7 @@ c ...
          d =  di
          if (dsqrt(dabs(d)) .lt. conv) goto 300
 c ......................................................................
-         if(jj.eq.500) then
+         if(jj.eq.2000) then
            jj = 0
            if(my_id.eq.0) write(*,1300),j,dsqrt(dabs(d)),conv 
          endif  
