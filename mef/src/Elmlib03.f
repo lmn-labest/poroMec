@@ -43,7 +43,7 @@ c * ----------------------------------------------------------------- *
 c * ------------------ Elementos lineares --------------------------- *
 c *                                                                   *
 c * ------------------ Elementos quadraticos ------------------------ *
-c * ELMT35_PM - hexaedros de 20 nos para o problema poro mecanico     *
+c * ELMT35_PM -tetraedros de 10 nos para o problema poro mecanico     *
 c * plastico com variacoes das propriedades                           *
 c *                                                                   *
 c * ELMT36_PM - tetraedros de 10 nos para o problema poro mecanico    *
@@ -60,7 +60,7 @@ c *********************************************************************
      .                    ,block_pu)
 c **********************************************************************
 c * Data de criacao    : 27/03/2016                                    *
-c * Data de modificaco : 15/05/2017                                    * 
+c * Data de modificaco : 09/01/2020                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT15_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico elasticos                                             *
@@ -178,10 +178,10 @@ c
      .        , 0.0d0, 0.5d0, 0.0d0 ! s7, s8, s9              
      .        , 0.5d0/              ! s10              
 c
-      data tn / 0.0d0, 0.0d0, 0.0d0 ! t1, t2, t3
-     .        , 1.0d0, 0.0d0, 0.0d0 ! t4, t5, t6              
-     .        , 0.5d0, 0.0d0, 0.0d0 ! t7, t8, t9              
-     .        , 0.5d0/              ! t10              
+      data tn / 0.0d0, 0.0d0, 1.0d0 ! t1, t2, t3
+     .        , 0.0d0, 0.0d0, 0.5d0 ! t4, t5, t6              
+     .        , 0.0d0, 0.5d0, 0.5d0 ! t7, t8, t9              
+     .        , 0.0d0/              ! t10              
 c
       data nen/10/
       parameter (igrau_vol = 2, igrau_face = 2)
@@ -1003,10 +1003,10 @@ c
      .        , 0.0d0, 0.5d0, 0.0d0 ! s7, s8, s9              
      .        , 0.5d0/              ! s10              
 c
-      data tn / 0.0d0, 0.0d0, 0.0d0 ! t1, t2, t3
-     .        , 1.0d0, 0.0d0, 0.0d0 ! t4, t5, t6              
-     .        , 0.5d0, 0.0d0, 0.0d0 ! t7, t8, t9              
-     .        , 0.5d0/              ! t10              
+      data tn / 0.0d0, 0.0d0, 1.0d0 ! t1, t2, t3
+     .        , 0.0d0, 0.0d0, 0.5d0 ! t4, t5, t6              
+     .        , 0.0d0, 0.5d0, 0.5d0 ! t7, t8, t9              
+     .        , 0.0d0/              ! t10              
 c
       data nen/10/
       parameter (igrau_vol = 2, igrau_face = 2)
@@ -3777,9 +3777,9 @@ c
      .        , 0.5d0/              ! s10              
 c
       data tn / 0.0d0, 0.0d0, 1.0d0 ! t1, t2, t3
-     .        , 0.0d0, 0.5d0, 0.0d0 ! t4, t5, t6              
-     .        , 0.5d0, 0.5d0, 0.0d0 ! t7, t8, t9              
-     .        , 0.0d0/              ! t10              
+     .        , 0.0d0, 0.0d0, 0.5d0 ! t4, t5, t6              
+     .        , 0.0d0, 0.5d0, 0.5d0 ! t7, t8, t9              
+     .        , 0.0d0/              ! t10                                 
 c
       data nen/10/
       parameter (igrau_vol = 2, igrau_face = 2)
@@ -4751,7 +4751,7 @@ c *********************************************************************
      5                    ,isw     ,block_pu ,nlit)
 c **********************************************************************
 c * Data de criacao    : 16/04/2016                                    *
-c * Data de modificaco : 15/05/2017                                    * 
+c * Data de modificaco : 09/01/2020                                    * 
 c * ------------------------------------------------------------------ *      
 c * ELMT36_PM: Elemento tetraedrico de 10 nos para problemas           *  
 c * poromecanico plastico com propriedades variaveis                   *
@@ -4925,9 +4925,9 @@ c
      .        , 0.5d0/              ! s10              
 c
       data tn / 0.0d0, 0.0d0, 1.0d0 ! t1, t2, t3
-     .        , 0.0d0, 0.5d0, 0.0d0 ! t4, t5, t6              
-     .        , 0.5d0, 0.5d0, 0.0d0 ! t7, t8, t9              
-     .        , 0.0d0/              ! t10              
+     .        , 0.0d0, 0.0d0, 0.5d0 ! t4, t5, t6              
+     .        , 0.0d0, 0.5d0, 0.5d0 ! t7, t8, t9              
+     .        , 0.0d0/              ! t10                     
 c
       data nen/10/
       parameter (igrau_vol = 2, igrau_face = 2)
