@@ -1,8 +1,8 @@
 c *********************************************************************
 c * Data de criacao    : 00/00/0000                                   *
-c * Data de modificaco : 20/03/2017                                   * 
+c * Data de modificaco : 20/03/2017                                   *
 c * ----------------------------------------------------------------- *
-c * READ_MEF : leitura de arquivo para o mefpar atraves da rdat       * 
+c * READ_MEF : leitura de arquivo para o mefpar atraves da rdat       *
 c * modifcada                                                         *
 c * ----------------------------------------------------------------- *
 c * Paramtros de entrada:                                             *
@@ -49,24 +49,24 @@ c * plines -> linhas lidas de macro-comandos pre mesh                 *
 c * pnlines-> numero de linha em plines                               *
 c * rload  -> macro-comandos descritiva do problema lidas ou nao      *
 c * ----------------------------------------------------------------- *
-c * ----------------------------------------------------------------- * 
+c * ----------------------------------------------------------------- *
 c * Obs:                                                              *
-c * ----------------------------------------------------------------- * 
+c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine read_mef(nnodev,nnode,numel,numat,maxnov,maxno
-     1                   ,ndf   ,ndft ,ndm  ,npi  
+     1                   ,ndf   ,ndft ,ndm  ,npi
      2                   ,i_ix  ,i_ie ,i_e  ,i_x
-     3                   ,i_id  ,i_nload    ,i_eload ,i_eloadp 
+     3                   ,i_id  ,i_nload    ,i_eload ,i_eloadp
      4                   ,i_f   ,i_u        ,i_tx0   ,i_v    ,i_a
      5                   ,i_idt ,i_nloadt   ,i_eloadt
-     6                   ,i_ft  ,i_ut       ,i_ut0   ,i_du   ,i_vt   
+     6                   ,i_ft  ,i_ut       ,i_ut0   ,i_du   ,i_vt
      7                   ,i_w
      8                   ,lines,nlines,plines,pnlines
      9                   ,verbose,rload  ,fprop  ,ncont,nin)
-c ===      
+c ===
       implicit none
       include 'string.fi'
-c ... malha      
+c ... malha
       integer nnodev,nnode,numel,numat,maxnov,maxno,ndf,ndft,ndm,dum,npi
       integer plastic
       integer*8 i_ix,i_ie,i_e,i_x
@@ -83,14 +83,14 @@ c ... arquivo
       character*200 plines(*),string2
       integer nlines,ncont,nmc,pnlines
       character*15 macro(6),string,rc
-      logical verbose,rload(*)       
+      logical verbose,rload(*)
 c ... auxiliar
       integer j
 c
 c ...
       data macro/'mesh           ','config         ','solver         ',
-     .           'setprint       ','gravity        ','conseq         '/ 
-      data nmc /6/ 
+     .           'setprint       ','gravity        ','conseq         '/
+      data nmc /6/
 c .....................................................................
 c =====================================================================
 c
@@ -120,7 +120,7 @@ c ...
      3          ,i_id  ,i_nload,i_eload  ,i_eloadp
      4          ,i_f   ,i_u,i_v,i_vt     ,i_a ,i_tx0
      5          ,i_idt ,i_nloadt,i_eloadt
-     6          ,i_ft  ,i_ut    ,i_ut0   ,i_du ,i_w  
+     6          ,i_ft  ,i_ut    ,i_ut0   ,i_du ,i_w
      7          ,nin,verbose,rload       ,fprop,ncont)
       go to 2000
 c ....................................................................
@@ -138,14 +138,14 @@ c .....................................................................
 c
 c .....................................................................
 c
-c ... le os restantes da macro comando apos "end mesh" 
+c ... le os restantes da macro comando apos "end mesh"
  2000 continue
-      call rmacros(lines,nlines,nin)     
+      call rmacros(lines,nlines,nin)
 c =====================================================================
 c
 c ===
-      return 
-      end 
+      return
+      end
 c =====================================================================
 c *********************************************************************
 c
@@ -178,9 +178,9 @@ c ... argumentos por linha de comando
      2           ,vtkgr)
         open(nin,file=filein,status='old',err=25)
         return
-   25   continue  
+   25   continue
         print*,'File ',trim(filein),' not found !'
-        call finalize(ierr)
+        call finalize()
       endif
 c .....................................................................
 c
@@ -198,7 +198,7 @@ c ... entrada de dados pelo terminal
       read(*,*)fileout
       print*,'Number of processes:'
       read(*,*)nprcs
-c 
+c
    30 continue
       print*,'Domain sub-division method:'
       print*,'  1 = non-overlapping'
@@ -227,52 +227,52 @@ c
       print*,' 16 = option 2, 4 e 10'
       print*,' 17 = option 1, 2 , 4 e 10 '
       read(*,*)j
-c ...       
+c ...
       if (j .eq. 1) then
         vtkf = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 2) then
         vtkp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 3) then
         vtkf = .true.
         vtkp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 4) then
         mefp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 5) then
         vtkf = .true.
         mefp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 6) then
         vtkp = .true.
         mefp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 7) then
         vtkf = .true.
         vtkp = .true.
         mefp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 10) then
         vtkgr = .true.
 c .....................................................................
 c
-c ...       
+c ...
 
       elseif (j .eq. 13) then
         vtkf  = .true.
@@ -280,21 +280,21 @@ c ...
         vtkgr = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 15) then
         vtkf = .true.
         mefp = .true.
         vtkgr = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 16) then
         vtkp = .true.
         mefp = .true.
         vtkgr = .true.
 c .....................................................................
 c
-c ...       
+c ...
       elseif (j .eq. 17) then
         vtkf = .true.
         vtkp = .true.
@@ -302,7 +302,7 @@ c ...
         mefp = .true.
 c .....................................................................
 c
-c ...       
+c ...
       else
         goto 40
       endif
@@ -318,7 +318,7 @@ c ... formato de escrita vtk
         elseif(j.eq.2)then
           vtkbin = .false.
         endif
-      endif  
+      endif
 c .....................................................................
 c
 c ...
@@ -330,7 +330,7 @@ c *********************************************************************
 c * RMACROS: Le as linhas apos a end mes                              *
 c *********************************************************************
        subroutine rmacros(lines,nlines,nin)
-c === 
+c ===
        implicit none
        include 'string.fi'
        include 'parallel.fi'
@@ -340,14 +340,14 @@ c ===
        integer nlines
        character*200 lines(*)
 c ======================================================================
-c ===       
+c ===
 c ... Leitura de macro-comandos
 c
       k = 1
   100 continue
       call readmacro(nin,.true.)
       write(rc,'(15a)') (word(j),j=1,15)
-c      print*,rc,line 
+c      print*,rc,line
       if (rc .eq. 'stop          ') go to 200
 c ......................................................................
 c
@@ -365,13 +365,13 @@ c     print*,lines(k)
       go to 100
 c ....................................................................
   200 continue
-c       print *,rc 
-        write(lines(k),'(200a)')rc 
+c       print *,rc
+        write(lines(k),'(200a)')rc
         nlines = k
-c        print *,lines(k) 
+c        print *,lines(k)
 c =====================================================================
 c
-c === 
+c ===
       return
       end
 c =====================================================================
@@ -400,7 +400,7 @@ c * vtkgr   - malha com os carregamento globais                       *
 c * ----------------------------------------------------------------- *
 c *********************************************************************
       subroutine args(maxmem,filearg,filein,fileout,nprcs,ovlp
-     1               ,vtkf  ,vtkp   ,mefp  ,vtkbin 
+     1               ,vtkf  ,vtkp   ,mefp  ,vtkbin
      2               ,vtkgr)
       implicit none
       include 'string.fi'
@@ -417,7 +417,7 @@ c *********************************************************************
       character*30 string
       integer lnmacro
       logical lmacro(nmacro)
-c ...  
+c ...
       data macro/'end            ','output         ','div            ',
      1           'method         ','partVtk        ','partMeshVtk    ',
      2           'partMeshMef    ','meshLoads      ','vtkBin         ',
@@ -434,9 +434,9 @@ c .....................................................................
 c ... default
       nprcs   = 2
       fileout = 'output_prepar'
-      ovlp    = .false.  
-      vtkf    = .true.     
-      vtkp    = .false. 
+      ovlp    = .false.
+      vtkf    = .true.
+      vtkp    = .false.
       mefp    = .true.
       vtkgr   = .false.
       vtkbin  = .false.
@@ -446,7 +446,7 @@ c ...
       goto 50
    15 continue
       print*,'File ',trim(filearg),' not found !'
-      call finalize(ierr)
+      call finalize()
 c .....................................................................
 c
 c ...
@@ -459,12 +459,12 @@ c ...
       goto 2500
 c .....................................................................
 c
-c ...      
-  100 continue  
-      go to(200 ,300 , 400     !end        ,output     ,div        
+c ...
+  100 continue
+      go to(200 ,300 , 400     !end        ,output     ,div
      1     ,500 ,600 , 700     !method     ,partVtk    ,partMeshVtk
-     2     ,800 ,900 ,1000     !partMeshMef,meshLoads  ,vtkBin       
-     3     ,1100,1200,1300) j  !input      ,memory     ,help         
+     2     ,800 ,900 ,1000     !partMeshMef,meshLoads  ,vtkBin
+     3     ,1100,1200,1300) j  !input      ,memory     ,help
 c .....................................................................
 c
 c ... macro end
@@ -555,7 +555,7 @@ c     print*,'partMeshMef ',word
       go to 50
 c .....................................................................
 c
-c ... malha com os cargamentos      
+c ... malha com os cargamentos
   900 continue
       call readmacro(nin,.false.)
       write(rc,'(15a)') (word(i),i=1,15)
@@ -598,7 +598,7 @@ c
 c ... arquivo de entrada de dados
  1200 continue
       call readmacro(nin,.false.)
-      write(string,'(15a)') (word(j),j=1,15) 
+      write(string,'(15a)') (word(j),j=1,15)
       read(string,*,err = 2222,end = 2222) maxmem
       print*,'Memory(MB): ',maxmem
 c ... convertendo de Mbytes para para numero de inteiros e 4 bytes
@@ -612,12 +612,12 @@ c ... help
 c .....................................................................
 c
 c ...
- 2000 continue 
+ 2000 continue
       close(nin)
       return
  2222 continue
       print*,'*** Error reading config !',macro(i)
-      call finalize(ierr) 
+      call finalize()
  2500 continue
       print*,'*** Error reading ',trim(filearg),' file !'
  2501 continue
@@ -626,9 +626,9 @@ c ...
       write(*,'(2x,a)') '------------------------------'
       do i = 1, 11
           write(*,'(2x,a)') ex(i)
-      enddo  
+      enddo
       write(*,'(2x,a)') '------------------------------'
       write(*,'(2x,a)') '******************************'
-      call finalize(ierr) 
+      call finalize()
       end
 c *********************************************************************

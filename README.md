@@ -18,15 +18,19 @@ Descompactar e compilar o metis5
 ```console
 tar -xvzf metis-5.1.0.tar.gz
 cd metis-5.1.0
+make config
 make
 ```
 
-É necessario colocar a lib do metis na pasta `lib` do projeto do pre
+A lib vai estar na local `build/Linux-x86_64/libmetis/libmetis.a`. É necessário colocar a lib na pasta `lib` do projeto do pre
 
 ```console
 lib
 └── libmetis.a
 ```
+
+As versões novas do metis precisam dessa lib extra `libGKlib`. As versões mais antigas do metis podem ser encontrados [aqui](http://glaros.dtc.umn.edu/gkhome/metis/metis/download).
+
 
 ## Compilar o pre
 
@@ -35,8 +39,6 @@ Fazer uma copia do `Makefile` base
 ```console
 cp Makefile_base Makefile
 ```
-
-As versões novas do metis precisam dessa lib extra `libGKlib`. As versões mais antigas do metis podem ser encontrados [aqui](http://glaros.dtc.umn.edu/gkhome/metis/metis/download).
 
 Para compilar basta:
 

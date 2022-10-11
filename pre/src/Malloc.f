@@ -19,7 +19,7 @@ c **********************************************************************
          integer, allocatable, dimension(:) :: ia
          integer*8, external :: alloc_4,alloc_8,locate,dealloc
 c        integer*8, parameter :: maxmem = 10000000
-         integer*8 maxmem /10000/        
+         integer*8 maxmem /10000/
       end module
       subroutine init_malloc()
 c **********************************************************************
@@ -50,7 +50,7 @@ c ... Inicializacao da estrutura de dados de gerenciamento de memoria:
       allocate(ia(maxmem), stat=ierr)
       if (ierr .ne. 0) then
          print *, 'error: cannot allocate memory pool in heap.'
-         call finalize(ierr)
+         call finalize()
       endif
 c ......................................................................
 
@@ -95,27 +95,27 @@ c ......................................................................
          aloc4 = ip(nalp+1)
          return
       endif
-c ......................................................................      
+c ......................................................................
       ipi = locate(name)
       if(ipi .gt. 0) then
          print*,'*** <ALLOC_4> Nome de arranjo existente: ',
      .      '(',name,') ***'
          call finalize()
       endif
-c ......................................................................      
+c ......................................................................
       nalp   = nalp + 1
       if (nalp+1 .gt. maxnpts) then
          print*,'*** <ALLOC_4> Max. numero de ponteiros excedido: ',
      .        '(',name,') ***'
          call finalize()
       endif
-c ......................................................................      
+c ......................................................................
       ipi = ip(nalp)
       ip(nalp+1) = ipi + n
       call maxtest(ip(nalp+1),name)
       arname(nalp) = name
       alloc_4 = ipi
-c ......................................................................                  
+c ......................................................................
       return
       end
       integer*8 function alloc_8(name,nl,nc)
@@ -149,7 +149,7 @@ c ......................................................................
       if (n .le. 0) then
          aloc8 = ip(nalp+1)
          return
-      endif      
+      endif
 c ......................................................................
       ipi = locate(name)
       if(ipi .gt. 0) then
@@ -157,14 +157,14 @@ c ......................................................................
      .        '(',name,') ***'
          call finalize()
       endif
-c ......................................................................            
+c ......................................................................
       nalp = nalp + 1
       if (nalp+1 .gt. maxnpts) then
          print*,'*** <ALLOC_8> Max. numero de ponteiros excedido: ',
      .        '(',name,') ***'
          call finalize()
       endif
-c ......................................................................                  
+c ......................................................................
       ipi = ip(nalp)
       if(mod(ipi,2) .eq. 0) then
          ipi      = ipi+1
@@ -174,7 +174,7 @@ c ......................................................................
       call maxtest(ip(nalp+1),name)
       arname(nalp) = name
       alloc_8 = ipi
-c ......................................................................                  
+c ......................................................................
       return
       end
       integer*8 function locate(name)
@@ -202,7 +202,7 @@ c **********************************************************************
       common /malloc_info/ arname,ip,nalp
       integer i
 c ......................................................................
-      locate = 0      
+      locate = 0
       do i = 1, nalp
          if(name .eq. arname(i)) then
                locate = ip(i)
@@ -221,7 +221,7 @@ c **********************************************************************
       implicit none
       integer maxnpts
       parameter (maxnpts = 200)
-      integer i,j        
+      integer i,j
       integer*8 ip(maxnpts),nalp,ip1,npos0,npos
       character*8 arname(maxnpts),name
       common /malloc_info/ arname,ip,nalp
